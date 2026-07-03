@@ -1,0 +1,25 @@
+# Branch Protection Rules for MERVEKS SAP
+# Apply these settings in: GitHub → Settings → Branches → Add branch ruleset
+
+# ── main / master (production branch) ────────────────────────────
+# These rules are defined here for documentation.
+# To apply: GitHub → Settings → Branches → Branch protection rules → Add rule
+
+branch_protection:
+  main:
+    required_status_checks:
+      strict: true   # Branch must be up to date before merging
+      contexts:
+        - "🔍 Lint"
+        - "🧪 Unit Tests"
+        - "🔥 Smoke Tests"
+        - "🔒 Security Audit"
+    enforce_admins: false
+    required_pull_request_reviews:
+      required_approving_review_count: 1
+      dismiss_stale_reviews: true
+      require_code_owner_reviews: false
+    restrictions: null  # No push restrictions (all collaborators can push via PR)
+    allow_force_pushes: false
+    allow_deletions: false
+    required_linear_history: true  # Squash/rebase only (cleaner git log)

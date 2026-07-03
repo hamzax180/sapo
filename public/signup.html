@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#1aa6df" />
+  <title>Create your workspace — WeboCloud</title>
+  <link rel="icon" type="image/svg+xml" href="assets/favicon.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Jost:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/sap.css?v=28" />
+  <style>
+    .ind-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+    .ind-card { display:flex; gap:10px; align-items:flex-start; text-align:left; padding:12px; border:1.5px solid var(--line); border-radius:12px; background:var(--surface); cursor:pointer; transition:border-color .15s, box-shadow .15s, background .15s; }
+    .ind-card:hover { border-color:#9cc4e4; }
+    .ind-card.sel { border-color:var(--accent); box-shadow:0 0 0 3px rgba(26,166,223,.15); background:#f3fafe; }
+    .ind-card .ic { flex:0 0 auto; width:34px; height:34px; border-radius:9px; display:grid; place-items:center; background:#e6edf5; color:var(--navy-600); }
+    .ind-card .ic svg { width:18px; height:18px; }
+    .ind-card .it { font-weight:600; font-size:.92rem; color:var(--navy-700); }
+    .ind-card .ib { font-size:.74rem; color:var(--muted); margin-top:2px; line-height:1.35; }
+    .logo-row { display:flex; align-items:center; gap:12px; }
+    .logo-prev { width:56px; height:56px; border-radius:12px; border:1.5px dashed var(--line); display:grid; place-items:center; overflow:hidden; background:var(--surface); color:var(--muted); flex:0 0 auto; }
+    .logo-prev img { width:100%; height:100%; object-fit:contain; }
+    .chk { display:flex; align-items:flex-start; gap:9px; font-size:.84rem; color:var(--ink); }
+    .chk input { margin-top:3px; }
+    .emp-row { display:grid; grid-template-columns:1fr 1fr auto; gap:7px; margin-bottom:7px; align-items:center; }
+    .emp-row .input, .emp-row select.input { padding:8px 10px; font-size:.84rem; }
+    .emp-row .emp-line2 { grid-column:1 / -1; display:grid; grid-template-columns:1fr 1fr auto; gap:7px; align-items:center; }
+    .emp-del { flex:0 0 auto; width:32px; height:32px; border:1px solid var(--line); background:var(--surface); border-radius:8px; color:var(--muted); cursor:pointer; display:grid; place-items:center; }
+    .emp-del:hover { border-color:#e6534b; color:#e6534b; }
+    .emp-card { border:1px solid var(--line); border-radius:10px; padding:9px; margin-bottom:8px; background:var(--surface); }
+    .demo-link-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      margin-top: 8px;
+      padding: 4px 10px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: var(--ind-accent, #1aa6df);
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .demo-link-btn:hover {
+      background: var(--ind-accent, #1aa6df);
+      color: #fff;
+      border-color: var(--ind-accent, #1aa6df);
+    }
+
+    /* rotating caption pill — traveling glow border, letter reveals, gradient text */
+    @property --capang { syntax:'<angle>'; initial-value:0deg; inherits:false; }
+    .dx-cap { align-self:flex-start; position:relative; z-index:1; display:inline-flex; align-items:center; gap:9px;
+      padding:9px 18px; border-radius:var(--r-pill); font-size:.95rem; color:#c2d4e6;
+      background:linear-gradient(110deg, rgba(95,176,255,.12), rgba(127,230,192,.06));
+      -webkit-backdrop-filter:blur(6px); backdrop-filter:blur(6px);
+      box-shadow:0 8px 26px rgba(8,24,44,.38), inset 0 1px 0 rgba(255,255,255,.07);
+      animation:capBreathe 5s ease-in-out infinite; }
+    .dx-cap::before { content:""; position:absolute; inset:0; border-radius:inherit; padding:1.4px; pointer-events:none;
+      background:conic-gradient(from var(--capang,0deg),
+        rgba(95,176,255,0) 0deg, rgba(95,176,255,0) 150deg,
+        rgba(95,208,255,.65) 230deg, #aef0ff 300deg, rgba(127,230,192,.6) 340deg, rgba(95,176,255,0) 360deg);
+      -webkit-mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite:xor;
+      mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); mask-composite:exclude;
+      filter:drop-shadow(0 0 3px rgba(120,210,255,.5)); animation:capSpin 3.4s linear infinite; }
+    @keyframes capSpin { to { --capang:360deg; } }
+    @keyframes capBreathe { 0%,100% { transform:translateY(0) scale(1); } 50% { transform:translateY(-1px) scale(1.012); } }
+    .dx-cap .from { color:#94abc2; font-weight:500; }
+    .dx-cap .rot { display:inline-block; min-width:138px; text-align:left; perspective:280px; }
+    .dx-cap .rot b { color:#fff; font-weight:700; white-space:nowrap; }
+    .dx-cap .rot .ltr { display:inline-block; animation:ltrIn .55s cubic-bezier(.2,.7,.3,1) both; animation-delay:calc(var(--i,0) * .045s); }
+    @keyframes ltrIn { 0% { opacity:0; transform:translateY(.55em) rotateX(-65deg); filter:blur(5px); } 100% { opacity:1; transform:none; filter:blur(0); } }
+    .dx-cap .arrow { color:#5fc8ff; display:inline-flex; }
+    .dx-cap .arrow svg { width:17px; height:17px; animation:arrowNudge 1.6s ease-in-out infinite; }
+    @keyframes arrowNudge { 0%,100% { transform:translateX(0); opacity:.6; } 50% { transform:translateX(4px); opacity:1; } }
+    .dx-cap .to { display:inline-flex; align-items:center; gap:7px; }
+    .dx-cap .to .grad { font-weight:800;
+      background:linear-gradient(90deg,#7fe6c0,#5fd0ff,#aef0ff,#7fe6c0); background-size:220% 100%;
+      -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; color:transparent;
+      animation:gradShift 4.5s linear infinite; }
+    @keyframes gradShift { to { background-position:220% 0; } }
+    .dx-cap .to .tick { position:relative; width:18px; height:18px; border-radius:50%; flex:0 0 auto;
+      background:radial-gradient(circle at 35% 30%, #57d39a, #2fae7a); display:grid; place-items:center; box-shadow:0 2px 6px rgba(47,174,122,.5); }
+    .dx-cap .to .tick svg { width:10px; height:10px; stroke:#fff; }
+    .dx-cap .to .tick::after { content:""; position:absolute; inset:-3px; border-radius:50%; border:2px solid #4fd49a; opacity:0; animation:tickRing 3.2s ease-out infinite; }
+    @keyframes tickRing { 0% { transform:scale(.55); opacity:.75; } 70% { opacity:0; } 100% { transform:scale(1.7); opacity:0; } }
+    @media (prefers-reduced-motion:reduce) {
+      .dx-cap, .dx-cap::before, .dx-cap .arrow svg, .dx-cap .to .grad, .dx-cap .to .tick::after, .dx-cap .rot .ltr { animation:none !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="login-wrap">
+    <!-- Brand panel -->
+    <div class="login-art">
+      <div class="la-brand">
+        <div class="la-logo">
+          <svg viewBox="0 0 64 64" class="brand-mark" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <defs>
+              <linearGradient id="su-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#1aa6df"/>
+                <stop offset="100%" stop-color="#5cb12f"/>
+              </linearGradient>
+            </defs>
+            <circle cx="20" cy="27" r="7.5" fill="url(#su-grad)"/>
+            <circle cx="32" cy="23" r="9.5" fill="url(#su-grad)"/>
+            <circle cx="44" cy="27" r="7.5" fill="url(#su-grad)"/>
+            <rect x="12.5" y="29" width="39" height="8" fill="url(#su-grad)"/>
+            <path d="M14 37 L20 50 L27 40 L32 50 L37 40 L44 50 L50 37 Z" fill="url(#su-grad)"/>
+            <path d="M20 20 L26 35 L32 25 L38 35 L44 20" fill="none" stroke="#0b1e33" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <div>
+          <div style="font-family:var(--font-head);font-weight:800;font-size:1.3rem;letter-spacing:.04em">WEBOCLOUD</div>
+          <div style="font-size:.74rem;color:#8aa0b6;letter-spacing:.14em;text-transform:uppercase">Operations Console</div>
+        </div>
+      </div>
+
+      <div>
+        <h1 style="margin-top:18px">One console,<br />fitted to<br />your business.</h1>
+        <p>Tell us your company name, pick your industry and add your logo — WeboCloud renames its modules, loads the right starter data and brands itself to you in seconds.</p>
+      </div>
+
+      <!-- rotating caption -->
+      <div class="dx-cap">
+        <span class="from">From</span>
+        <span class="rot" id="dxRot"><b>paper</b></span>
+        <span class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+        <span class="to"><b class="grad">fully digital</b><span class="tick"><svg viewBox="0 0 24 24" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg></span></span>
+      </div>
+
+      <div class="la-stats">
+        <div class="ls"><div class="v">4</div><div class="k">Industries</div></div>
+        <div class="ls"><div class="v">1</div><div class="k">Minute setup</div></div>
+        <div class="ls"><div class="v">∞</div><div class="k">Your data</div></div>
+        <div class="ls"><div class="v">0</div><div class="k">Code needed</div></div>
+      </div>
+
+      <div class="la-foot">© 2024–2026 WeboCloud · Cloud Operations Platform</div>
+    </div>
+
+    <!-- Form panel -->
+    <div class="login-form-col">
+      <div class="login-card">
+        <h2>Create your workspace</h2>
+        <p class="lc-sub">A few details and your fitted console is ready.</p>
+
+        <div class="login-err" id="err"></div>
+
+        <form id="signupForm" autocomplete="on">
+          <div class="field">
+            <label>Company name</label>
+            <input class="input" type="text" id="company" placeholder="Acme Trading Co." required />
+          </div>
+
+          <div class="field">
+            <label>Your industry</label>
+            <div class="ind-grid" id="indGrid"></div>
+            <input type="hidden" id="industry" required />
+          </div>
+
+          <div class="field">
+            <label>Company logo</label>
+            <div class="logo-row">
+              <div class="logo-prev" id="logoPrev">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/></svg>
+              </div>
+              <div style="flex:1">
+                <input class="input" type="file" id="logo" accept="image/png,image/jpeg,image/svg+xml,image/webp" />
+                <div class="muted" style="font-size:.72rem;margin-top:4px">PNG, JPG or SVG · shows in the sidebar &amp; top bar.</div>
+              </div>
+            </div>
+          </div>
+
+          <div style="height:1px;background:var(--line);margin:6px 0 14px"></div>
+
+          <div class="field">
+            <label>Country</label>
+            <select class="input" id="country" required style="-webkit-appearance:none; appearance:none; background-image:url(&quot;data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2364758a' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E&quot;); background-repeat:no-repeat; background-position:right 14px center; padding-right:38px;">
+              <option value="" disabled>Select your country</option>
+            </select>
+          </div>
+
+          <div style="height:1px;background:var(--line);margin:6px 0 14px"></div>
+
+          <div class="field">
+            <label>Owner name</label>
+            <input class="input" type="text" id="owner" placeholder="Jane Doe" required />
+          </div>
+          <div class="field">
+            <label>Owner email</label>
+            <input class="input" type="email" id="email" placeholder="you@company.com" required />
+          </div>
+          <div class="field">
+            <label>Password</label>
+            <input class="input" type="password" id="password" placeholder="••••••••" minlength="4" required />
+          </div>
+
+          <div style="height:1px;background:var(--line);margin:6px 0 12px"></div>
+
+          <!-- Database Configuration -->
+          <div class="field">
+            <label>Database Hosting</label>
+            <p class="muted" style="font-size:.74rem;margin:2px 0 8px">Select where to store your workspace database records.</p>
+            <select class="input" id="dbType" style="margin-bottom:8px">
+              <option value="local">WeboCloud Managed (Demo Mode / LocalStorage)</option>
+              <option value="neon">Neon PostgreSQL (Cloud Database)</option>
+              <option value="mongodb">MongoDB Atlas (NoSQL Cloud)</option>
+              <option value="postgres">Self-Hosted PostgreSQL</option>
+            </select>
+            
+            <div id="dbUriGroup" style="display:none; transition: all 0.2s ease;">
+              <label style="font-size:0.78rem">Database Connection URI</label>
+              <div style="display:flex; gap:8px; align-items:center;">
+                <input class="input" type="text" id="dbUri" placeholder="postgres://user:pass@host/dbname" style="flex:1" />
+                <button type="button" class="btn btn-ghost" id="btnTestDb" style="padding:8px 12px; font-size:0.8rem; flex-shrink:0;">Test</button>
+              </div>
+              <div id="dbTestStatus" style="font-size:0.72rem; margin-top:4px; display:none;"></div>
+            </div>
+          </div>
+
+          <div style="height:1px;background:var(--line);margin:6px 0 12px"></div>
+
+          <div class="field">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+              <label style="margin:0">Your team <span class="muted" style="font-weight:400">(optional)</span></label>
+              <span class="muted" style="font-size:.74rem" id="teamCount">0 employees</span>
+            </div>
+            <p class="muted" style="font-size:.74rem;margin:4px 0 8px">Add employees and give each a role — they each get their own email login.</p>
+            <div id="empList"></div>
+            <button type="button" class="btn btn-ghost btn-sm" id="addEmp" style="width:100%;margin-top:2px">＋ Add employee</button>
+          </div>
+
+          <button class="btn btn-primary" type="submit">Create workspace &amp; sign in</button>
+        </form>
+
+        <div style="margin-top:16px;text-align:center;font-size:.86rem;color:var(--muted)">
+          Already have a workspace? <a href="login.html" style="color:var(--accent);font-weight:600;text-decoration:none">Sign in</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/config.js?v=28"></script>
+  <script src="js/seed.js?v=28"></script>
+  <script src="js/sample-data.js?v=28"></script>
+  <script src="js/industries.js?v=28"></script>
+  <script src="js/store.js?v=28"></script>
+  <script src="js/ui.js?v=28"></script>
+  <script>
+    (async function () {
+      await Store.init();
+
+      // Populate country dropdown from COUNTRIES
+      var countrySelect = document.getElementById("country");
+      if (countrySelect && window.COUNTRIES) {
+        COUNTRIES.forEach(function (c) {
+          var opt = document.createElement("option");
+          opt.value = c.code;
+          opt.textContent = c.name + " (" + c.code + ")";
+          if (c.code === "TR") {
+            opt.selected = true; // select Turkey by default
+          }
+          countrySelect.appendChild(opt);
+        });
+      }
+
+      // Build the industry picker from the registry
+      const grid = document.getElementById("indGrid");
+      const hidden = document.getElementById("industry");
+      Object.keys(INDUSTRIES).forEach(function (k) {
+        const ind = INDUSTRIES[k];
+        const card = document.createElement("div");
+        card.className = "ind-card";
+        card.dataset.key = k;
+        card.style.setProperty("--ind-accent", ind.accent);
+        card.innerHTML =
+          '<div class="ic">' + UI.icon(ind.icon) + '</div>' +
+          '<div style="display:flex; flex-direction:column; align-items:flex-start; flex:1; height:100%;">' +
+            '<div class="it">' + ind.name + '</div>' +
+            '<div class="ib" style="flex:1;">' + ind.blurb + '</div>' +
+            '<button type="button" class="demo-link-btn" data-demo="' + k + '">Show Demo &rarr;</button>' +
+          '</div>';
+        card.addEventListener("click", function () {
+          document.querySelectorAll(".ind-card").forEach(function (c) { c.classList.remove("sel"); });
+          card.classList.add("sel");
+          hidden.value = k;
+        });
+        grid.appendChild(card);
+      });
+
+      // Handle the "Show Demo" click events via event delegation
+      grid.addEventListener("click", async function (e) {
+        const btn = e.target.closest(".demo-link-btn");
+        if (btn) {
+          e.stopPropagation();
+          const key = btn.dataset.demo;
+          const ind = INDUSTRIES[key];
+          
+          btn.innerHTML = 'Loading...';
+          btn.disabled = true;
+
+          // Register a demo workspace on the fly
+          const session = await Auth.register({
+            company: "Demo " + ind.name,
+            owner: "Demo Admin",
+            email: "admin@demo.com",
+            password: "demo",
+            country: "TR",
+            industry: key,
+            logo: null,
+            sampleData: true
+          });
+          
+          if (session) {
+            location.href = "index.html";
+          } else {
+            btn.innerHTML = 'Show Demo &rarr;';
+            btn.disabled = false;
+            showErr("Something went wrong loading the demo. Please try again.");
+          }
+        }
+      });
+
+      // Logo → data URL (with a soft size guard)
+      let logoData = null;
+      const logoInput = document.getElementById("logo");
+      const logoPrev = document.getElementById("logoPrev");
+      logoInput.addEventListener("change", function () {
+        const f = logoInput.files && logoInput.files[0];
+        if (!f) { logoData = null; return; }
+        if (f.size > 2 * 1024 * 1024) { showErr("That logo is over 2 MB — please pick a smaller image."); logoInput.value = ""; return; }
+        const reader = new FileReader();
+        reader.onload = function () {
+          logoData = reader.result;
+          logoPrev.innerHTML = '<img src="' + logoData + '" alt="logo preview" />';
+        };
+        reader.readAsDataURL(f);
+      });
+
+      const err = document.getElementById("err");
+      function showErr(m) { err.textContent = m; err.classList.add("show"); }
+
+      // ---- team builder: add employees with roles ----
+      const EMP_ROLES = ["HR Manager", "Operations Manager", "Finance Officer", "Trade Specialist"];
+      const empList = document.getElementById("empList");
+      const teamCount = document.getElementById("teamCount");
+      function refreshCount() {
+        const n = empList.querySelectorAll(".emp-card").length;
+        teamCount.textContent = n + (n === 1 ? " employee" : " employees");
+      }
+      function addEmpRow() {
+        const card = document.createElement("div");
+        card.className = "emp-card";
+        card.innerHTML =
+          '<div class="emp-row">' +
+            '<input class="input emp-name" type="text" placeholder="Full name" />' +
+            '<select class="input emp-role">' + EMP_ROLES.map((r) => '<option value="' + r + '">' + r + '</option>').join("") + '</select>' +
+            '<button type="button" class="emp-del" title="Remove">' +
+              '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>' +
+            '</button>' +
+            '<div class="emp-line2" style="grid-column:1 / -1">' +
+              '<input class="input emp-email" type="email" placeholder="name@company.com" />' +
+              '<input class="input emp-pass" type="text" placeholder="Set a password" />' +
+              '<span></span>' +
+            '</div>' +
+          '</div>';
+        card.querySelector(".emp-del").addEventListener("click", function () { card.remove(); refreshCount(); });
+        empList.appendChild(card);
+        refreshCount();
+        card.querySelector(".emp-name").focus();
+      }
+      document.getElementById("addEmp").addEventListener("click", addEmpRow);
+      function collectEmployees() {
+        return [...empList.querySelectorAll(".emp-card")].map((c) => ({
+          name: c.querySelector(".emp-name").value.trim(),
+          email: c.querySelector(".emp-email").value.trim(),
+          role: c.querySelector(".emp-role").value,
+          password: c.querySelector(".emp-pass").value
+        })).filter((e) => e.email);
+      }
+
+      // ---- database configuration logic ----
+      const dbTypeSelect = document.getElementById("dbType");
+      const dbUriGroup = document.getElementById("dbUriGroup");
+      const dbUriInput = document.getElementById("dbUri");
+      const btnTestDb = document.getElementById("btnTestDb");
+      const dbTestStatus = document.getElementById("dbTestStatus");
+      let dbConnected = false;
+
+      dbTypeSelect.addEventListener("change", function () {
+        const val = dbTypeSelect.value;
+        dbConnected = false;
+        dbTestStatus.style.display = "none";
+        if (val === "local") {
+          dbUriGroup.style.display = "none";
+          dbUriInput.removeAttribute("required");
+        } else {
+          dbUriGroup.style.display = "block";
+          dbUriInput.setAttribute("required", "required");
+          if (val === "mongodb") {
+            dbUriInput.placeholder = "mongodb+srv://user:pass@cluster.mongodb.net/dbname";
+          } else {
+            dbUriInput.placeholder = "postgres://user:pass@host:5432/dbname?sslmode=require";
+          }
+        }
+      });
+
+      btnTestDb.addEventListener("click", async function () {
+        const type = dbTypeSelect.value;
+        const uri = dbUriInput.value.trim();
+        if (!uri) {
+          dbTestStatus.textContent = "Please enter a connection URI first.";
+          dbTestStatus.style.color = "#e6534b";
+          dbTestStatus.style.display = "block";
+          return;
+        }
+
+        btnTestDb.disabled = true;
+        btnTestDb.textContent = "Testing...";
+        dbTestStatus.style.display = "none";
+
+        try {
+          const apiBase = Store.getApiBase() || "http://localhost:4000";
+          const res = await fetch(apiBase + "/api/db/test", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ dbType: type === "neon" ? "postgres" : type, dbUri: uri })
+          });
+          const data = await res.json();
+          if (res.ok) {
+            dbConnected = true;
+            dbTestStatus.textContent = "✓ Connected successfully!";
+            dbTestStatus.style.color = "#0f9d6b";
+          } else {
+            dbConnected = false;
+            dbTestStatus.textContent = "✗ Connection failed: " + (data.error || "Unknown error");
+            dbTestStatus.style.color = "#e6534b";
+          }
+        } catch (err) {
+          dbConnected = false;
+          dbTestStatus.textContent = "✗ API Server offline. Run your backend first.";
+          dbTestStatus.style.color = "#e6534b";
+        } finally {
+          dbTestStatus.style.display = "block";
+          btnTestDb.disabled = false;
+          btnTestDb.textContent = "Test";
+        }
+      });
+
+      document.getElementById("signupForm").addEventListener("submit", async function (e) {
+        e.preventDefault();
+        err.classList.remove("show");
+        const industry = hidden.value;
+        if (!industry) { showErr("Please choose your industry."); return; }
+        const employees = collectEmployees();
+        const incomplete = employees.find((e) => !e.password);
+        if (incomplete) { showErr("Each employee needs a password so they can sign in."); return; }
+
+        const dbType = dbTypeSelect.value;
+        const dbUri = dbUriInput.value.trim();
+
+        if (dbType !== "local" && !dbConnected) {
+          showErr("Please test your database connection and verify it connects successfully first.");
+          return;
+        }
+
+        const submitBtn = document.querySelector("#signupForm button[type='submit']");
+        const originalText = submitBtn.textContent;
+        submitBtn.disabled = true;
+
+        const wsId = "ws_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+
+        // If cloud database, seed database structure on the backend first
+        if (dbType !== "local") {
+          submitBtn.textContent = "Provisioning cloud database tables...";
+          try {
+            const apiBase = Store.getApiBase() || "http://localhost:4000";
+            const seedRes = await fetch(apiBase + "/api/db/seed", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ 
+                workspaceId: wsId, 
+                dbType: dbType === "neon" ? "postgres" : dbType, 
+                dbUri: dbUri 
+              })
+            });
+            if (!seedRes.ok) {
+              const seedData = await seedRes.json();
+              throw new Error(seedData.error || "Failed to seed database.");
+            }
+          } catch (err) {
+            showErr("Database provisioning failed: " + err.message);
+            submitBtn.disabled = false;
+            submitBtn.textContent = originalText;
+            return;
+          }
+        }
+
+        submitBtn.textContent = "Creating workspace profile...";
+        const session = await Auth.register({
+          company: document.getElementById("company").value.trim(),
+          owner: document.getElementById("owner").value.trim(),
+          email: document.getElementById("email").value.trim(),
+          password: document.getElementById("password").value,
+          country: document.getElementById("country").value,
+          industry: industry,
+          logo: logoData,
+          employees: employees,
+          sampleData: false,
+          dbType: dbType,
+          dbUri: dbUri
+        });
+
+        if (session) {
+          if (dbType !== "local") {
+            const apiBase = Store.getApiBase() || "http://localhost:4000";
+            Store.setApiBase(apiBase);
+          }
+          submitBtn.textContent = "Redirecting...";
+          location.href = "index.html"; 
+        } else {
+          showErr("Something went wrong creating your workspace. Please try again.");
+          submitBtn.disabled = false;
+          submitBtn.textContent = originalText;
+        }
+      });
+    })();
+
+    // animated "From <word> → fully digital" caption
+    (function rotateCaption() {
+      var el = document.getElementById("dxRot");
+      if (!el) return;
+      var words = ["paper", "spreadsheets", "sticky notes", "ledgers", "receipts"];
+      function setWord(w) {
+        el.innerHTML = "<b>" + w.split("").map(function (ch, k) {
+          return '<span class="ltr" style="--i:' + k + '">' + (ch === " " ? "&nbsp;" : ch) + "</span>";
+        }).join("") + "</b>";
+      }
+      var i = 0;
+      setWord(words[0]);
+      setInterval(function () { i = (i + 1) % words.length; setWord(words[i]); }, 2600);
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,257 @@
+# ══════════════════════════════════════════════════════════════════
+#  MERVEKS SAP — Deploy to Production
+#  Triggers only on push to `main` (or manual workflow_dispatch).
+#  Requires all CI checks to pass first.
+#
+#  What it does:
+#    1. frontend-deploy → Vercel (static public/ folder)
+#    2. backend-deploy  → Generic webhook/script deploy
+#       Replace the "deploy-backend" step with your platform:
+#       Render, Railway, Fly.io, DigitalOcean, etc.
+#    3. post-deploy     → Health-check + Slack/Discord notification
+#
+#  Required repository secrets:
+#    VERCEL_TOKEN          — Vercel personal access token
+#    VERCEL_ORG_ID         — From .vercel/project.json
+#    VERCEL_PROJECT_ID     — From .vercel/project.json
+#    BACKEND_DEPLOY_HOOK   — Deploy hook URL from your host
+#    SLACK_WEBHOOK_URL     — (optional) Slack incoming webhook
+# ══════════════════════════════════════════════════════════════════
+name: Deploy
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Deploy target"
+        required: true
+        default: "production"
+        type: choice
+        options:
+          - production
+          - staging
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false  # Never cancel an active deploy
+
+env:
+  NODE_VERSION: "20"
+  VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+  VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+jobs:
+  # ─────────────────────────────────────────────────────────────
+  #  Guard: must pass CI before deploying
+  # ─────────────────────────────────────────────────────────────
+  pre-deploy-check:
+    name: ✅ Pre-deploy check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify branch
+        run: |
+          echo "Deploying commit ${{ github.sha }} to ${{ github.event.inputs.environment || 'production' }}"
+          echo "Triggered by: ${{ github.actor }}"
+          echo "Ref: ${{ github.ref }}"
+
+  # ─────────────────────────────────────────────────────────────
+  #  Unit & Smoke tests (fast guard before deploy)
+  # ─────────────────────────────────────────────────────────────
+  test:
+    name: 🧪 Tests
+    runs-on: ubuntu-latest
+    needs: pre-deploy-check
+    defaults:
+      run:
+        working-directory: server
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+
+      - run: npm ci --prefer-offline
+      - run: npm test
+        env:
+          PORT: "4099"
+          JWT_SECRET: "deploy-gate-secret-abc"
+          GEMINI_API_KEY: ""
+
+      - run: npm run smoke-test
+        timeout-minutes: 5
+        env:
+          PORT: "4099"
+          JWT_SECRET: "deploy-gate-secret-abc"
+          GEMINI_API_KEY: ""
+
+  # ─────────────────────────────────────────────────────────────
+  #  Job 1 — Deploy Frontend to Vercel
+  # ─────────────────────────────────────────────────────────────
+  frontend-deploy:
+    name: 🌐 Deploy Frontend → Vercel
+    runs-on: ubuntu-latest
+    needs: test
+    environment:
+      name: ${{ github.event.inputs.environment || 'production' }}
+      url: ${{ steps.vercel-deploy.outputs.deployment-url }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install Vercel CLI
+        run: npm install -g vercel@latest
+
+      - name: Pull Vercel project settings
+        run: vercel pull --yes --environment=${{ github.event.inputs.environment || 'production' }} --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Deploy to Vercel
+        id: vercel-deploy
+        run: |
+          if [ "${{ github.event.inputs.environment }}" = "staging" ]; then
+            URL=$(vercel deploy --token=${{ secrets.VERCEL_TOKEN }} 2>&1 | tail -1)
+          else
+            URL=$(vercel deploy --prod --token=${{ secrets.VERCEL_TOKEN }} 2>&1 | tail -1)
+          fi
+          echo "deployment-url=$URL" >> $GITHUB_OUTPUT
+          echo "🚀 Deployed to: $URL"
+
+      - name: Smoke-check deployed frontend
+        run: |
+          DEPLOY_URL="${{ steps.vercel-deploy.outputs.deployment-url }}"
+          echo "Checking $DEPLOY_URL/login.html ..."
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$DEPLOY_URL/login.html" || echo "000")
+          if [ "$HTTP_CODE" = "200" ]; then
+            echo "✓ Frontend is live and serving HTML (HTTP $HTTP_CODE)"
+          else
+            echo "⚠ Frontend health check returned HTTP $HTTP_CODE — may still be propagating"
+          fi
+        continue-on-error: true
+
+  # ─────────────────────────────────────────────────────────────
+  #  Job 2 — Deploy Backend (Deploy hook / generic)
+  # ─────────────────────────────────────────────────────────────
+  backend-deploy:
+    name: 🖥️ Deploy Backend → Server
+    runs-on: ubuntu-latest
+    needs: test
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ── Render deploy hook ──────────────────────────────────
+      # If using Render: add BACKEND_DEPLOY_HOOK secret with
+      # the webhook URL from Render dashboard.
+      - name: Trigger backend deploy (Render / Railway / custom)
+        if: ${{ secrets.BACKEND_DEPLOY_HOOK != '' }}
+        run: |
+          echo "Triggering backend deploy hook..."
+          HTTP_CODE=$(curl -s -o /tmp/deploy_response.txt -w "%{http_code}" \
+            -X POST "${{ secrets.BACKEND_DEPLOY_HOOK }}")
+          cat /tmp/deploy_response.txt
+          if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 300 ]; then
+            echo "✓ Deploy hook triggered successfully (HTTP $HTTP_CODE)"
+          else
+            echo "✗ Deploy hook failed (HTTP $HTTP_CODE)"
+            exit 1
+          fi
+
+      - name: Skip backend deploy (no hook configured)
+        if: ${{ secrets.BACKEND_DEPLOY_HOOK == '' }}
+        run: |
+          echo "ℹ BACKEND_DEPLOY_HOOK secret not set."
+          echo "  Add it in: Settings → Secrets → Actions → New repository secret"
+          echo "  Get the URL from: Render / Railway / your hosting dashboard"
+
+      - name: Wait for backend to wake up
+        if: ${{ secrets.BACKEND_DEPLOY_HOOK != '' }}
+        run: |
+          echo "Waiting 30s for backend to start..."
+          sleep 30
+        continue-on-error: true
+
+      - name: Health-check backend API
+        if: ${{ secrets.BACKEND_API_URL != '' }}
+        run: |
+          BACKEND="${{ secrets.BACKEND_API_URL }}"
+          echo "Checking $BACKEND/health ..."
+          for i in 1 2 3 4 5; do
+            HTTP=$(curl -s -o /dev/null -w "%{http_code}" "$BACKEND/health" || echo "000")
+            if [ "$HTTP" = "200" ]; then
+              echo "✓ Backend healthy (attempt $i)"
+              exit 0
+            fi
+            echo "  Attempt $i: HTTP $HTTP — retrying in 15s..."
+            sleep 15
+          done
+          echo "⚠ Backend health check did not return 200 after 5 attempts"
+        continue-on-error: true
+
+  # ─────────────────────────────────────────────────────────────
+  #  Job 3 — Post-deploy Notification
+  # ─────────────────────────────────────────────────────────────
+  notify:
+    name: 📣 Notify
+    runs-on: ubuntu-latest
+    needs: [frontend-deploy, backend-deploy]
+    if: always()
+
+    steps:
+      - name: Determine overall status
+        id: status
+        run: |
+          FE="${{ needs.frontend-deploy.result }}"
+          BE="${{ needs.backend-deploy.result }}"
+          if [ "$FE" = "success" ] && [ "$BE" = "success" ]; then
+            echo "emoji=✅" >> $GITHUB_OUTPUT
+            echo "status=SUCCESS" >> $GITHUB_OUTPUT
+          elif [ "$FE" = "failure" ] || [ "$BE" = "failure" ]; then
+            echo "emoji=❌" >> $GITHUB_OUTPUT
+            echo "status=FAILED" >> $GITHUB_OUTPUT
+          else
+            echo "emoji=⚠️" >> $GITHUB_OUTPUT
+            echo "status=PARTIAL" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Send Slack notification
+        if: ${{ secrets.SLACK_WEBHOOK_URL != '' }}
+        run: |
+          curl -s -X POST "${{ secrets.SLACK_WEBHOOK_URL }}" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "text": "${{ steps.status.outputs.emoji }} *MERVEKS SAP Deploy — ${{ steps.status.outputs.status }}*",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "${{ steps.status.outputs.emoji }} *MERVEKS SAP* deploy `${{ steps.status.outputs.status }}`\n*Branch:* `${{ github.ref_name }}`\n*Commit:* `${{ github.sha }}`\n*By:* ${{ github.actor }}\n*Run:* <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View>"
+                  }
+                }
+              ]
+            }'
+
+      - name: Print summary
+        run: |
+          echo "## 🚀 Deploy Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Component | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Frontend (Vercel) | ${{ needs.frontend-deploy.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Backend (Server)  | ${{ needs.backend-deploy.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Commit:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Triggered by:** ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Ref:** \`${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY

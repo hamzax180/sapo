@@ -1,0 +1,1081 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#1aa6df" />
+  <title data-t="Sign in — WeboCloud">Sign in — WeboCloud</title>
+  <link rel="icon" type="image/svg+xml" href="assets/favicon.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Jost:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/sap.css?v=28" />
+  <style>
+    .co-list { display:flex; flex-direction:column; gap:9px; margin:4px 0 6px; }
+    .co-card { display:flex; align-items:center; gap:12px; padding:11px 13px; border:1.5px solid var(--line); border-radius:12px; background:var(--surface); cursor:pointer; text-align:left; transition:border-color .15s, box-shadow .15s, background .15s; }
+    .co-card:hover { border-color:#9cc4e4; box-shadow:0 2px 10px rgba(13,42,69,.06); }
+    .co-logo { flex:0 0 auto; width:42px; height:42px; border-radius:10px; display:grid; place-items:center; overflow:hidden; background:#e6edf5; color:var(--navy-600); font-weight:800; font-family:var(--font-head); font-size:1.05rem; }
+    .co-logo img { width:100%; height:100%; object-fit:contain; }
+    .co-meta { flex:1; min-width:0; }
+    .co-name { display:block; font-weight:700; color:var(--navy-700); font-size:.96rem; line-height:1.2; }
+    .co-sub { display:block; font-size:.76rem; color:var(--muted); margin-top:2px; }
+    .co-card .chev { color:var(--muted); flex:0 0 auto; }
+    .co-empty { text-align:center; padding:18px 8px 6px; }
+    .co-empty .ico { width:54px; height:54px; border-radius:14px; background:#eef4fa; color:var(--navy-500); display:grid; place-items:center; margin:0 auto 12px; }
+    .chosen-co { display:flex; align-items:center; gap:10px; padding:9px 11px; border:1px solid var(--line); border-radius:10px; background:#f6fafd; margin-bottom:14px; }
+    .chosen-co .co-logo { width:34px; height:34px; font-size:.9rem; }
+
+    /* ---- marketing top navigation ---- */
+    :root { --wcnav-h:64px; }
+    /* Transparent overlay: the nav sits ON the hero so the navy runs to the
+       very top. Left side (logo + links) is over the dark panel → light text;
+       right side (buttons) is over the white form column. */
+    .wc-nav { position:absolute; top:0; left:0; right:0; z-index:30; height:var(--wcnav-h); display:flex; align-items:center; gap:20px;
+      padding:0 clamp(16px,3vw,40px); background:transparent; }
+    .wc-brand { display:flex; align-items:center; gap:10px; text-decoration:none; flex:0 0 auto; }
+    .wc-brand .wc-mark { width:30px; height:30px; display:grid; place-items:center; }
+    .wc-brand .wc-name { font-family:var(--font-head); font-weight:800; letter-spacing:.02em; color:#fff; font-size:1.06rem; }
+    .wc-links { display:flex; align-items:center; gap:4px; margin-left:8px; flex:1; }
+    .wc-item { position:relative; }
+    .wc-item > .wc-top { display:inline-flex; align-items:center; gap:5px; background:none; border:0; cursor:pointer;
+      font:inherit; font-size:.92rem; font-weight:500; color:rgba(255,255,255,.9); padding:9px 12px; border-radius:8px; text-decoration:none; }
+    .wc-item > .wc-top svg { width:13px; height:13px; transition:transform .18s; opacity:.75; }
+    .wc-item:hover > .wc-top { background:rgba(255,255,255,.14); color:#fff; }
+    .wc-item:hover > .wc-top svg { transform:rotate(180deg); }
+    .wc-menu { position:absolute; top:calc(100% + 6px); left:0; min-width:212px; background:#fff; border:1px solid var(--line);
+      border-radius:12px; box-shadow:0 16px 40px rgba(13,42,69,.14); padding:7px; opacity:0; visibility:hidden;
+      transform:translateY(6px); transition:opacity .16s, transform .16s, visibility .16s; }
+    .wc-item:hover .wc-menu { opacity:1; visibility:visible; transform:translateY(0); }
+    .wc-menu a { display:flex; align-items:center; gap:10px; padding:9px 11px; border-radius:8px; text-decoration:none;
+      color:var(--ink); font-size:.88rem; }
+    .wc-menu a:hover { background:#f3f7fb; color:var(--navy-700); }
+    .wc-menu a .mi { width:26px; height:26px; flex:0 0 auto; border-radius:7px; background:#eef4fa; color:var(--navy-600);
+      display:grid; place-items:center; }
+    .wc-menu a .mi svg { width:15px; height:15px; }
+    .wc-menu a small { display:block; color:var(--muted); font-weight:400; font-size:.74rem; margin-top:1px; }
+    .wc-actions { display:flex; align-items:center; gap:10px; flex:0 0 auto; }
+    .wc-btn-ghost { display:inline-flex; align-items:center; padding:8px 15px; border:1px solid var(--line); border-radius:9px;
+      background:#fff; color:var(--navy-700); font-size:.88rem; font-weight:600; text-decoration:none; cursor:pointer; }
+    .wc-btn-ghost:hover { border-color:#9cc4e4; background:#f6fafd; }
+    .wc-btn-dark { display:inline-flex; align-items:center; padding:9px 17px; border-radius:9px; background:var(--navy-800);
+      color:#fff; font-size:.88rem; font-weight:600; text-decoration:none; cursor:pointer; border:1px solid var(--navy-800); }
+    .wc-btn-dark:hover { background:var(--navy-700); }
+    .wc-nav .lang-dropdown { position:relative; }
+    /* push the hero content below the overlay nav */
+    .login-art { padding-top:calc(var(--wcnav-h) + 14px); }
+    @media (max-width:900px) {
+      .wc-links { display:none; }
+      .wc-actions .wc-btn-ghost { display:none; }
+      :root { --wcnav-h:58px; }
+      /* on mobile the dark panel is hidden, so the bar is over white */
+      .wc-brand .wc-name { color:var(--navy-800); }
+    }
+    /* mobile: fill the screen and centre the card like a native app screen */
+    @media (max-width:880px) {
+      .login-form-col { min-height:100vh; min-height:100dvh; padding:calc(var(--wcnav-h) + 20px) 22px 32px; }
+      .login-card { max-width:420px; }
+    }
+
+    /* ===========================================================
+       Live operations showcase window (cycles real product scenes)
+       =========================================================== */
+    .la-head h1 { margin-top:14px; }
+    .dx-scene { position:relative; z-index:1; display:flex; justify-content:center; flex:0 1 auto; min-height:0; margin:6px 0; perspective:1600px; }
+    /* soft hero spotlight behind the window */
+    .dx-scene::before { content:""; position:absolute; left:50%; top:44%; width:120%; height:130%; transform:translate(-50%,-50%);
+      background:radial-gradient(ellipse 46% 40% at 50% 50%, rgba(70,160,235,.42), rgba(26,166,223,.12) 46%, transparent 72%);
+      filter:blur(6px); z-index:0; pointer-events:none; }
+    .dx-frame { position:relative; z-index:1; width:100%; max-width:486px; border-radius:16px;
+      animation:dxFloat 9s cubic-bezier(.45,0,.55,1) infinite; transform-style:preserve-3d; will-change:transform; }
+    /* grounded contact shadow for a real "sitting in space" look */
+    .dx-frame::after { content:""; position:absolute; left:7%; right:7%; bottom:-28px; height:46px; z-index:0;
+      background:radial-gradient(ellipse at center, rgba(2,10,20,.6), transparent 70%); filter:blur(11px); }
+    .dx-window {
+      position:relative; z-index:1; width:100%; background:#fff; border-radius:15px; overflow:hidden;
+      border:1px solid rgba(180,220,255,.20); font-family:Inter,sans-serif;
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,.75),
+        0 2px 5px rgba(4,16,29,.32),
+        0 16px 34px rgba(4,16,29,.42),
+        0 44px 88px rgba(4,16,29,.50);
+    }
+    /* glassy light sweep across the screen — premium reflection */
+    .dx-window::after { content:""; position:absolute; top:-10%; left:-65%; width:48%; height:120%; z-index:6; pointer-events:none;
+      background:linear-gradient(100deg, transparent, rgba(255,255,255,.45), transparent); transform:skewX(-16deg);
+      animation:dxSheen 8s ease-in-out infinite; }
+    @keyframes dxFloat {
+      0%,100% { transform:translateY(0) rotateX(0deg); }
+      50%     { transform:translateY(-9px) rotateX(1.3deg); }
+    }
+    @keyframes dxSheen { 0%,70% { left:-65%; opacity:0; } 78% { opacity:1; } 92%,100% { left:130%; opacity:0; } }
+
+    /* VS-Code-style animated "thinking" light that travels the border */
+    @property --dxang { syntax:'<angle>'; initial-value:0deg; inherits:false; }
+    .dx-glow {
+      position:absolute; inset:-2px; border-radius:17px; padding:1.7px; pointer-events:none; z-index:2;
+      background:conic-gradient(from var(--dxang,0deg),
+        rgba(95,176,255,0) 0deg, rgba(95,176,255,0) 175deg,
+        rgba(95,176,255,.30) 232deg, #5fd0ff 300deg, #dff6ff 330deg, rgba(95,176,255,0) 360deg);
+      -webkit-mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+      -webkit-mask-composite:xor;
+      mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+      mask-composite:exclude;
+      filter:drop-shadow(0 0 5px rgba(95,208,255,.6));
+      animation:dxSpin 2.8s linear infinite;
+    }
+    @keyframes dxSpin { to { --dxang:360deg; } }
+
+    /* title bar */
+    .dx-tb { display:flex; align-items:center; gap:6px; padding:9px 13px; background:linear-gradient(180deg,#fbfdff,#f2f6fb); border-bottom:1px solid #e8eef5; }
+    .dx-tb .d { width:8px; height:8px; border-radius:50%; box-shadow:inset 0 1px 1px rgba(255,255,255,.5), 0 1px 1px rgba(0,0,0,.08); }
+    .dx-tb .d.r { background:#ff6b6b; } .dx-tb .d.y { background:#ffce5c; } .dx-tb .d.g { background:#34c77b; }
+    .dx-tb-title { margin-left:8px; font-size:.73rem; font-weight:600; color:#75879b; }
+    .dx-live { margin-left:auto; display:inline-flex; align-items:center; gap:5px; font-size:.62rem; font-weight:800; letter-spacing:.06em; color:#2fae7a; text-transform:uppercase; }
+    .dx-live i { width:6px; height:6px; border-radius:50%; background:#34c77b; animation:dxPulse 1.8s ease-out infinite; }
+    @keyframes dxPulse { 0% { box-shadow:0 0 0 0 rgba(52,199,123,.5); } 70% { box-shadow:0 0 0 7px rgba(52,199,123,0); } 100% { box-shadow:0 0 0 0 rgba(52,199,123,0); } }
+
+    /* body: pipeline rail + scene stage */
+    .dx-body { display:flex; }
+    .dx-rail { width:150px; flex:0 0 auto; padding:14px 11px; background:#f7f9fc; border-right:1px solid #eef2f7; display:flex; flex-direction:column; }
+    .dx-rail-h { font-size:.55rem; font-weight:800; text-transform:uppercase; letter-spacing:.1em; color:#92a3b6; margin:0 0 10px; padding-left:3px; }
+    .dx-flow { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:3px; }
+    .dx-fl { display:flex; align-items:center; gap:9px; padding:7px 8px; border-radius:9px; font-size:.74rem; color:#6b7e92; opacity:.62; transition:opacity .35s, color .35s, background .35s, box-shadow .35s; }
+    .dx-fl .ic { width:25px; height:25px; flex:0 0 auto; border-radius:7px; background:#eaf0f6; color:#8094a8; display:grid; place-items:center; font-weight:800; font-size:.56rem; transition:background .35s, color .35s; }
+    .dx-fl .ic svg { width:13px; height:13px; }
+    .dx-fl.active { opacity:1; color:#0d2a45; font-weight:600; background:#fff; box-shadow:0 5px 16px rgba(13,42,69,.09); }
+    .dx-fl.active .ic { background:#1aa6df; color:#fff; }
+    .dx-fl.done .ic { background:#2fae7a; color:#fff; }
+    .dx-rail-foot { margin-top:auto; display:flex; align-items:center; gap:7px; font-size:.64rem; color:#2fae7a; font-weight:700; padding-left:3px; }
+    .dx-rail-foot .dot { width:7px; height:7px; border-radius:50%; background:#34c77b; animation:dxPulse 1.8s infinite; }
+
+    .dx-stage { position:relative; flex:1; min-width:0; height:258px; overflow:hidden; }
+    .dx-sc { position:absolute; inset:0; padding:13px 16px; opacity:0; transform:translateY(10px) scale(.982); filter:blur(5px); pointer-events:none; transition:opacity .6s var(--ease), transform .6s var(--ease), filter .6s var(--ease); }
+    .dx-sc.active { opacity:1; transform:none; filter:blur(0); pointer-events:auto; }
+    .dx-sc .pop { opacity:0; }
+    .dx-sc.active .pop { animation:dxPop .55s var(--ease) both; animation-delay:var(--d,0s); }
+    @keyframes dxPop { from { opacity:0; transform:translateY(9px); } to { opacity:1; transform:translateY(0); } }
+
+    .sc-head { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:9px; }
+    .sc-t { font-family:var(--font-head); font-weight:700; font-size:.92rem; color:#0d2a45; }
+    .sc-badge { font-size:.54rem; font-weight:800; letter-spacing:.06em; padding:3px 8px; border-radius:999px; white-space:nowrap; }
+    .sc-badge.blue { color:#1488c4; background:#e8f5fc; }
+    .sc-badge.green { color:#1f9d6b; background:#e3f7ee; }
+    .sc-badge.amber { color:#b9791a; background:#fdf1dd; }
+    .sc-badge.ai { color:#fff; background:linear-gradient(135deg,#1aa6df,#5b7cff); }
+    .sc-toast { margin-top:9px; display:inline-flex; align-items:center; gap:7px; font-size:.71rem; font-weight:600; color:#1f9d6b; background:#e8f8f0; border:1px solid #c9eedd; padding:6px 11px; border-radius:999px; }
+    .sc-toast svg { width:12px; height:12px; }
+
+    /* scene: real fatura (invoice) */
+    .fat { background:#fff; border:1px solid #e2e9f1; border-radius:11px; padding:11px 13px; box-shadow:0 5px 16px rgba(13,42,69,.05); position:relative; overflow:hidden; }
+    .fat-top { display:flex; justify-content:space-between; align-items:flex-start; gap:10px; margin-bottom:8px; }
+    .fat-brand { display:flex; flex-direction:column; font-family:var(--font-head); font-weight:800; font-size:.92rem; color:#1488c4; line-height:1.05; }
+    .fat-brand small { font-weight:500; font-size:.55rem; color:#8295a8; letter-spacing:.02em; margin-top:3px; }
+    .fat-title { display:flex; flex-direction:column; align-items:flex-end; font-family:var(--font-head); font-weight:800; font-size:1rem; color:#0d2a45; line-height:1.05; }
+    .fat-title small { font-weight:700; font-size:.58rem; color:#41566b; letter-spacing:.1em; margin-top:4px; }
+    .fat-meta { display:flex; justify-content:space-between; gap:10px; font-size:.6rem; color:#6b7e92; border-top:1px solid #eef2f7; border-bottom:1px solid #eef2f7; padding:5px 0; margin-bottom:7px; }
+    .fat-meta b { color:#0d2a45; font-weight:700; }
+    .fat-meta .paid { color:#1f9d6b; font-weight:800; }
+    .fat-tbl { width:100%; border-collapse:collapse; font-size:.66rem; }
+    .fat-tbl th { text-align:right; font-weight:700; color:#8295a8; font-size:.53rem; text-transform:uppercase; letter-spacing:.04em; padding:0 0 5px; }
+    .fat-tbl th:first-child { text-align:left; }
+    .fat-tbl td { text-align:right; padding:3px 0; color:#41566b; }
+    .fat-tbl td:first-child { text-align:left; color:#0d2a45; font-weight:600; }
+    .fat-tbl td:last-child { color:#1488c4; font-weight:700; }
+    .fat-tbl tr.rowin { opacity:0; }
+    .dx-sc.active .fat-tbl tr.rowin { animation:dxFade .5s var(--ease) both; animation-delay:var(--d,0s); }
+    @keyframes dxFade { to { opacity:1; } }
+    .fat-tot { margin-top:6px; padding-top:6px; border-top:1px solid #eef2f7; }
+    .fat-tot .r { display:flex; justify-content:space-between; font-size:.63rem; color:#6b7e92; padding:1.5px 0; }
+    .fat-tot .r b { color:#41566b; font-weight:600; }
+    .fat-tot .grand { margin-top:4px; padding-top:5px; border-top:1.5px solid #0d2a45; font-size:.76rem; color:#0d2a45; font-weight:800; }
+    .fat-tot .grand b { font-family:var(--font-head); color:#1488c4; font-size:.92rem; }
+    /* "paid" sweep stamp */
+    .fat-stamp { position:absolute; top:34px; right:12px; font-family:var(--font-head); font-weight:800; font-size:.78rem; letter-spacing:.06em; color:#2fae7a; border:2.5px solid #2fae7a; border-radius:7px; padding:2px 9px; opacity:0; }
+    .dx-sc.active .fat-stamp { animation:dxStamp .6s var(--ease) .85s both; }
+    @keyframes dxStamp { 0% { opacity:0; transform:rotate(9deg) scale(1.7); } 55% { opacity:1; } 100% { opacity:.9; transform:rotate(-11deg) scale(1); } }
+
+    /* scene: AI finance */
+    .ai-msg { display:flex; gap:9px; align-items:flex-start; margin-bottom:9px; }
+    .ai-ava { width:27px; height:27px; flex:0 0 auto; border-radius:8px; background:linear-gradient(135deg,#1aa6df,#5b7cff); color:#fff; display:grid; place-items:center; font-size:.82rem; box-shadow:0 4px 12px rgba(26,166,223,.35); }
+    .ai-bubble { background:#f4f8fc; border:1px solid #e6eef6; border-radius:4px 12px 12px 12px; padding:9px 11px; font-size:.77rem; color:#2c4257; line-height:1.5; flex:1; }
+    .ai-bubble b { color:#1488c4; }
+    .ai-chips { display:flex; flex-wrap:wrap; gap:7px; margin-bottom:11px; }
+    .ai-chip { font-size:.67rem; font-weight:700; padding:5px 9px; border-radius:999px; }
+    .ai-chip.up { color:#1f9d6b; background:#e3f7ee; }
+    .ai-chip.warn { color:#b9791a; background:#fdf1dd; }
+    .ai-chip.ok { color:#1488c4; background:#e8f5fc; }
+    .ai-spark { height:42px; border-radius:10px; background:linear-gradient(180deg,#f4f9fd,#eef5fb); border:1px solid #e6eef6; padding:6px 9px; margin-bottom:8px; }
+    .ai-spark svg { width:100%; height:100%; display:block; overflow:visible; }
+    .ai-spark path.ln { stroke-dasharray:260; stroke-dashoffset:260; }
+    .dx-sc.active .ai-spark path.ln { animation:dxDraw 1.3s var(--ease) .5s forwards; }
+    @keyframes dxDraw { to { stroke-dashoffset:0; } }
+    .ai-spark .dot { opacity:0; }
+    .dx-sc.active .ai-spark .dot { animation:dxPop .4s var(--ease) 1.7s both; }
+
+    /* scene: shipment QR label */
+    .lbl { display:flex; gap:13px; background:#fff; border:1px solid #e2e9f1; border-radius:12px; padding:12px 13px; box-shadow:0 6px 18px rgba(13,42,69,.06); }
+    .lbl-l { flex:1; min-width:0; }
+    .lbl-co { font-size:.6rem; font-weight:800; letter-spacing:.09em; text-transform:uppercase; color:#8295a8; }
+    .lbl-route { font-family:var(--font-head); font-weight:800; font-size:1.04rem; color:#0d2a45; margin:3px 0 5px; }
+    .lbl-meta { font-size:.67rem; color:#75879b; }
+    .lbl-bars { height:23px; border-radius:2px; margin:9px 0 6px; background:repeating-linear-gradient(90deg,#0d2a45 0 2px,#fff 2px 3px,#0d2a45 3px 5px,#fff 5px 8px,#0d2a45 8px 9px,#fff 9px 11px); }
+    .lbl-num { font-family:ui-monospace,Menlo,Consolas,monospace; font-size:.62rem; letter-spacing:.1em; color:#41566b; }
+    .qr { position:relative; width:86px; height:86px; flex:0 0 auto; display:grid; grid-template-columns:repeat(var(--n,15),1fr); grid-template-rows:repeat(var(--n,15),1fr); gap:1px; background:#fff; padding:4px; border-radius:8px; border:1px solid #e2e9f1; }
+    .qr i { border-radius:1px; }
+    .qr i.on { background:#0d2a45; }
+    .dx-sc.active .qr i.on { animation:dxQRpop .4s var(--ease) both; animation-delay:var(--qd,0s); }
+    @keyframes dxQRpop { from { opacity:0; transform:scale(.2); } to { opacity:1; transform:scale(1); } }
+    .qr .f { position:absolute; width:25%; height:25%; background:#fff; border:3px solid #0d2a45; border-radius:3px; }
+    .qr .f::after { content:''; position:absolute; inset:3px; background:#0d2a45; border-radius:1px; }
+    .qr .f.tl { top:4px; left:4px; } .qr .f.tr { top:4px; right:4px; } .qr .f.bl { bottom:4px; left:4px; }
+    .lbl-print { margin-top:12px; display:inline-flex; align-items:center; gap:7px; background:#0d2a45; color:#fff; border:0; font:inherit; font-size:.73rem; font-weight:600; padding:8px 14px; border-radius:9px; }
+    .lbl-print svg { width:14px; height:14px; }
+    .dx-sc.active .lbl-print { animation:dxBtn 1.7s ease-in-out .9s infinite; }
+    @keyframes dxBtn { 0%,100% { box-shadow:0 0 0 0 rgba(26,166,223,.4); } 50% { box-shadow:0 0 0 7px rgba(26,166,223,0); } }
+
+    /* scene: inventory add / subtract */
+    .inv-list { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:7px; }
+    .inv-it { display:flex; align-items:center; gap:10px; background:#fbfdff; border:1px solid #e6eef6; border-radius:10px; padding:8px 12px; }
+    .it-name { flex:1; min-width:0; font-size:.78rem; font-weight:600; color:#0d2a45; display:flex; flex-direction:column; }
+    .it-name small { font-weight:500; font-size:.61rem; color:#8295a8; margin-top:1px; }
+    .it-stock { font-family:var(--font-head); font-weight:800; font-size:.98rem; color:#0d2a45; min-width:40px; text-align:right; }
+    .it-stock.low { color:#c9881d; }
+    .it-delta { font-size:.66rem; font-weight:800; padding:3px 8px; border-radius:999px; min-width:40px; text-align:center; }
+    .it-delta.up { color:#1f9d6b; background:#e3f7ee; }
+    .it-delta.down { color:#cf5a4e; background:#fceae7; }
+    .inv-alert { margin-top:9px; display:flex; align-items:center; gap:8px; font-size:.71rem; font-weight:600; color:#b9791a; background:#fdf3e0; border:1px solid #f5e2bf; padding:7px 11px; border-radius:9px; }
+    .inv-alert svg { width:14px; height:14px; flex:0 0 auto; }
+
+    /* rotating caption pill — traveling glow border, letter reveals, gradient text */
+    @property --capang { syntax:'<angle>'; initial-value:0deg; inherits:false; }
+    .dx-cap { align-self:flex-start; position:relative; z-index:1; display:inline-flex; align-items:center; gap:9px;
+      padding:9px 18px; border-radius:var(--r-pill); font-size:.95rem; color:#c2d4e6;
+      background:linear-gradient(110deg, rgba(95,176,255,.12), rgba(127,230,192,.06));
+      -webkit-backdrop-filter:blur(6px); backdrop-filter:blur(6px);
+      box-shadow:0 8px 26px rgba(8,24,44,.38), inset 0 1px 0 rgba(255,255,255,.07);
+      animation:capBreathe 5s ease-in-out infinite; }
+    .dx-cap::before { content:""; position:absolute; inset:0; border-radius:inherit; padding:1.4px; pointer-events:none;
+      background:conic-gradient(from var(--capang,0deg),
+        rgba(95,176,255,0) 0deg, rgba(95,176,255,0) 150deg,
+        rgba(95,208,255,.65) 230deg, #aef0ff 300deg, rgba(127,230,192,.6) 340deg, rgba(95,176,255,0) 360deg);
+      -webkit-mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite:xor;
+      mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); mask-composite:exclude;
+      filter:drop-shadow(0 0 3px rgba(120,210,255,.5)); animation:capSpin 3.4s linear infinite; }
+    @keyframes capSpin { to { --capang:360deg; } }
+    @keyframes capBreathe { 0%,100% { transform:translateY(0) scale(1); } 50% { transform:translateY(-1px) scale(1.012); } }
+
+    .dx-cap .from { color:#94abc2; font-weight:500; }
+    .dx-cap .rot { display:inline-block; min-width:138px; text-align:left; perspective:280px; }
+    .dx-cap .rot b { color:#fff; font-weight:700; white-space:nowrap; }
+    .dx-cap .rot .ltr { display:inline-block; animation:ltrIn .55s cubic-bezier(.2,.7,.3,1) both; animation-delay:calc(var(--i,0) * .045s); }
+    @keyframes ltrIn { 0% { opacity:0; transform:translateY(.55em) rotateX(-65deg); filter:blur(5px); } 100% { opacity:1; transform:none; filter:blur(0); } }
+
+    .dx-cap .arrow { color:#5fc8ff; display:inline-flex; }
+    .dx-cap .arrow svg { width:17px; height:17px; animation:arrowNudge 1.6s ease-in-out infinite; }
+    @keyframes arrowNudge { 0%,100% { transform:translateX(0); opacity:.6; } 50% { transform:translateX(4px); opacity:1; } }
+
+    .dx-cap .to { display:inline-flex; align-items:center; gap:7px; }
+    .dx-cap .to .grad { font-weight:800;
+      background:linear-gradient(90deg,#7fe6c0,#5fd0ff,#aef0ff,#7fe6c0); background-size:220% 100%;
+      -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; color:transparent;
+      animation:gradShift 4.5s linear infinite; }
+    @keyframes gradShift { to { background-position:220% 0; } }
+    .dx-cap .to .tick { position:relative; width:18px; height:18px; border-radius:50%; flex:0 0 auto;
+      background:radial-gradient(circle at 35% 30%, #57d39a, #2fae7a); display:grid; place-items:center; box-shadow:0 2px 6px rgba(47,174,122,.5); }
+    .dx-cap .to .tick svg { width:10px; height:10px; stroke:#fff; }
+    .dx-cap .to .tick::after { content:""; position:absolute; inset:-3px; border-radius:50%; border:2px solid #4fd49a; opacity:0; animation:tickRing 3.2s ease-out infinite; }
+    @keyframes tickRing { 0% { transform:scale(.55); opacity:.75; } 70% { opacity:0; } 100% { transform:scale(1.7); opacity:0; } }
+
+    @media (prefers-reduced-motion:reduce) {
+      .dx-cap, .dx-cap::before, .dx-cap .arrow svg, .dx-cap .to .grad, .dx-cap .to .tick::after, .dx-cap .rot .ltr { animation:none !important; }
+    }
+
+    @media (prefers-reduced-motion:reduce) {
+      .dx-frame, .dx-glow, .dx-window, .dx-window::after, .dx-live i, .dx-rail-foot .dot, .lbl-print { animation:none !important; }
+      .dx-window::after { display:none; }
+      .dx-sc { transition:none; }
+      .dx-sc .pop, .dx-sc .inv-stamp, .dx-sc .qr i.on, .dx-sc .ai-spark .dot { animation:none !important; opacity:1 !important; }
+      .dx-sc .ai-spark path.ln { stroke-dashoffset:0 !important; }
+    }
+
+    /* Claude-style scrollable page override */
+    html { scroll-behavior: smooth; }
+    body { overflow-y: auto !important; height: auto !important; min-height: 100vh; }
+    .login-wrap { height: auto !important; min-height: 100vh; overflow: visible !important; }
+    .login-art { height: auto !important; min-height: 100vh; }
+    .login-form-col { height: auto !important; min-height: 100vh; overflow-y: visible !important; }
+
+    /* Scroll down indicator animation */
+    @keyframes bounce {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(4px); }
+    }
+
+    /* Scroll-down section container */
+    .login-scroll-content {
+      background: linear-gradient(180deg, #f9fbfd, var(--surface-2));
+      border-top: 1px solid var(--line);
+      padding: 60px 20px 40px;
+      position: relative;
+      z-index: 10;
+    }
+
+    /* ---- pricing section ---- */
+    .price-wrap { max-width:1060px; margin:0 auto; padding:clamp(28px,5vw,58px) 20px 40px; }
+    .price-hero { text-align:center; max-width:680px; margin:0 auto; }
+    .price-hero h1 { font-family:var(--font-head); font-size:clamp(1.9rem,4.6vw,2.7rem); color:var(--navy-800); letter-spacing:-.02em; line-height:1.08; }
+    .price-hero p { margin-top:11px; color:var(--muted); font-size:1.02rem; line-height:1.55; }
+
+    /* Individual / Team segmented toggle */
+    .seg { display:inline-flex; background:#eef2f7; border:1px solid var(--line); border-radius:13px; padding:5px; margin:22px auto 32px; gap:4px; }
+    .seg button { border:0; background:none; cursor:pointer; font:inherit; font-size:.9rem; font-weight:600; color:var(--muted); padding:9px 20px; border-radius:9px; transition:color .18s, background .18s, box-shadow .18s; white-space:nowrap; }
+    .seg button.on { background:#fff; color:var(--navy-800); box-shadow:0 2px 8px rgba(13,42,69,.08); }
+
+    /* plan cards */
+    .price-cards { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; align-items:stretch; }
+    .price-card { display:flex; flex-direction:column; background:var(--surface); border:1.5px solid var(--line); border-radius:18px; padding:24px 22px; position:relative; transition:transform .2s, box-shadow .2s; }
+    .price-card:hover { box-shadow:var(--sh-sm); }
+    .price-card.rec { background:linear-gradient(180deg,#eef8fe,#fff 42%); border-color:#bfe1f4; box-shadow:0 20px 54px rgba(26,166,223,.16); }
+    .c-top { display:flex; align-items:flex-start; justify-content:space-between; gap:10px; min-height:42px; }
+    .c-ico { width:42px; height:42px; border-radius:12px; display:grid; place-items:center; background:var(--accent-50); color:var(--accent); flex:0 0 auto; }
+    .c-ico.green { background:#edf7e6; color:#5cb12f; }
+    .c-ico.gold { background:var(--gold-50); color:var(--gold); }
+    .c-ico svg { width:22px; height:22px; }
+    .c-rec { font-size:.7rem; font-weight:800; letter-spacing:.02em; color:#fff; background:var(--accent); padding:5px 11px; border-radius:999px; align-self:flex-start; }
+    .c-name { font-family:var(--font-head); font-weight:800; font-size:1.5rem; color:var(--navy-800); margin-top:14px; letter-spacing:-.01em; }
+    .c-tag { color:var(--muted); font-size:.9rem; margin-top:3px; line-height:1.4; min-height:38px; }
+
+    .c-cycle { display:inline-flex; background:#eef2f7; border:1px solid var(--line); border-radius:999px; padding:3px; margin-top:14px; gap:2px; }
+    .c-cycle button { border:0; background:none; cursor:pointer; font:inherit; font-size:.74rem; font-weight:700; color:var(--muted); padding:5px 11px; border-radius:999px; transition:all .16s; white-space:nowrap; }
+    .c-cycle button.on { background:#fff; color:var(--navy-800); box-shadow:0 1px 5px rgba(13,42,69,.12); }
+    .c-cycle .save { color:var(--accent); }
+
+    .c-price { display:flex; align-items:flex-end; gap:9px; margin:16px 0 2px; min-height:50px; }
+    .c-amt { font-family:var(--font-head); font-weight:800; font-size:2.55rem; letter-spacing:-.02em; color:var(--navy-800); line-height:.92; }
+    .c-amt.sm { font-size:1.7rem; }
+    .c-unit { font-size:.76rem; color:var(--muted); line-height:1.4; padding-bottom:4px; }
+    .c-cta { margin-top:14px; }
+    .c-cta .btn { width:100%; justify-content:center; padding:12px; font-size:.92rem; }
+    .c-sub { text-align:center; font-size:.73rem; color:var(--muted); margin-top:9px; min-height:16px; }
+
+    .c-feats { margin-top:18px; padding-top:18px; border-top:1px solid var(--line); }
+    .price-card.rec .c-feats { border-top-color:#cfe7f6; }
+    .c-feats h4 { font-size:.82rem; font-weight:700; color:var(--navy-700); margin-bottom:13px; }
+    .c-feat { display:flex; gap:10px; font-size:.86rem; color:var(--ink); margin-bottom:11px; line-height:1.4; }
+    .c-feat:last-child { margin-bottom:0; }
+    .c-feat .ck { color:var(--accent); flex:0 0 auto; margin-top:1px; }
+    .c-feat .ck svg { width:16px; height:16px; }
+    .c-feat b { color:var(--navy-700); font-weight:600; }
+
+    .price-foot-note { text-align:center; color:var(--muted); font-size:.86rem; margin:34px auto 0; max-width:620px; }
+    .price-foot-note a { color:var(--accent); text-decoration:none; font-weight:600; }
+
+    /* cta strip */
+    .price-cta { margin-top:50px; background:linear-gradient(135deg, var(--navy-900), var(--navy-700) 60%, var(--navy-500)); border-radius:18px;
+      padding:40px 44px; display:flex; align-items:center; justify-content:space-between; gap:26px; flex-wrap:wrap; box-shadow:var(--sh-lg); }
+    .price-cta h2 { font-family:var(--font-head); font-size:1.45rem; font-weight:700; color:#fff; letter-spacing:-.01em; }
+    .price-cta p { font-size:.92rem; color:#aebfd0; max-width:400px; line-height:1.6; margin-top:6px; }
+    .price-cta-btns { display:flex; gap:10px; flex-shrink:0; }
+    .price-cta-w { display:inline-flex; align-items:center; padding:11px 22px; border-radius:9px; background:#fff; color:var(--navy-800); font-weight:600; font-size:.9rem; text-decoration:none; }
+    .price-cta-w:hover { background:#eef4fa; }
+    .price-cta-g { display:inline-flex; align-items:center; padding:11px 22px; border-radius:9px; background:transparent; color:#cdd9e6; border:1px solid rgba(255,255,255,.25); font-size:.9rem; text-decoration:none; }
+    .price-cta-g:hover { color:#fff; border-color:rgba(255,255,255,.5); }
+
+    /* FAQ accordion styling */
+    .faq-section { margin-top: 64px; margin-bottom: 58px; }
+    .faq-container { max-width:760px; margin:0 auto; display:flex; flex-direction:column; gap:12px; }
+    .faq-item { background:#fff; border:1px solid var(--line); border-radius:12px; overflow:hidden; transition:border-color .15s; }
+    .faq-item:hover { border-color: #9cc4e4 !important; }
+    .faq-trigger { width:100%; display:flex; align-items:center; justify-content:space-between; gap:16px; padding:18px 20px; background:none; border:0; text-align:left; font:inherit; font-size:0.98rem; font-weight:700; color:var(--navy-800); cursor:pointer; }
+    .faq-trigger:hover { background: #fafdff !important; }
+    .faq-arrow { width:16px; height:16px; flex:0 0 auto; color:var(--muted); transition:transform .2s; }
+    .faq-content { max-height:0; overflow:hidden; transition:max-height .25s ease-out; }
+
+    /* responsive overrides */
+    @media (max-width:860px) {
+      .price-cards { grid-template-columns:1fr; max-width:440px; margin:0 auto; gap:14px; }
+      .price-card.rec { order:-1; }
+      .c-tag { min-height:0; }
+    }
+    @media (max-width:560px) {
+      .price-wrap { padding:20px 14px 30px; }
+      .seg { display:flex; width:100%; max-width:340px; margin:18px auto 22px; }
+      .seg button { flex:1; padding:11px 8px; }
+      .price-card { border-radius:16px; padding:20px 18px; }
+      .c-tag { min-height:0; }
+      .price-cta { padding:26px 22px; text-align:center; justify-content:center; flex-direction:column; }
+      .price-cta-btns { justify-content:center; width:100%; }
+      .price-cta-w, .price-cta-g { flex:1; justify-content:center; }
+    }
+  </style>
+</head>
+<body>
+  <!-- Brook-style preloader -->
+  <div class="preloader" id="preloader">
+    <div class="pl-inner">
+      <div class="pl-ring"></div>
+      <div class="pl-logo">
+        <svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <defs>
+            <linearGradient id="pl-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#1aa6df"/>
+              <stop offset="100%" stop-color="#5cb12f"/>
+            </linearGradient>
+          </defs>
+          <circle cx="20" cy="27" r="7.5" fill="url(#pl-grad)"/>
+          <circle cx="32" cy="23" r="9.5" fill="url(#pl-grad)"/>
+          <circle cx="44" cy="27" r="7.5" fill="url(#pl-grad)"/>
+          <rect x="12.5" y="29" width="39" height="8" fill="url(#pl-grad)"/>
+          <path d="M14 37 L20 50 L27 40 L32 50 L37 40 L44 50 L50 37 Z" fill="url(#pl-grad)"/>
+          <path d="M20 20 L26 35 L32 25 L38 35 L44 20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <div class="pl-word">WEBOCLOUD</div>
+    </div>
+  </div>
+
+  <!-- Marketing top navigation -->
+  <header class="wc-nav">
+    <a class="wc-brand" href="login.html">
+      <span class="wc-mark"><svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><defs><linearGradient id="nv-grad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#1aa6df"/><stop offset="100%" stop-color="#5cb12f"/></linearGradient></defs><circle cx="20" cy="27" r="7.5" fill="url(#nv-grad)"/><circle cx="32" cy="23" r="9.5" fill="url(#nv-grad)"/><circle cx="44" cy="27" r="7.5" fill="url(#nv-grad)"/><rect x="12.5" y="29" width="39" height="8" fill="url(#nv-grad)"/><path d="M14 37 L20 50 L27 40 L32 50 L37 40 L44 50 L50 37 Z" fill="url(#nv-grad)"/></svg></span>
+      <span class="wc-name">WeboCloud</span>
+    </a>
+
+    <nav class="wc-links">
+      <div class="wc-item">
+        <button type="button" class="wc-top">Platform <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></button>
+        <div class="wc-menu">
+          <a href="signup.html"><span class="mi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg></span><span>Operations console<small>Dashboard, orders, stock, finance</small></span></a>
+          <a href="signup.html"><span class="mi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M2 12h20"/></svg></span><span>Multi-company<small>Run every branch in one place</small></span></a>
+          <a href="signup.html"><span class="mi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></span><span>Audit history<small>Every action, logged</small></span></a>
+        </div>
+      </div>
+      <div class="wc-item">
+        <button type="button" class="wc-top">Solutions <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></button>
+        <div class="wc-menu" id="solMenu"></div>
+      </div>
+      <div class="wc-item">
+        <button type="button" class="wc-top">Pricing <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></button>
+        <div class="wc-menu">
+          <a href="pricing.html?group=individual"><span class="mi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span><span>Individual<small>Single user &amp; solo founder plans</small></span></a>
+          <a href="pricing.html?group=team"><span class="mi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></span><span>Enterprise<small>Multi-user teams &amp; offices</small></span></a>
+        </div>
+      </div>
+      <div class="wc-item">
+        <button type="button" class="wc-top">Resources <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></button>
+        <div class="wc-menu">
+          <a href="assets/docs/MERVEKS_SAP_Client_Guide.pdf" target="_blank"><span class="mi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg></span><span>User guide (EN)<small>PDF walkthrough</small></span></a>
+          <a href="assets/docs/MERVEKS_SAP_Musteri_Kilavuzu.pdf" target="_blank"><span class="mi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg></span><span>Kullanım kılavuzu (TR)<small>PDF rehber</small></span></a>
+        </div>
+      </div>
+    </nav>
+
+    <div class="wc-actions">
+      <div class="lang-dropdown" id="langDropdown">
+        <button class="lang-trigger" id="langTrigger">
+          <span class="lang-current">Türkçe</span>
+          <svg class="lang-arrow" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+        </button>
+        <ul class="lang-list" id="langList">
+          <li data-value="en" class="lang-item">English</li>
+          <li data-value="tr" class="lang-item">Türkçe</li>
+        </ul>
+      </div>
+      <a class="wc-btn-ghost" href="mailto:sales@webocloud.app">Contact sales</a>
+      <a class="wc-btn-dark" href="signup.html">Create workspace</a>
+    </div>
+  </header>
+
+  <div class="login-wrap">
+    <!-- Brand panel -->
+    <div class="login-art">
+      <div class="la-head">
+        <h1 style="margin-top:14px">Take your business<br />off paper.</h1>
+        <p>WeboCloud turns invoices, orders, stock and ledgers into one live console — searchable, shareable and always up to date.</p>
+      </div>
+
+      <!-- Live operations showcase: real product scenes cycle here -->
+      <div class="dx-scene">
+        <div class="dx-frame">
+          <span class="dx-glow"></span>
+          <div class="dx-window" id="dxWin">
+          <div class="dx-tb">
+            <span class="d r"></span><span class="d y"></span><span class="d g"></span>
+            <span class="dx-tb-title">WeboCloud · live operations</span>
+            <span class="dx-live"><i></i>live</span>
+          </div>
+          <div class="dx-body">
+            <!-- pipeline: every process, in order -->
+            <aside class="dx-rail">
+              <div class="dx-rail-h">Order pipeline</div>
+              <ul class="dx-flow">
+                <li class="dx-fl" data-i="0">
+                  <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M9 13h6M9 17h6"/></svg></span>
+                  <span>Invoice &amp; receipt</span>
+                </li>
+                <li class="dx-fl" data-i="1">
+                  <span class="ic">AI</span>
+                  <span>AI finance check</span>
+                </li>
+                <li class="dx-fl" data-i="2">
+                  <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3M20 20h.01M17 20h.01M20 17h.01"/></svg></span>
+                  <span>Shipment label</span>
+                </li>
+                <li class="dx-fl" data-i="3">
+                  <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="M3.27 6.96 12 12l8.73-5.04M12 22V12"/></svg></span>
+                  <span>Inventory sync</span>
+                </li>
+              </ul>
+              <div class="dx-rail-foot"><span class="dot"></span> All systems live</div>
+            </aside>
+
+            <!-- stage: the scenes -->
+            <div class="dx-stage">
+              <!-- SCENE 0 · real fatura (invoice) -->
+              <section class="dx-sc" data-i="0">
+                <div class="sc-head"><span class="sc-t">Fatura issued</span><span class="sc-badge blue">E-FATURA · SENT</span></div>
+                <div class="fat">
+                  <div class="fat-stamp">ÖDENDİ</div>
+                  <div class="fat-top">
+                    <div class="fat-brand">WeboCloud<small>Logistics &amp; Trade</small></div>
+                    <div class="fat-title">FATURA<small>RCPT-8801</small></div>
+                  </div>
+                  <div class="fat-meta">
+                    <div><b>Alıcı:</b> Walk-in Customer</div>
+                    <div><b>Tarih:</b> 26 Haz 2026 · <span class="paid">Ödendi</span></div>
+                  </div>
+                  <table class="fat-tbl">
+                    <thead><tr><th>Açıklama</th><th>Adet</th><th>Birim</th><th>Tutar</th></tr></thead>
+                    <tbody>
+                      <tr class="rowin" style="--d:.15s"><td>Cola 330ml can</td><td>2</td><td>$1</td><td>$2</td></tr>
+                      <tr class="rowin" style="--d:.30s"><td>Milk Chocolate 80g</td><td>1</td><td>$2</td><td>$2</td></tr>
+                    </tbody>
+                  </table>
+                  <div class="fat-tot">
+                    <div class="r pop" style="--d:.45s"><span>Matrah (KDV Hariç)</span><b>$4</b></div>
+                    <div class="r pop" style="--d:.55s"><span>KDV Tutarı (0%)</span><b>$0</b></div>
+                    <div class="r grand pop" style="--d:.7s"><span>KDV Dahil Toplam</span><b>$4</b></div>
+                  </div>
+                </div>
+              </section>
+
+              <!-- SCENE 1 · AI finance -->
+              <section class="dx-sc" data-i="1">
+                <div class="sc-head"><span class="sc-t">AI finance check</span><span class="sc-badge ai">✦ WeboCloud AI</span></div>
+                <div class="ai-msg pop" style="--d:.12s">
+                  <span class="ai-ava">✦</span>
+                  <div class="ai-bubble">Cash flow is healthy — revenue <b>+24%</b> this month. <b>₺12k</b> over 3 invoices is overdue. Send reminders?</div>
+                </div>
+                <div class="ai-spark pop" style="--d:.30s">
+                  <svg viewBox="0 0 240 44" preserveAspectRatio="none" fill="none">
+                    <path class="ln" d="M2 36 L40 30 L78 33 L116 20 L154 24 L192 10 L236 6" stroke="#1aa6df" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    <circle class="dot" cx="236" cy="6" r="3.5" fill="#1aa6df"/>
+                  </svg>
+                </div>
+                <div class="ai-chips">
+                  <span class="ai-chip up pop"   style="--d:.55s">▲ Revenue +24%</span>
+                  <span class="ai-chip warn pop" style="--d:.68s">⚠ ₺12k overdue</span>
+                  <span class="ai-chip ok pop"   style="--d:.81s">✓ Margin 31%</span>
+                </div>
+              </section>
+
+              <!-- SCENE 2 · shipment QR label -->
+              <section class="dx-sc" data-i="2">
+                <div class="sc-head"><span class="sc-t">Shipment label</span><span class="sc-badge green">READY TO PRINT</span></div>
+                <div class="lbl">
+                  <div class="lbl-l">
+                    <div class="lbl-co">WeboCloud · Express Freight</div>
+                    <div class="lbl-route">Mersin → Baku</div>
+                    <div class="lbl-meta">SH-7782 · 28t · Wagon 4</div>
+                    <div class="lbl-bars"></div>
+                    <div class="lbl-num">TRK 7782 0431 9920</div>
+                  </div>
+                  <div class="qr" id="dxQR">
+                    <span class="f tl"></span><span class="f tr"></span><span class="f bl"></span>
+                  </div>
+                </div>
+                <button class="lbl-print pop" style="--d:.6s" type="button">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8" rx="1"/></svg>
+                  Print label
+                </button>
+                <div class="sc-toast pop" style="--d:1.05s"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg>Label printed &amp; tracking live</div>
+              </section>
+
+              <!-- SCENE 3 · inventory add / subtract -->
+              <section class="dx-sc" data-i="3">
+                <div class="sc-head"><span class="sc-t">Inventory synced</span><span class="sc-badge blue">REAL-TIME STOCK</span></div>
+                <ul class="inv-list">
+                  <li class="inv-it pop" style="--d:.10s">
+                    <span class="it-name">Steel Pipe 20mm<small>SKU-3120</small></span>
+                    <span class="it-stock" data-from="320" data-to="348">320</span>
+                    <span class="it-delta up">+28</span>
+                  </li>
+                  <li class="inv-it pop" style="--d:.24s">
+                    <span class="it-name">Cement Bag 50kg<small>SKU-5500</small></span>
+                    <span class="it-stock" data-from="540" data-to="512">540</span>
+                    <span class="it-delta down">−28</span>
+                  </li>
+                  <li class="inv-it pop" style="--d:.38s">
+                    <span class="it-name">Copper Wire 5mm<small>SKU-0885</small></span>
+                    <span class="it-stock low" data-from="88" data-to="64">88</span>
+                    <span class="it-delta down">−24</span>
+                  </li>
+                </ul>
+                <div class="inv-alert pop" style="--d:.62s"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><path d="M12 9v4M12 17h.01"/></svg>Copper Wire low — reorder suggested</div>
+              </section>
+            </div>
+          </div>
+          </div>
+        </div>
+      </div>
+
+
+
+      <div class="la-stats">
+        <div class="ls"><div class="v">100%</div><div class="k">Paperless</div></div>
+        <div class="ls"><div class="v">1</div><div class="k">Console</div></div>
+        <div class="ls"><div class="v">24/7</div><div class="k">Synced</div></div>
+        <div class="ls"><div class="v">0</div><div class="k">Filing cabinets</div></div>
+      </div>
+
+      <div class="la-foot">© 2024–2026 WeboCloud · Cloud Operations Platform</div>
+    </div>
+
+    <!-- Form panel -->
+    <div class="login-form-col">
+      <div class="login-card">
+        <h2 id="loginTitle">Welcome back</h2>
+        <p class="lc-sub" id="lcSub">Sign in to your operations console.</p>
+
+        <div class="login-err" id="err"></div>
+
+        <form id="loginForm" autocomplete="on">
+          <div class="field">
+            <label data-t="Email">Email</label>
+            <input class="input" type="email" id="email" placeholder="you@company.com" required />
+          </div>
+          <div class="field">
+            <label data-t="Password">Password</label>
+            <input class="input" type="password" id="password" placeholder="••••••••" required />
+          </div>
+          <button class="btn btn-primary" type="submit" data-t="Sign in to console">Sign in to console</button>
+        </form>
+
+        <!-- registered companies on this device (quick-pick, optional) -->
+        <div id="companyPicker"></div>
+
+        <div style="margin-top:16px;text-align:center;font-size:.88rem;color:var(--muted)">
+          New company? <a href="signup.html" style="color:var(--accent);font-weight:600;text-decoration:none">Create your workspace</a>
+        </div>
+
+        <div style="margin-top:24px;text-align:center;font-size:.88rem;color:var(--muted);border-top:1px solid var(--line);padding-top:16px;">
+          <a href="#pricing-section" id="scrollToPricing" style="color:var(--muted);text-decoration:none;display:inline-flex;align-items:center;gap:6px;font-weight:600;">
+            See plans &amp; pricing
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" style="width:14px;height:14px;animation:bounce 1.6s infinite;"><path d="m6 9 6 6 6-6"/></svg>
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Pricing & FAQ Section (Claude style scroll down) -->
+  <div class="login-scroll-content" id="pricing-section">
+    <div class="price-wrap">
+      <div class="price-hero">
+        <h1 style="margin-bottom:8px">Plans &amp; pricing</h1>
+        <p>Start free, upgrade when you're ready. Every plan keeps your data exactly where it is — no rebuild, no migration.</p>
+      </div>
+
+      <div style="text-align:center">
+        <div class="seg" id="seg">
+          <button type="button" data-grp="individual" class="on">Individual</button>
+          <button type="button" data-grp="team">Team &amp; Enterprise</button>
+        </div>
+      </div>
+
+      <div class="price-cards" id="cards"></div>
+
+      <p class="price-foot-note">All prices in USD, excluding local tax (KDV). Need something custom? <a href="mailto:sales@webocloud.app">Talk to sales</a>.</p>
+
+      <!-- FAQ Accordion Section -->
+      <section class="faq-section">
+        <h2 style="font-family:var(--font-head); font-size:1.85rem; font-weight:800; color:var(--navy-800); text-align:center; margin-bottom:28px; letter-spacing:-.01em;">Frequently Asked Questions</h2>
+        <div class="faq-container">
+          
+          <div class="faq-item" style="background:#fff; border:1px solid var(--line); border-radius:12px; overflow:hidden; transition:border-color .15s;">
+            <button type="button" class="faq-trigger" style="width:100%; display:flex; align-items:center; justify-content:space-between; gap:16px; padding:18px 20px; background:none; border:0; text-align:left; font:inherit; font-size:0.98rem; font-weight:700; color:var(--navy-800); cursor:pointer;">
+              <span>Can I switch plans later?</span>
+              <svg class="faq-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="width:16px; height:16px; flex:0 0 auto; color:var(--muted); transition:transform .2s;"><path d="m6 9 6 6 6-6"/></svg>
+            </button>
+            <div class="faq-content" style="max-height:0; overflow:hidden; transition:max-height .25s ease-out;">
+              <div style="padding:0 20px 18px; font-size:0.88rem; color:var(--ink); line-height:1.55;">
+                Yes, you can upgrade, downgrade, or cancel your subscription at any time directly from your console settings. Changes apply immediately.
+              </div>
+            </div>
+          </div>
+
+          <div class="faq-item" style="background:#fff; border:1px solid var(--line); border-radius:12px; overflow:hidden; transition:border-color .15s;">
+            <button type="button" class="faq-trigger" style="width:100%; display:flex; align-items:center; justify-content:space-between; gap:16px; padding:18px 20px; background:none; border:0; text-align:left; font:inherit; font-size:0.98rem; font-weight:700; color:var(--navy-800); cursor:pointer;">
+              <span>Is my business data secure?</span>
+              <svg class="faq-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="width:16px; height:16px; flex:0 0 auto; color:var(--muted); transition:transform .2s;"><path d="m6 9 6 6 6-6"/></svg>
+            </button>
+            <div class="faq-content" style="max-height:0; overflow:hidden; transition:max-height .25s ease-out;">
+              <div style="padding:0 20px 18px; font-size:0.88rem; color:var(--ink); line-height:1.55;">
+                Absolutely. WeboCloud uses bank-grade security protocols. If you use Neon or self-hosted databases, you retain full ownership and control over your records.
+              </div>
+            </div>
+          </div>
+
+          <div class="faq-item" style="background:#fff; border:1px solid var(--line); border-radius:12px; overflow:hidden; transition:border-color .15s;">
+            <button type="button" class="faq-trigger" style="width:100%; display:flex; align-items:center; justify-content:space-between; gap:16px; padding:18px 20px; background:none; border:0; text-align:left; font:inherit; font-size:0.98rem; font-weight:700; color:var(--navy-800); cursor:pointer;">
+              <span>What happens when my account subscription is locked?</span>
+              <svg class="faq-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="width:16px; height:16px; flex:0 0 auto; color:var(--muted); transition:transform .2s;"><path d="m6 9 6 6 6-6"/></svg>
+            </button>
+            <div class="faq-content" style="max-height:0; overflow:hidden; transition:max-height .25s ease-out;">
+              <div style="padding:0 20px 18px; font-size:0.88rem; color:var(--ink); line-height:1.55;">
+                Your account is locked until a subscription payment is completed. All your seeded data, company logo, and settings are preserved so you can pick up right where you left off.
+              </div>
+            </div>
+          </div>
+
+          <div class="faq-item" style="background:#fff; border:1px solid var(--line); border-radius:12px; overflow:hidden; transition:border-color .15s;">
+            <button type="button" class="faq-trigger" style="width:100%; display:flex; align-items:center; justify-content:space-between; gap:16px; padding:18px 20px; background:none; border:0; text-align:left; font:inherit; font-size:0.98rem; font-weight:700; color:var(--navy-800); cursor:pointer;">
+              <span>How do I pay?</span>
+              <svg class="faq-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="width:16px; height:16px; flex:0 0 auto; color:var(--muted); transition:transform .2s;"><path d="m6 9 6 6 6-6"/></svg>
+            </button>
+            <div class="faq-content" style="max-height:0; overflow:hidden; transition:max-height .25s ease-out;">
+              <div style="padding:0 20px 18px; font-size:0.88rem; color:var(--ink); line-height:1.55;">
+                We accept bank transfers via T.C. Ziraat Bankası QR code (Karekod) or IBAN transfer. Company accounts are typically unlocked within 1 to 24 hours after sending payment.
+              </div>
+            </div>
+          </div>
+
+          <div class="faq-item" style="background:#fff; border:1px solid var(--line); border-radius:12px; overflow:hidden; transition:border-color .15s;">
+            <button type="button" class="faq-trigger" style="width:100%; display:flex; align-items:center; justify-content:space-between; gap:16px; padding:18px 20px; background:none; border:0; text-align:left; font:inherit; font-size:0.98rem; font-weight:700; color:var(--navy-800); cursor:pointer;">
+              <span>Do you support multi-branch operations?</span>
+              <svg class="faq-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="width:16px; height:16px; flex:0 0 auto; color:var(--muted); transition:transform .2s;"><path d="m6 9 6 6 6-6"/></svg>
+            </button>
+            <div class="faq-content" style="max-height:0; overflow:hidden; transition:max-height .25s ease-out;">
+              <div style="padding:0 20px 18px; font-size:0.88rem; color:var(--ink); line-height:1.55;">
+                Yes! The Team and Business plans fully support multi-warehouse tracking, multi-currency transactions, and custom role permissions across different branches.
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- CTA -->
+      <div class="price-cta">
+        <div>
+          <h2>Ready to get started?</h2>
+          <p>Everything you need to run your business — orders, inventory, team and finance in one place.</p>
+        </div>
+        <div class="price-cta-btns">
+          <a href="signup.html" class="price-cta-w">Create workspace</a>
+          <a href="#loginTitle" class="price-cta-g" style="cursor:pointer">Sign in to console</a>
+        </div>
+      </div>
+    </div>
+
+    <footer class="wc-foot">
+      <span>© <span id="yr"></span> WeboCloud · Cloud Operations Platform</span>
+      <div class="ft-links">
+        <a href="signup.html">Create workspace</a>
+        <a href="login.html">Sign in</a>
+        <a href="mailto:sales@webocloud.app">Contact sales</a>
+      </div>
+    </footer>
+  </div>
+
+  <script src="js/config.js?v=28"></script>
+  <script src="js/seed.js?v=28"></script>
+  <script src="js/sample-data.js?v=28"></script>
+  <script src="js/industries.js?v=28"></script>
+  <script src="js/store.js?v=28"></script>
+  <script src="js/ui.js?v=28"></script>
+  <script>
+    // fade out the preloader once the page is ready
+    function hidePreloader() { var p = document.getElementById("preloader"); if (p) { p.classList.add("hide"); setTimeout(function () { p.remove(); }, 600); } }
+    window.addEventListener("load", function () { setTimeout(hidePreloader, 300); });
+    setTimeout(hidePreloader, 2500); // safety
+
+    (async function () {
+      await Store.init();
+
+
+      // Live operations showcase: cycle through real product scenes so a
+      // business owner sees every step — invoice, AI finance, shipment QR,
+      // inventory — happening inside one console.
+      (function showcase() {
+        const win = document.getElementById("dxWin");
+        if (!win) return;
+        const scenes = [].slice.call(win.querySelectorAll(".dx-sc"));
+        const flows  = [].slice.call(win.querySelectorAll(".dx-fl"));
+        const reduce = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+        // Build a QR-style matrix once (finder squares are already in the DOM).
+        (function buildQR() {
+          const qr = document.getElementById("dxQR");
+          if (!qr) return;
+          const N = 15;
+          qr.style.setProperty("--n", N);
+          for (let r = 0; r < N; r++) {
+            for (let c = 0; c < N; c++) {
+              const inFinder = (r < 5 && c < 5) || (r < 5 && c >= N - 5) || (r >= N - 5 && c < 5);
+              const cell = document.createElement("i");
+              if (!inFinder && Math.random() > 0.46) {
+                cell.className = "on";
+                cell.style.setProperty("--qd", (Math.random() * 0.55).toFixed(2) + "s");
+              }
+              qr.appendChild(cell);
+            }
+          }
+        })();
+
+        // Count a number up/down when its scene appears.
+        function animateCount(el, from, to, dur) {
+          if (reduce) { el.textContent = to.toLocaleString(); return; }
+          const start = performance.now();
+          (function tick(now) {
+            const p = Math.min(1, (now - start) / dur);
+            const e = 1 - Math.pow(1 - p, 3);
+            el.textContent = Math.round(from + (to - from) * e).toLocaleString();
+            if (p < 1) requestAnimationFrame(tick);
+          })(start);
+        }
+        function onShow(i) {
+          if (i === 3) {
+            win.querySelectorAll('.dx-sc[data-i="3"] .it-stock').forEach((el) => {
+              animateCount(el, +el.dataset.from, +el.dataset.to, 950);
+            });
+          }
+        }
+
+        function show(n) {
+          scenes.forEach((s, k) => s.classList.toggle("active", k === n));
+          flows.forEach((f, k) => { f.classList.toggle("active", k === n); f.classList.toggle("done", k < n); });
+          onShow(n);
+        }
+
+        if (reduce) { show(0); flows.forEach((f) => f.classList.add("active")); return; }
+        let i = 0;
+        show(0);
+        setInterval(() => { i = (i + 1) % scenes.length; show(i); }, 3400);
+      })();
+
+      // Build the "Solutions" nav dropdown from the industry registry.
+      (function buildSolutions() {
+        const m = document.getElementById("solMenu");
+        if (!m || !window.INDUSTRIES) return;
+        m.innerHTML = Object.keys(INDUSTRIES).map((k) => {
+          const ind = INDUSTRIES[k];
+          return '<a href="signup"><span class="mi">' + UI.icon(ind.icon) + "</span>" +
+            "<span>" + ind.name + "<small>" + ind.blurb + "</small></span></a>";
+        }).join("");
+      })();
+
+      // The email + password form is always visible. Below it we show the
+      // companies registered on this device as a convenience — tapping one
+      // pre-fills its owner email so you just type the password.
+      const picker = document.getElementById("companyPicker");
+      const form = document.getElementById("loginForm");
+      const lcSub = document.getElementById("lcSub");
+
+      function escapeHtml(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
+      function logoMarkup(w) {
+        if (w.logo) return '<span class="co-logo"><img src="' + w.logo + '" alt="" /></span>';
+        return '<span class="co-logo">' + (w.company || "?").trim().charAt(0).toUpperCase() + "</span>";
+      }
+      function presetName(w) { const ind = (window.INDUSTRIES || {})[w.industry]; return ind ? ind.name : "Business"; }
+
+      function renderQuickPick() {
+        // Disabled at user request
+        if (picker) picker.innerHTML = "";
+      }
+      renderQuickPick();
+
+      // Initialize language selector dropdown active state
+      const currentLang = UI.getLang();
+      let activeLangName = "Türkçe";
+      if (currentLang === "en") activeLangName = "English";
+
+      const langCurrent = document.querySelector(".lang-current");
+      if (langCurrent) langCurrent.textContent = activeLangName;
+      
+      document.querySelectorAll(".lang-item").forEach(item => {
+        item.classList.toggle("active", item.dataset.value === currentLang);
+      });
+
+      // Wire language selector
+      const trigger = document.getElementById("langTrigger");
+      const dropdown = document.getElementById("langDropdown");
+      if (trigger && dropdown) {
+        trigger.addEventListener("click", (e) => {
+          e.stopPropagation();
+          dropdown.classList.toggle("open");
+        });
+        document.addEventListener("click", () => {
+          dropdown.classList.remove("open");
+        });
+        dropdown.querySelectorAll(".lang-item").forEach((item) => {
+          item.addEventListener("click", (e) => {
+            e.stopPropagation();
+            UI.setLang(item.dataset.value);
+            location.reload();
+          });
+        });
+      }
+
+      if (location.hash.startsWith("#/track")) { location.href = "index.html" + location.hash; return; }
+      if (Auth.current()) { location.href = "index.html"; return; }
+      const err = document.getElementById("err");
+      form.addEventListener("submit", async function (e) {
+        e.preventDefault();
+        err.classList.remove("show");
+        const email = document.getElementById("email").value.trim();
+        const pass = document.getElementById("password").value;
+        const session = await Auth.loginAny(email, pass);
+        if (session) { location.href = "index.html"; return; }
+        const noCompanies = !window.Workspace || Workspace.all().length === 0;
+        err.textContent = noCompanies
+          ? "No companies yet — create your workspace first."
+          : "Invalid email or password.";
+        err.classList.add("show");
+      });
+
+      // ---- pricing plans data ----
+      const PLANS = {
+        individual: [
+          { name:"Free", icon:"cloud", tag:"Get your business online",
+            price:{ type:"fixed", amt:"$0", unit:"free forever" },
+            cta:{ label:"Use WeboCloud free", href:"signup.html", style:"btn-ghost" }, sub:"No card needed",
+            head:"What you get",
+            feats:["<b>1 user</b> — full owner access","Orders, inventory &amp; finance","Dashboard &amp; reports","10&nbsp;GB storage","Community support"] },
+          { name:"Pro", icon:"spark", tag:"Run your whole business", rec:true,
+            price:{ type:"cycle", monthly:{ amt:"$20", unit:"USD / month<br>billed monthly" }, yearly:{ amt:"$17", unit:"USD / month<br>billed annually" } },
+            cta:{ label:"Get Pro plan", href:"checkout.html?plan=pro", style:"btn-dark" }, sub:"Cancel anytime",
+            head:"Everything in Free, and:",
+            feats:["Unlimited orders &amp; invoices","<b>AI Accountant</b> — finance insights","E-fatura &amp; receipts","Shipment labels + QR printing","Full audit history","Email &amp; chat support"] },
+          { name:"Max", icon:"bolt", tag:"Higher limits, priority access",
+            price:{ type:"from", amt:"From $100", unit:"USD / month<br>billed monthly" },
+            cta:{ label:"Get Max plan", href:"checkout.html?plan=max", style:"btn-dark" }, sub:"No commitment · Cancel anytime",
+            head:"Everything in Pro, plus:",
+            feats:["Up to <b>20× higher</b> limits","Priority processing","Advanced P&amp;L &amp; exports","Custom branding","Priority support"] }
+        ],
+        team: [
+          { name:"Team", icon:"users", tag:"For small teams",
+            price:{ type:"fixed", amt:"$50", unit:"USD / month<br>up to 5 seats" },
+            cta:{ label:"Get Team plan", href:"checkout.html?plan=team", style:"btn-ghost" }, sub:"14-day free trial",
+            head:"What you get",
+            feats:["<b>Up to 5 employees</b>","Role-based access","Shared workspace data","Task assignment &amp; handoffs","100&nbsp;GB storage","Priority support (24h)"] },
+          { name:"Business", icon:"building", tag:"Scale operations across branches", rec:true,
+            price:{ type:"cycle", monthly:{ amt:"$120", unit:"USD / month<br>billed monthly" }, yearly:{ amt:"$100", unit:"USD / month<br>billed annually" } },
+            cta:{ label:"Get Business plan", href:"checkout.html?plan=business", style:"btn-dark" }, sub:"Cancel anytime",
+            head:"Everything in Team, plus:",
+            feats:["<b>Up to 25 employees</b>","Multi-warehouse &amp; multi-currency","Live AI Accountant (Gemini)","Quotations &amp; purchase orders","Advanced permissions","Priority support (12h)"] },
+          { name:"Enterprise", icon:"building", tag:"Custom & unlimited",
+            price:{ type:"custom", amt:"Custom", unit:"tailored to your org" },
+            cta:{ label:"Contact sales", href:"mailto:sales@webocloud.app", style:"btn-ghost" }, sub:"Custom onboarding · SLA",
+            head:"Everything in Business, plus:",
+            feats:["<b>Unlimited</b> employees &amp; seats","Live cloud backend (REST + DB)","Custom domain &amp; white-label","SSO / SAML","Dedicated success manager","99.9% uptime SLA · 1h support"] }
+        ]
+      };
+
+      const CK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>';
+      const ICONS = {
+        spark: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M5.6 5.6l2.8 2.8M15.6 15.6l2.8 2.8M18.4 5.6l-2.8 2.8M8.4 15.6l-2.8 2.8"/></svg>',
+        bolt:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg>',
+        cloud: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19a4.5 4.5 0 0 0 .5-8.97A6 6 0 0 0 6.5 9 4.5 4.5 0 0 0 6 18z"/></svg>',
+        users: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
+        building: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M5 21V7l8-4v18M19 21V11l-6-3M9 9h.01M9 13h.01M9 17h.01"/></svg>'
+      };
+
+      let grp = "individual";
+      let cycle = "yearly";
+
+      function priceBlock(p) {
+        if (p.price.type === "cycle") {
+          var c = p.price[cycle];
+          return '<div class="c-price"><span class="c-amt">' + c.amt + '</span><span class="c-unit">' + c.unit + '</span></div>';
+        }
+        var big = (p.price.type === "from" || p.price.type === "custom") ? " sm" : "";
+        return '<div class="c-price"><span class="c-amt' + big + '">' + p.price.amt + '</span><span class="c-unit">' + p.price.unit + '</span></div>';
+      }
+      function cycleToggle(p) {
+        if (p.price.type !== "cycle") return "";
+        return '<div class="c-cycle" data-cyc>' +
+          '<button type="button" data-c="monthly" class="' + (cycle === "monthly" ? "on" : "") + '">Monthly</button>' +
+          '<button type="button" data-c="yearly" class="' + (cycle === "yearly" ? "on" : "") + '">Yearly <span class="save">· Save 17%</span></button>' +
+        '</div>';
+      }
+      function iconClass(i) { return i === "building" ? "gold" : (i === "users" ? "green" : ""); }
+
+      function renderPricing() {
+        var list = PLANS[grp];
+        const cardsEl = document.getElementById("cards");
+        if (!cardsEl) return;
+        cardsEl.innerHTML = list.map(function (p) {
+          var href = p.cta.href;
+          if (p.price.type === "cycle" && href.indexOf("checkout.html") === 0) href += "&cycle=" + cycle;
+          return '<div class="price-card' + (p.rec ? " rec" : "") + '">' +
+            '<div class="c-top"><span class="c-ico ' + iconClass(p.icon) + '">' + ICONS[p.icon] + '</span>' +
+              (p.rec ? '<span class="c-rec">Recommended</span>' : '') + '</div>' +
+            '<div class="c-name">' + p.name + '</div>' +
+            '<div class="c-tag">' + p.tag + '</div>' +
+            cycleToggle(p) +
+            priceBlock(p) +
+            '<div class="c-cta"><a href="' + href + '" class="btn ' + p.cta.style + '">' + p.cta.label + '</a></div>' +
+            '<div class="c-sub">' + (p.sub || "") + '</div>' +
+            '<div class="c-feats"><h4>' + p.head + '</h4>' +
+              p.feats.map(function (f) { return '<div class="c-feat"><span class="ck">' + CK + '</span><span>' + f + '</span></div>'; }).join("") +
+            '</div>' +
+          '</div>';
+        }).join("");
+
+        // wire in-card cycle toggles
+        document.querySelectorAll("[data-cyc] button").forEach(function (b) {
+          b.addEventListener("click", function () { cycle = b.dataset.c; renderPricing(); });
+        });
+      }
+
+      // group toggle
+      document.querySelectorAll("#seg button").forEach(function (b) {
+        b.addEventListener("click", function () {
+          document.querySelectorAll("#seg button").forEach(function (x) { x.classList.remove("on"); });
+          b.classList.add("on");
+          grp = b.dataset.grp;
+          renderPricing();
+        });
+      });
+
+      renderPricing();
+      document.getElementById("yr").textContent = new Date().getFullYear();
+
+      // FAQ Accordion logic
+      document.querySelectorAll(".faq-trigger").forEach(function (trigger) {
+        trigger.addEventListener("click", function () {
+          var item = trigger.closest(".faq-item");
+          var content = item.querySelector(".faq-content");
+          var arrow = item.querySelector(".faq-arrow");
+          var isOpen = content.style.maxHeight && content.style.maxHeight !== "0px";
+          
+          // Close all other items (accordion behavior)
+          document.querySelectorAll(".faq-content").forEach(function (c) {
+            c.style.maxHeight = "0px";
+            c.closest(".faq-item").style.borderColor = "var(--line)";
+            c.closest(".faq-item").querySelector(".faq-arrow").style.transform = "rotate(0deg)";
+          });
+          
+          if (!isOpen) {
+            content.style.maxHeight = content.scrollHeight + "px";
+            item.style.borderColor = "var(--accent)";
+            arrow.style.transform = "rotate(180deg)";
+          }
+        });
+      });
+
+    })();
+  </script>
+</body>
+</html>

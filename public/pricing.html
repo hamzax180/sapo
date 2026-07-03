@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#1aa6df" />
+  <meta name="description" content="WeboCloud plan prices â€” simple, transparent plans that scale with your business." />
+  <title>Plan prices â€” WeboCloud</title>
+  <link rel="icon" type="image/svg+xml" href="assets/favicon.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Jost:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/sap.css?v=28" />
+  <style>
+    /* ---- marketing top navigation (shared with login) ---- */
+    :root { --wcnav-h:64px; }
+    body { background:linear-gradient(180deg, #f9fbfd, var(--surface-2)); min-height:100vh; }
+    .wc-nav { position:sticky; top:0; z-index:30; height:var(--wcnav-h); display:flex; align-items:center; gap:20px;
+      padding:0 clamp(16px,3vw,40px); background:rgba(255,255,255,.92); backdrop-filter:saturate(160%) blur(8px); border-bottom:1px solid var(--line); }
+    .wc-brand { display:flex; align-items:center; gap:10px; text-decoration:none; flex:0 0 auto; }
+    .wc-brand .wc-mark { width:30px; height:30px; display:grid; place-items:center; }
+    .wc-brand .wc-name { font-family:var(--font-head); font-weight:800; letter-spacing:.02em; color:var(--navy-800); font-size:1.06rem; }
+    .wc-links { display:flex; align-items:center; gap:4px; margin-left:8px; flex:1; }
+    .wc-item { position:relative; }
+    .wc-item > .wc-top { display:inline-flex; align-items:center; gap:5px; background:none; border:0; cursor:pointer;
+      font:inherit; font-size:.92rem; font-weight:500; color:var(--ink); padding:9px 12px; border-radius:8px; text-decoration:none; }
+    .wc-item > .wc-top.active { color:var(--accent); font-weight:600; }
+    .wc-item > .wc-top svg { width:13px; height:13px; transition:transform .18s; opacity:.7; }
+    .wc-item:hover > .wc-top { background:#f3f5f8; color:var(--navy-700); }
+    .wc-item:hover > .wc-top svg { transform:rotate(180deg); }
+    .wc-menu { position:absolute; top:calc(100% + 6px); left:0; min-width:212px; background:#fff; border:1px solid var(--line);
+      border-radius:12px; box-shadow:0 16px 40px rgba(13,42,69,.14); padding:7px; opacity:0; visibility:hidden;
+      transform:translateY(6px); transition:opacity .16s, transform .16s, visibility .16s; }
+    .wc-item:hover .wc-menu { opacity:1; visibility:visible; transform:translateY(0); }
+    .wc-menu a { display:flex; align-items:center; gap:10px; padding:9px 11px; border-radius:8px; text-decoration:none; color:var(--ink); font-size:.88rem; }
+    .wc-menu a:hover { background:#f3f7fb; color:var(--navy-700); }
+    .wc-menu a .mi { width:26px; height:26px; flex:0 0 auto; border-radius:7px; background:#eef4fa; color:var(--navy-600); display:grid; place-items:center; }
+    .wc-menu a .mi svg { width:15px; height:15px; }
+    .wc-menu a small { display:block; color:var(--muted); font-weight:400; font-size:.74rem; margin-top:1px; }
+    .wc-actions { display:flex; align-items:center; gap:10px; flex:0 0 auto; }
+    .wc-btn-ghost { display:inline-flex; align-items:center; padding:8px 15px; border:1px solid var(--line); border-radius:9px; background:#fff; color:var(--navy-700); font-size:.88rem; font-weight:600; text-decoration:none; cursor:pointer; }
+    .wc-btn-ghost:hover { border-color:#9cc4e4; background:#f6fafd; }
+    .wc-btn-dark { display:inline-flex; align-items:center; padding:9px 17px; border-radius:9px; background:var(--navy-800); color:#fff; font-size:.88rem; font-weight:600; text-decoration:none; cursor:pointer; border:1px solid var(--navy-800); }
+    .wc-btn-dark:hover { background:var(--navy-700); }
+    @media (max-width:900px) { .wc-links { display:none; } .wc-actions .wc-btn-ghost { display:none; } :root { --wcnav-h:56px; } }
+
+    /* ---- page ---- */
+    .wrap { max-width:1060px; margin:0 auto; padding:clamp(28px,5vw,58px) 20px 40px; }
+    .price-hero { text-align:center; max-width:680px; margin:0 auto; }
+    .price-hero h1 { font-family:var(--font-head); font-size:clamp(1.9rem,4.6vw,2.7rem); color:var(--navy-800); letter-spacing:-.02em; line-height:1.08; }
+    .price-hero p { margin-top:11px; color:var(--muted); font-size:1.02rem; line-height:1.55; }
+
+    /* Individual / Team segmented toggle */
+    .seg { display:inline-flex; background:#eef2f7; border:1px solid var(--line); border-radius:13px; padding:5px; margin:22px auto 32px; gap:4px; }
+    .seg button { border:0; background:none; cursor:pointer; font:inherit; font-size:.9rem; font-weight:600; color:var(--muted); padding:9px 20px; border-radius:9px; transition:color .18s, background .18s, box-shadow .18s; white-space:nowrap; }
+    .seg button.on { background:#fff; color:var(--navy-800); box-shadow:0 2px 8px rgba(13,42,69,.08); }
+
+    /* plan cards */
+    .cards { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; align-items:stretch; }
+    .card { display:flex; flex-direction:column; background:var(--surface); border:1.5px solid var(--line); border-radius:18px; padding:24px 22px; position:relative; transition:transform .2s, box-shadow .2s; }
+    .card:hover { box-shadow:var(--sh-sm); }
+    .card.rec { background:linear-gradient(180deg,#eef8fe,#fff 42%); border-color:#bfe1f4; box-shadow:0 20px 54px rgba(26,166,223,.16); }
+    .c-top { display:flex; align-items:flex-start; justify-content:space-between; gap:10px; min-height:42px; }
+    .c-ico { width:42px; height:42px; border-radius:12px; display:grid; place-items:center; background:var(--accent-50); color:var(--accent); flex:0 0 auto; }
+    .c-ico.green { background:#edf7e6; color:#5cb12f; }
+    .c-ico.gold { background:var(--gold-50); color:var(--gold); }
+    .c-ico svg { width:22px; height:22px; }
+    .c-rec { font-size:.7rem; font-weight:800; letter-spacing:.02em; color:#fff; background:var(--accent); padding:5px 11px; border-radius:999px; align-self:flex-start; }
+    .c-name { font-family:var(--font-head); font-weight:800; font-size:1.5rem; color:var(--navy-800); margin-top:14px; letter-spacing:-.01em; }
+    .c-tag { color:var(--muted); font-size:.9rem; margin-top:3px; line-height:1.4; min-height:38px; }
+
+    .c-cycle { display:inline-flex; background:#eef2f7; border:1px solid var(--line); border-radius:999px; padding:3px; margin-top:14px; gap:2px; }
+    .c-cycle button { border:0; background:none; cursor:pointer; font:inherit; font-size:.74rem; font-weight:700; color:var(--muted); padding:5px 11px; border-radius:999px; transition:all .16s; white-space:nowrap; }
+    .c-cycle button.on { background:#fff; color:var(--navy-800); box-shadow:0 1px 5px rgba(13,42,69,.12); }
+    .c-cycle .save { color:var(--accent); }
+
+    .c-price { display:flex; align-items:flex-end; gap:9px; margin:16px 0 2px; min-height:50px; }
+    .c-amt { font-family:var(--font-head); font-weight:800; font-size:2.55rem; letter-spacing:-.02em; color:var(--navy-800); line-height:.92; }
+    .c-amt.sm { font-size:1.7rem; }
+    .c-unit { font-size:.76rem; color:var(--muted); line-height:1.4; padding-bottom:4px; }
+    .c-cta { margin-top:14px; }
+    .c-cta .btn { width:100%; justify-content:center; padding:12px; font-size:.92rem; }
+    .c-sub { text-align:center; font-size:.73rem; color:var(--muted); margin-top:9px; min-height:16px; }
+
+    .c-feats { margin-top:18px; padding-top:18px; border-top:1px solid var(--line); }
+    .card.rec .c-feats { border-top-color:#cfe7f6; }
+    .c-feats h4 { font-size:.82rem; font-weight:700; color:var(--navy-700); margin-bottom:13px; }
+    .c-feat { display:flex; gap:10px; font-size:.86rem; color:var(--ink); margin-bottom:11px; line-height:1.4; }
+    .c-feat:last-child { margin-bottom:0; }
+    .c-feat .ck { color:var(--accent); flex:0 0 auto; margin-top:1px; }
+    .c-feat .ck svg { width:16px; height:16px; }
+    .c-feat b { color:var(--navy-700); font-weight:600; }
+
+    .price-foot-note { text-align:center; color:var(--muted); font-size:.86rem; margin:34px auto 0; max-width:620px; }
+    .price-foot-note a { color:var(--accent); text-decoration:none; font-weight:600; }
+
+    /* cta strip */
+    .cta { margin-top:50px; background:linear-gradient(135deg, var(--navy-900), var(--navy-700) 60%, var(--navy-500)); border-radius:18px;
+      padding:40px 44px; display:flex; align-items:center; justify-content:space-between; gap:26px; flex-wrap:wrap; box-shadow:var(--sh-lg); }
+    .cta h2 { font-family:var(--font-head); font-size:1.45rem; font-weight:700; color:#fff; letter-spacing:-.01em; }
+    .cta p { font-size:.92rem; color:#aebfd0; max-width:400px; line-height:1.6; margin-top:6px; }
+    .cta-btns { display:flex; gap:10px; flex-shrink:0; }
+    .cta-w { display:inline-flex; align-items:center; padding:11px 22px; border-radius:9px; background:#fff; color:var(--navy-800); font-weight:600; font-size:.9rem; text-decoration:none; }
+    .cta-w:hover { background:#eef4fa; }
+    .cta-g { display:inline-flex; align-items:center; padding:11px 22px; border-radius:9px; background:transparent; color:#cdd9e6; border:1px solid rgba(255,255,255,.25); font-size:.9rem; text-decoration:none; }
+    .cta-g:hover { color:#fff; border-color:rgba(255,255,255,.5); }
+
+    .wc-foot { border-top:1px solid var(--line); margin-top:48px; padding:24px 20px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; font-size:.82rem; color:var(--muted); max-width:1060px; margin-left:auto; margin-right:auto; }
+    .wc-foot a { color:var(--muted); text-decoration:none; }
+    .wc-foot a:hover { color:var(--navy-700); }
+    .ft-links { display:flex; gap:18px; }
+
+    /* ---------- mobile: feel like a real app ---------- */
+    @media (max-width:860px) {
+      .cards { grid-template-columns:1fr; max-width:440px; margin:0 auto; gap:14px; }
+      .card.rec { order:-1; }
+      .c-tag { min-height:0; }
+    }
+    @media (max-width:560px) {
+      .wrap { padding:20px 14px 30px; }
+      .seg { display:flex; width:100%; max-width:340px; margin:18px auto 22px; }
+      .seg button { flex:1; padding:11px 8px; }
+      .card { border-radius:16px; padding:20px 18px; }
+      .c-tag { min-height:0; }
+      .cta { padding:26px 22px; text-align:center; justify-content:center; flex-direction:column; }
+      .cta-btns { justify-content:center; width:100%; }
+      .cta-w, .cta-g { flex:1; justify-content:center; }
+      .wc-foot { flex-direction:column; text-align:center; gap:14px; }
+      .ft-links { flex-wrap:wrap; justify-content:center; }
+    }
+    
+    /* FAQ Accordion hover effects */
+    .faq-item:hover { border-color: #9cc4e4 !important; }
+    .faq-trigger:hover { background: #fafdff !important; }
+  </style>
+</head>
+<body>
+  <!-- Marketing top navigation -->
+  <header class="wc-nav">
+    <a class="wc-brand" href="login.html">
+      <span class="wc-mark"><svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><defs><linearGradient id="nv-grad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#1aa6df"/><stop offset="100%" stop-color="#5cb12f"/></linearGradient></defs><circle cx="20" cy="27" r="7.5" fill="url(#nv-grad)"/><circle cx="32" cy="23" r="9.5" fill="url(#nv-grad)"/><circle cx="44" cy="27" r="7.5" fill="url(#nv-grad)"/><rect x="12.5" y="29" width="39" height="8" fill="url(#nv-grad)"/><path d="M14 37 L20 50 L27 40 L32 50 L37 40 L44 50 L50 37 Z" fill="url(#nv-grad)"/></svg></span>
+      <span class="wc-name">WeboCloud</span>
+    </a>
+
+    <nav class="wc-links">
+      <div class="wc-item">
+        <button type="button" class="wc-top">Platform <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></button>
+        <div class="wc-menu">
+          <a href="signup.html"><span class="mi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg></span><span>Operations console<small>Dashboard, orders, stock, finance</small></span></a>
+          <a href="signup.html"><span class="mi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M2 12h20"/></svg></span><span>Multi-company<small>Run every branch in one place</small></span></a>
+          <a href="signup.html"><span class="mi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></span><span>Audit history<small>Every action, logged</small></span></a>
+        </div>
+      </div>
+      <div class="wc-item">
+        <button type="button" class="wc-top">Solutions <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></button>
+        <div class="wc-menu" id="solMenu"></div>
+      </div>
+      <div class="wc-item">
+        <button type="button" class="wc-top active">Pricing <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></button>
+        <div class="wc-menu">
+          <a href="pricing.html?group=individual"><span class="mi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span><span>Individual<small>Single user &amp; solo founder plans</small></span></a>
+          <a href="pricing.html?group=team"><span class="mi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></span><span>Enterprise<small>Multi-user teams &amp; offices</small></span></a>
+        </div>
+      </div>
+      <div class="wc-item">
+        <button type="button" class="wc-top">Resources <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></button>
+        <div class="wc-menu">
+          <a href="assets/docs/MERVEKS_SAP_Client_Guide.pdf" target="_blank"><span class="mi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg></span><span>User guide (EN)<small>PDF walkthrough</small></span></a>
+          <a href="assets/docs/MERVEKS_SAP_Musteri_Kilavuzu.pdf" target="_blank"><span class="mi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg></span><span>KullanÄ±m kÄ±lavuzu (TR)<small>PDF rehber</small></span></a>
+        </div>
+      </div>
+    </nav>
+
+    <div class="wc-actions">
+      <a class="wc-btn-ghost" href="login.html">Sign in</a>
+      <a class="wc-btn-dark" href="signup.html">Create workspace</a>
+    </div>
+  </header>
+
+  <div class="wrap">
+    <div class="price-hero">
+      <h1>Plan prices</h1>
+      <p>Start free, upgrade when you're ready. Every plan keeps your data exactly where it is â€” no rebuild, no migration.</p>
+    </div>
+
+    <div style="text-align:center">
+      <div class="seg" id="seg">
+        <button type="button" data-grp="individual" class="on">Individual</button>
+        <button type="button" data-grp="team">Team &amp; Enterprise</button>
+      </div>
+    </div>
+
+    <div class="cards" id="cards"></div>
+
+    <p class="price-foot-note">All prices in USD, excluding local tax (KDV). Need something custom? <a href="mailto:sales@webocloud.app">Talk to sales</a>.</p>
+
+    <!-- FAQ Accordion Section -->
+    <section class="faq-section" style="margin-top: 64px; margin-bottom: 58px;">
+      <h2 style="font-family:var(--font-head); font-size:1.85rem; font-weight:800; color:var(--navy-800); text-align:center; margin-bottom:28px; letter-spacing:-.01em;">Frequently Asked Questions</h2>
+      <div class="faq-container" style="max-width:760px; margin:0 auto; display:flex; flex-direction:column; gap:12px;">
+        
+        <div class="faq-item" style="background:#fff; border:1px solid var(--line); border-radius:12px; overflow:hidden; transition:border-color .15s;">
+          <button type="button" class="faq-trigger" style="width:100%; display:flex; align-items:center; justify-content:space-between; gap:16px; padding:18px 20px; background:none; border:0; text-align:left; font:inherit; font-size:0.98rem; font-weight:700; color:var(--navy-800); cursor:pointer;">
+            <span>Can I switch plans later?</span>
+            <svg class="faq-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="width:16px; height:16px; flex:0 0 auto; color:var(--muted); transition:transform .2s;"><path d="m6 9 6 6 6-6"/></svg>
+          </button>
+          <div class="faq-content" style="max-height:0; overflow:hidden; transition:max-height .25s ease-out;">
+            <div style="padding:0 20px 18px; font-size:0.88rem; color:var(--ink); line-height:1.55;">
+              Yes, you can upgrade, downgrade, or cancel your subscription at any time directly from your console settings. Changes apply immediately.
+            </div>
+          </div>
+        </div>
+
+        <div class="faq-item" style="background:#fff; border:1px solid var(--line); border-radius:12px; overflow:hidden; transition:border-color .15s;">
+          <button type="button" class="faq-trigger" style="width:100%; display:flex; align-items:center; justify-content:space-between; gap:16px; padding:18px 20px; background:none; border:0; text-align:left; font:inherit; font-size:0.98rem; font-weight:700; color:var(--navy-800); cursor:pointer;">
+            <span>Is my business data secure?</span>
+            <svg class="faq-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="width:16px; height:16px; flex:0 0 auto; color:var(--muted); transition:transform .2s;"><path d="m6 9 6 6 6-6"/></svg>
+          </button>
+          <div class="faq-content" style="max-height:0; overflow:hidden; transition:max-height .25s ease-out;">
+            <div style="padding:0 20px 18px; font-size:0.88rem; color:var(--ink); line-height:1.55;">
+              Absolutely. WeboCloud uses bank-grade security protocols. If you use Neon or self-hosted databases, you retain full ownership and control over your records.
+            </div>
+          </div>
+        </div>
+
+        <div class="faq-item" style="background:#fff; border:1px solid var(--line); border-radius:12px; overflow:hidden; transition:border-color .15s;">
+          <button type="button" class="faq-trigger" style="width:100%; display:flex; align-items:center; justify-content:space-between; gap:16px; padding:18px 20px; background:none; border:0; text-align:left; font:inherit; font-size:0.98rem; font-weight:700; color:var(--navy-800); cursor:pointer;">
+            <span>What happens when my 1-day trial expires?</span>
+            <svg class="faq-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="width:16px; height:16px; flex:0 0 auto; color:var(--muted); transition:transform .2s;"><path d="m6 9 6 6 6-6"/></svg>
+          </button>
+          <div class="faq-content" style="max-height:0; overflow:hidden; transition:max-height .25s ease-out;">
+            <div style="padding:0 20px 18px; font-size:0.88rem; color:var(--ink); line-height:1.55;">
+              Your account will be temporarily locked until a subscription payment is completed. All your seeded data, company logo, and settings are preserved so you can pick up right where you left off.
+            </div>
+          </div>
+        </div>
+
+        <div class="faq-item" style="background:#fff; border:1px solid var(--line); border-radius:12px; overflow:hidden; transition:border-color .15s;">
+          <button type="button" class="faq-trigger" style="width:100%; display:flex; align-items:center; justify-content:space-between; gap:16px; padding:18px 20px; background:none; border:0; text-align:left; font:inherit; font-size:0.98rem; font-weight:700; color:var(--navy-800); cursor:pointer;">
+            <span>How do I pay?</span>
+            <svg class="faq-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="width:16px; height:16px; flex:0 0 auto; color:var(--muted); transition:transform .2s;"><path d="m6 9 6 6 6-6"/></svg>
+          </button>
+          <div class="faq-content" style="max-height:0; overflow:hidden; transition:max-height .25s ease-out;">
+            <div style="padding:0 20px 18px; font-size:0.88rem; color:var(--ink); line-height:1.55;">
+              We accept instant bank transfers via T.C. Ziraat Bankası QR code (Karekod) or IBAN transfer. Company accounts are typically unlocked within 1 to 24 hours after sending payment.
+            </div>
+          </div>
+        </div>
+
+        <div class="faq-item" style="background:#fff; border:1px solid var(--line); border-radius:12px; overflow:hidden; transition:border-color .15s;">
+          <button type="button" class="faq-trigger" style="width:100%; display:flex; align-items:center; justify-content:space-between; gap:16px; padding:18px 20px; background:none; border:0; text-align:left; font:inherit; font-size:0.98rem; font-weight:700; color:var(--navy-800); cursor:pointer;">
+            <span>Do you support multi-branch operations?</span>
+            <svg class="faq-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="width:16px; height:16px; flex:0 0 auto; color:var(--muted); transition:transform .2s;"><path d="m6 9 6 6 6-6"/></svg>
+          </button>
+          <div class="faq-content" style="max-height:0; overflow:hidden; transition:max-height .25s ease-out;">
+            <div style="padding:0 20px 18px; font-size:0.88rem; color:var(--ink); line-height:1.55;">
+              Yes! The Team and Business plans fully support multi-warehouse tracking, multi-currency transactions, and custom role permissions across different branches.
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- CTA -->
+    <div class="cta">
+      <div>
+        <h2>Ready to get started?</h2>
+        <p>Everything you need to run your business â€” orders, inventory, team and finance in one place.</p>
+      </div>
+      <div class="cta-btns">
+        <a href="signup.html" class="cta-w">Start free</a>
+        <a href="login.html" class="cta-g">Sign in</a>
+      </div>
+    </div>
+  </div>
+
+  <footer class="wc-foot">
+    <span>Â© <span id="yr"></span> WeboCloud Â· Cloud Operations Platform</span>
+    <div class="ft-links">
+      <a href="signup.html">Create workspace</a>
+      <a href="login.html">Sign in</a>
+      <a href="mailto:sales@webocloud.app">Contact sales</a>
+    </div>
+  </footer>
+
+  <script src="js/config.js?v=28"></script>
+  <script src="js/seed.js?v=28"></script>
+  <script src="js/sample-data.js?v=28"></script>
+  <script src="js/industries.js?v=28"></script>
+  <script src="js/store.js?v=28"></script>
+  <script src="js/ui.js?v=28"></script>
+  <script>
+    (function () {
+      // ---- Build the "Solutions" nav dropdown from the industry registry ----
+      var m = document.getElementById("solMenu");
+      if (m && window.INDUSTRIES) {
+        m.innerHTML = Object.keys(INDUSTRIES).map(function (k) {
+          var ind = INDUSTRIES[k];
+          return '<a href="signup"><span class="mi">' + UI.icon(ind.icon) + "</span>" +
+            "<span>" + ind.name + "<small>" + ind.blurb + "</small></span></a>";
+        }).join("");
+      }
+      document.getElementById("yr").textContent = new Date().getFullYear();
+
+      // ---- icons ----
+      var CK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>';
+      var ICONS = {
+        spark: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M5.6 5.6l2.8 2.8M15.6 15.6l2.8 2.8M18.4 5.6l-2.8 2.8M8.4 15.6l-2.8 2.8"/></svg>',
+        bolt:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg>',
+        cloud: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19a4.5 4.5 0 0 0 .5-8.97A6 6 0 0 0 6.5 9 4.5 4.5 0 0 0 6 18z"/></svg>',
+        users: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
+        building: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M5 21V7l8-4v18M19 21V11l-6-3M9 9h.01M9 13h.01M9 17h.01"/></svg>'
+      };
+
+      // ---- plan data ----
+      var PLANS = {
+        individual: [
+          { name:"Free", icon:"cloud", tag:"Get your business online",
+            price:{ type:"fixed", amt:"$0", unit:"free forever" },
+            cta:{ label:"Use WeboCloud free", href:"signup.html", style:"btn-ghost" }, sub:"No card needed",
+            head:"What you get",
+            feats:["<b>1 user</b> â€” full owner access","Orders, inventory &amp; finance","Dashboard &amp; reports","10&nbsp;GB storage","Community support"] },
+          { name:"Pro", icon:"spark", tag:"Run your whole business", rec:true,
+            price:{ type:"cycle", monthly:{ amt:"$20", unit:"USD / month<br>billed monthly" }, yearly:{ amt:"$17", unit:"USD / month<br>billed annually" } },
+            cta:{ label:"Get Pro plan", href:"checkout.html?plan=pro", style:"btn-dark" }, sub:"Cancel anytime",
+            head:"Everything in Free, and:",
+            feats:["Unlimited orders &amp; invoices","<b>AI Accountant</b> â€” finance insights","E-fatura &amp; receipts","Shipment labels + QR printing","Full audit history","Email &amp; chat support"] },
+          { name:"Max", icon:"bolt", tag:"Higher limits, priority access",
+            price:{ type:"from", amt:"From $100", unit:"USD / month<br>billed monthly" },
+            cta:{ label:"Get Max plan", href:"checkout.html?plan=max", style:"btn-dark" }, sub:"No commitment Â· Cancel anytime",
+            head:"Everything in Pro, plus:",
+            feats:["Up to <b>20Ã— higher</b> limits","Priority processing","Advanced P&amp;L &amp; exports","Custom branding","Priority support"] }
+        ],
+        team: [
+          { name:"Team", icon:"users", tag:"For small teams",
+            price:{ type:"fixed", amt:"$50", unit:"USD / month<br>up to 5 seats" },
+            cta:{ label:"Get Team plan", href:"checkout.html?plan=team", style:"btn-ghost" }, sub:"14-day free trial",
+            head:"What you get",
+            feats:["<b>Up to 5 employees</b>","Role-based access","Shared workspace data","Task assignment &amp; handoffs","100&nbsp;GB storage","Priority support (24h)"] },
+          { name:"Business", icon:"building", tag:"Scale operations across branches", rec:true,
+            price:{ type:"cycle", monthly:{ amt:"$120", unit:"USD / month<br>billed monthly" }, yearly:{ amt:"$100", unit:"USD / month<br>billed annually" } },
+            cta:{ label:"Get Business plan", href:"checkout.html?plan=business", style:"btn-dark" }, sub:"Cancel anytime",
+            head:"Everything in Team, plus:",
+            feats:["<b>Up to 25 employees</b>","Multi-warehouse &amp; multi-currency","Live AI Accountant (Gemini)","Quotations &amp; purchase orders","Advanced permissions","Priority support (12h)"] },
+          { name:"Enterprise", icon:"building", tag:"Custom & unlimited",
+            price:{ type:"custom", amt:"Custom", unit:"tailored to your org" },
+            cta:{ label:"Contact sales", href:"mailto:sales@webocloud.app", style:"btn-ghost" }, sub:"Custom onboarding Â· SLA",
+            head:"Everything in Business, plus:",
+            feats:["<b>Unlimited</b> employees &amp; seats","Live cloud backend (REST + DB)","Custom domain &amp; white-label","SSO / SAML","Dedicated success manager","99.9% uptime SLA Â· 1h support"] }
+        ]
+      };
+
+      function q(name) {
+        var m = new RegExp("[?&]" + name + "=([^&]+)").exec(location.search);
+        return m ? decodeURIComponent(m[1]) : null;
+      }
+      var grp = (q("group") || "individual").toLowerCase();
+      if (grp !== "team" && grp !== "individual") grp = "individual";
+
+      var cycle = "yearly"; // matches Claude default (Yearly Â· Save)
+
+      function priceBlock(p) {
+        if (p.price.type === "cycle") {
+          var c = p.price[cycle];
+          return '<div class="c-price"><span class="c-amt">' + c.amt + '</span><span class="c-unit">' + c.unit + '</span></div>';
+        }
+        var big = (p.price.type === "from" || p.price.type === "custom") ? " sm" : "";
+        return '<div class="c-price"><span class="c-amt' + big + '">' + p.price.amt + '</span><span class="c-unit">' + p.price.unit + '</span></div>';
+      }
+      function cycleToggle(p) {
+        if (p.price.type !== "cycle") return "";
+        return '<div class="c-cycle" data-cyc>' +
+          '<button type="button" data-c="monthly" class="' + (cycle === "monthly" ? "on" : "") + '">Monthly</button>' +
+          '<button type="button" data-c="yearly" class="' + (cycle === "yearly" ? "on" : "") + '">Yearly <span class="save">Â· Save 17%</span></button>' +
+        '</div>';
+      }
+      function iconClass(i) { return i === "building" ? "gold" : (i === "users" ? "green" : ""); }
+
+      function render() {
+        var list = PLANS[grp];
+        document.getElementById("cards").innerHTML = list.map(function (p) {
+          var href = p.cta.href;
+          if (p.price.type === "cycle" && href.indexOf("checkout.html") === 0) href += "&cycle=" + cycle;
+          return '<div class="card' + (p.rec ? " rec" : "") + '">' +
+            '<div class="c-top"><span class="c-ico ' + iconClass(p.icon) + '">' + ICONS[p.icon] + '</span>' +
+              (p.rec ? '<span class="c-rec">Recommended</span>' : '') + '</div>' +
+            '<div class="c-name">' + p.name + '</div>' +
+            '<div class="c-tag">' + p.tag + '</div>' +
+            cycleToggle(p) +
+            priceBlock(p) +
+            '<div class="c-cta"><a href="' + href + '" class="btn ' + p.cta.style + '">' + p.cta.label + '</a></div>' +
+            '<div class="c-sub">' + (p.sub || "") + '</div>' +
+            '<div class="c-feats"><h4>' + p.head + '</h4>' +
+              p.feats.map(function (f) { return '<div class="c-feat"><span class="ck">' + CK + '</span><span>' + f + '</span></div>'; }).join("") +
+            '</div>' +
+          '</div>';
+        }).join("");
+
+        // wire in-card cycle toggles
+        document.querySelectorAll("[data-cyc] button").forEach(function (b) {
+          b.addEventListener("click", function () { cycle = b.dataset.c; render(); });
+        });
+      }
+
+      // group toggle
+      document.querySelectorAll("#seg button").forEach(function (b) {
+        var isOn = b.dataset.grp === grp;
+        b.classList.toggle("on", isOn);
+        
+        b.addEventListener("click", function () {
+          document.querySelectorAll("#seg button").forEach(function (x) { x.classList.remove("on"); });
+          b.classList.add("on");
+          grp = b.dataset.grp;
+          render();
+        });
+      });
+
+      render();
+
+      // FAQ Accordion logic
+      document.querySelectorAll(".faq-trigger").forEach(function (trigger) {
+        trigger.addEventListener("click", function () {
+          var item = trigger.closest(".faq-item");
+          var content = item.querySelector(".faq-content");
+          var arrow = item.querySelector(".faq-arrow");
+          var isOpen = content.style.maxHeight && content.style.maxHeight !== "0px";
+          
+          // Close all other items (accordion behavior)
+          document.querySelectorAll(".faq-content").forEach(function (c) {
+            c.style.maxHeight = "0px";
+            c.closest(".faq-item").style.borderColor = "var(--line)";
+            c.closest(".faq-item").querySelector(".faq-arrow").style.transform = "rotate(0deg)";
+          });
+          
+          if (!isOpen) {
+            content.style.maxHeight = content.scrollHeight + "px";
+            item.style.borderColor = "var(--accent)";
+            arrow.style.transform = "rotate(180deg)";
+          }
+        });
+      });
+    })();
+  </script>
+</body>
+</html>
+

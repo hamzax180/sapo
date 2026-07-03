@@ -1,0 +1,10 @@
+# Backend (runs separately on Render/Railway, not Vercel static hosting)
+server/
+
+# Dev/build scratch
+scratch/
+*.py
+
+# Local tooling
+.claude/
+node_modules/

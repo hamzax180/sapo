@@ -1,0 +1,24 @@
+{
+  "env": {
+    "node": true,
+    "es2022": true
+  },
+  "parserOptions": {
+    "ecmaVersion": 2022
+  },
+  "rules": {
+    "no-undef": "warn",
+    "no-unused-vars": ["warn", { "args": "none" }],
+    "no-console": "off",
+    "no-eval": "error",
+    "no-implied-eval": "error",
+    "no-new-func": "error",
+    "eqeqeq": ["warn", "always"],
+    "no-var": "warn",
+    "prefer-const": "warn"
+  },
+  "ignorePatterns": [
+    "node_modules/",
+    "vendor/"
+  ]
+}

@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#1aa6df" />
+  <meta name="description" content="WeboCloud checkout" />
+  <title>Checkout â€” WeboCloud</title>
+  <link rel="icon" type="image/svg+xml" href="assets/favicon.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Jost:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/sap.css?v=28" />
+  <style>
+    body { background:var(--surface-2); min-height:100vh; }
+
+    /* top bar */
+    .co-bar { position:sticky; top:0; z-index:20; height:58px; display:flex; align-items:center; gap:14px;
+      padding:0 clamp(14px,4vw,28px); background:rgba(255,255,255,.94); backdrop-filter:saturate(160%) blur(8px); border-bottom:1px solid var(--line); }
+    .co-back { width:38px; height:38px; flex:0 0 auto; display:grid; place-items:center; border-radius:10px; color:var(--navy-700); background:transparent; border:0; cursor:pointer; text-decoration:none; }
+    .co-back:hover { background:#f1f5f9; }
+    .co-back svg { width:20px; height:20px; }
+    .co-brand { display:flex; align-items:center; gap:9px; text-decoration:none; }
+    .co-brand .m { width:26px; height:26px; }
+    .co-brand .n { font-family:var(--font-head); font-weight:800; color:var(--navy-800); font-size:1rem; }
+    .co-secure { margin-left:auto; display:inline-flex; align-items:center; gap:6px; font-size:.76rem; color:var(--muted); font-weight:500; }
+    .co-secure svg { width:14px; height:14px; color:#2fae7a; }
+
+    /* layout */
+    .co-wrap { max-width:560px; margin:0 auto; padding:clamp(20px,4vw,38px) 18px 60px; }
+    .co-title { font-family:var(--font-head); font-weight:800; font-size:clamp(1.5rem,5vw,1.9rem); color:var(--navy-800); letter-spacing:-.01em; margin-bottom:18px; }
+
+    /* billing cycle cards */
+    .cyc-cards { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:22px; }
+    .cyc { position:relative; display:block; cursor:pointer; border:1.5px solid var(--line); border-radius:14px; padding:15px 16px 16px; background:var(--surface); transition:border-color .15s, box-shadow .15s, background .15s; }
+    .cyc:hover { border-color:#9cc4e4; }
+    .cyc.on { border-color:var(--accent); background:#eef8fe; box-shadow:0 6px 20px rgba(26,166,223,.14); }
+    .cyc input { position:absolute; opacity:0; pointer-events:none; }
+    .cyc .radio { position:absolute; top:15px; left:16px; width:20px; height:20px; border-radius:50%; border:2px solid #c2d2e0; background:#fff; transition:all .15s; }
+    .cyc.on .radio { border-color:var(--accent); }
+    .cyc.on .radio::after { content:""; position:absolute; inset:3px; border-radius:50%; background:var(--accent); }
+    .cyc .save { position:absolute; top:14px; right:14px; font-size:.7rem; font-weight:800; color:var(--accent); background:#dcf0fb; padding:3px 9px; border-radius:999px; }
+    .cyc .nm { display:block; margin-top:30px; font-weight:700; color:var(--navy-800); font-size:.98rem; }
+    .cyc .pr { display:block; font-size:.8rem; color:var(--muted); margin-top:3px; }
+
+    /* cards */
+    .card { background:var(--surface); border:1px solid var(--line); border-radius:16px; padding:20px 20px; margin-bottom:18px; }
+    .card h2 { font-family:var(--font-head); font-weight:700; font-size:1.14rem; color:var(--navy-800); margin-bottom:14px; }
+
+    /* order details */
+    .od-row { display:flex; justify-content:space-between; align-items:flex-start; gap:14px; padding:11px 0; font-size:.92rem; color:var(--ink); }
+    .od-row .lbl b { display:block; color:var(--navy-800); font-weight:600; }
+    .od-row .lbl small { color:var(--muted); font-size:.82rem; }
+    .od-row .amt { color:var(--navy-800); font-weight:600; white-space:nowrap; }
+    .od-div { height:1px; background:var(--line); margin:2px 0; }
+    .od-total { padding-top:13px; margin-top:3px; border-top:1px solid var(--line); }
+    .od-total .lbl b { font-size:1rem; }
+    .od-total .amt { font-family:var(--font-head); font-size:1.15rem; font-weight:800; }
+
+    /* renew note */
+    .renew { display:flex; gap:11px; align-items:flex-start; background:#eef6fc; border:1px solid #cfe7f6; border-radius:13px; padding:14px 16px; margin-bottom:18px; font-size:.86rem; color:var(--navy-700); line-height:1.55; }
+    .renew svg { width:18px; height:18px; flex:0 0 auto; color:var(--accent); margin-top:1px; }
+
+    /* form */
+    .co-field { margin-bottom:14px; }
+    .co-field > label { display:block; font-size:.84rem; font-weight:600; color:var(--navy-700); margin-bottom:6px; }
+    .co-input, .co-select { width:100%; height:46px; border:1.5px solid var(--line); border-radius:11px; padding:0 14px; font:inherit; font-size:.92rem; color:var(--ink); background:#fff; transition:border-color .15s, box-shadow .15s; -webkit-appearance:none; appearance:none; }
+    textarea.co-input { height:auto; padding:12px 14px; resize:vertical; min-height:46px; }
+    .co-input:focus, .co-select:focus { outline:none; border-color:var(--accent); box-shadow:0 0 0 3px rgba(26,166,223,.14); }
+    .co-input::placeholder { color:#9aabbd; }
+    .co-select { background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2364758a' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right 14px center; padding-right:38px; }
+    .co-row2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+
+    /* card number with brand badges */
+    .co-cardwrap { position:relative; }
+    .co-cardwrap .brands { position:absolute; top:50%; right:12px; transform:translateY(-50%); display:flex; gap:5px; pointer-events:none; }
+    .brand { height:20px; padding:0 5px; border-radius:4px; display:grid; place-items:center; font-size:.56rem; font-weight:800; letter-spacing:.02em; color:#fff; }
+    .brand.visa { background:#1a1f71; } .brand.mc { background:#eb5b25; } .brand.amex { background:#1a7fc4; } .brand.disc { background:#e8821a; }
+    .co-cardwrap .co-input { padding-right:130px; }
+
+    /* checkboxes */
+    .co-check { display:flex; gap:10px; align-items:flex-start; font-size:.86rem; color:var(--ink); line-height:1.5; cursor:pointer; margin:6px 0 16px; }
+    .co-check input { position:absolute; opacity:0; }
+    .co-check .box { width:18px; height:18px; flex:0 0 auto; border:1.6px solid #c2d2e0; border-radius:5px; background:#fff; display:grid; place-items:center; margin-top:1px; transition:all .15s; }
+    .co-check .box svg { width:12px; height:12px; stroke:#fff; opacity:0; }
+    .co-check input:checked + .box { background:var(--accent); border-color:var(--accent); }
+    .co-check input:checked + .box svg { opacity:1; }
+    .co-check a { color:var(--accent); }
+    .co-check.err .box { border-color:var(--red); box-shadow:0 0 0 3px var(--red-bg); }
+
+    .taxid-head { font-size:.84rem; font-weight:600; color:var(--navy-700); }
+    .taxid-help { font-size:.78rem; color:var(--muted); margin:3px 0 8px; line-height:1.45; }
+    .taxid-row { display:grid; grid-template-columns:auto 1fr; align-items:center; gap:10px; }
+    .taxid-row .tl { font-size:.82rem; color:var(--ink); }
+
+    .co-sub { width:100%; height:50px; border:0; border-radius:12px; background:var(--navy-800); color:#fff; font:inherit; font-size:.98rem; font-weight:700; cursor:pointer; margin-top:6px; transition:background .15s; }
+    .co-sub:hover { background:var(--navy-700); }
+    .co-demo { text-align:center; font-size:.74rem; color:var(--muted); margin-top:11px; }
+
+    /* success */
+    .co-done { text-align:center; padding:18px 6px 6px; }
+    .co-done .ic { width:64px; height:64px; border-radius:50%; background:#e3f7ee; color:#2fae7a; display:grid; place-items:center; margin:0 auto 16px; }
+    .co-done .ic svg { width:32px; height:32px; }
+    .co-done h3 { font-family:var(--font-head); font-size:1.35rem; color:var(--navy-800); }
+    .co-done p { color:var(--muted); font-size:.92rem; margin:8px auto 20px; max-width:340px; line-height:1.55; }
+
+    @media (max-width:480px) {
+      .cyc-cards { grid-template-columns:1fr; }
+      .card { border-radius:14px; padding:18px 16px; }
+      .co-wrap { padding-bottom:80px; }
+    }
+  </style>
+</head>
+<body>
+  <header class="co-bar">
+    <a class="co-back" href="pricing.html" aria-label="Back">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+    </a>
+    <a class="co-brand" href="pricing.html">
+      <span class="m"><svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><defs><linearGradient id="cg" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#1aa6df"/><stop offset="100%" stop-color="#5cb12f"/></linearGradient></defs><circle cx="20" cy="27" r="7.5" fill="url(#cg)"/><circle cx="32" cy="23" r="9.5" fill="url(#cg)"/><circle cx="44" cy="27" r="7.5" fill="url(#cg)"/><rect x="12.5" y="29" width="39" height="8" fill="url(#cg)"/><path d="M14 37 L20 50 L27 40 L32 50 L37 40 L44 50 L50 37 Z" fill="url(#cg)"/></svg></span>
+      <span class="n">WeboCloud</span>
+    </a>
+    <span class="co-secure"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>Secure checkout</span>
+  </header>
+
+  <main class="co-wrap">
+    <h1 class="co-title" id="planTitle">Pro plan</h1>
+
+    <!-- billing cycle -->
+    <div class="cyc-cards" id="cycCards">
+      <label class="cyc" data-cyc="monthly">
+        <input type="radio" name="cyc" value="monthly" />
+        <span class="radio"></span>
+        <span class="nm">Monthly</span>
+        <span class="pr" data-monthly-label>USD 20.00/month + tax</span>
+      </label>
+      <label class="cyc on" data-cyc="yearly">
+        <input type="radio" name="cyc" value="yearly" checked />
+        <span class="radio"></span>
+        <span class="save" id="saveTag">Save 17%</span>
+        <span class="nm">Yearly</span>
+        <span class="pr" data-yearly-label>USD 200.00/year + tax</span>
+      </label>
+    </div>
+
+    <!-- order details -->
+    <section class="card">
+      <h2>Order details</h2>
+      <div class="od-row">
+        <span class="lbl"><b id="odPlan">Pro plan</b><small id="odCycle">Annually</small></span>
+        <span class="amt" id="odBase">USD 200</span>
+      </div>
+      <div class="od-div"></div>
+      <div class="od-row"><span class="lbl">Subtotal</span><span class="amt" id="odSub">USD 200</span></div>
+      <div class="od-row"><span class="lbl">Tax (KDV 20%)</span><span class="amt" id="odTax">USD 40</span></div>
+      <div class="od-row od-total"><span class="lbl"><b>Total due today</b></span><span class="amt" id="odTotal">USD 240</span></div>
+    </section>
+
+    <!-- renew note -->
+    <div class="renew">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+      <span id="renewNote"></span>
+    </div>
+
+    <!-- payment method -->
+    <section class="card" id="payCard">
+      <h2>Payment method</h2>
+
+      <!-- QR Code Ziraat Bank Form (Default & Only Payment Method) -->
+      <div id="qrFormGroup" style="text-align:center; padding:10px 0;">
+        <div style="display:inline-flex; align-items:center; gap:8px; margin-bottom:12px;">
+          <span style="font-weight:800; color:#c92620; font-size:1.1rem; letter-spacing:0.02em;">Ziraat Bankası</span>
+          <span style="font-size:0.78rem; background:#fceae8; color:#c92620; font-weight:700; padding:2px 8px; border-radius:999px;">Karekod İle Ödeme</span>
+        </div>
+        
+        <div class="qr-container" style="background:#ffffff; border:1px solid var(--line); border-radius:20px; padding:20px; display:inline-block; box-shadow:0 12px 30px rgba(0,0,0,0.06); margin-bottom:18px;">
+          <img src="assets/ziraat_payment_qr.png" alt="Ziraat Bank Payment QR Code" style="width:220px; height:auto; object-fit:contain; display:block; margin:0 auto; border-radius:8px;" />
+        </div>
+
+        <div style="background:#f8fafc; border:1.5px dashed var(--line); border-radius:12px; padding:12px; text-align:left; font-size:0.82rem; color:var(--navy-800); margin-bottom:18px;">
+          <div style="display:flex; justify-content:space-between; margin-bottom:6px;"><b>Bank:</b> <span>T.C. Ziraat Bankası A.Ş.</span></div>
+          <div style="display:flex; justify-content:space-between; margin-bottom:6px;"><b>Receiver:</b> <span>HUSSEIN MOHAMMED AHMED BAMASHMOOS</span></div>
+          <div style="display:flex; justify-content:space-between; margin-bottom:6px;"><b>IBAN:</b> <span style="font-family:monospace; letter-spacing:0.02em; font-weight:700;">TR76 0001 0001 2345 6789 5001</span></div>
+          <div style="display:flex; justify-content:space-between; padding-top:6px; border-top:1px dashed var(--line);"><b>Amount to Send:</b> <span id="qrAmount" style="font-family:monospace; font-weight:700; color:#c92620;">USD 0</span></div>
+        </div>
+
+        <div style="background:#fdf2f2; border:1px solid #fbd5d5; border-radius:12px; padding:14px; text-align:center; font-size:0.88rem; color:#9b1c1c; font-weight:700; line-height:1.45; margin-bottom:18px; display:flex; align-items:center; justify-content:center; gap:8px;">
+          <span>⏰ After sending payment company account will be open in 1 to 24 hours</span>
+        </div>
+      </div>
+
+      <div class="co-field">
+        <div class="taxid-head">Business tax ID <span style="color:var(--muted);font-weight:500">(Optional)</span></div>
+        <div class="taxid-help">If you provide a tax ID, the "Full name" above should be your business's name.</div>
+        <div class="taxid-row">
+          <span class="tl">Turkish Tax ID</span>
+          <input class="co-input" id="taxid" type="text" inputmode="numeric" placeholder="0123456789" />
+        </div>
+      </div>
+
+      <label class="co-check" id="agreeWrap">
+        <input type="checkbox" id="agree" />
+        <span class="box"><svg viewBox="0 0 24 24" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg></span>
+        <span>You agree that WeboCloud will charge your account the amount above now and on a recurring basis until you cancel, in accordance with our <a href="#" onclick="return false">terms</a>. You can cancel anytime in account settings.</span>
+      </label>
+
+      <button class="co-sub" id="subscribe" type="button">Subscribe</button>
+      <div class="co-demo">🔒 Demo checkout — no real payment was processed.</div>
+    </section>
+  </main>
+
+  <script>
+    (function () {
+      var PLANS = {
+        pro:      { title:"Pro plan",      monthly:20,  yearly:200,  yearlyUnit:200 },
+        max:      { title:"Max plan",      monthly:100, yearly:1000, yearlyUnit:1000 },
+        team:     { title:"Team plan",     monthly:50,  yearly:500,  yearlyUnit:500 },
+        business: { title:"Business plan", monthly:120, yearly:1200, yearlyUnit:1200 }
+      };
+      var TAX = 0.20; // KDV
+
+      function q(name) {
+        var m = new RegExp("[?&]" + name + "=([^&]+)").exec(location.search);
+        return m ? decodeURIComponent(m[1]) : null;
+      }
+      var planKey = (q("plan") || "pro").toLowerCase();
+      if (!PLANS[planKey]) planKey = "pro";
+      var plan = PLANS[planKey];
+      var cycle = (q("cycle") === "monthly") ? "monthly" : "yearly";
+
+      function money(n) { return "USD " + n.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 }); }
+      function money2(n) { return "USD " + n.toFixed(2); }
+
+      function fmtDate(d) {
+        return ("0" + d.getDate()).slice(-2) + "/" + ("0" + (d.getMonth() + 1)).slice(-2) + "/" + d.getFullYear();
+      }
+
+      function render() {
+        document.getElementById("planTitle").textContent = plan.title;
+        document.getElementById("odPlan").textContent = plan.title;
+
+        // cycle card labels
+        document.querySelector("[data-monthly-label]").textContent = money2(plan.monthly) + "/month + tax";
+        document.querySelector("[data-yearly-label]").textContent = money2(plan.yearly) + "/year + tax";
+
+        // selected cycle cards
+        document.querySelectorAll(".cyc").forEach(function (c) {
+          var on = c.dataset.cyc === cycle;
+          c.classList.toggle("on", on);
+          c.querySelector("input").checked = on;
+        });
+
+        var base = cycle === "yearly" ? plan.yearly : plan.monthly;
+        var tax = Math.round(base * TAX);
+        var total = base + tax;
+
+        document.getElementById("odCycle").textContent = cycle === "yearly" ? "Annually" : "Monthly";
+        document.getElementById("odBase").textContent = money(base);
+        document.getElementById("odSub").textContent = money(base);
+        document.getElementById("odTax").textContent = money(tax);
+        document.getElementById("odTotal").textContent = money(total);
+
+        var qrAmountEl = document.getElementById("qrAmount");
+        if (qrAmountEl) {
+          qrAmountEl.textContent = money(total);
+        }
+
+        var renew = new Date();
+        if (cycle === "yearly") renew.setFullYear(renew.getFullYear() + 1);
+        else renew.setMonth(renew.getMonth() + 1);
+        
+        var renewNoteEl = document.getElementById("renewNote");
+        if (renewNoteEl) {
+          renewNoteEl.textContent =
+            "Your subscription will auto-renew on " + fmtDate(renew) + ". You'll be charged " +
+            money2(base) + "/" + (cycle === "yearly" ? "year" : "month") + " + tax.";
+        }
+      }
+
+      document.querySelectorAll(".cyc").forEach(function (c) {
+        c.addEventListener("click", function () { cycle = c.dataset.cyc; render(); });
+      });
+
+      // demo subscribe
+      document.getElementById("subscribe").addEventListener("click", function () {
+        var agree = document.getElementById("agree");
+        var wrap = document.getElementById("agreeWrap");
+        if (!agree.checked) {
+          wrap.classList.add("err");
+          wrap.scrollIntoView({ behavior: "smooth", block: "center" });
+          return;
+        }
+        var base = cycle === "yearly" ? plan.yearly : plan.monthly;
+        var total = base + Math.round(base * TAX);
+        
+        // Mark active workspace as paid in local storage
+        try {
+          var activeId = localStorage.getItem("sap_active_ws");
+          if (activeId) {
+            var workspaces = JSON.parse(localStorage.getItem("sap_workspaces")) || [];
+            for (var i = 0; i < workspaces.length; i++) {
+              if (workspaces[i].id === activeId) {
+                workspaces[i].paid = true;
+                break;
+              }
+            }
+            localStorage.setItem("sap_workspaces", JSON.stringify(workspaces));
+          }
+        } catch (e) {
+          console.error("Failed to update workspace paid status", e);
+        }
+
+        var messageHTML = '<p>' + (cycle === "yearly" ? "Annual" : "Monthly") + ' billing · ' + money(total) + ' total. Thank you for completing your transfer via Ziraat Bank QR. Your account setup is complete.</p>';
+
+        document.getElementById("payCard").innerHTML =
+          '<div class="co-done">' +
+            '<div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></div>' +
+            '<h3>You’re subscribed to ' + plan.title + '</h3>' +
+            messageHTML +
+            '<a href="index.html" class="btn btn-primary" style="padding:12px 22px">Open your workspace</a>' +
+          '</div>';
+        document.getElementById("payCard").scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+
+      document.getElementById("agree").addEventListener("change", function () {
+        document.getElementById("agreeWrap").classList.remove("err");
+      });
+
+      render();
+    })();
+  </script>
+</body>
+</html>
+

@@ -1,0 +1,104 @@
+# ══════════════════════════════════════════════════════════════════
+#  MERVEKS SAP — Dependency Auto-update (Weekly)
+#  Checks for outdated npm packages every Monday at 08:00 UTC.
+#  Opens a PR with the updates if any are found.
+#  Requires: GITHUB_TOKEN (built-in), no extra secrets needed.
+# ══════════════════════════════════════════════════════════════════
+name: Dependency Update
+
+on:
+  schedule:
+    - cron: "0 8 * * 1"   # Every Monday at 08:00 UTC
+  workflow_dispatch:       # Manual trigger
+
+jobs:
+  check-deps:
+    name: 📦 Check & Update Dependencies
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server
+
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+
+      - name: Install current dependencies
+        run: npm ci --prefer-offline
+
+      - name: Check for outdated packages
+        id: outdated
+        run: |
+          echo "## Outdated Packages" >> $GITHUB_STEP_SUMMARY
+          npm outdated --json > /tmp/outdated.json || true
+          if [ -s /tmp/outdated.json ] && [ "$(cat /tmp/outdated.json)" != "{}" ]; then
+            echo "has_updates=true" >> $GITHUB_OUTPUT
+            cat /tmp/outdated.json | python3 -c "
+          import sys, json
+          data = json.load(sys.stdin)
+          print('| Package | Current | Latest |')
+          print('|---------|---------|--------|')
+          for pkg, info in data.items():
+              print(f'| {pkg} | {info[\"current\"]} | {info[\"latest\"]} |')
+          " >> $GITHUB_STEP_SUMMARY
+          else
+            echo "has_updates=false" >> $GITHUB_OUTPUT
+            echo "✓ All packages are up to date!" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Update patch/minor versions
+        if: steps.outdated.outputs.has_updates == 'true'
+        run: |
+          # Update within semver range (respects package.json ^ and ~ ranges)
+          npm update
+          # Regenerate lockfile with exact versions
+          npm install
+
+      - name: Run tests after update
+        if: steps.outdated.outputs.has_updates == 'true'
+        run: npm test
+        env:
+          PORT: "4099"
+          JWT_SECRET: "dep-update-test-secret"
+          GEMINI_API_KEY: ""
+        continue-on-error: true   # Still open PR even if tests need fixes
+
+      - name: Create PR with updates
+        if: steps.outdated.outputs.has_updates == 'true'
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "chore(deps): update npm dependencies"
+          title: "⬆️ Weekly dependency updates"
+          body: |
+            ## Weekly Dependency Updates
+
+            This PR was automatically created by the dependency update workflow.
+
+            ### Changes
+            - Updated npm packages to their latest compatible versions
+            - Regenerated `package-lock.json`
+
+            ### Review checklist
+            - [ ] All tests pass
+            - [ ] No breaking changes in updated packages
+            - [ ] CHANGELOG reviewed for major packages
+
+            > **Auto-generated** by the `dependency-update` workflow every Monday.
+          branch: "chore/dependency-updates"
+          base: main
+          labels: |
+            dependencies
+            automated pr
+          delete-branch: true
