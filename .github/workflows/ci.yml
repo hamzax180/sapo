@@ -1,11 +1,11 @@
 # ══════════════════════════════════════════════════════════════════
-#  MERVEKS SAP — Continuous Integration
+#  SAPO — Continuous Integration
 #  Runs on every push and PR to main / dev branches.
 #  Jobs:
-#    1. lint         → ESLint (server) + HTML validate (public)
+#    1. lint         → ESLint (server) + secret scan
 #    2. unit-tests   → Mocked unit tests (no DB needed)
 #    3. smoke-tests  → Full stack with MongoDB in-memory
-#    4. security     → npm audit + secret scan
+#    4. security     → npm audit + eval check
 # ══════════════════════════════════════════════════════════════════
 name: CI
 
@@ -41,27 +41,16 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: npm
-          cache-dependency-path: server/package-lock.json
 
       - name: Install dependencies
-        run: npm ci --prefer-offline
-
-      - name: Install ESLint
-        run: npm install --save-dev eslint@8 --no-audit --prefer-offline
+        run: npm install --prefer-offline
 
       - name: Run ESLint on server
-        run: |
-          npx eslint \
-            --no-eslintrc \
-            --rule '{"no-undef": "warn", "no-unused-vars": "warn"}' \
-            --env node,es2022 \
-            "**/*.js" \
-            --ignore-pattern node_modules \
-            --max-warnings 50 || true
+        run: npx eslint . --ext .js --max-warnings 50 --ignore-pattern node_modules
         continue-on-error: true
 
       - name: Check for obvious secrets in source
+        working-directory: .
         run: |
           echo "Scanning for hardcoded secrets..."
           grep -rn \
@@ -72,7 +61,6 @@ jobs:
             --exclude-dir=node_modules \
             --exclude-dir=vendor \
             . || echo "✓ No obvious hardcoded secrets found"
-        working-directory: .
 
   # ─────────────────────────────────────────────────────────────
   #  Job 2 — Unit Tests (no DB, fast)
@@ -92,11 +80,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: npm
-          cache-dependency-path: server/package-lock.json
 
       - name: Install dependencies
-        run: npm ci --prefer-offline
+        run: npm install --prefer-offline
 
       - name: Run unit tests
         run: npm test
@@ -133,11 +119,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: npm
-          cache-dependency-path: server/package-lock.json
 
       - name: Install dependencies
-        run: npm ci --prefer-offline
+        run: npm install --prefer-offline
 
       - name: Run smoke tests (real MongoDB in-memory)
         run: npm run smoke-test
@@ -165,17 +149,16 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: npm
-          cache-dependency-path: server/package-lock.json
 
       - name: Install dependencies
-        run: npm ci --prefer-offline
+        run: npm install --prefer-offline
 
       - name: Run npm audit (high/critical only)
         run: npm audit --audit-level=high
-        continue-on-error: true   # Warn but don't block on legacy deps
+        continue-on-error: true
 
       - name: Check for known vulnerable patterns
+        working-directory: .
         run: |
           echo "Checking eval() usage..."
           if grep -rn "eval(" --include="*.js" --exclude-dir=node_modules --exclude-dir=vendor .; then
@@ -183,4 +166,3 @@ jobs:
           else
             echo "✓ No eval() usage found"
           fi
-        working-directory: .
