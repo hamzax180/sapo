@@ -120,16 +120,27 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
 
+      # Cache the MongoDB binary that mongodb-memory-server downloads.
+      # Without this, every run re-downloads ~60 MB and times out.
+      - name: Cache MongoDB binary
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/mongodb-binaries
+          key: mongodb-binary-${{ runner.os }}-v7
+
       - name: Install dependencies
         run: npm install --prefer-offline
 
       - name: Run smoke tests (real MongoDB in-memory)
         run: npm run smoke-test
-        timeout-minutes: 5
+        timeout-minutes: 15
         env:
           PORT: "4099"
           JWT_SECRET: "ci-smoke-test-secret-xyz"
           GEMINI_API_KEY: ""
+          MONGOMS_DOWNLOAD_DIR: ~/.cache/mongodb-binaries
+          MONGOMS_PREFER_GLOBAL_PATH: "1"
+
 
   # ─────────────────────────────────────────────────────────────
   #  Job 4 — Security Audit
