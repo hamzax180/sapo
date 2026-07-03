@@ -46,7 +46,10 @@ async function getDbClient(workspace) {
     const client = new MongoClient(dbUri, { serverSelectionTimeoutMS: 5000 });
     await client.connect();
     // Parse DB name from URI or use default
-    const dbName = dbUri.split("/").pop().split("?")[0] || `webo_${workspaceId}`;
+    let dbName = dbUri.split("/").pop().split("?")[0];
+    if (!dbName || dbName.includes(":") || dbName === "localhost" || dbName.startsWith("mongodb")) {
+      dbName = process.env.DB_NAME || `webo_${workspaceId}`;
+    }
     const db = client.db(dbName);
     const connObj = { type: "mongodb", db, client };
     connectionCache[cacheKey] = connObj;

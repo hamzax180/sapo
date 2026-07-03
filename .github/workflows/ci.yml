@@ -141,7 +141,7 @@ jobs:
         run: npm run smoke-test
         timeout-minutes: 5
         env:
-          MONGODB_URI: mongodb://localhost:27017
+          MONGODB_URI: mongodb://localhost:27017/merveks_sap_test
           DB_NAME: merveks_sap_test
           PORT: "4099"
           JWT_SECRET: "ci-smoke-test-secret-xyz"
