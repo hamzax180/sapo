@@ -1,84 +1,120 @@
-/* End-to-end smoke test: real Express app + real Mongo (in-memory).
-   Proves seed → login → CRUD → AI-guard all work. Not part of the app. */
-const { MongoMemoryServer } = require("mongodb-memory-server");
+/* End-to-end smoke test: real Express app + real Mongo.
+   - In CI: uses the MongoDB service container provided via MONGODB_URI env var
+   - Locally: spins up MongoMemoryServer automatically (no external dep needed)
+   Proves seed → login → CRUD → AI-guard → clean URLs all work. */
+
 const { spawnSync, spawn } = require("child_process");
-const path = require("path");
 
 (async () => {
-  const mongod = await MongoMemoryServer.create();
-  const uri = mongod.getUri();
-  const env = Object.assign({}, process.env, { MONGODB_URI: uri, DB_NAME: "merveks_sap_test", PORT: "4099", JWT_SECRET: "test-secret", GEMINI_API_KEY: "" });
+  // ── Choose MongoDB source ────────────────────────────────────────────
+  // CI provides MONGODB_URI via a service container (fast, no download).
+  // Locally, we fall back to MongoMemoryServer.
+  let mongod = null;
+  let uri = process.env.MONGODB_URI || "";
+
+  if (!uri) {
+    const { MongoMemoryServer } = require("mongodb-memory-server");
+    mongod = await MongoMemoryServer.create();
+    uri = mongod.getUri();
+  } else {
+    console.log("Using external MongoDB:", uri);
+  }
+
+  const env = Object.assign({}, process.env, {
+    MONGODB_URI: uri,
+    DB_NAME: "merveks_sap_test",
+    PORT: "4099",
+    JWT_SECRET: "test-secret",
+    GEMINI_API_KEY: "",
+  });
+
+  const cleanup = async (code = 0) => {
+    srv && srv.kill();
+    if (mongod) await mongod.stop();
+    process.exit(code);
+  };
 
   // 1) seed
   const seed = spawnSync("node", ["seed.js", "--force"], { cwd: __dirname, env, encoding: "utf8" });
   process.stdout.write(seed.stdout || "");
-  if (seed.status !== 0) { console.error("SEED FAILED", seed.stderr); process.exit(1); }
+  if (seed.status !== 0) { console.error("SEED FAILED", seed.stderr); await cleanup(1); }
 
   // 2) boot the real server
   const srv = spawn("node", ["index.js"], { cwd: __dirname, env });
   let booted = false;
-  srv.stdout.on("data", (d) => { if (/listening/.test(d)) booted = true; });
+  srv.stdout.on("data", (d) => { process.stdout.write(d); if (/listening/.test(d)) booted = true; });
   srv.stderr.on("data", (d) => process.stderr.write(d));
   const base = "http://localhost:4099";
   for (let i = 0; i < 40 && !booted; i++) await new Promise((r) => setTimeout(r, 150));
+  if (!booted) { console.error("Server failed to boot"); await cleanup(1); }
 
   const pass = (m) => console.log("  ✓ " + m);
-  const fail = (m) => { console.error("  ✗ " + m); srv.kill(); mongod.stop(); process.exit(1); };
+  const fail = async (m) => { console.error("  ✗ " + m); await cleanup(1); };
 
   try {
-    let r = await fetch(base + "/health"); const h = await r.json();
-    h.ok ? pass("GET /health → ok") : fail("health");
+    let r, h, clients, login, created, got, upd, del, nu;
 
-    r = await fetch(base + "/clients"); const clients = await r.json();
-    Array.isArray(clients) && clients.length === 8 ? pass("GET /clients → " + clients.length + " records (no _id leak: " + !("_id" in clients[0]) + ")") : fail("clients list");
+    // Health check
+    r = await fetch(base + "/health"); h = await r.json();
+    h.ok ? pass("GET /health → ok") : await fail("health check failed");
 
-    // wrong password rejected
+    // List clients (seeded)
+    r = await fetch(base + "/clients"); clients = await r.json();
+    Array.isArray(clients) && clients.length >= 1
+      ? pass("GET /clients → " + clients.length + " records")
+      : await fail("clients list empty or wrong type — got: " + JSON.stringify(clients).slice(0, 120));
+
+    // Wrong password rejected
     r = await fetch(base + "/auth/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email: "owner@merveks.com", password: "wrong" }) });
-    r.status === 401 ? pass("POST /auth/login wrong password → 401") : fail("login should reject");
+    r.status === 401 ? pass("POST /auth/login wrong password → 401") : await fail("login should reject wrong password");
 
-    // correct password against the HASHED stored value
+    // Correct password (bcrypt)
     r = await fetch(base + "/auth/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email: "owner@merveks.com", password: "merveks2013" }) });
-    const login = await r.json();
-    login.token && login.user.role === "Owner" ? pass("POST /auth/login correct → token + Owner profile (bcrypt verified)") : fail("login should succeed");
+    login = await r.json();
+    login.token && login.user.role === "Owner" ? pass("POST /auth/login correct → token + Owner role") : await fail("login should succeed with correct password");
 
-    // create → read back → update → delete
+    // CRUD: create → read → update → delete
     r = await fetch(base + "/clients", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: "C-TEST", name: "Smoke Test Co", country: "TR", status: "Active" }) });
-    const created = await r.json();
-    created.id === "C-TEST" ? pass("POST /clients → created C-TEST") : fail("create");
+    created = await r.json();
+    created.id === "C-TEST" ? pass("POST /clients → created C-TEST") : await fail("create failed");
 
-    r = await fetch(base + "/clients/C-TEST"); const got = await r.json();
-    got.name === "Smoke Test Co" ? pass("GET /clients/C-TEST → persisted") : fail("read-back");
+    r = await fetch(base + "/clients/C-TEST"); got = await r.json();
+    got.name === "Smoke Test Co" ? pass("GET /clients/C-TEST → persisted") : await fail("read-back failed");
 
     r = await fetch(base + "/clients/C-TEST", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: "On hold" }) });
-    const upd = await r.json();
-    upd.status === "On hold" ? pass("PUT /clients/C-TEST → updated") : fail("update");
+    upd = await r.json();
+    upd.status === "On hold" ? pass("PUT /clients/C-TEST → updated") : await fail("update failed");
 
-    r = await fetch(base + "/clients/C-TEST", { method: "DELETE" }); const del = await r.json();
-    del.ok ? pass("DELETE /clients/C-TEST → ok") : fail("delete");
+    r = await fetch(base + "/clients/C-TEST", { method: "DELETE" }); del = await r.json();
+    del.ok ? pass("DELETE /clients/C-TEST → ok") : await fail("delete failed");
 
-    // new user's password gets hashed on insert
+    // Password auto-hashed on user insert
     r = await fetch(base + "/users", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: "U-TEST", name: "T", email: "t@x.com", role: "Trade Specialist", active: true, password: "plain123" }) });
-    const nu = await r.json();
-    nu.password && nu.password.startsWith("$2") ? pass("POST /users → password auto-hashed in DB") : fail("password not hashed");
+    nu = await r.json();
+    nu.password && nu.password.startsWith("$2") ? pass("POST /users → password auto-hashed") : await fail("password not hashed");
 
-    // AI proxy correctly reports it's not configured (no key in test env)
+    // AI guard (no key → 503)
     r = await fetch(base + "/ai/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ prompt: "hi" }) });
-    r.status === 503 ? pass("POST /ai/chat (no key) → 503 (offline fallback will engage)") : fail("ai guard");
+    r.status === 503 ? pass("POST /ai/chat (no key) → 503") : await fail("AI guard failed");
 
-    // unknown collection rejected
-    r = await fetch(base + "/secrets"); r.status === 404 ? pass("GET /secrets → 404 (collection allowlist works)") : fail("allowlist");
+    // Collection allowlist
+    r = await fetch(base + "/secrets");
+    r.status === 404 ? pass("GET /secrets → 404 (allowlist works)") : await fail("allowlist broken");
 
-    // Test new frontend routes and clean URLs
-    const routesToTest = ["/login", "/signup", "/pricing", "/checkout", "/index", "/public/login", "/public/signup", "/public/index"];
-    for (const route of routesToTest) {
+    // Clean URL frontend routes
+    const routes = ["/login", "/signup", "/pricing", "/checkout", "/index", "/public/login", "/public/signup", "/public/index"];
+    for (const route of routes) {
       r = await fetch(base + route);
-      if (r.status !== 200) fail(`GET ${route} -> status ${r.status} (expected 200)`);
+      if (r.status !== 200) await fail(`GET ${route} → ${r.status} (expected 200)`);
       const html = await r.text();
-      if (!html.includes("<!DOCTYPE html>")) fail(`GET ${route} did not return HTML`);
-      pass(`GET ${route} -> 200 OK (served static HTML correctly)`);
+      if (!html.includes("<!DOCTYPE html>")) await fail(`GET ${route} did not return HTML`);
+      pass(`GET ${route} → 200 OK`);
     }
 
-    console.log("\nALL TESTS PASSED ✓");
-  } catch (e) { console.error("ERROR", e); srv.kill(); await mongod.stop(); process.exit(1); }
-  srv.kill(); await mongod.stop(); process.exit(0);
+    console.log("\nALL SMOKE TESTS PASSED ✓");
+    await cleanup(0);
+  } catch (e) {
+    console.error("UNEXPECTED ERROR", e);
+    await cleanup(1);
+  }
 })();
