@@ -1,0 +1,176 @@
+/* =================================================================
+   WeboCloud Portal — Enterprise Logistics & Tracker CSS Module
+   (UPS & DHL Style Tracking Portal Styles)
+   ================================================================= */
+
+.logistics-hero {
+  background: linear-gradient(135deg, #241400 0%, #3b2200 40%, #1a1000 100%);
+  padding: 48px 0 64px 0;
+  color: #fff;
+}
+.logistics-hero-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+.logistics-grid {
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  gap: 32px;
+}
+@media (max-width: 900px) {
+  .logistics-grid { grid-template-columns: 1fr; }
+}
+
+.ups-track-card {
+  background: #ffffff;
+  color: #1a1000;
+  border-radius: 12px;
+  padding: 36px;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+}
+.ups-track-hd {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+.ups-track-icon {
+  font-size: 2.2rem;
+  line-height: 1;
+}
+.ups-track-title {
+  font-size: 1.8rem;
+  font-weight: 900;
+  margin-bottom: 4px;
+  color: #241400;
+}
+.ups-track-sub {
+  color: #666;
+  font-size: 0.92rem;
+}
+
+.track-input-row {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+.track-input {
+  flex: 1;
+  height: 52px;
+  padding: 0 18px;
+  border: 2px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.track-input:focus {
+  border-color: #ffb500;
+}
+
+.btn-accent-gold {
+  background: #ffb500;
+  color: #241400;
+  font-weight: 800;
+  border: none;
+  border-radius: 8px;
+  padding: 0 28px;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.2s;
+}
+.btn-accent-gold:hover {
+  background: #e6a300;
+  transform: translateY(-1px);
+}
+
+.ups-quick-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #f1f5f9;
+}
+.ups-quick-actions a {
+  color: #3b2200;
+  font-weight: 700;
+  font-size: 0.85rem;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.ups-quick-actions a:hover {
+  color: #d97706;
+}
+
+.ups-sample-chips {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 18px;
+}
+.chip-label { font-size: 0.78rem; font-weight: 700; color: #64748b; }
+.sample-chip {
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  color: #334155;
+  font-weight: 700;
+  font-size: 0.75rem;
+  padding: 4px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.sample-chip:hover {
+  background: #ffb500;
+  border-color: #ffb500;
+  color: #241400;
+}
+
+.ups-side-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.side-card {
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 12px;
+  padding: 24px;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.2s;
+}
+.side-card:hover {
+  background: rgba(255,255,255,0.14);
+  transform: translateY(-3px);
+}
+.side-card-icon { font-size: 1.8rem; margin-bottom: 8px; }
+.side-card-title { font-size: 1.15rem; font-weight: 800; margin-bottom: 4px; }
+.side-card-sub { font-size: 0.82rem; color: #cbd5e1; margin-bottom: 12px; }
+.side-card-link { font-size: 0.82rem; font-weight: 800; color: #ffb500; }
+
+.dhl-quote-container {
+  background: #d40511;
+  padding: 32px 48px;
+  color: #fff;
+}
+.dhl-quote-card {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+.dhl-quote-title { font-size: 1.4rem; font-weight: 900; margin-bottom: 16px; text-transform: uppercase; }
+.dhl-quote-grid { display: flex; gap: 20px; align-items: flex-end; }
+.dhl-field { flex: 1; display: flex; flex-direction: column; gap: 6px; }
+.dhl-label { font-size: 0.82rem; font-weight: 800; text-transform: uppercase; }
+.dhl-select { height: 46px; border-radius: 6px; border: none; padding: 0 14px; font-weight: 700; }
+.btn-dhl-red { background: #ffcc00; color: #d40511; font-weight: 900; height: 46px; border-radius: 6px; border: none; padding: 0 28px; cursor: pointer; }
+
+.dhl-ship-section { padding: 60px 48px; }
+.dhl-steps-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; margin-top: 32px; }
+.dhl-step-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 32px 24px; position: relative; }
+.dhl-step-num { position: absolute; top: 16px; right: 20px; font-size: 2rem; font-weight: 900; color: #e2e8f0; }
+.dhl-step-icon { font-size: 2.2rem; margin-bottom: 16px; }
+.dhl-step-title { font-size: 1.2rem; font-weight: 800; margin-bottom: 8px; color: #111; }
+.dhl-step-sub { font-size: 0.85rem; color: #666; margin-bottom: 20px; }

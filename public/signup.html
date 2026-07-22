@@ -51,6 +51,90 @@
       border-color: var(--ind-accent, #1aa6df);
     }
 
+    /* Launch screen — translucent backdrop showing sign up background */
+    .launch-overlay {
+      position: fixed; inset: 0; z-index: 9999;
+      background: rgba(15, 23, 42, 0.65);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      display: none; align-items: center; justify-content: center;
+      padding: 20px;
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.3s ease;
+    }
+    .launch-overlay.show { display: flex; opacity: 1; pointer-events: auto; }
+
+    .dhl-modal-card {
+      background: #ffffff;
+      border-radius: 16px;
+      padding: 40px 36px;
+      max-width: 460px; width: 100%;
+      text-align: center;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3), 0 2px 10px rgba(0,0,0,0.1);
+      border: 1px solid #eef0f2;
+      position: relative;
+      font-family: system-ui, -apple-system, sans-serif;
+      transform: scale(0.95); opacity: 0;
+      transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease;
+    }
+    .launch-overlay.show .dhl-modal-card { transform: scale(1); opacity: 1; }
+
+    .dhl-modal-close {
+      position: absolute; top: 16px; right: 16px;
+      width: 32px; height: 32px; border-radius: 50%;
+      border: 1px solid #e2e8f0;
+      background: #f8fafc; color: #64748b;
+      font-size: 1rem; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: all 0.2s;
+    }
+    .dhl-modal-close:hover { background: #d40511; color: #fff; border-color: #d40511; }
+
+    .dhl-modal-icon {
+      width: 64px; height: 64px; border-radius: 16px;
+      background: #fff8e6; border: 1px solid #fde68a;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 2rem; margin: 0 auto 20px;
+    }
+
+    .dhl-modal-title {
+      font-size: 1.6rem; font-weight: 900;
+      color: #111111; margin-bottom: 8px; letter-spacing: -0.02em;
+    }
+
+    .dhl-modal-sub {
+      font-size: 0.92rem; color: #555555; line-height: 1.55;
+      margin-bottom: 28px;
+    }
+    .dhl-modal-sub strong { color: #d40511; font-weight: 700; }
+
+    .dhl-modal-actions {
+      display: flex; flex-direction: column; gap: 12px;
+    }
+
+    .btn-dhl-red {
+      background: #d40511; color: #ffffff;
+      font-weight: 800; padding: 14px 24px;
+      border-radius: 6px; border: none;
+      font-size: 0.95rem; cursor: pointer; text-decoration: none;
+      display: flex; align-items: center; justify-content: center; gap: 10px;
+      transition: background 0.15s ease; width: 100%;
+    }
+    .btn-dhl-red:hover { background: #cc0000; color: #fff; }
+
+    .btn-dhl-outline {
+      background: #ffffff; color: #111111;
+      font-weight: 700; padding: 13px 24px;
+      border-radius: 6px; border: 1.5px solid #d1d5db;
+      font-size: 0.92rem; cursor: pointer; text-decoration: none;
+      display: flex; align-items: center; justify-content: center; gap: 10px;
+      transition: all 0.15s ease; width: 100%;
+    }
+    .btn-dhl-outline:hover { background: #f8fafc; border-color: #111111; color: #111111; }
+
+
+
+
     /* rotating caption pill — traveling glow border, letter reveals, gradient text */
     @property --capang { syntax:'<angle>'; initial-value:0deg; inherits:false; }
     .dx-cap { align-self:flex-start; position:relative; z-index:1; display:inline-flex; align-items:center; gap:9px;
@@ -141,6 +225,32 @@
 
       <div class="la-foot">© 2024–2026 WeboCloud · Cloud Operations Platform</div>
     </div>
+
+    <!-- Launch screen overlay (shown after workspace is created or demo selected) -->
+    <div class="launch-overlay" id="launchOverlay">
+      <!-- Clean DHL Enterprise Modal Dialog -->
+      <div class="launch-card dhl-modal-card">
+        <button class="dhl-modal-close" onclick="document.getElementById('launchOverlay').classList.remove('show')" title="Close">✕</button>
+
+        <div class="dhl-modal-icon">📦</div>
+
+        <h2 class="dhl-modal-title" id="launchTitle">Workspace Live & Ready</h2>
+        <p class="dhl-modal-sub" id="launchSub">Your <strong>Logistics & Trade</strong> workspace environment is configured and ready.</p>
+
+        <div class="dhl-modal-actions">
+          <a class="btn btn-dhl-red btn-lg" id="launchAdminBtn" href="index.html">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+            Go to Admin Panel
+          </a>
+          <a class="btn btn-dhl-outline btn-lg" id="launchPortalBtn" href="#" target="_blank" rel="noopener">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+            Preview Customer Storefront ↗
+          </a>
+        </div>
+      </div>
+    </div>
+
+
 
     <!-- Form panel -->
     <div class="login-form-col">
@@ -298,32 +408,39 @@
         if (btn) {
           e.stopPropagation();
           const key = btn.dataset.demo;
-          const ind = INDUSTRIES[key];
+          const ind = INDUSTRIES[key] || { name: key };
           
           btn.innerHTML = 'Loading...';
           btn.disabled = true;
 
-          // Register a demo workspace on the fly
-          const session = await Auth.register({
-            company: "Demo " + ind.name,
-            owner: "Demo Admin",
-            email: "admin@demo.com",
-            password: "demo",
-            country: "TR",
-            industry: key,
-            logo: null,
-            sampleData: true
-          });
-          
-          if (session) {
-            location.href = "index.html";
-          } else {
+          try {
+            const session = await Auth.register({
+              company: "Demo " + ind.name,
+              owner: "Demo Admin",
+              email: "admin@demo.com",
+              password: "demo",
+              country: "TR",
+              industry: key,
+              logo: null,
+              sampleData: true
+            });
+            
+            if (session) {
+              const wsId = localStorage.getItem("sap_active_ws");
+              showLaunchScreen(wsId, ind.name);
+            } else {
+              showErr("Something went wrong loading the demo. Please try again.");
+            }
+          } catch(err) {
+            console.error("Demo launch error:", err);
+            showErr("Failed to start demo workspace. Please try again.");
+          } finally {
             btn.innerHTML = 'Show Demo &rarr;';
             btn.disabled = false;
-            showErr("Something went wrong loading the demo. Please try again.");
           }
         }
       });
+
 
       // Logo → data URL (with a soft size guard)
       let logoData = null;
@@ -343,6 +460,31 @@
 
       const err = document.getElementById("err");
       function showErr(m) { err.textContent = m; err.classList.add("show"); }
+
+      // Shows the post-creation launch screen with Admin + Portal buttons
+      function showLaunchScreen(wsId, label) {
+
+        const overlay = document.getElementById("launchOverlay");
+        const sub = document.getElementById("launchSub");
+        const portalBtn = document.getElementById("launchPortalBtn");
+        if (!overlay) { location.href = "index.html"; return; }
+
+        // Set portal URL
+        const portalUrl = location.origin + "/portal/" + wsId;
+        if (portalBtn) portalBtn.href = portalUrl;
+
+        // Update subtitle
+        if (sub && label) {
+          sub.innerHTML = 'Your <strong>' + label + '</strong> workspace environment is initialized and ready.';
+        }
+
+        // Show overlay with animation
+        overlay.classList.add("show");
+      }
+
+
+
+
 
       // ---- team builder: add employees with roles ----
       const EMP_ROLES = ["HR Manager", "Operations Manager", "Finance Officer", "Trade Specialist"];
@@ -520,8 +662,9 @@
             const apiBase = Store.getApiBase() || "http://localhost:4000";
             Store.setApiBase(apiBase);
           }
-          submitBtn.textContent = "Redirecting...";
-          location.href = "index.html"; 
+          const wsId = localStorage.getItem("sap_active_ws");
+          const companyName = document.getElementById("company").value.trim();
+          showLaunchScreen(wsId, companyName);
         } else {
           showErr("Something went wrong creating your workspace. Please try again.");
           submitBtn.disabled = false;

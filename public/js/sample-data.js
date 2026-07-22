@@ -147,10 +147,10 @@ window.SAMPLE_PACKS = function (industry) {
         { id: "S-2003", name: "Bosch Components", country: "DE", category: "Electronics", contact: "Markus Weber", email: "m.weber@bosch.de", phone: "+49 711 400 5500", rating: 5 }
       ],
       sap_products: [
-        { id: "P-3001", sku: "RM-STEEL-CR", name: "Cold-Rolled Steel Coil (1t)", category: "Raw material", unit: "t", stock: 240, reorder: 60, price: 720, cost: 720, currency: "USD", warehouse: "Raw Material Store", status: "In stock" },
-        { id: "P-3002", sku: "RM-POLY-HD", name: "HDPE Resin Granulate (25kg)", category: "Raw material", unit: "sack", stock: 38, reorder: 80, price: 41, cost: 41, currency: "USD", warehouse: "Raw Material Store", status: "Low" },
-        { id: "P-3003", sku: "FG-BRKT-A1", name: "Steel Mounting Bracket A1", category: "Finished goods", unit: "pcs", stock: 4200, reorder: 1000, price: 3.4, cost: 1.6, currency: "USD", warehouse: "Finished Goods", status: "In stock" },
-        { id: "P-3004", sku: "FG-HOUS-P2", name: "Polymer Housing P2", category: "Finished goods", unit: "pcs", stock: 760, reorder: 800, price: 5.8, cost: 2.7, currency: "USD", warehouse: "Finished Goods", status: "Low" }
+        { id: "P-3001", sku: "5AX-CNC-AL6061", name: "5-Axis Precision CNC Machined Aerospace Bracket", category: "CNC Machining", unit: "pcs", stock: 1200, reorder: 300, price: 48.50, cost: 18.00, currency: "USD", warehouse: "Finished Goods", status: "In stock", publishedToPortal: true, image: "https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?w=800&q=80" },
+        { id: "P-3002", sku: "SM-LASER-316", name: "Stainless Steel 316L Laser-Cut Enclosure Chassis", category: "Sheet Metal", unit: "pcs", stock: 850, reorder: 200, price: 89.00, cost: 34.00, currency: "USD", warehouse: "Finished Goods", status: "In stock", publishedToPortal: true, image: "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=800&q=80" },
+        { id: "P-3003", sku: "INJ-ABS-HOUS", name: "High-Durability Thermoplastic Molded Housing", category: "Injection Molding", unit: "pcs", stock: 4500, reorder: 1000, price: 14.20, cost: 4.50, currency: "USD", warehouse: "Finished Goods", status: "In stock", publishedToPortal: true, image: "https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=800&q=80" },
+        { id: "P-3004", sku: "PCB-SMT-ARM64", name: "Industrial ARM64 Controller Board Assembly (SMT)", category: "PCB Assembly", unit: "pcs", stock: 320, reorder: 50, price: 165.00, cost: 78.00, currency: "USD", warehouse: "Finished Goods", status: "In stock", publishedToPortal: true, image: "https://images.unsplash.com/photo-1518770660439-4636190af475?w=800&q=80" }
       ],
       sap_quotes: [
         { id: "Q-4001", ref: "QT-MF-7701", client: "C-1001", date: d(-10), validUntil: d(10), currency: "USD", freight: 1200, status: "Accepted", orderId: "O-5001", items: [{ product: "P-3003", qty: 20000, price: 3.4 }], notes: "Annual bracket supply contract." },
@@ -192,11 +192,12 @@ window.SAMPLE_PACKS = function (industry) {
         { id: "S-2003", name: "Efes Beverages", country: "TR", category: "Beverages", contact: "Sinem Yıldız", email: "sinem@efesbev.com", phone: "+90 232 700 8899", rating: 5 }
       ],
       sap_products: [
-        { id: "P-3001", sku: "MN-BURGER", name: "Signature Beef Burger", category: "Mains", unit: "plate", stock: 0, reorder: 0, price: 12.5, cost: 4.2, currency: "USD", warehouse: "Main Kitchen", status: "In stock" },
-        { id: "P-3002", sku: "MN-PIZZA", name: "Margherita Pizza", category: "Mains", unit: "plate", stock: 0, reorder: 0, price: 10.0, cost: 3.0, currency: "USD", warehouse: "Main Kitchen", status: "In stock" },
-        { id: "P-3003", sku: "IN-BEEF-PT", name: "Beef Patty (frozen, box of 48)", category: "Ingredient", unit: "box", stock: 6, reorder: 10, price: 38, cost: 38, currency: "USD", warehouse: "Cold Store", status: "Low" },
-        { id: "P-3004", sku: "BV-COLA-DR", name: "Cola (draught, 20L keg)", category: "Beverage", unit: "keg", stock: 4, reorder: 6, price: 45, cost: 45, currency: "USD", warehouse: "Bar", status: "Low" },
-        { id: "P-3005", sku: "DS-CHEESE", name: "Cheesecake Slice", category: "Dessert", unit: "plate", stock: 0, reorder: 0, price: 6.0, cost: 1.8, currency: "USD", warehouse: "Main Kitchen", status: "In stock" }
+        { id: "P-3001", sku: "KFC-ZINGER", name: "Zinger Burger Extra Crispy", category: "BURGERS", unit: "pcs", stock: 150, reorder: 30, price: 9.99, cost: 3.2, currency: "USD", warehouse: "Main Kitchen", status: "In stock", publishedToPortal: true, image: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=800&q=80" },
+        { id: "P-3002", sku: "KFC-TWISTER", name: "Twister Wrap Supreme", category: "WRAPS", unit: "pcs", stock: 120, reorder: 25, price: 8.49, cost: 2.8, currency: "USD", warehouse: "Main Kitchen", status: "In stock", publishedToPortal: true, image: "https://images.unsplash.com/photo-1626700051175-6818013e1d4f?w=800&q=80" },
+        { id: "P-3003", sku: "KFC-BUCKET-12", name: "Family Fried Chicken Bucket (12 Pcs)", category: "BUCKETS", unit: "bucket", stock: 85, reorder: 20, price: 29.99, cost: 9.5, currency: "USD", warehouse: "Main Kitchen", status: "In stock", publishedToPortal: true, image: "https://images.unsplash.com/photo-1626082927389-6cd097cdc6ec?w=800&q=80" },
+        { id: "P-3004", sku: "KFC-WINGS-10", name: "Hot & Spicy Chicken Wings (10 Pcs)", category: "CHICKENS WITH SAUCE", unit: "box", stock: 200, reorder: 40, price: 12.99, cost: 4.0, currency: "USD", warehouse: "Main Kitchen", status: "In stock", publishedToPortal: true, image: "https://images.unsplash.com/photo-1562967914-608f82629710?w=800&q=80" },
+        { id: "P-3005", sku: "KFC-FRIES-LG", name: "Crispy Seasoned French Fries (Large)", category: "BY-PRODUCTS AND DESSERTS", unit: "pcs", stock: 300, reorder: 50, price: 3.99, cost: 0.8, currency: "USD", warehouse: "Main Kitchen", status: "In stock", publishedToPortal: true, image: "https://images.unsplash.com/photo-1576107232684-1279f3908594?w=800&q=80" },
+        { id: "P-3006", sku: "KFC-PEPSI-ZERO", name: "Refreshing Cold Soda (500ml)", category: "BEVERAGES", unit: "can", stock: 400, reorder: 80, price: 2.49, cost: 0.5, currency: "USD", warehouse: "Bar", status: "In stock", publishedToPortal: true, image: "https://images.unsplash.com/photo-1543253687-c931c8e01820?w=800&q=80" }
       ],
       sap_orders: [
         { id: "O-5001", ref: "TBL-12", client: "C-1001", date: d(0), status: "Completed", currency: "USD", freight: 0, shipmentId: null, invoiceId: "I-9001", items: [{ product: "P-3001", qty: 2, price: 12.5 }, { product: "P-3004", qty: 2, price: 4.0 }] },
@@ -235,9 +236,10 @@ window.SAMPLE_PACKS = function (industry) {
         { id: "S-2003", name: "Borusan Heavy Equipment", country: "TR", category: "Equipment rental", contact: "Cem Yalçın", email: "cem@borusan.com", phone: "+90 216 500 6600", rating: 5 }
       ],
       sap_products: [
-        { id: "P-3001", sku: "MT-CEM-42", name: "Portland Cement CEM I 42.5 (1t)", category: "Material", unit: "t", stock: 180, reorder: 50, price: 95, cost: 95, currency: "USD", warehouse: "Central Yard", status: "In stock" },
-        { id: "P-3002", sku: "MT-REBAR-16", name: "Rebar Ø16mm (1t bundle)", category: "Material", unit: "t", stock: 22, reorder: 40, price: 640, cost: 640, currency: "USD", warehouse: "Central Yard", status: "Low" },
-        { id: "P-3003", sku: "EQ-EXCAV", name: "Excavator (daily hire)", category: "Equipment", unit: "day", stock: 3, reorder: 1, price: 480, cost: 320, currency: "USD", warehouse: "Central Yard", status: "In stock" }
+        { id: "P-3001", sku: "EQ-CRANE-50T", name: "50-Ton Hydraulic All-Terrain Mobile Crane", category: "HEAVY FLEET", unit: "day", stock: 4, reorder: 1, price: 1250.0, cost: 450.0, currency: "USD", warehouse: "Central Yard", status: "In stock", publishedToPortal: true, image: "https://images.unsplash.com/photo-1541888946425-d0fbb186a5b3?w=800&q=80" },
+        { id: "P-3002", sku: "EQ-EXCAV-CAT", name: "Caterpillar 336 Heavy Track Excavator", category: "HEAVY FLEET", unit: "day", stock: 8, reorder: 2, price: 680.0, cost: 220.0, currency: "USD", warehouse: "Central Yard", status: "In stock", publishedToPortal: true, image: "https://images.unsplash.com/photo-1578575437130-527eed3abbec?w=800&q=80" },
+        { id: "P-3003", sku: "MT-REBAR-16", name: "Reinforcement Steel Rebar Ø16mm (10t Bundle)", category: "STRUCTURAL", unit: "bundle", stock: 45, reorder: 10, price: 6400.0, cost: 4800.0, currency: "USD", warehouse: "Central Yard", status: "In stock", publishedToPortal: true, image: "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=800&q=80" },
+        { id: "P-3004", sku: "MT-CEM-PORTLAND", name: "High-Grade Portland Structural Cement (100t)", category: "SITE MATERIAL", unit: "unit", stock: 120, reorder: 30, price: 9500.0, cost: 6800.0, currency: "USD", warehouse: "Central Yard", status: "In stock", publishedToPortal: true, image: "https://images.unsplash.com/photo-1589939705384-5185137a7f0f?w=800&q=80" }
       ],
       sap_quotes: [
         { id: "Q-4001", ref: "TND-9901", client: "C-1001", date: d(-20), validUntil: d(10), currency: "USD", freight: 0, status: "Accepted", orderId: "O-5001", items: [{ product: "P-3001", qty: 1200, price: 95 }, { product: "P-3002", qty: 300, price: 640 }], notes: "Phase-1 superstructure tender." },
@@ -274,6 +276,11 @@ window.SAMPLE_PACKS = function (industry) {
         { id: "C-1003", name: "GreenStart GmbH", country: "DE", sector: "Cleantech startup", contact: "Anna Schmidt", email: "anna@greenstart.de", phone: "+49 30 700 8800", status: "Active", since: d(-60), rating: 4, terms: 30 },
         { id: "C-1004", name: "Retail Co. MENA", country: "AE", sector: "Retail group", contact: "Yousef Karim", email: "yousef@retailco.ae", phone: "+971 4 555 9090", status: "Active", since: d(-40), rating: 4, terms: 30 }
       ],
+      sap_products: [
+        { id: "P-3001", sku: "SRV-STRAT-AUDIT", name: "Corporate Strategy & Market Entry Audit", category: "Strategy Advisory", unit: "pkg", stock: 10, reorder: 2, price: 15000.00, cost: 4000.00, currency: "USD", warehouse: "HQ Services", status: "In stock", publishedToPortal: true, image: "https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?w=800&q=80" },
+        { id: "P-3002", sku: "SRV-DIG-TRANS", name: "Digital Maturity & Cloud Architecture Workshop", category: "Digital Transformation", unit: "pkg", stock: 15, reorder: 3, price: 25000.00, cost: 7500.00, currency: "USD", warehouse: "HQ Services", status: "In stock", publishedToPortal: true, image: "https://images.unsplash.com/photo-1519389950473-47ba0277781c?w=800&q=80" },
+        { id: "P-3003", sku: "SRV-RISK-AUDIT", name: "ISO 27001 & Corporate Risk Assessment Audit", category: "Financial Advisory", unit: "pkg", stock: 12, reorder: 2, price: 18500.00, cost: 5000.00, currency: "USD", warehouse: "HQ Services", status: "In stock", publishedToPortal: true, image: "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=800&q=80" }
+      ],
       sap_quotes: [
         { id: "Q-4001", ref: "PRP-5501", client: "C-1001", date: d(-14), validUntil: d(16), currency: "USD", freight: 0, status: "Accepted", orderId: "O-5001", items: [{ product: null, qty: 1, price: 48000 }], notes: "CRM migration — 12-week engagement." },
         { id: "Q-4002", ref: "PRP-5502", client: "C-1003", date: d(-4), validUntil: d(26), currency: "USD", freight: 0, status: "Sent", orderId: null, items: [{ product: null, qty: 1, price: 16000 }], notes: "Go-to-market advisory proposal." },
@@ -291,8 +298,33 @@ window.SAMPLE_PACKS = function (industry) {
       sap_payments: [
         { id: "PM-9001", ref: "PAY-5499", kind: "in", party: "Akbank Digital", doc: "I-9003", date: d(-22), amount: 38400, currency: "USD", method: "Bank transfer" }
       ]
+    },
+    /* ---------------- FASHION & APPAREL ---------------- */
+    fashion: {
+      sap_clients: [
+        { id: "C-1001", name: "Elena Rostova", country: "FR", sector: "VIP Client", contact: "Elena Rostova", email: "elena.r@fashion.fr", phone: "+33 1 42 68 55 00", status: "Active", since: d(-120), rating: 5, terms: 0 },
+        { id: "C-1002", name: "Marco Rossi", country: "IT", sector: "Boutique Buyer", contact: "Marco Rossi", email: "marco@milano-boutique.it", phone: "+39 02 8901 2345", status: "Active", since: d(-80), rating: 5, terms: 14 }
+      ],
+      sap_suppliers: [
+        { id: "S-2001", name: "Milano Silk & Wool Mills", country: "IT", category: "Textiles", contact: "Gianni Versace", email: "orders@milanomills.it", phone: "+39 02 7700 1100", rating: 5 }
+      ],
+      sap_products: [
+        { id: "P-3001", sku: "FSH-SLIP-DRS", name: "Lace Evening Slip Dress — Black", category: "Apparel", unit: "pcs", stock: 120, reorder: 30, price: 149.0, cost: 45.0, currency: "USD", warehouse: "Boutique Store", status: "In stock", publishedToPortal: true, image: "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=800&q=80" },
+        { id: "P-3002", sku: "FSH-OVERSHIRT", name: "Textured Cotton Overshirt — Off-White", category: "Apparel", unit: "pcs", stock: 85, reorder: 20, price: 89.0, cost: 28.0, currency: "USD", warehouse: "Boutique Store", status: "In stock", publishedToPortal: true, image: "https://images.unsplash.com/photo-1490481651871-ab68de25d43d?w=800&q=80" },
+        { id: "P-3003", sku: "FSH-LEATHER-BAG", name: "Structured Leather Crossbody Bag", category: "Accessories", unit: "pcs", stock: 45, reorder: 15, price: 199.0, cost: 65.0, currency: "USD", warehouse: "Boutique Store", status: "In stock", publishedToPortal: true, image: "https://images.unsplash.com/photo-1483985988355-763728e1935b?w=800&q=80" }
+      ],
+      sap_orders: [
+        { id: "O-5001", ref: "FSH-1001", client: "C-1001", date: d(-2), status: "Shipped", currency: "USD", freight: 12, shipmentId: "SH-7001", invoiceId: "I-9001", items: [{ product: "P-3001", qty: 1, price: 149.0 }] }
+      ],
+      sap_shipments: [
+        { id: "SH-7001", ref: "DLV-9001", client: "C-1001", orderId: "O-5001", mode: "Courier", origin: "Central Warehouse", destination: "Paris, FR", containers: 1, weightTons: 0, status: "In Transit", departed: d(-1), eta: d(1), docs: ["Airway Bill"], costs: { freight: 12, customs: 0, insurance: 0 }, tracking: [] }
+      ],
+      sap_invoices: [
+        { id: "I-9001", ref: "INV-8001", orderId: "O-5001", client: "C-1001", date: d(-2), due: d(12), total: 161.0, currency: "USD", status: "Paid", items: [{ product: "P-3001", qty: 1, price: 149.0 }] }
+      ]
     }
   };
 
-  return PACKS[industry] || {};
+  return PACKS[industry] || PACKS["ecommerce"] || {};
 };
+

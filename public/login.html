@@ -10,6 +10,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Jost:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="css/sap.css?v=28" />
+  <link rel="stylesheet" href="css/home-shopify.css?v=1" />
   <style>
     .co-list { display:flex; flex-direction:column; gap:9px; margin:4px 0 6px; }
     .co-card { display:flex; align-items:center; gap:12px; padding:11px 13px; border:1.5px solid var(--line); border-radius:12px; background:var(--surface); cursor:pointer; text-align:left; transition:border-color .15s, box-shadow .15s, background .15s; }
@@ -678,6 +679,106 @@
     </div>
   </div>
 
+
+  <!-- =====================================================================
+       MARKETING HOME — large-format landing sections (css/home-shopify.css)
+       ===================================================================== -->
+  <div class="hs">
+
+    <!-- customers -->
+    <section class="hs-wall">
+      <div class="hs-wrap"><h2 class="hs-h">Powering businesses across every industry</h2></div>
+      <div class="hs-marquee" id="hsMarquee"></div>
+    </section>
+
+    <!-- what it does -->
+    <section class="hs-dark-slab hs-on-dark">
+      <div class="hs-wrap">
+        <div class="hs-eyebrow">One console</div>
+        <h2 class="hs-h">Smarter operations start here</h2>
+        <p class="hs-sub">Orders, stock, invoices, shipments and payroll stop living in separate spreadsheets and start answering to one system.</p>
+        <div class="hs-feature-grid">
+          <div class="hs-feature">
+            <div class="hs-feature-ic">&#128203;</div>
+            <h3>Every order, end to end</h3>
+            <p>Quote to invoice to dispatch, with the paper trail written for you as the work happens.</p>
+          </div>
+          <div class="hs-feature">
+            <div class="hs-feature-ic">&#128230;</div>
+            <h3>Stock that reconciles itself</h3>
+            <p>Live counts across warehouses, shelves and site stores — with reorder points that actually fire.</p>
+          </div>
+          <div class="hs-feature">
+            <div class="hs-feature-ic">&#128176;</div>
+            <h3>Books without the month-end</h3>
+            <p>Receivables, payables and ledgers post as you trade, so closing the month takes an afternoon.</p>
+          </div>
+          <div class="hs-feature">
+            <div class="hs-feature-ic">&#127760;</div>
+            <h3>A storefront included</h3>
+            <p>Every workspace gets a branded public site, editable by clicking the page itself. No developer required.</p>
+          </div>
+          <div class="hs-feature">
+            <div class="hs-feature-ic">&#129302;</div>
+            <h3>AI that reads your documents</h3>
+            <p>Drop in an invoice or a delivery note and let it be filed, matched and posted automatically.</p>
+          </div>
+          <div class="hs-feature">
+            <div class="hs-feature-ic">&#128273;</div>
+            <h3>Audited by default</h3>
+            <p>Every action attributed and timestamped, so who changed what is never a conversation.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- proof -->
+    <section class="hs-quote hs-on-dark">
+      <div class="hs-wrap">
+        <blockquote>&ldquo;We replaced four separate tools and a shared drive. Everything our team needs is now in one place, and month-end went from a week to an afternoon.&rdquo;</blockquote>
+        <div class="hs-quote-by">Operations Director</div>
+        <div class="hs-quote-role">Distribution &amp; trade, 40 staff</div>
+      </div>
+    </section>
+
+    <!-- scale -->
+    <section class="hs-stats">
+      <div class="hs-wrap">
+        <h2 class="hs-h">Built for the whole business</h2>
+        <div class="hs-stat-grid">
+          <div class="hs-stat"><div class="hs-stat-num">8</div><div class="hs-stat-label">Industry presets, each with its own modules, language and storefront.</div></div>
+          <div class="hs-stat"><div class="hs-stat-num">20+</div><div class="hs-stat-label">Modules from orders and stock through to payroll and accounting.</div></div>
+          <div class="hs-stat"><div class="hs-stat-num">Unlimited</div><div class="hs-stat-label">Companies per account — run every branch side by side.</div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- support -->
+    <section class="hs-help">
+      <div class="hs-wrap">
+        <h2 class="hs-h">Build with help by your side</h2>
+        <div class="hs-help-grid">
+          <div class="hs-help-col"><span class="hs-help-ic">&#127911;</span><h3>Real support</h3><p>Talk to people who know the product, not a script.</p></div>
+          <div class="hs-help-col"><span class="hs-help-ic">&#127919;</span><h3>Guided setup</h3><p>Pick your industry and start with data that already makes sense.</p></div>
+          <div class="hs-help-col"><span class="hs-help-ic">&#128218;</span><h3>Learn as you go</h3><p>Short walkthroughs built into the console, exactly where you need them.</p></div>
+          <div class="hs-help-col"><span class="hs-help-ic">&#128274;</span><h3>Your data, yours</h3><p>Export anything, any time. No lock-in, no hostage pricing.</p></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- close -->
+    <section class="hs-close">
+      <div class="hs-wrap">
+        <h2 class="hs-h">Your business. One console.</h2>
+        <form class="hs-capture" id="hsCapture">
+          <input type="email" name="email" placeholder="Enter your email address" aria-label="Email address" required />
+          <button type="submit" class="hs-btn">Start free</button>
+        </form>
+        <p class="hs-capture-note">Free to start. No card required.</p>
+      </div>
+    </section>
+  </div>
+
   <!-- Pricing & FAQ Section (Claude style scroll down) -->
   <div class="login-scroll-content" id="pricing-section">
     <div class="price-wrap">
@@ -778,12 +879,44 @@
       </div>
     </div>
 
-    <footer class="wc-foot">
-      <span>© <span id="yr"></span> WeboCloud · Cloud Operations Platform</span>
-      <div class="ft-links">
-        <a href="signup.html">Create workspace</a>
-        <a href="login.html">Sign in</a>
-        <a href="mailto:sales@webocloud.app">Contact sales</a>
+    <footer class="hs hs-foot">
+      <div class="hs-wrap">
+        <div class="hs-foot-grid">
+          <div class="hs-foot-brand">
+            <div class="hs-foot-brand-name">WeboCloud</div>
+            <div class="hs-foot-desc">The cloud operations platform for businesses that have outgrown spreadsheets — orders, stock, finance and a storefront in one console.</div>
+          </div>
+          <div>
+            <h4>Platform</h4>
+            <a href="signup.html">Operations console</a>
+            <a href="signup.html">Multi-company</a>
+            <a href="signup.html">Audit history</a>
+            <a href="signup.html">Storefront builder</a>
+          </div>
+          <div>
+            <h4>Solutions</h4>
+            <a href="signup.html">Retail &amp; wholesale</a>
+            <a href="signup.html">Logistics &amp; trade</a>
+            <a href="signup.html">Manufacturing</a>
+            <a href="signup.html">Services &amp; construction</a>
+          </div>
+          <div>
+            <h4>Pricing</h4>
+            <a href="pricing.html?group=individual">Individual</a>
+            <a href="pricing.html?group=team">Team &amp; Enterprise</a>
+            <a href="mailto:sales@webocloud.app">Talk to sales</a>
+          </div>
+          <div>
+            <h4>Account</h4>
+            <a href="signup.html">Create workspace</a>
+            <a href="login.html">Sign in</a>
+            <a href="mailto:support@webocloud.app">Support</a>
+          </div>
+        </div>
+        <div class="hs-foot-bottom">
+          <span>© <span id="yr"></span> WeboCloud · Cloud Operations Platform</span>
+          <span><a href="#">Terms of Service</a><a href="#">Privacy Policy</a></span>
+        </div>
       </div>
     </footer>
   </div>
@@ -1076,6 +1209,34 @@
       });
 
     })();
+  </script>
+
+  <script>
+  /* Marketing home: customer wall + email capture.
+     The wall is duplicated once so the CSS translateX(-100%) loop is
+     seamless; names come from the industry registry so the wall always
+     matches what the product actually supports. */
+  (function () {
+    var wall = document.getElementById("hsMarquee");
+    if (wall) {
+      var names = ["Logistics & Trade", "Fashion & Apparel", "Wholesale", "Retail Superstore",
+                   "Manufacturing", "Food Service", "Construction", "Professional Services"];
+      try {
+        if (window.INDUSTRIES) names = Object.keys(window.INDUSTRIES).map(function (k) { return window.INDUSTRIES[k].name; });
+      } catch (e) {}
+      var row = names.map(function (n) { return '<span class="hs-logo">' + n + "</span>"; }).join("");
+      wall.innerHTML = '<div class="hs-marquee-row">' + row + '</div><div class="hs-marquee-row" aria-hidden="true">' + row + "</div>";
+    }
+    var cap = document.getElementById("hsCapture");
+    if (cap) {
+      cap.addEventListener("submit", function (e) {
+        e.preventDefault();
+        var email = (cap.querySelector("input") || {}).value || "";
+        // Hand the address straight to signup so it isn't collected twice.
+        location.href = "signup.html?email=" + encodeURIComponent(email);
+      });
+    }
+  })();
   </script>
 </body>
 </html>

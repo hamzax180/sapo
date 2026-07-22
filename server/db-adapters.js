@@ -13,6 +13,9 @@ const bcrypt = require("bcryptjs");
 
 const connectionCache = {}; // Caches workspace connection pools/clients
 
+// Fields that should never be exposed via the public portal API
+const PRIVATE_FIELDS = ["password", "cost", "costPrice", "margin", "dbUri", "dbType", "email", "phone", "address", "taxId"];
+
 // Allowed collections
 const COLLECTIONS = [
   "users",
@@ -190,6 +193,20 @@ async function seedWorkspaceDatabase(workspace) {
 }
 
 /**
+ * Looks up a workspace record by its customDomain field.
+ * Scans the "workspaces" collection on the MASTER MongoDB connection.
+ * Used by the custom-domain middleware in index.js.
+ */
+async function findWorkspaceByDomain(masterDb, domain) {
+  if (!masterDb || !domain) return null;
+  const normalized = String(domain).toLowerCase().trim();
+  const ws = await masterDb.collection("workspaces").findOne({ customDomain: normalized });
+  if (!ws) return null;
+  const { _id, ...rest } = ws;
+  return rest;
+}
+
+/**
  * Unified CRUD Methods
  */
 const dbAdapter = {
@@ -282,6 +299,24 @@ const dbAdapter = {
     }
   },
 
+  // Read all records, stripping private fields (for public portal use)
+  async findAllPublic(workspace, collection) {
+    const docs = await this.findAll(workspace, collection);
+    // For products: only return those explicitly published to portal
+    // If none are published yet (e.g. demo data), return all (graceful fallback)
+    let filtered = docs;
+    if (collection === "products") {
+      const published = docs.filter((d) => d.publishedToPortal === true);
+      filtered = published.length > 0 ? published : docs; // fallback to all if none published
+    }
+    return filtered.map((doc) => {
+      const safe = Object.assign({}, doc);
+      PRIVATE_FIELDS.forEach((f) => delete safe[f]);
+      return safe;
+    });
+  },
+
+
   // Delete one record by ID
   async deleteOne(workspace, collection, id) {
     const conn = await getDbClient(workspace);
@@ -299,5 +334,6 @@ const dbAdapter = {
 module.exports = {
   testConnection,
   seedWorkspaceDatabase,
+  findWorkspaceByDomain,
   dbAdapter
 };

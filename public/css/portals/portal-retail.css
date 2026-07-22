@@ -1,0 +1,55 @@
+/* =================================================================
+   WeboCloud Portal — Retail Superstore Marketplace CSS Module
+   (NOON.com & Amazon Style Mega Retail Marketplace Styles)
+   ================================================================= */
+
+body.is-noon-theme {
+  background-color: #f7f7fa;
+  font-family: 'Inter', system-ui, sans-serif;
+}
+body.is-noon-theme .portal-nav {
+  background: #feee00;
+  color: #404040;
+}
+body.is-noon-theme .nav-brand-name {
+  color: #404040;
+  font-weight: 900;
+}
+body.is-noon-theme .nav-cats a.active {
+  background: #404040;
+  color: #feee00;
+}
+
+.noon-top-banner {
+  background: #000;
+  color: #fff;
+  padding: 10px 48px;
+}
+.noon-banner-inner {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  font-size: 0.85rem;
+}
+.noon-val-tag { background: #00e676; color: #000; font-weight: 900; padding: 2px 8px; border-radius: 4px; }
+.noon-val-title { font-weight: 800; }
+.noon-val-pill { background: rgba(255,255,255,0.2); padding: 2px 8px; border-radius: 99px; }
+.noon-val-perks { display: flex; gap: 16px; margin-left: auto; font-size: 0.78rem; }
+
+.noon-hero {
+  background: linear-gradient(135deg, #feee00 0%, #ffd000 100%);
+  padding: 60px 48px;
+  color: #404040;
+}
+.noon-hero-inner { max-width: 640px; }
+.noon-hero-badge { display: inline-block; background: #000; color: #feee00; font-weight: 900; font-size: 0.75rem; padding: 4px 10px; border-radius: 4px; margin-bottom: 14px; }
+.noon-hero-title { font-size: 3.2rem; font-weight: 900; line-height: 1.05; margin-bottom: 14px; text-transform: uppercase; }
+.noon-hero-sub { font-size: 1.05rem; color: #555; margin-bottom: 24px; }
+.noon-hero-cta { background: #000; color: #fff; font-weight: 900; padding: 14px 32px; border-radius: 8px; border: none; cursor: pointer; }
+
+.noon-dept-section { padding: 32px 48px; background: #fff; border-bottom: 1px solid #e5e5e5; }
+.noon-dept-track { display: flex; gap: 20px; overflow-x: auto; padding-bottom: 8px; }
+.noon-dept-card { display: flex; flex-direction: column; align-items: center; gap: 8px; min-width: 90px; cursor: pointer; }
+.noon-dept-avatar { width: 72px; height: 72px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.8rem; box-shadow: 0 4px 12px rgba(0,0,0,0.08); transition: transform 0.2s; }
+.noon-dept-card:hover .noon-dept-avatar { transform: scale(1.08); }
+.noon-dept-name { font-size: 0.8rem; font-weight: 700; color: #333; text-align: center; }

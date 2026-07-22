@@ -135,6 +135,18 @@ window.Auth = (function () {
       Workspace.setActive(wsId);
     }
 
+    // Best-effort: also register this workspace's ownership in the platform's
+    // master DB (if a backend is reachable) so storefront/portal edits can be
+    // saved and verified server-side later. No-ops silently in pure demo mode.
+    if (window.Store && Store.registerWorkspace) {
+      Store.registerWorkspace({
+        id: wsId, company: opts.company || "My Company", industry: ind,
+        country: opts.country || "TR", ownerEmail: ownerUser.email,
+        dbType: opts.dbType || "local", dbUri: opts.dbUri || "",
+        logo: opts.logo || null, tagline: opts.tagline || ""
+      });
+    }
+
     const session = { id: ownerUser.id, name: ownerUser.name, email: ownerUser.email, role: ownerUser.role, dept: ownerUser.dept };
     localStorage.setItem(KEY, JSON.stringify(session));
     Store.logAction("register", "workspace", ownerUser.id, (opts.company || "Workspace") + " created (" + ind + ")");

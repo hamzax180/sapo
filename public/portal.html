@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="ws-id" content="" id="metaWsId" />
+  <title>Store</title>
+  <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,400&family=Playfair+Display:wght@700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/portal.css" />
+  <link rel="stylesheet" href="/css/portals/blocks.css" />
+  <link rel="stylesheet" href="/css/portals/canvas-block.css" />
+  <link rel="stylesheet" href="/css/portals/live-editor.css" />
+  <!-- Loaded last: squares off every control (Fluent-style) and centers
+       the page composition across all industries. -->
+  <link rel="stylesheet" href="/css/portals/theme-fluent.css" />
+</head>
+
+
+<body>
+
+<!-- PRELOADER -->
+<div class="portal-loader" id="portalLoader">
+  <div class="loader-logo" id="loaderBrand">STORE</div>
+  <div class="loader-bar"><div class="loader-bar-fill"></div></div>
+</div>
+
+<!-- ANNOUNCEMENT BAR -->
+<div class="announce-bar" id="announceBar" style="display:none">
+  <span id="announceText">Free shipping on orders over $50</span>
+  <button class="announce-close" onclick="document.getElementById('announceBar').style.display='none'">✕</button>
+</div>
+
+<!-- NAVIGATION -->
+<nav class="portal-nav" id="portalNav">
+  <div class="nav-inner">
+    <a class="nav-brand" href="/" id="navBrand">
+      <div class="nav-logo-icon" id="navLogoIcon">S</div>
+      <img class="nav-logo" id="navLogo" src="" alt="" style="display:none" />
+      <span class="nav-brand-name" id="navName">Store</span>
+    </a>
+    <ul class="nav-cats" id="navCats"></ul>
+    <div class="nav-right">
+      <button class="nav-search-btn" id="navSearchBtn" title="Search" aria-label="Search">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      </button>
+      <button class="nav-cart-btn" id="navCartBtn" style="display:none" aria-label="Shopping cart">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg>
+        <span>Cart</span>
+        <span class="cart-count" id="cartCount" style="display:none">0</span>
+      </button>
+    </div>
+  </div>
+</nav>
+
+<!-- SEARCH OVERLAY -->
+<div class="search-overlay" id="searchOverlay">
+  <div class="search-box">
+    <div class="search-input-row">
+      <svg class="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input class="search-input" id="searchInput" placeholder="Search products…" autocomplete="off" />
+      <button class="search-close" id="searchClose">✕</button>
+    </div>
+    <div class="search-results" id="searchResults">
+      <div class="search-empty">Start typing to search…</div>
+    </div>
+  </div>
+</div>
+
+<!-- HERO -->
+<section class="portal-hero" id="portalHero">
+  <div class="hero-bg" id="heroBg"></div>
+  <div class="hero-media" id="heroMedia" style="display:none"><img id="heroImg" src="" alt="" /></div>
+  <div class="hero-overlay"></div>
+  <div class="hero-content">
+    <div class="hero-eyebrow"><span class="hero-eyebrow-dot"></span><span id="heroEyebrow">Welcome</span></div>
+    <h1 class="hero-title" id="heroTitle">Shop the<br><em>Latest</em> Collection</h1>
+    <p class="hero-sub" id="heroSub">Discover premium products, fast delivery, and exceptional service.</p>
+    <div class="hero-actions">
+      <button class="hero-btn hero-btn-primary" id="heroCtaBtn">
+        Shop Now
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+      </button>
+      <a class="hero-btn hero-btn-outline" id="heroTrackBtn" href="#tracker" style="display:none">Track Order</a>
+    </div>
+    <div class="hero-stats" id="heroStats" style="display:none">
+      <div><div class="hero-stat-num" id="heroStatProducts">0</div><div class="hero-stat-label">Products</div></div>
+      <div><div class="hero-stat-num">24h</div><div class="hero-stat-label">Fast Delivery</div></div>
+      <div><div class="hero-stat-num">100%</div><div class="hero-stat-label">Secure Checkout</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- TRUST STRIP -->
+<div class="trust-strip" id="trustStrip" style="display:none">
+  <div class="trust-inner">
+    <div class="trust-item"><span class="trust-icon">🚚</span> Free Shipping over $50</div>
+    <div class="trust-item"><span class="trust-icon">🔒</span> Secure Checkout</div>
+    <div class="trust-item"><span class="trust-icon">↩️</span> Easy Returns</div>
+    <div class="trust-item"><span class="trust-icon">💬</span> 24/7 Support</div>
+  </div>
+</div>
+
+<!-- MAIN CONTENT — injected by portal.js -->
+<main id="portalMain"></main>
+
+<!-- FOOTER -->
+<footer class="portal-footer" id="portalFooter">
+  <div class="footer-inner">
+    <div class="footer-top">
+      <div class="footer-brand-col">
+        <div class="footer-brand-name" id="footerBrand">Store</div>
+        <div class="footer-brand-desc" id="footerDesc">Premium products delivered to your door.</div>
+      </div>
+      <div>
+        <div class="footer-col-title">Shop</div>
+        <ul class="footer-links-list" id="footerShopLinks">
+          <li><a href="#all">All Products</a></li>
+          <li><a href="#new">New Arrivals</a></li>
+        </ul>
+      </div>
+      <div>
+        <div class="footer-col-title">Support</div>
+        <ul class="footer-links-list">
+          <li><a href="#track">Track Order</a></li>
+          <li><a id="footerContactLink" href="#">Contact Us</a></li>
+        </ul>
+      </div>
+      <div>
+        <div class="footer-col-title">Company</div>
+        <ul class="footer-links-list">
+          <li><a href="#">About</a></li>
+          <li><a href="#">Privacy Policy</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <div class="footer-copy">© <span id="footerYear"></span> <strong id="footerCo"></strong>. All rights reserved.</div>
+      <div class="footer-powered">Powered by <a href="https://webocloud.com" target="_blank" rel="noopener">WeboCloud</a></div>
+    </div>
+  </div>
+</footer>
+
+<!-- CART DRAWER -->
+<div class="cart-overlay" id="cartOverlay"></div>
+<div class="cart-drawer" id="cartDrawer">
+  <div class="cart-hd">
+    <div>
+      <div class="cart-hd-title">Your Cart</div>
+      <div class="cart-hd-count" id="cartHdCount">0 items</div>
+    </div>
+    <button class="cart-close-btn" id="cartCloseBtn">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+  </div>
+  <div class="cart-items" id="cartItems">
+    <div class="cart-empty">
+      <div class="cart-empty-icon">🛍️</div>
+      <div class="cart-empty-text">Your cart is empty</div>
+      <div class="cart-empty-sub">Add some products to get started</div>
+    </div>
+  </div>
+  <div class="cart-ft">
+    <div class="cart-subtotal">
+      <span class="cart-subtotal-label">Subtotal</span>
+      <span class="cart-subtotal-val" id="cartSubtotal">$0.00</span>
+    </div>
+    <div class="cart-shipping-note">Shipping calculated at checkout</div>
+    <button class="btn btn-dark btn-full btn-lg" id="checkoutBtn" disabled>
+      Proceed to Checkout →
+    </button>
+  </div>
+</div>
+
+<!-- PRODUCT DETAIL MODAL -->
+<div class="product-modal-overlay" id="productModalOverlay">
+  <div class="product-modal" id="productModal">
+    <div class="modal-img-col">
+      <button class="modal-close" id="modalClose">✕</button>
+      <div id="modalImgContent"><div class="modal-img-placeholder">📦</div></div>
+    </div>
+    <div class="modal-info-col">
+      <div class="modal-brand" id="modalBrand"></div>
+      <div class="modal-name" id="modalName">Product Name</div>
+      <div class="modal-price-row">
+        <div class="modal-price" id="modalPrice">$0.00</div>
+        <div class="modal-price-old" id="modalPriceOld" style="display:none"></div>
+        <div class="modal-badge-sale" id="modalSaleBadge" style="display:none">SALE</div>
+      </div>
+      <div class="modal-divider"></div>
+      <div class="modal-desc" id="modalDesc">No description available.</div>
+      <div class="modal-divider"></div>
+      <div class="modal-qty-row">
+        <div class="modal-qty-label">Quantity</div>
+        <div class="qty-control">
+          <button class="qty-btn" id="modalQtyMinus">−</button>
+          <div class="qty-val" id="modalQtyVal">1</div>
+          <button class="qty-btn" id="modalQtyPlus">+</button>
+        </div>
+      </div>
+      <button class="modal-add-btn" id="modalAddBtn">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg>
+        Add to Cart
+      </button>
+      <div class="modal-meta">
+        <div class="modal-meta-row">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          <span id="modalStock">In stock — ships within 24h</span>
+        </div>
+        <div class="modal-meta-row">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10H3M16 6l-8 8M8 6l8 8"/></svg>
+          <span>Free returns within 30 days</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- CHECKOUT MODAL -->
+<div class="checkout-overlay" id="checkoutOverlay">
+  <div class="checkout-modal">
+    <div id="checkoutBody">
+      <div class="checkout-title">Complete Your Order</div>
+      <div class="checkout-sub">Fill in your details below and we'll get your order processed right away.</div>
+      <div class="order-summary-box" id="orderSummaryBox"></div>
+      <div class="pf-row">
+        <div class="pf-field"><label class="pf-label">First Name <span class="req">*</span></label><input class="pf-input" id="coFirst" placeholder="John" autocomplete="given-name" /></div>
+        <div class="pf-field"><label class="pf-label">Last Name</label><input class="pf-input" id="coLast" placeholder="Smith" autocomplete="family-name" /></div>
+      </div>
+      <div class="pf-field"><label class="pf-label">Email Address <span class="req">*</span></label><input class="pf-input" id="coEmail" type="email" placeholder="john@example.com" autocomplete="email" /></div>
+      <div class="pf-field"><label class="pf-label">Phone Number</label><input class="pf-input" id="coPhone" placeholder="+1 555 000 0000" autocomplete="tel" /></div>
+      <div class="pf-field"><label class="pf-label">Delivery Address</label><input class="pf-input" id="coAddress" placeholder="123 Main Street, City, Country" autocomplete="street-address" /></div>
+      <div class="pf-field"><label class="pf-label">Order Notes</label><textarea class="pf-textarea" id="coNote" placeholder="Any special instructions…" style="min-height:72px"></textarea></div>
+
+      <div class="pf-field">
+        <label class="pf-label">Payment Method <span class="req">*</span></label>
+        <div class="pm-method-row" id="pmMethodRow">
+          <button type="button" class="pm-method-btn" data-method="card">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+            Card
+          </button>
+          <button type="button" class="pm-method-btn" data-method="paypal">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h9a4 4 0 010 8H9l-1.5 10H4L6 3z"/><path d="M9 7h9a4 4 0 010 8h-6"/></svg>
+            PayPal
+          </button>
+          <button type="button" class="pm-method-btn" data-method="cod">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v10M9 10h4.5a1.5 1.5 0 010 3H9"/></svg>
+            Cash on Delivery
+          </button>
+          <button type="button" class="pm-method-btn" data-method="bank">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10l9-6 9 6M4 10v9M20 10v9M8 10v9M16 10v9M2 21h20"/></svg>
+            Bank Transfer
+          </button>
+        </div>
+        <div id="pmMethodBody"></div>
+        <div class="pm-trust-row">
+          <span class="pm-trust-lock">🔒 Secure Checkout</span>
+          <span class="pm-brand-icons">
+            <svg width="34" height="22" viewBox="0 0 48 32" aria-label="Visa"><rect width="48" height="32" rx="4" fill="#1a1f71"/><text x="24" y="21" font-family="Arial, sans-serif" font-size="13" font-weight="900" font-style="italic" fill="#fff" text-anchor="middle">VISA</text></svg>
+            <svg width="34" height="22" viewBox="0 0 48 32" aria-label="Mastercard"><rect width="48" height="32" rx="4" fill="#16171a"/><circle cx="20" cy="16" r="9" fill="#eb001b"/><circle cx="28" cy="16" r="9" fill="#f79e1b" fill-opacity="0.9"/></svg>
+            <svg width="34" height="22" viewBox="0 0 48 32" aria-label="American Express"><rect width="48" height="32" rx="4" fill="#2e77bc"/><text x="24" y="20" font-family="Arial, sans-serif" font-size="10.5" font-weight="800" fill="#fff" text-anchor="middle">AMEX</text></svg>
+            <svg width="34" height="22" viewBox="0 0 48 32" aria-label="PayPal"><rect width="48" height="32" rx="4" fill="#f5f7fa"/><text x="24" y="20" font-family="Arial, sans-serif" font-size="9.5" font-weight="800" fill="#003087" text-anchor="middle">PayPal</text></svg>
+          </span>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:10px;margin-top:4px">
+        <button class="btn btn-outline-dark" style="flex:0 0 auto" id="backToCartBtn">← Back</button>
+        <button class="btn btn-dark btn-full" id="placeOrderBtn">Place Order →</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const fy = document.getElementById('footerYear');
+  if (fy) fy.textContent = new Date().getFullYear();
+</script>
+<script src="/js/industries.js"></script>
+<script src="/js/portals/config-migrate.js"></script>
+<script src="/js/portals/blocks.js"></script>
+<script src="/js/portals/canvas-block.js"></script>
+<script src="/js/portals/generic-renderer.js"></script>
+<script src="/js/portals/portal-logistics.js"></script>
+<script src="/js/portals/portal-fashion.js"></script>
+<script src="/js/portals/portal-retail.js"></script>
+<script src="/js/portals/portal-restaurant.js"></script>
+<script src="/js/portals/portal-construction.js"></script>
+<script src="/js/portals/portal-manufacturing.js"></script>
+<script src="/js/portals/portal-services.js"></script>
+<script src="/js/portals/live-editor.js"></script>
+<script src="/js/portal.js"></script>
+
+
+
+</body>
+</html>

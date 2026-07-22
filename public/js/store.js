@@ -88,51 +88,80 @@ window.Store = (function () {
   /* ---- CRUD (async; LIVE uses REST, DEMO uses localStorage) ---- */
   async function list(c) {
     if (connected) {
-      const r = await fetch(base + "/" + c, { headers: getHeaders() });
-      return r.json();
+      try {
+        const ctrl = new AbortController();
+        const t = setTimeout(() => ctrl.abort(), 2000);
+        const r = await fetch(base + "/" + c, { headers: getHeaders(), signal: ctrl.signal });
+        clearTimeout(t);
+        if (r.ok) {
+          const data = await r.json();
+          if (Array.isArray(data)) return data;
+        }
+      } catch (e) {
+        console.warn("Store.list API failed, falling back to localStorage:", e);
+      }
     }
     return lsGet(c);
   }
 
   async function get(c, id) {
     const all = await list(c);
-    return all.find((x) => x.id === id);
+    return Array.isArray(all) ? all.find((x) => x.id === id) : null;
   }
 
   async function create(c, record) {
     record = Object.assign({ id: nextId(c) }, record);
     if (connected) {
-      const r = await fetch(base + "/" + c, { method: "POST", headers: getHeaders(), body: JSON.stringify(record) });
-      record = await r.json();
-    } else {
-      const all = lsGet(c);
-      all.unshift(record);
-      lsSet(c, all);
+      try {
+        const ctrl = new AbortController();
+        const t = setTimeout(() => ctrl.abort(), 2000);
+        const r = await fetch(base + "/" + c, { method: "POST", headers: getHeaders(), body: JSON.stringify(record), signal: ctrl.signal });
+        clearTimeout(t);
+        if (r.ok) {
+          const res = await r.json();
+          if (res && res.id) return res;
+        }
+      } catch (e) {}
     }
+    const all = lsGet(c);
+    all.unshift(record);
+    lsSet(c, all);
     return record;
   }
 
   async function update(c, id, patch) {
     let result;
     if (connected) {
-      const r = await fetch(base + "/" + c + "/" + id, { method: "PUT", headers: getHeaders(), body: JSON.stringify(patch) });
-      result = await r.json();
-    } else {
-      const all = lsGet(c);
-      const i = all.findIndex((x) => x.id === id);
-      if (i > -1) { all[i] = Object.assign({}, all[i], patch); result = all[i]; lsSet(c, all); }
+      try {
+        const ctrl = new AbortController();
+        const t = setTimeout(() => ctrl.abort(), 2000);
+        const r = await fetch(base + "/" + c + "/" + id, { method: "PUT", headers: getHeaders(), body: JSON.stringify(patch), signal: ctrl.signal });
+        clearTimeout(t);
+        if (r.ok) {
+          result = await r.json();
+          if (result) return result;
+        }
+      } catch (e) {}
     }
+    const all = lsGet(c);
+    const i = all.findIndex((x) => x.id === id);
+    if (i > -1) { all[i] = Object.assign({}, all[i], patch); result = all[i]; lsSet(c, all); }
     return result;
   }
 
   async function remove(c, id) {
     if (connected) {
-      await fetch(base + "/" + c + "/" + id, { method: "DELETE", headers: getHeaders() });
-    } else {
-      lsSet(c, lsGet(c).filter((x) => x.id !== id));
+      try {
+        const ctrl = new AbortController();
+        const t = setTimeout(() => ctrl.abort(), 2000);
+        await fetch(base + "/" + c + "/" + id, { method: "DELETE", headers: getHeaders(), signal: ctrl.signal });
+        clearTimeout(t);
+      } catch (e) {}
     }
+    lsSet(c, lsGet(c).filter((x) => x.id !== id));
     return true;
   }
+
 
   /* ---- auth (LIVE verifies a hashed password server-side) ---- */
   async function login(email, password) {
@@ -162,6 +191,79 @@ window.Store = (function () {
     return j.text;
   }
   function hasAiProxy() { return connected; }
+
+  /* ---- storefront / custom domain management ---- */
+  async function setDomain(wsId, domain, storefrontEnabled, storefrontConfig) {
+    if (!connected) { console.warn("Store: not connected — domain cannot be saved to server"); return false; }
+    try {
+      const r = await fetch(base + "/api/ws/" + wsId + "/domain", {
+        method: "POST",
+        headers: getHeaders(),
+        body: JSON.stringify({ domain, storefrontEnabled, storefrontConfig })
+      });
+      return r.ok;
+    } catch (e) { return false; }
+  }
+
+  async function getPortalConfig(wsId) {
+    try {
+      const r = await fetch(base + "/api/portal/" + wsId + "/config");
+      if (!r.ok) return null;
+      return r.json();
+    } catch (e) { return null; }
+  }
+
+  /* Portal URL helper — returns the hosted portal URL for a workspace */
+  function portalUrl(wsId) {
+    const b = base || (typeof location !== "undefined" ? location.origin : "");
+    return b + "/portal/" + wsId;
+  }
+
+  /* Provisions the master-DB workspace record at signup, establishing
+     ownership (by email) so later storefront-config writes can be
+     verified server-side. No-ops quietly if not connected — demo-only
+     workspaces keep working entirely out of localStorage. */
+  async function registerWorkspace(payload) {
+    if (!connected) return false;
+    try {
+      const r = await fetch(base + "/api/ws", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      return r.ok;
+    } catch (e) { return false; }
+  }
+
+  /* Persists the full v2 storefront config (theme/pages/blocks). */
+  async function publishStorefrontPages(wsId, storefrontConfig) {
+    if (!connected) { console.warn("Store: not connected — storefront cannot be published to server"); return false; }
+    try {
+      const r = await fetch(base + "/api/storefront/config", {
+        method: "POST",
+        headers: getHeaders(),
+        body: JSON.stringify({ wsId, storefrontConfig })
+      });
+      return r.ok;
+    } catch (e) { return false; }
+  }
+
+  /* Mints a short-lived token the portal's live editor uses to authenticate
+     edits when it's served from a different origin/custom domain than the
+     admin app (so it can't rely on shared localStorage). */
+  async function getEditToken(wsId) {
+    if (!connected) return null;
+    try {
+      const r = await fetch(base + "/api/storefront/edit-token", {
+        method: "POST",
+        headers: getHeaders(),
+        body: JSON.stringify({ wsId })
+      });
+      if (!r.ok) return null;
+      const j = await r.json();
+      return j.editToken || null;
+    } catch (e) { return null; }
+  }
 
   /* ---- audit trail ---- */
   function logAction(action, entity, entityId, summary, meta) {
@@ -226,6 +328,7 @@ window.Store = (function () {
     list, get, create, update, remove, logAction, auditWindow, resetDemo,
     installWorkspaceData, resetWorkspace, purgeWorkspace,
     login, aiChat, hasAiProxy,
+    setDomain, getPortalConfig, portalUrl, registerWorkspace, publishStorefrontPages, getEditToken,
     COLLECTIONS
   };
 })();

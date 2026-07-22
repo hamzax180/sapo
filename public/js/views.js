@@ -1482,26 +1482,34 @@ window.Views = (function () {
 
     function rows() {
       const data = activeCat === "All" ? list : list.filter((p) => p.category === activeCat);
-      if (!data.length) return emptyRow(6, UI.t("No products in this category."));
+      if (!data.length) return emptyRow(7, UI.t("No products in this category."));
       return data.map((p) => {
         const st = productStatus(p.stock, p.reorder);
         const pct = Math.min(100, p.reorder ? (p.stock / (p.reorder * 2)) * 100 : 100);
+        const portalPill = p.publishedToPortal
+          ? '<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;background:#f0fdf4;border:1px solid #86efac;border-radius:99px;font-size:.72rem;font-weight:700;color:#16a34a;white-space:nowrap">🏪 Live</span>'
+          : '<span style="font-size:.78rem;color:var(--muted)">—</span>';
+        const imgThumb = p.image
+          ? '<img src="' + esc(p.image) + '" alt="" style="width:32px;height:32px;object-fit:cover;border-radius:6px;border:1px solid var(--line);margin-right:8px;flex-shrink:0" onerror="this.style.display=\'none\'">'
+          : '';
         return '<tr data-row data-id="' + p.id + '">' +
-          "<td>" + avatar(p.name, p.sku) + "</td>" +
-          '<td><span class="tag">' + esc(tr(p.category)) + "</span></td>" +
-          "<td>" + esc(p.warehouse) + "</td>" +
-          '<td style="min-width:140px"><div class="flex between" style="margin-bottom:5px"><span class="strong">' + num(p.stock) + " " + esc(p.unit) + '</span><span class="ci-sub muted">min ' + p.reorder + '</span></div><div class="bar"><span style="width:' + pct + "%;background:" + (st === "Out of stock" ? "var(--red)" : st === "Low" ? "var(--amber)" : "linear-gradient(90deg,var(--green),#17b277)") + '"></span></div></td>' +
-          '<td class="strong">' + money(p.price, p.currency) + "</td>" +
-          "<td>" + badge(st, PROD_ST) + rowActs("inventory") + "</td>" +
-          "</tr>";
+          '<td style="display:flex;align-items:center">' + imgThumb + avatar(p.name, p.sku) + '</td>' +
+          '<td><span class="tag">' + esc(tr(p.category)) + '</span></td>' +
+          '<td>' + esc(p.warehouse) + '</td>' +
+          '<td style="min-width:140px"><div class="flex between" style="margin-bottom:5px"><span class="strong">' + num(p.stock) + ' ' + esc(p.unit) + '</span><span class="ci-sub muted">min ' + p.reorder + '</span></div><div class="bar"><span style="width:' + pct + '%;background:' + (st === 'Out of stock' ? 'var(--red)' : st === 'Low' ? 'var(--amber)' : 'linear-gradient(90deg,var(--green),#17b277)') + '"></span></div></td>' +
+          '<td class="strong">' + money(p.price, p.currency) + '</td>' +
+          '<td>' + portalPill + '</td>' +
+          '<td>' + badge(st, PROD_ST) + rowActs('inventory') + '</td>' +
+          '</tr>';
       }).join("");
     }
+
 
     el.innerHTML =
       indTitle("inventory", "Inventory & Products", "Inventory description") +
       toolbar("prodSearch", segFilter(cats, activeCat), "New product", "prodAdd", "inventory") +
       '<div class="tbl-wrap"><table class="tbl"><thead><tr>' +
-      "<th>" + UI.t("Product") + "</th><th>" + UI.t("Category") + "</th><th>" + UI.t("Warehouse") + "</th><th>" + UI.t("Stock level") + "</th><th>" + UI.t("Unit price") + "</th><th>" + UI.t("Status") + "</th>" +
+      "<th>" + UI.t("Product") + "</th><th>" + UI.t("Category") + "</th><th>" + UI.t("Warehouse") + "</th><th>" + UI.t("Stock level") + "</th><th>" + UI.t("Unit price") + "</th><th>" + UI.t("Portal") + "</th><th>" + UI.t("Status") + "</th>" +
       '</tr></thead><tbody id="prodBody">' + rows() + "</tbody></table></div>";
 
     liveSearch("prodSearch");
@@ -1526,14 +1534,36 @@ window.Views = (function () {
 
   function prodForm(p) {
     const isEdit = !!p; p = p || {};
+    const published = p.publishedToPortal === true;
     modal({
       title: isEdit ? UI.t("Edit product") : UI.t("New product"), wide: true,
       body:
+        // ── Storefront publish toggle (top of form, highlighted)
+        '<div style="background:linear-gradient(90deg,#f0fdf4,#eff6ff);border:1.5px solid #86efac;border-radius:10px;padding:14px 16px;margin-bottom:18px;display:flex;align-items:center;gap:14px">' +
+          '<span style="font-size:1.3rem">🏪</span>' +
+          '<div style="flex:1"><div style="font-weight:700;font-size:.88rem;color:#15803d;margin-bottom:2px">' + UI.t("Publish to Customer Portal") + '</div>' +
+          '<div style="font-size:.78rem;color:#4b5563">' + UI.t("When enabled, this product is visible on your public storefront.") + '</div></div>' +
+          '<label style="display:flex;align-items:center;gap:6px;cursor:pointer;flex-shrink:0">' +
+            '<input type="checkbox" name="publishedToPortal" ' + (published ? "checked" : "") + ' style="width:18px;height:18px;accent-color:#16a34a;cursor:pointer">' +
+            '<span style="font-size:.82rem;font-weight:600;color:#166534">' + (published ? UI.t("Published") : UI.t("Publish")) + '</span>' +
+          '</label>' +
+        '</div>' +
+        // ── Core fields
         '<div class="form-row">' +
           field("SKU", '<input class="input" name="sku" value="' + esc(p.sku || "") + '">', true) +
-          field("Kategori", sel("category", p.category || "Nano-Z Coating", ["Nano-Z Coating", "Food Supply"])) +
+          field(UI.t("Category"), sel("category", p.category || "Nano-Z Coating", ["Nano-Z Coating", "Food Supply", "Electronics", "Clothing", "Home & Garden", "Sports", "Beauty", "Books", "Tools", "Other"])) +
         "</div>" +
         field(UI.t("Product name"), '<input class="input" name="name" value="' + esc(p.name || "") + '">', true) +
+        // ── Description (for portal)
+        field(UI.t("Description (shown on storefront)"), '<textarea class="input" name="description" rows="3" placeholder="' + UI.t("Describe this product for customers…") + '" style="resize:vertical;min-height:72px">' + esc(p.description || "") + '</textarea>') +
+        // ── Product image
+        '<div class="form-row">' +
+          field(UI.t("Image URL"), '<input class="input" name="image" placeholder="https://example.com/image.jpg" value="' + esc(p.image || "") + '">') +
+          field(UI.t("Brand / Manufacturer"), '<input class="input" name="brand" placeholder="e.g. ACME Corp" value="' + esc(p.brand || "") + '">') +
+        '</div>' +
+        // ── Image preview
+        (p.image ? '<div style="margin-bottom:16px"><img src="' + esc(p.image) + '" alt="" style="max-width:100%;max-height:120px;border-radius:8px;border:1px solid var(--line);object-fit:contain;background:#f9f9f9" onerror="this.style.display=\'none\'"></div>' : '') +
+        // ── Stock fields
         '<div class="form-row">' +
           field(UI.t("Stock on hand"), '<input class="input" type="number" min="0" data-type="number" name="stock" value="' + (p.stock != null ? p.stock : 0) + '">') +
           field(UI.t("Reorder level"), '<input class="input" type="number" min="0" data-type="number" name="reorder" value="' + (p.reorder != null ? p.reorder : 0) + '">') +
@@ -1547,16 +1577,35 @@ window.Views = (function () {
           field(UI.t("Currency"), sel("currency", p.currency || "USD", ["USD", "EUR", "TRY"])) +
         '</div>',
       footer: '<button class="btn btn-ghost" onclick="UI.closeModal()">' + UI.t("Cancel") + '</button><button class="btn btn-primary" data-save>' + (isEdit ? UI.t("Save changes") : UI.t("Add product")) + "</button>",
-      onMount: (m) => m.querySelector("[data-save]").addEventListener("click", async () => {
-        const v = readForm(m);
-        if (!v.sku || !v.name) return toast("SKU ve isim zorunludur", "err");
-        v.status = productStatus(v.stock, v.reorder);
-        if (isEdit) { await Store.update("products", p.id, v); Store.logAction("update", "product", p.id, UI.t("Product updated: ") + v.name + " (stok " + v.stock + ")"); toast(UI.t("Product updated")); }
-        else { const r = await Store.create("products", v); Store.logAction("create", "product", r.id, UI.t("Product added: ") + v.name); toast(UI.t("Product added")); }
-        closeModal(); App.reload();
-      })
+      onMount: (m) => {
+        // Live image preview on URL change
+        const imgInput = m.querySelector('[name="image"]');
+        const pubCheckbox = m.querySelector('[name="publishedToPortal"]');
+        const pubLabel = m.querySelector('[name="publishedToPortal"] + span');
+        if (imgInput) {
+          imgInput.addEventListener("change", () => {
+            const url = imgInput.value.trim();
+            let prev = m.querySelector(".img-preview");
+            if (!prev && url) { prev = document.createElement("img"); prev.className="img-preview"; prev.style.cssText="max-width:100%;max-height:100px;border-radius:8px;border:1px solid var(--line);margin-bottom:12px;object-fit:contain;background:#f9f9f9;display:block"; imgInput.parentElement.appendChild(prev); }
+            if (prev && url) { prev.src = url; prev.onerror=()=>prev.remove(); }
+          });
+        }
+        if (pubCheckbox && pubLabel) {
+          pubCheckbox.addEventListener("change", () => { pubLabel.textContent = pubCheckbox.checked ? UI.t("Published") : UI.t("Publish"); });
+        }
+        m.querySelector("[data-save]").addEventListener("click", async () => {
+          const v = readForm(m);
+          if (!v.sku || !v.name) return toast(UI.t("SKU and name are required"), "err");
+          v.status = productStatus(v.stock, v.reorder);
+          v.publishedToPortal = !!(m.querySelector('[name="publishedToPortal"]') && m.querySelector('[name="publishedToPortal"]').checked);
+          if (isEdit) { await Store.update("products", p.id, v); Store.logAction("update", "product", p.id, UI.t("Product updated: ") + v.name + " (stock " + v.stock + ")"); toast(UI.t("Product updated")); }
+          else { const r = await Store.create("products", v); Store.logAction("create", "product", r.id, UI.t("Product added: ") + v.name); toast(UI.t("Product added")); }
+          closeModal(); App.reload();
+        });
+      }
     });
   }
+
   function delProd(p) {
     confirm({ title: UI.t("Delete product?"), message: p.name +  + " " + UI.t("will be removed from inventory."), danger: true, okLabel: UI.t("Delete") }, async () => {
       await Store.remove("products", p.id); Store.logAction("delete", "product", p.id, UI.t("Product deleted: ") + p.name); toast(UI.t("Product deleted")); App.reload();
@@ -2437,6 +2486,119 @@ window.Views = (function () {
         "</div></div>"
       : "";
 
+    const sWsActive = window.Workspace && window.Workspace.active && window.Workspace.active();
+    const sWsId = sWsActive ? sWsActive.id : null;
+    const portalUrl = sWsId ? (Store.portalUrl ? Store.portalUrl(sWsId) : location.origin + "/portal/" + sWsId) : null;
+    const currentDomain = sWsActive ? (sWsActive.customDomain || "") : "";
+    const storefrontOn = sWsActive ? (sWsActive.storefrontEnabled !== false) : false;
+
+    const sc = (sWsActive && sWsActive.storefrontConfig) || {};
+    const storefrontCard = sWsId
+      ? '<div class="card" style="margin-bottom:18px">' +
+          '<div class="card-h">' +
+            '<h3>🏪 ' + UI.t("Website Storefront Editor & Settings") + '</h3>' +
+            '<div class="grow" style="flex:1"></div>' +
+            '<span class="conn-pill ' + (storefrontOn ? "live" : "demo") + '"><span class="dot"></span>' + (storefrontOn ? UI.t("Live") : UI.t("Disabled")) + '</span>' +
+          '</div>' +
+          '<div class="card-b">' +
+            '<p class="muted" style="margin-top:0">' + UI.t("Customize your public storefront design, header announcement banner, hero section text, colors, and domain.") + '</p>' +
+            
+            // ── Store Status & Links
+            '<div class="form-row">' +
+              '<div class="field"><label class="label">' + UI.t("Status") + '</label>' +
+                '<label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:8px 0">' +
+                  '<input type="checkbox" id="sfEnabled" ' + (storefrontOn ? "checked" : "") + ' style="accent-color:var(--accent);width:18px;height:18px">' +
+                  '<span style="font-weight:600">' + UI.t("Enable Public Storefront") + '</span>' +
+                '</label>' +
+              '</div>' +
+              '<div class="field"><label class="label">' + UI.t("Storefront Template") + '</label>' +
+                '<select class="input" id="sfTemplate">' +
+                  '<option value="retail" ' + ((sc.template || "retail") === "retail" ? "selected" : "") + '>🛒 Retail & Superstore Marketplace (NOON / Amazon)</option>' +
+                  '<option value="fashion" ' + (sc.template === "fashion" ? "selected" : "") + '>👗 Fashion & Apparel Editorial (ZARA / H&M)</option>' +
+                  '<option value="catalog" ' + (sc.template === "catalog" ? "selected" : "") + '>🛍️ Standard E-Commerce Catalog</option>' +
+                  '<option value="menu" ' + (sc.template === "menu" ? "selected" : "") + '>🍽️ Restaurant & Food Menu</option>' +
+                  '<option value="tracker" ' + (sc.template === "tracker" ? "selected" : "") + '>🚚 Logistics & Order Tracker</option>' +
+                  '<option value="inquiry" ' + (sc.template === "inquiry" ? "selected" : "") + '>💼 Professional Quote Inquiry</option>' +
+                '</select>' +
+              '</div>' +
+
+            '</div>' +
+
+            '<div class="form-row">' +
+              field(UI.t("Storefront Brand Name"), '<input class="input" id="sfBrandName" placeholder="e.g. Your Company Name" value="' + esc(sc.brandName || (sWsActive && sWsActive.company) || "") + '">') +
+              field(UI.t("Custom Logo Image URL"), '<input class="input" id="sfLogoUrl" placeholder="https://domain.com/logo.png" value="' + esc(sc.logoUrl || "") + '">') +
+            '</div>' +
+
+            '<div class="dfield"><div class="k">' + UI.t("Portal Live URL") + '</div><div class="v">' +
+
+              '<code style="font-size:.8rem;background:var(--bg);padding:4px 8px;border-radius:6px;border:1px solid var(--line);user-select:all" id="sfPortalUrl">' + esc(portalUrl || "—") + '</code>' +
+              (portalUrl ? ' <button class="btn btn-ghost btn-sm" id="sfCopyUrl" style="margin-left:6px">' + icon("copy") + UI.t("Copy") + '</button>' : "") +
+              (portalUrl ? ' <a class="btn btn-primary btn-sm" href="' + esc(portalUrl) + '" target="_blank" rel="noopener" style="margin-left:6px">👁️ ' + UI.t("Preview Website") + '</a>' : "") +
+            '</div></div>' +
+
+            '<div class="divider"></div>' +
+
+            // ── 📢 Top Announcement Banner
+            '<h4 style="font-size:.92rem;font-weight:700;margin-bottom:12px;color:var(--text)">📢 ' + UI.t("Header Announcement Bar") + '</h4>' +
+            '<div class="form-row">' +
+              field(UI.t("Announcement Text"), '<input class="input" id="sfAnnounce" placeholder="e.g. Free Express Shipping on Orders Over $50 | 24/7 Support" value="' + esc(sc.announcement || "") + '">') +
+              '<div class="field"><label class="label">' + UI.t("Bar Visibility") + '</label>' +
+                '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:8px 0">' +
+                  '<input type="checkbox" id="sfAnnounceOn" ' + (sc.announcementEnabled !== false ? "checked" : "") + ' style="accent-color:var(--accent);width:16px;height:16px">' +
+                  '<span>' + UI.t("Show Top Announcement Bar") + '</span>' +
+                '</label>' +
+              '</div>' +
+            '</div>' +
+
+            '<div class="divider"></div>' +
+
+            // ── 🌟 Hero Header Banner Customizer
+            '<h4 style="font-size:.92rem;font-weight:700;margin-bottom:12px;color:var(--text)">🎨 ' + UI.t("Hero Header Customizer") + '</h4>' +
+            '<div class="form-row">' +
+              field(UI.t("Hero Eyebrow Tag"), '<input class="input" id="sfHeroEyebrow" placeholder="e.g. NEW ARRIVALS 2026" value="' + esc(sc.heroEyebrow || "") + '">') +
+              field(UI.t("Hero Alignment"), '<select class="input" id="sfHeroAlign"><option value="left" ' + (sc.heroAlign !== "center" ? "selected" : "") + '>Left Aligned</option><option value="center" ' + (sc.heroAlign === "center" ? "selected" : "") + '>Centered Layout</option></select>') +
+            '</div>' +
+            field(UI.t("Hero Main Title (Use *word* for italic accent)"), '<input class="input" id="sfHeroTitle" placeholder="e.g. Discover Our *Products*" value="' + esc(sc.heroTitle || "") + '">') +
+            field(UI.t("Hero Subtitle"), '<textarea class="input" id="sfHeroSub" rows="2" placeholder="e.g. Shop the latest collection with fast express delivery." style="resize:vertical;min-height:60px">' + esc(sc.heroSub || "") + '</textarea>') +
+            '<div class="form-row">' +
+              field(UI.t("Primary Button Label"), '<input class="input" id="sfCtaText" placeholder="e.g. Shop Now" value="' + esc(sc.ctaText || "") + '">') +
+              field(UI.t("Hero Background Image URL"), '<input class="input" id="sfHeroBgImage" placeholder="https://images.unsplash.com/..." value="' + esc(sc.heroBgImage || "") + '">') +
+            '</div>' +
+
+            '<div class="divider"></div>' +
+
+            // ── 🎨 Theme Colors
+            '<h4 style="font-size:.92rem;font-weight:700;margin-bottom:12px;color:var(--text)">✨ ' + UI.t("Theme Accent Color") + '</h4>' +
+            '<div class="form-row" style="align-items:center">' +
+              field(UI.t("Accent Color Hex"), '<input class="input" id="sfAccent" type="color" value="' + esc(sc.accentColor || "#111111") + '" style="height:40px;padding:4px;cursor:pointer">') +
+              '<div class="field"><label class="label">' + UI.t("Color Presets") + '</label>' +
+                '<div style="display:flex;gap:8px;padding-top:4px">' +
+                  '<button type="button" class="btn btn-ghost btn-sm" onclick="document.getElementById(\'sfAccent\').value=\'#111111\'" style="background:#111;color:#fff">Black</button>' +
+                  '<button type="button" class="btn btn-ghost btn-sm" onclick="document.getElementById(\'sfAccent\').value=\'#1aa6df\'" style="background:#1aa6df;color:#fff">Ocean</button>' +
+                  '<button type="button" class="btn btn-ghost btn-sm" onclick="document.getElementById(\'sfAccent\').value=\'#e11d48\'" style="background:#e11d48;color:#fff">Rose</button>' +
+                  '<button type="button" class="btn btn-ghost btn-sm" onclick="document.getElementById(\'sfAccent\').value=\'#059669\'" style="background:#059669;color:#fff">Emerald</button>' +
+                  '<button type="button" class="btn btn-ghost btn-sm" onclick="document.getElementById(\'sfAccent\').value=\'#7c3aed\'" style="background:#7c3aed;color:#fff">Purple</button>' +
+                '</div>' +
+              '</div>' +
+            '</div>' +
+
+            '<div class="divider"></div>' +
+
+            // ── 🌐 Custom Domain
+            '<h4 style="font-size:.88rem;font-weight:600;margin-bottom:10px;color:var(--label)">🌐 ' + UI.t("Custom Domain") + '</h4>' +
+            '<p class="muted" style="margin-top:0;font-size:.82rem">' + UI.t("Point your own custom domain to this storefront. Add a CNAME record pointing your domain to") + ' <code style="font-size:.8rem">' + esc(location.hostname) + '</code>, then enter it below.</p>' +
+            field(UI.t("Custom Domain"), '<input class="input" id="sfDomain" placeholder="store.yourcompany.com" value="' + esc(currentDomain) + '">') +
+
+            '<div class="flex" style="gap:12px;margin-top:16px">' +
+              '<button class="btn btn-primary" id="sfSave">' + icon("check") + UI.t("Save All Storefront Settings") + '</button>' +
+              (portalUrl ? ' <a class="btn btn-outline" href="' + esc(portalUrl) + '" target="_blank" rel="noopener">👁️ ' + UI.t("Preview Storefront") + '</a>' : "") +
+              (portalUrl ? ' <button class="btn btn-outline" id="sfEditVisually">🎨 ' + UI.t("Edit Visually") + '</button>' : "") +
+            '</div>' +
+          '</div>' +
+        '</div>'
+      : "";
+
+
     const teamCard =
       '<div class="card"><div class="card-h"><h3>' + UI.t("Team & access") + '</h3><div class="grow" style="flex:1"></div>' +
         (owner ? '<a href="#/users" class="btn btn-ghost btn-sm">' + icon("users") + UI.t("Manage team") + '</a>' : "") + "</div>" +
@@ -2462,7 +2624,8 @@ window.Views = (function () {
 
     el.innerHTML =
       '<div class="section-title"><div><h2>' + UI.t("Settings") + '</h2><p>' + UI.t("Connection, AI, team access & data controls") + '</p></div></div>' +
-      langCard + connCard + aiCard + '<div class="grid-2">' + teamCard + dataCard + "</div>";
+      langCard + connCard + aiCard + storefrontCard + '<div class="grid-2">' + teamCard + dataCard + "</div>";
+
 
     const byId = (id) => document.getElementById(id);
     
@@ -2509,6 +2672,59 @@ window.Views = (function () {
         App.reload();
       });
     });
+
+    // ---- Storefront settings wiring ----
+    if (byId("sfCopyUrl")) byId("sfCopyUrl").addEventListener("click", () => {
+      const url = (byId("sfPortalUrl") || {}).textContent || "";
+      if (navigator.clipboard) navigator.clipboard.writeText(url).then(() => toast(UI.t("Portal URL copied")));
+      else { const ta = document.createElement("textarea"); ta.value = url; document.body.appendChild(ta); ta.select(); document.execCommand("copy"); ta.remove(); toast(UI.t("Portal URL copied")); }
+    });
+    if (byId("sfSave")) byId("sfSave").addEventListener("click", async () => {
+      const ws = window.Workspace && window.Workspace.active && window.Workspace.active();
+      if (!ws) return toast(UI.t("No active workspace"), "error");
+      const enabled = !!(byId("sfEnabled") && byId("sfEnabled").checked);
+      const domain = (byId("sfDomain") && byId("sfDomain").value || "").trim().toLowerCase();
+      
+      const sfConfig = Object.assign({}, ws.storefrontConfig || {}, {
+        brandName: (byId("sfBrandName") && byId("sfBrandName").value || "").trim(),
+        logoUrl: (byId("sfLogoUrl") && byId("sfLogoUrl").value || "").trim(),
+        announcement: (byId("sfAnnounce") && byId("sfAnnounce").value || "").trim(),
+        announcementEnabled: !!(byId("sfAnnounceOn") && byId("sfAnnounceOn").checked),
+        heroEyebrow: (byId("sfHeroEyebrow") && byId("sfHeroEyebrow").value || "").trim(),
+        heroTitle: (byId("sfHeroTitle") && byId("sfHeroTitle").value || "").trim(),
+        heroSub: (byId("sfHeroSub") && byId("sfHeroSub").value || "").trim(),
+        ctaText: (byId("sfCtaText") && byId("sfCtaText").value || "").trim(),
+        heroAlign: (byId("sfHeroAlign") && byId("sfHeroAlign").value) || "left",
+        heroBgImage: (byId("sfHeroBgImage") && byId("sfHeroBgImage").value || "").trim(),
+        accentColor: (byId("sfAccent") && byId("sfAccent").value) || "#111111",
+        template: (byId("sfTemplate") && byId("sfTemplate").value) || "catalog"
+      });
+
+
+      // Save to localStorage workspace record
+      if (window.Workspace && window.Workspace.update) {
+        window.Workspace.update(ws.id, { storefrontEnabled: enabled, customDomain: domain || null, storefrontConfig: sfConfig });
+      }
+      // Also persist to server if connected
+      if (Store.setDomain) await Store.setDomain(ws.id, domain, enabled, sfConfig);
+      toast(UI.t("Storefront customizer settings saved!"));
+      App.reload();
+    });
+
+    if (byId("sfEditVisually")) byId("sfEditVisually").addEventListener("click", async () => {
+      const ws = window.Workspace && window.Workspace.active && window.Workspace.active();
+      if (!ws) return toast(UI.t("No active workspace"), "error");
+      const base = Store.portalUrl ? Store.portalUrl(ws.id) : (location.origin + "/portal/" + ws.id);
+      // Live backend: mint a short-lived edit token so the portal page (which
+      // may be on a different origin/custom domain and can't see this app's
+      // localStorage) can prove the request is coming from the owner.
+      // Demo-only workspaces (no backend) skip this — the editor allows
+      // itself to open without a token when there's no live workspace record.
+      const editToken = Store.getEditToken ? await Store.getEditToken(ws.id) : null;
+      const url = base + "?edit=true" + (editToken ? "&et=" + encodeURIComponent(editToken) : "");
+      window.open(url, "_blank", "noopener");
+    });
+
   }
 
   /* =============================================================

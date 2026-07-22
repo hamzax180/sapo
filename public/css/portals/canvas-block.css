@@ -1,0 +1,27 @@
+/* =================================================================
+   WeboCloud Portal Engine — Freeform Canvas block styles
+   ================================================================= */
+
+.fc-canvas { overflow: hidden; }
+
+.fc-el-wrap { box-sizing: border-box; }
+.fc-el-wrap > .fc-el { width: 100%; height: 100%; box-sizing: border-box; }
+
+.fc-text {
+  display: flex; align-items: flex-start;
+  font-size: 1rem; line-height: 1.5; color: var(--text, #0d0d0d);
+  overflow: hidden;
+}
+
+.fc-image { object-fit: cover; display: block; border-radius: 6px; }
+
+.fc-button {
+  display: flex; align-items: center; justify-content: center;
+  background: var(--accent, #111); color: #fff; border: none; border-radius: 8px;
+  font-weight: 700; font-size: 0.9rem; cursor: pointer; padding: 0 16px;
+}
+.fc-button:hover { filter: brightness(1.1); }
+
+.fc-box { border-radius: 8px; }
+
+.fc-widget { overflow: auto; }

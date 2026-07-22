@@ -1,0 +1,154 @@
+/* =================================================================
+   WeboCloud Portal — Fluent theme layer
+   -----------------------------------------------------------------
+   Loaded LAST (see portal.html) so it can settle two cross-cutting
+   decisions in one place instead of hunting through every industry
+   stylesheet:
+
+     1. SQUARED CONTROLS — buttons, pills, inputs and cards get the
+        crisp 2px corner of Microsoft's Fluent UI instead of the
+        pill/rounded mix the storefront grew into. Genuinely round
+        things (avatars, count badges, status dots) are left alone.
+
+     2. CENTERED LAYOUT — section headings, filter bars, cards and
+        footers align to the middle of the page, so every industry
+        reads as one symmetric composition.
+
+   Anything a business overrides in the live editor still wins: this
+   file only sets geometry and alignment, never colors or content.
+   ================================================================= */
+
+:root {
+  --fluent-radius: 2px;
+  --fluent-radius-card: 4px;
+}
+
+/* ─── 1. SQUARED CONTROLS ─────────────────────────────────────── */
+
+/* Buttons — storefront chrome, hero CTAs, generic blocks, checkout */
+.btn,
+.hero-btn,
+.gb-hero-btn,
+.gb-ss-cta,
+.gb-topbar-cta,
+.modal-add-btn,
+.qty-btn,
+.cat-pill,
+.nav-cats li a,
+.nav-search-btn,
+.nav-cart-btn,
+.pm-method-btn,
+.checkout-btn,
+.cart-close-btn,
+.le-preset-item,
+.section-link,
+.product-badge,
+.gb-ss-eyebrow,
+.gb-hero-badge {
+  border-radius: var(--fluent-radius) !important;
+}
+
+/* Inputs and input-shaped containers */
+.pf-input,
+.pf-textarea,
+.search-input-row,
+.search-box,
+.qty-control,
+.gb-calc-field select,
+.gb-calc-field input,
+.gb-rfq input,
+.gb-rfq textarea {
+  border-radius: var(--fluent-radius) !important;
+}
+
+/* Surfaces — cards, panels, modals, drawers keep a hairline 4px so
+   they read as separate planes without looking like bubbles. */
+.product-card,
+.gb-card,
+.gb-case-card,
+.gb-editorial-card,
+.gb-calc-result,
+.gb-slideshow,
+.search-result-item,
+.product-modal,
+.checkout-modal,
+.order-summary-box,
+.portal-action-modal,
+.cart-item-img {
+  border-radius: var(--fluent-radius-card) !important;
+}
+
+/* Fluent-style press feedback: controls settle rather than lift. */
+.hero-btn:hover,
+.gb-hero-btn:hover,
+.nav-cart-btn:hover,
+.nav-search-btn:hover,
+.nav-cats li a:hover {
+  transform: none !important;
+}
+.hero-btn:active,
+.gb-hero-btn:active,
+.gb-ss-cta:active,
+.cat-pill:active,
+.nav-cart-btn:active {
+  transform: scale(0.985);
+}
+
+/* The brand mark squares off with everything else… */
+.nav-logo,
+.nav-logo-icon { border-radius: var(--fluent-radius) !important; }
+
+/* …but genuinely circular elements stay circular: avatars, count
+   badges, icon buttons and status dots read wrong as squares. */
+.cart-count,
+.product-wishlist,
+.gb-partner-img,
+.hero-eyebrow-dot,
+.modal-close { border-radius: 50% !important; }
+
+/* ─── 2. CENTERED LAYOUT ──────────────────────────────────────── */
+
+/* Section headings stack and center instead of splitting left/right */
+.section-head {
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+.section-head > div { text-align: center; }
+.section-sub { margin-left: auto; margin-right: auto; max-width: 620px; }
+
+/* Category filter pills */
+.cat-bar { justify-content: center; }
+
+/* Cards read centered — icon, tag, title and copy on one axis */
+.gb-card,
+.gb-case-card { text-align: center; }
+.gb-card-desc,
+.gb-case-desc { margin-left: auto; margin-right: auto; max-width: 44ch; }
+
+/* Product cards */
+.product-info,
+.product-card .product-info { text-align: center; }
+
+/* Two-column blocks stay two-column on desktop but sit centered in the
+   page and cap their measure, so they don't sprawl on wide screens. */
+.gb-rfq,
+.gb-calc {
+  max-width: 1180px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* Footer */
+.gb-footer-rich { text-align: center; }
+.gb-footer-rich-inner { justify-items: center; }
+.gb-footer-desc { margin-left: auto; margin-right: auto; }
+.gb-footer-rich a { text-align: center; }
+
+/* Editorial / lookbook captions */
+.gb-editorial-info { text-align: center; }
+
+/* Steps + link grids used by logistics */
+.ups-service-card,
+.gb-steps-card { text-align: center; }

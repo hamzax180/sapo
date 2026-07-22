@@ -25,10 +25,15 @@ function getDb() {
   return db;
 }
 
+/** Returns the master DB instance, or null if not yet connected. Safe for middleware use. */
+function getMasterDb() {
+  return db || null;
+}
+
 async function close() {
   if (client) await client.close();
   client = null;
   db = null;
 }
 
-module.exports = { connect, getDb, close };
+module.exports = { connect, getDb, getMasterDb, close };
