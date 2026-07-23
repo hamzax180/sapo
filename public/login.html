@@ -482,11 +482,12 @@
   .chero-auth{margin-top:22px;max-width:448px}
   /* Dark card (matches the header navy) with a Gemini-style glow behind it */
   @property --gang{syntax:'<angle>';initial-value:0deg;inherits:false}
-  .cauth-card{position:relative;z-index:0;background:#0d2338;border:1px solid rgba(120,180,235,.14);border-radius:16px;padding:22px;
-    box-shadow:0 24px 60px rgba(0,0,0,.5)}
-  .cauth-card::before{content:"";position:absolute;inset:-5px;border-radius:21px;z-index:-1;
-    background:conic-gradient(from var(--gang,0deg),#4796e3,#9168c0,#d56f76,#f0a35e,#9168c0,#4796e3,#4796e3);
-    filter:blur(20px);opacity:.9;animation:cauthSpin 5s linear infinite}
+  .cauth-card{position:relative;z-index:0;background:linear-gradient(158deg,#1c3049 0%,#16283c 55%,#122133 100%);
+    border:1px solid rgba(120,180,235,.16);border-radius:16px;padding:22px;box-shadow:0 24px 60px rgba(0,0,0,.5)}
+  /* Gemini-chatbox glow radiating from behind the card */
+  .cauth-card::before{content:"";position:absolute;inset:-6px;border-radius:22px;z-index:-1;
+    background:conic-gradient(from var(--gang,0deg),#4796e3,#9168c0,#d56f76,#f0a35e,#4796e3,#9168c0,#4796e3);
+    filter:blur(22px);opacity:.95;animation:cauthSpin 5s linear infinite}
   @keyframes cauthSpin{to{--gang:360deg}}
   @media (prefers-reduced-motion:reduce){.cauth-card::before{animation:none}}
   .cauth-google{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;padding:13px;border-radius:10px;background:#fff;color:#1f1e1c;
