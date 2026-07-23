@@ -477,23 +477,38 @@
   .chero-h{font-family:var(--disp);font-weight:800;letter-spacing:-.03em;line-height:.97;font-size:clamp(2.7rem,6.4vw,5.2rem);color:#fff;text-wrap:balance}
   .chero-sub{margin:20px 0 0;font-size:clamp(1.04rem,1.4vw,1.24rem);line-height:1.5;color:#b9cde0;max-width:38ch}
   /* claude-style auth card */
-  .chero-auth{margin-top:30px;max-width:440px}
-  .cauth-btn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;padding:15px;border-radius:12px;background:#fff;color:#0e2136;
-    font:inherit;font-weight:700;font-size:.98rem;border:0;cursor:pointer;transition:background .16s,transform .16s}
-  .cauth-btn:hover{background:#eef2f6;transform:translateY(-1px)}
-  .cauth-or{display:flex;align-items:center;gap:12px;margin:13px 0;color:#7f9bb3;font-size:.78rem;font-weight:700;letter-spacing:.04em}
-  .cauth-or::before,.cauth-or::after{content:"";flex:1;height:1px;background:rgba(255,255,255,.14)}
-  .cauth-note{font-size:.76rem;color:#7f9bb3;line-height:1.5;margin:14px 0 0;text-align:center}
-  .cauth-note a{color:#c3d6e6;text-decoration:underline}
+  .chero-auth{margin-top:30px;max-width:448px}
+  /* Claude-style auth card */
+  .cauth-card{background:#faf9f5;border:1px solid #e9e7dd;border-radius:16px;padding:22px;box-shadow:0 24px 60px rgba(0,0,0,.32)}
+  .cauth-google{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;padding:13px;border-radius:10px;background:#fff;color:#1f1e1c;
+    border:1px solid #dcd9cf;font:inherit;font-weight:600;font-size:.96rem;cursor:pointer;transition:background .15s,border-color .15s}
+  .cauth-google:hover{background:#f3f2ea;border-color:#c9c6ba}
+  .cauth-or{display:flex;align-items:center;gap:12px;margin:14px 0;color:#8a8778;font-size:.72rem;font-weight:600;letter-spacing:.09em}
+  .cauth-or::before,.cauth-or::after{content:"";flex:1;height:1px;background:#e6e3d8}
+  .cauth-input{width:100%;padding:13px 14px;border:1px solid #dcd9cf;border-radius:10px;background:#fff;font:inherit;font-size:.96rem;color:#1f1e1c;
+    outline:none;transition:border-color .15s,box-shadow .15s;margin-bottom:10px}
+  .cauth-input::placeholder{color:#9b998c}
+  .cauth-input:focus{border-color:#c96442;box-shadow:0 0 0 3px rgba(201,100,66,.16)}
+  .cauth-email{width:100%;padding:13px;border:0;border-radius:10px;background:#141413;color:#fff;font:inherit;font-weight:600;font-size:.96rem;
+    cursor:pointer;transition:background .15s,transform .15s}
+  .cauth-email:hover{background:#2b2a26}
+  .cauth-pw[hidden]{display:none}
+  .cauth-note{font-size:.76rem;color:#8a8778;line-height:1.5;margin:14px 0 0;text-align:center}
+  .cauth-note a{color:#5a584f;text-decoration:underline}
+  .cauth-alt{margin-top:16px;text-align:center;font-size:.86rem;color:#9fc7e6}
+  .cauth-alt a{color:#fff;font-weight:600;text-decoration:none}
+  .chero-auth .login-err{display:none;background:#fdecea;color:#c0392b;border:1px solid #f5c6cb;border-radius:8px;padding:8px 11px;font-size:.84rem;margin-bottom:10px}
+  .chero-auth .login-err.show{display:block}
   .chero-app{display:inline-flex;align-items:center;gap:9px;margin-top:20px;padding:13px 20px;border-radius:12px;background:rgba(255,255,255,.06);
     border:1px solid rgba(255,255,255,.14);color:#dceaf5;font:inherit;font-weight:600;font-size:.92rem;cursor:pointer;transition:background .16s}
   .chero-app:hover{background:rgba(255,255,255,.11)}
   /* big live demo canvas */
-  .chero-demo{perspective:1700px}
+  .chero-demo{perspective:none}
+  /* the demo panel stays perfectly flat and fixed — no tilt, no drift, and its
+     inner content is clipped to a fixed height so it never shifts position. */
   .cdemo{position:relative;background:#f6f8f4;border-radius:20px;overflow:hidden;color:var(--navy-800);
     box-shadow:0 44px 110px rgba(0,0,0,.55),0 0 0 1px rgba(255,255,255,.05);
-    transform:rotateY(-5deg) rotateX(2deg);transform-style:preserve-3d;transition:transform .6s var(--ease)}
-  .chero-demo:hover .cdemo{transform:none}
+    transform:none}
   .cdemo-top{display:flex;align-items:center;gap:7px;padding:13px 16px;background:#fff;border-bottom:1px solid #e7eae3;font-size:.8rem}
   .cd-dot{width:10px;height:10px;border-radius:50%}.cd-dot.r{background:#ff6b6b}.cd-dot.y{background:#ffce5c}.cd-dot.g{background:#34c77b}
   .cdemo-top b{margin-left:8px;color:#5a6b60;font-weight:600}
@@ -727,22 +742,21 @@
       <h1 class="chero-h">Build your store.<br>Edit it live.</h1>
       <p class="chero-sub">Create your website in minutes, then change anything by clicking it — no code.</p>
       <div class="chero-auth" id="cheroAuth">
-        <button class="cauth-btn" type="button" id="btnGoogle"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="#4285F4" d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.5h6.5a5.6 5.6 0 0 1-2.4 3.6v3h3.9c2.3-2.1 3.5-5.2 3.5-8.8z"/><path fill="#34A853" d="M12 24c3.2 0 6-1.1 8-2.9l-3.9-3c-1.1.7-2.5 1.2-4.1 1.2-3.1 0-5.8-2.1-6.7-5H1.3v3.1A12 12 0 0 0 12 24z"/><path fill="#FBBC05" d="M5.3 14.3a7.2 7.2 0 0 1 0-4.6V6.6H1.3a12 12 0 0 0 0 10.8z"/><path fill="#EA4335" d="M12 4.8c1.8 0 3.3.6 4.5 1.8l3.4-3.4A12 12 0 0 0 1.3 6.6l4 3.1C6.2 6.9 8.9 4.8 12 4.8z"/></svg>Continue with Google</button>
-        <div class="cauth-or">OR</div>
-        <button class="cauth-btn" type="button" id="btnEmail">Continue with email</button>
-        <div class="wcx-realform" id="realFormWrap" hidden>
-          <h2 id="loginTitle">Welcome back</h2>
-          <p class="lc-sub" id="lcSub">Sign in to your operations console.</p>
-          <div class="login-err" id="err"></div>
+        <div class="cauth-card">
+          <button class="cauth-google" type="button" id="btnGoogle"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="#4285F4" d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.5h6.5a5.6 5.6 0 0 1-2.4 3.6v3h3.9c2.3-2.1 3.5-5.2 3.5-8.8z"/><path fill="#34A853" d="M12 24c3.2 0 6-1.1 8-2.9l-3.9-3c-1.1.7-2.5 1.2-4.1 1.2-3.1 0-5.8-2.1-6.7-5H1.3v3.1A12 12 0 0 0 12 24z"/><path fill="#FBBC05" d="M5.3 14.3a7.2 7.2 0 0 1 0-4.6V6.6H1.3a12 12 0 0 0 0 10.8z"/><path fill="#EA4335" d="M12 4.8c1.8 0 3.3.6 4.5 1.8l3.4-3.4A12 12 0 0 0 1.3 6.6l4 3.1C6.2 6.9 8.9 4.8 12 4.8z"/></svg>Continue with Google</button>
+          <div class="cauth-or">OR</div>
           <form id="loginForm" autocomplete="on">
-            <div class="field"><label data-t="Email">Email</label><input class="input" type="email" id="email" placeholder="you@company.com" required></div>
-            <div class="field"><label data-t="Password">Password</label><input class="input" type="password" id="password" placeholder="••••••••" required></div>
-            <button class="btn-primary" type="submit" data-t="Sign in to console">Sign in to console</button>
+            <input class="cauth-input" type="email" id="email" placeholder="Enter your email" required>
+            <button class="cauth-email" type="button" id="btnEmail">Continue with email</button>
+            <div class="cauth-pw" id="cauthPw" hidden>
+              <input class="cauth-input" type="password" id="password" placeholder="Enter your password" required>
+              <div class="login-err" id="err"></div>
+              <button class="cauth-email" type="submit" data-t="Sign in to console">Sign in to console</button>
+            </div>
           </form>
-          <div id="companyPicker"></div>
-          <p class="wcx-realform-alt">New company? <a href="signup.html">Create your workspace</a></p>
+          <p class="cauth-note">By continuing, you acknowledge WeboCloud's <a href="#">Privacy Policy</a>.</p>
         </div>
-        <p class="cauth-note">By continuing, you acknowledge WeboCloud's <a>Privacy Policy</a> and agree to get occasional product emails and notifications.</p>
+        <p class="cauth-alt">New company? <a href="signup.html">Create your workspace</a></p>
       </div>
       <button class="chero-app" type="button"><svg viewBox="0 0 24 24" width="17" height="17" fill="currentColor" aria-hidden="true"><rect x="3" y="3" width="8" height="8" rx="1"/><rect x="13" y="3" width="8" height="8" rx="1"/><rect x="3" y="13" width="8" height="8" rx="1"/><rect x="13" y="13" width="8" height="8" rx="1"/></svg>Get the WeboCloud app</button>
     </div>
@@ -1243,19 +1257,26 @@
       }
     } catch (e) {}
 
-    // Reveal the real sign-in form when a hero auth button is pressed.
-    var realForm = document.getElementById("realFormWrap");
-    function revealForm() {
-      if (!realForm) return;
-      realForm.hidden = false;
-      var em = document.getElementById("email");
-      if (em) em.focus();
-      realForm.scrollIntoView({ behavior: "smooth", block: "center" });
+    // Claude-style flow: enter email, then reveal the password step.
+    var emailInput = document.getElementById("email");
+    var pwStep = document.getElementById("cauthPw");
+    var emailBtn = document.getElementById("btnEmail");
+    function toEmail() {
+      var wrap = document.getElementById("cheroAuth");
+      if (wrap) wrap.scrollIntoView({ behavior: "smooth", block: "center" });
+      if (emailInput) emailInput.focus();
     }
-    var g = document.getElementById("btnGoogle"), e2 = document.getElementById("btnEmail"), s = document.getElementById("navSignin");
-    if (e2) e2.addEventListener("click", revealForm);
-    if (g)  g.addEventListener("click", revealForm);
-    if (s)  s.addEventListener("click", function (ev) { ev.preventDefault(); revealForm(); });
+    function toPassword() {
+      if (emailInput && !emailInput.value.trim()) { emailInput.reportValidity ? emailInput.reportValidity() : emailInput.focus(); return; }
+      if (pwStep) pwStep.hidden = false;
+      if (emailBtn) emailBtn.style.display = "none";
+      var pw = document.getElementById("password");
+      if (pw) pw.focus();
+    }
+    if (emailBtn) emailBtn.addEventListener("click", toPassword);
+    var g = document.getElementById("btnGoogle"), s = document.getElementById("navSignin");
+    if (g) g.addEventListener("click", toEmail);           // no OAuth backend yet → fall back to email sign-in
+    if (s) s.addEventListener("click", function (ev) { ev.preventDefault(); toEmail(); });
 
     // Real login submit.
     var form = document.getElementById("loginForm"), err = document.getElementById("err");
