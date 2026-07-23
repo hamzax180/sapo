@@ -480,30 +480,29 @@
   .chero-sub{margin:14px 0 0;font-size:clamp(1.02rem,1.35vw,1.2rem);line-height:1.5;color:#b9cde0;max-width:38ch}
   /* claude-style auth card */
   .chero-auth{margin-top:22px;max-width:448px}
-  /* Dark auth card with a cool LED glow that travels around it */
+  /* Claude-style cream card with a cool LED glow travelling behind it */
   @property --gang{syntax:'<angle>';initial-value:0deg;inherits:false}
-  .cauth-card{position:relative;z-index:0;background:linear-gradient(165deg,#0f2438,#0a1a2b);
-    border:1px solid rgba(120,180,235,.16);border-radius:16px;padding:22px;box-shadow:0 24px 60px rgba(0,0,0,.5)}
-  .cauth-card::before{content:"";position:absolute;inset:-2.5px;border-radius:18px;z-index:-1;
+  .cauth-card{position:relative;z-index:0;background:#faf9f5;border:1px solid #e9e7dd;border-radius:16px;padding:22px;box-shadow:0 24px 60px rgba(0,0,0,.32)}
+  .cauth-card::before{content:"";position:absolute;inset:-3px;border-radius:19px;z-index:-1;
     background:conic-gradient(from var(--gang,0deg),#1aa6df,#63d0ff,#5cb12f,#63d0ff,#1aa6df,#7f5bff,#1aa6df);
-    filter:blur(15px);opacity:.85;animation:cauthSpin 4.5s linear infinite}
+    filter:blur(16px);opacity:.8;animation:cauthSpin 4.5s linear infinite}
   @keyframes cauthSpin{to{--gang:360deg}}
   @media (prefers-reduced-motion:reduce){.cauth-card::before{animation:none}}
   .cauth-google{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;padding:13px;border-radius:10px;background:#fff;color:#1f1e1c;
-    border:1px solid rgba(255,255,255,.9);font:inherit;font-weight:600;font-size:.96rem;cursor:pointer;transition:background .15s,transform .15s}
-  .cauth-google:hover{background:#eef2f6;transform:translateY(-1px)}
-  .cauth-or{display:flex;align-items:center;gap:12px;margin:14px 0;color:#7f9bb3;font-size:.72rem;font-weight:600;letter-spacing:.09em}
-  .cauth-or::before,.cauth-or::after{content:"";flex:1;height:1px;background:rgba(255,255,255,.14)}
-  .cauth-input{width:100%;padding:13px 14px;border:1px solid rgba(255,255,255,.16);border-radius:10px;background:rgba(255,255,255,.05);
-    font:inherit;font-size:.96rem;color:#eaf2f9;outline:none;transition:border-color .15s,box-shadow .15s,background .15s;margin-bottom:10px}
-  .cauth-input::placeholder{color:#7f9bb3}
-  .cauth-input:focus{border-color:#63d0ff;background:rgba(255,255,255,.08);box-shadow:0 0 0 3px rgba(99,208,255,.18)}
-  .cauth-email{width:100%;padding:13px;border:0;border-radius:10px;background:linear-gradient(135deg,#1aa6df,#63d0ff);color:#04121d;
-    font:inherit;font-weight:700;font-size:.96rem;cursor:pointer;transition:filter .15s,transform .15s}
-  .cauth-email:hover{filter:brightness(1.07);transform:translateY(-1px)}
+    border:1px solid #dcd9cf;font:inherit;font-weight:600;font-size:.96rem;cursor:pointer;transition:background .15s,border-color .15s}
+  .cauth-google:hover{background:#f3f2ea;border-color:#c9c6ba}
+  .cauth-or{display:flex;align-items:center;gap:12px;margin:14px 0;color:#8a8778;font-size:.72rem;font-weight:600;letter-spacing:.09em}
+  .cauth-or::before,.cauth-or::after{content:"";flex:1;height:1px;background:#e6e3d8}
+  .cauth-input{width:100%;padding:13px 14px;border:1px solid #dcd9cf;border-radius:10px;background:#fff;font:inherit;font-size:.96rem;color:#1f1e1c;
+    outline:none;transition:border-color .15s,box-shadow .15s;margin-bottom:10px}
+  .cauth-input::placeholder{color:#9b998c}
+  .cauth-input:focus{border-color:#c96442;box-shadow:0 0 0 3px rgba(201,100,66,.16)}
+  .cauth-email{width:100%;padding:13px;border:0;border-radius:10px;background:#141413;color:#fff;font:inherit;font-weight:600;font-size:.96rem;
+    cursor:pointer;transition:background .15s,transform .15s}
+  .cauth-email:hover{background:#2b2a26}
   .cauth-pw[hidden]{display:none}
-  .cauth-note{font-size:.76rem;color:#7f9bb3;line-height:1.5;margin:14px 0 0;text-align:center}
-  .cauth-note a{color:#c3d6e6;text-decoration:underline}
+  .cauth-note{font-size:.76rem;color:#8a8778;line-height:1.5;margin:14px 0 0;text-align:center}
+  .cauth-note a{color:#5a584f;text-decoration:underline}
   .cauth-alt{margin-top:16px;text-align:center;font-size:.86rem;color:#9fc7e6}
   .cauth-alt a{color:#fff;font-weight:600;text-decoration:none}
   .chero-auth .login-err{display:none;background:#fdecea;color:#c0392b;border:1px solid #f5c6cb;border-radius:8px;padding:8px 11px;font-size:.84rem;margin-bottom:10px}
