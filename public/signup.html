@@ -174,6 +174,66 @@
     @media (prefers-reduced-motion:reduce) {
       .dx-cap, .dx-cap::before, .dx-cap .arrow svg, .dx-cap .to .grad, .dx-cap .to .tick::after, .dx-cap .rot .ltr { animation:none !important; }
     }
+
+    /* =========================================================
+       Single-column, centred sign-up (no left brand panel)
+       ========================================================= */
+    .login-art { display:none !important; }
+    .login-wrap {
+      display:block !important; height:auto !important; min-height:100vh; overflow:visible !important;
+      background:
+        radial-gradient(60% 55% at 82% 8%, rgba(26,166,223,.12), transparent 60%),
+        radial-gradient(50% 50% at 10% 100%, rgba(92,177,47,.10), transparent 60%),
+        linear-gradient(180deg, #eef4fa, #f6fafd 60%, #eef4fa);
+    }
+    .login-form-col {
+      height:auto !important; min-height:100vh; overflow:visible !important;
+      display:flex; align-items:flex-start; justify-content:center;
+      background:transparent !important; padding:clamp(28px,5vw,64px) 20px;
+    }
+    .login-card {
+      width:100%; max-width:640px;
+      background:#fff; border:1px solid var(--line); border-radius:22px;
+      padding:clamp(28px,4vw,48px) clamp(24px,4vw,52px) clamp(26px,3vw,40px);
+      box-shadow:0 2px 6px rgba(11,30,51,.05), 0 30px 80px rgba(11,30,51,.16);
+    }
+
+    /* centred brand header inside the card */
+    .su-head { text-align:center; margin-bottom:28px; }
+    .su-logo {
+      width:60px; height:60px; margin:0 auto 16px; border-radius:16px; display:grid; place-items:center;
+      background:linear-gradient(160deg,#0d2338,#123049); box-shadow:0 12px 28px rgba(11,30,51,.28);
+    }
+    .su-logo svg { width:34px; height:34px; }
+    .login-card .su-head h2 { font-size:clamp(1.7rem,3.2vw,2.15rem); letter-spacing:-.02em; margin:0 0 6px; }
+    .login-card .su-head .lc-sub { font-size:1rem; color:var(--muted); margin:0; }
+
+    /* roomier, larger form controls */
+    .login-card .field { margin-bottom:18px; }
+    .login-card .field > label { display:block; font-size:.82rem; font-weight:700; color:var(--navy-700); margin-bottom:7px; letter-spacing:.01em; }
+    .login-card .input {
+      width:100%; padding:13px 15px; font-size:.98rem; border:1.5px solid var(--line); border-radius:12px;
+      background:var(--surface); color:var(--ink); transition:border-color .15s, box-shadow .15s;
+    }
+    .login-card .input:focus { outline:none; border-color:#9cc4e4; box-shadow:0 0 0 3px rgba(26,166,223,.14); }
+    .login-card select.input { cursor:pointer; }
+    .login-card .btn-primary {
+      width:100%; padding:15px; font-size:1rem; font-weight:700; border-radius:13px; margin-top:6px;
+      box-shadow:0 12px 26px rgba(26,166,223,.28);
+    }
+    .login-card .btn-primary:hover { transform:translateY(-1px); }
+
+    /* richer industry picker */
+    .login-card .ind-grid { gap:12px; }
+    .login-card .ind-card { padding:14px; border-radius:14px; }
+    .login-card .ind-card .ic { width:38px; height:38px; border-radius:10px; }
+    .login-card .ind-card .ic svg { width:20px; height:20px; }
+    .login-card .ind-card .it { font-size:.96rem; }
+
+    @media (max-width:560px) {
+      .login-card { padding:26px 20px 24px; border-radius:18px; }
+      .ind-grid { grid-template-columns:1fr; }
+    }
   </style>
 </head>
 <body>
@@ -255,8 +315,18 @@
     <!-- Form panel -->
     <div class="login-form-col">
       <div class="login-card">
-        <h2>Create your workspace</h2>
-        <p class="lc-sub">A few details and your fitted console is ready.</p>
+        <div class="su-head">
+          <div class="su-logo">
+            <svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <defs><linearGradient id="su-head-grad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#1aa6df"/><stop offset="100%" stop-color="#5cb12f"/></linearGradient></defs>
+              <circle cx="20" cy="27" r="7.5" fill="url(#su-head-grad)"/><circle cx="32" cy="23" r="9.5" fill="url(#su-head-grad)"/><circle cx="44" cy="27" r="7.5" fill="url(#su-head-grad)"/>
+              <rect x="12.5" y="29" width="39" height="8" fill="url(#su-head-grad)"/>
+              <path d="M14 37 L20 50 L27 40 L32 50 L37 40 L44 50 L50 37 Z" fill="url(#su-head-grad)"/>
+            </svg>
+          </div>
+          <h2>Create your workspace</h2>
+          <p class="lc-sub">A few details and your fitted console is ready.</p>
+        </div>
 
         <div class="login-err" id="err"></div>
 
