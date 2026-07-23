@@ -480,31 +480,32 @@
   .chero-sub{margin:14px 0 0;font-size:clamp(1.02rem,1.35vw,1.2rem);line-height:1.5;color:#b9cde0;max-width:38ch}
   /* claude-style auth card */
   .chero-auth{margin-top:22px;max-width:448px}
-  /* Dark card (matches the header navy) with a Gemini-style glow behind it */
-  @property --gang{syntax:'<angle>';initial-value:0deg;inherits:false}
-  .cauth-card{position:relative;z-index:0;background:linear-gradient(158deg,#1c3049 0%,#16283c 55%,#122133 100%);
-    border:1px solid rgba(120,180,235,.16);border-radius:16px;padding:22px;box-shadow:0 24px 60px rgba(0,0,0,.5)}
-  /* Gemini-chatbox glow radiating from behind the card */
-  .cauth-card::before{content:"";position:absolute;inset:-6px;border-radius:22px;z-index:-1;
-    background:conic-gradient(from var(--gang,0deg),#4796e3,#9168c0,#d56f76,#f0a35e,#4796e3,#9168c0,#4796e3);
-    filter:blur(22px);opacity:.95;animation:cauthSpin 5s linear infinite}
-  @keyframes cauthSpin{to{--gang:360deg}}
-  @media (prefers-reduced-motion:reduce){.cauth-card::before{animation:none}}
-  .cauth-google{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;padding:13px;border-radius:10px;background:#fff;color:#1f1e1c;
-    border:0;font:inherit;font-weight:600;font-size:.96rem;cursor:pointer;transition:background .15s,transform .15s}
-  .cauth-google:hover{background:#eef2f6;transform:translateY(-1px)}
-  .cauth-or{display:flex;align-items:center;gap:12px;margin:14px 0;color:#7f9bb3;font-size:.72rem;font-weight:600;letter-spacing:.09em}
-  .cauth-or::before,.cauth-or::after{content:"";flex:1;height:1px;background:rgba(255,255,255,.14)}
-  .cauth-input{width:100%;padding:13px 14px;border:1px solid rgba(255,255,255,.16);border-radius:10px;background:rgba(255,255,255,.05);
-    font:inherit;font-size:.96rem;color:#eaf2f9;outline:none;transition:border-color .15s,box-shadow .15s,background .15s;margin-bottom:10px}
-  .cauth-input::placeholder{color:#7f9bb3}
-  .cauth-input:focus{border-color:#7aa7ff;background:rgba(255,255,255,.08);box-shadow:0 0 0 3px rgba(122,167,255,.2)}
-  .cauth-email{width:100%;padding:13px;border:0;border-radius:10px;background:linear-gradient(120deg,#4796e3,#9168c0,#d56f76);color:#fff;
-    font:inherit;font-weight:700;font-size:.96rem;cursor:pointer;transition:filter .15s,transform .15s}
-  .cauth-email:hover{filter:brightness(1.08);transform:translateY(-1px)}
+  /* Claude-style light card with a soft Gemini blue aura glowing behind it */
+  .cauth-card{position:relative;z-index:0;background:#faf9f5;border:1px solid #e9e7dd;border-radius:18px;padding:22px;
+    box-shadow:0 24px 60px rgba(0,0,0,.32)}
+  .cauth-card::before{content:"";position:absolute;inset:-16px;border-radius:30px;z-index:-1;pointer-events:none;
+    background:
+      radial-gradient(48% 52% at 28% 30%, rgba(126,167,255,.60), transparent 70%),
+      radial-gradient(46% 50% at 78% 68%, rgba(163,140,255,.48), transparent 70%),
+      radial-gradient(60% 60% at 55% 55%, rgba(96,156,246,.42), transparent 72%);
+    filter:blur(26px);animation:cauthPulse 4.5s ease-in-out infinite}
+  @keyframes cauthPulse{0%,100%{opacity:.72;transform:scale(.985)}50%{opacity:1;transform:scale(1.03)}}
+  @media (prefers-reduced-motion:reduce){.cauth-card::before{animation:none;opacity:.9}}
+  .cauth-google{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;padding:13px;border-radius:11px;background:#fff;color:#1f1e1c;
+    border:1px solid #dcd9cf;font:inherit;font-weight:600;font-size:.96rem;cursor:pointer;transition:background .15s,border-color .15s}
+  .cauth-google:hover{background:#f3f2ea;border-color:#c9c6ba}
+  .cauth-or{display:flex;align-items:center;gap:12px;margin:14px 0;color:#8a8778;font-size:.72rem;font-weight:600;letter-spacing:.09em}
+  .cauth-or::before,.cauth-or::after{content:"";flex:1;height:1px;background:#e6e3d8}
+  .cauth-input{width:100%;padding:13px 14px;border:1px solid #dcd9cf;border-radius:11px;background:#fff;font:inherit;font-size:.96rem;color:#1f1e1c;
+    outline:none;transition:border-color .15s,box-shadow .15s;margin-bottom:10px}
+  .cauth-input::placeholder{color:#9b998c}
+  .cauth-input:focus{border-color:#7aa7ff;box-shadow:0 0 0 3px rgba(122,167,255,.18)}
+  .cauth-email{width:100%;padding:13px;border:0;border-radius:11px;background:#141413;color:#fff;font:inherit;font-weight:600;font-size:.96rem;
+    cursor:pointer;transition:background .15s,transform .15s}
+  .cauth-email:hover{background:#2b2a26;transform:translateY(-1px)}
   .cauth-pw[hidden]{display:none}
-  .cauth-note{font-size:.76rem;color:#7f9bb3;line-height:1.5;margin:14px 0 0;text-align:center}
-  .cauth-note a{color:#c3d6e6;text-decoration:underline}
+  .cauth-note{font-size:.76rem;color:#8a8778;line-height:1.5;margin:14px 0 0;text-align:center}
+  .cauth-note a{color:#5a584f;text-decoration:underline}
   .cauth-alt{margin-top:16px;text-align:center;font-size:.86rem;color:#9fc7e6}
   .cauth-alt a{color:#fff;font-weight:600;text-decoration:none}
   .chero-auth .login-err{display:none;background:#fdecea;color:#c0392b;border:1px solid #f5c6cb;border-radius:8px;padding:8px 11px;font-size:.84rem;margin-bottom:10px}
