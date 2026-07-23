@@ -482,14 +482,14 @@
   .chero-auth{margin-top:22px;max-width:448px}
   /* Claude-style light card with a soft Gemini blue aura glowing behind it */
   .cauth-card{position:relative;z-index:0;background:#faf9f5;border:1px solid #e9e7dd;border-radius:18px;padding:22px;
-    box-shadow:0 24px 60px rgba(0,0,0,.32)}
-  .cauth-card::before{content:"";position:absolute;inset:-16px;border-radius:30px;z-index:-1;pointer-events:none;
+    box-shadow:0 0 70px 6px rgba(120,160,255,.45), 0 0 140px 20px rgba(130,150,255,.28), 0 24px 60px rgba(0,0,0,.3)}
+  /* big, wide, soft blue wash radiating out behind the card (Gemini style) */
+  .cauth-card::before{content:"";position:absolute;inset:-160px -150px;z-index:-1;pointer-events:none;border-radius:50%;
     background:
-      radial-gradient(48% 52% at 28% 30%, rgba(126,167,255,.60), transparent 70%),
-      radial-gradient(46% 50% at 78% 68%, rgba(163,140,255,.48), transparent 70%),
-      radial-gradient(60% 60% at 55% 55%, rgba(96,156,246,.42), transparent 72%);
-    filter:blur(26px);animation:cauthPulse 4.5s ease-in-out infinite}
-  @keyframes cauthPulse{0%,100%{opacity:.72;transform:scale(.985)}50%{opacity:1;transform:scale(1.03)}}
+      radial-gradient(closest-side, rgba(140,175,255,.85), rgba(100,155,250,.5) 38%, rgba(120,150,250,.24) 62%, transparent 80%),
+      radial-gradient(closest-side at 60% 66%, rgba(180,150,255,.45), transparent 68%);
+    filter:blur(55px);animation:cauthPulse 5.5s ease-in-out infinite}
+  @keyframes cauthPulse{0%,100%{opacity:.72;transform:scale(.97)}50%{opacity:1;transform:scale(1.07)}}
   @media (prefers-reduced-motion:reduce){.cauth-card::before{animation:none;opacity:.9}}
   .cauth-google{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;padding:13px;border-radius:11px;background:#fff;color:#1f1e1c;
     border:1px solid #dcd9cf;font:inherit;font-weight:600;font-size:.96rem;cursor:pointer;transition:background .15s,border-color .15s}
