@@ -26,6 +26,10 @@ app.use(express.json({ limit: "12mb" }));
 const origins = (process.env.CORS_ORIGIN || "*").split(",").map((s) => s.trim());
 app.use(cors({ origin: origins.includes("*") ? true : origins }));
 
+// The marketing/login page is the public entry point; the app console
+// shell (index.html) is reached only after signing in.
+app.get("/", (req, res) => res.sendFile(path.join(__dirname, "..", "public", "login.html")));
+
 app.use(express.static(path.join(__dirname, "..", "public")));
 
 const JWT_SECRET = process.env.JWT_SECRET || "dev-insecure-secret";
