@@ -19,6 +19,20 @@
   const urlParams = new URLSearchParams(location.search);
   if (urlParams.get("edit") !== "true") return;
 
+  /* The edit token travels in the URL *fragment* (#et=…), not the query
+     string, so it is never sent to the server in the request line (access
+     logs) nor leaked via the Referer header. We read it once at boot, then
+     scrub it from the address bar. A query fallback is kept for old links. */
+  const EDIT_TOKEN = (function () {
+    let t = "";
+    try { t = new URLSearchParams((location.hash || "").replace(/^#/, "")).get("et") || ""; } catch (e) {}
+    if (!t) t = urlParams.get("et") || "";
+    if (t && location.hash) {
+      try { history.replaceState(null, "", location.pathname + location.search); } catch (e) {}
+    }
+    return t;
+  })();
+
   const esc = (s) => String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
   const escAttr = (s) => esc(s).replace(/'/g, "&#39;");
 
@@ -102,11 +116,12 @@
       return;
     }
 
-    const et = urlParams.get("et");
+    const et = EDIT_TOKEN;
     let allowed = false;
     if (et) {
       try {
-        const r = await fetch("/api/storefront/edit-token/verify?wsId=" + encodeURIComponent(wsId) + "&et=" + encodeURIComponent(et));
+        // Token goes in a header, never the query string.
+        const r = await fetch("/api/storefront/edit-token/verify?wsId=" + encodeURIComponent(wsId), { headers: { "x-edit-token": et } });
         const j = await r.json();
         allowed = !!j.ok;
       } catch (e) { allowed = false; }

@@ -68,7 +68,12 @@ window.Store = (function () {
     return prefix + n;
   }
 
-  /* ---- multi-tenant header management ---- */
+  /* ---- request headers ----
+     We send the bearer token and (only so the server can bind it into the
+     session at login) the workspace id. The database connection string is
+     NEVER sent from the browser — the server resolves each workspace's DB
+     server-side from the master record, so tenancy can't be spoofed and no
+     secret travels over the wire. */
   function getHeaders(extra = {}) {
     const headers = Object.assign({ "Content-Type": "application/json" }, extra);
     const token = localStorage.getItem("sap_token");
@@ -76,11 +81,7 @@ window.Store = (function () {
 
     if (window.Workspace) {
       const active = Workspace.active();
-      if (active) {
-        headers["x-workspace-id"] = active.id;
-        if (active.dbType) headers["x-workspace-db-type"] = active.dbType;
-        if (active.dbUri) headers["x-workspace-db-uri"] = active.dbUri;
-      }
+      if (active) headers["x-workspace-id"] = active.id;
     }
     return headers;
   }

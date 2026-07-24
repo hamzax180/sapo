@@ -34,6 +34,23 @@ Everything below fixes that class of problem permanently by making the **server 
 | 12 | 🟡 P2 | `findAll` returns entire collections (no pagination); silent fallback to `localStorage` masks failures | `store.js:89-104`, `db-adapters.js:214` |
 | 13 | 🟡 P2 | `dbUri` secrets stored in plaintext in the master `workspaces` collection | `index.js:213-230` |
 
+### Implementation status (this branch)
+
+Phases 0–5 are implemented and covered by tests (`cd server && npm test && npm run test:isolation`).
+
+| Phase | Status | Evidence |
+|-------|--------|----------|
+| 0 — Security core | ✅ done | CRUD requires session; tenancy from signed token; `POST /api/ws` takeover-guarded; fail-closed `JWT_SECRET`; error envelope |
+| 1 — Identity spine | ✅ done | `server/lib/ids.js` ULIDs; `X-Request-Id` on every response; server-minted ids + `requestId` on records |
+| 2 — Session & RBAC | ✅ done | `wsId` in JWT; `server/lib/rbac.js` enforced; plaintext-password login removed |
+| 3 — Validation & idempotency | ✅ done | `server/lib/validate.js` + schemas; `Idempotency-Key` dedupes orders/inquiries |
+| 4 — Edge & secrets | ✅ done | security headers + CSP; rate limiters; per-route body limits; `dbUri` AES-256-GCM at rest |
+| 5 — Data isolation | ✅ done | allowlist public projection; `findAll` scan cap + `findPage` cursor; **tenant-isolation test proves A can't read B** |
+| 6 — Observability/compliance | ⏳ next | structured logs, append-only server audit, backups, GDPR flows |
+| 7 — Live-editor & portal polish | ⏳ next | edit-token off query-string, CAPTCHA, PSP integration, CSP nonces |
+
+Bonus fix found while testing: `db-adapters.js` used `DB_NAME` as the per-tenant DB fallback, which would have collapsed all tenants into one database — corrected to always use `webo_<wsId>`.
+
 ### Definition of "done" (production bar)
 
 - No data path exists that the server cannot **authenticate, authorize, tenant-scope, validate, rate-limit, and trace**.

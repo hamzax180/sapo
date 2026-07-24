@@ -19,6 +19,7 @@
 const jwt = require("jsonwebtoken");
 const { httpError } = require("../lib/errors");
 const rbac = require("../lib/rbac");
+const { decryptSecret } = require("../lib/crypto");
 
 /**
  * Resolve the server-owned DB context for a workspace id. Looks the
@@ -41,7 +42,9 @@ async function resolveWsContext(getMasterDb, wsId) {
         return {
           workspaceId: ws.id,
           dbType: ws.dbType && ws.dbType !== "local" ? ws.dbType : fallback.dbType,
-          dbUri: ws.dbUri || fallback.dbUri
+          // Stored connection strings are encrypted at rest; decrypt only
+          // here, in memory, right before use.
+          dbUri: ws.dbUri ? decryptSecret(ws.dbUri) : fallback.dbUri
         };
       }
     }

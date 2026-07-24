@@ -16,22 +16,48 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const { connect, getMasterDb } = require("./db"); // default master MongoDB connection
 const { testConnection, seedWorkspaceDatabase, findWorkspaceByDomain, dbAdapter } = require("./db-adapters");
-const { newId, idForCollection } = require("./lib/ids");
+const { idForCollection } = require("./lib/ids");
 const { httpError, errorHandler } = require("./lib/errors");
 const requestId = require("./middleware/requestId");
 const { makeAuth } = require("./middleware/auth");
+const { validateBody } = require("./lib/validate");
+const { loginSchema, orderSchema, inquirySchema } = require("./lib/schemas");
+const { initIdempotency, withIdempotency } = require("./lib/idempotency");
+const securityHeaders = require("./middleware/securityHeaders");
+const { rateLimit } = require("./middleware/rateLimit");
+const { encryptSecret } = require("./lib/crypto");
+const requestLog = require("./middleware/requestLog");
+const metrics = require("./lib/metrics");
+const { writeAudit, writeMasterAudit } = require("./lib/audit");
 
 const app = express();
-// Storefront configs carry uploaded slideshow/hero images inline as data
-// URLs (the editor re-encodes each upload down to ~150 KB first), so the
-// config payload can legitimately run to a few megabytes.
-app.use(express.json({ limit: "12mb" }));
+app.disable("x-powered-by");
+
+// Per-route body limits. Storefront-config routes carry inline data-URL
+// images and legitimately run to a few MB; everything else is capped tight
+// to shrink the DoS surface.
+const jsonBig = express.json({ limit: "12mb" });
+const jsonDefault = express.json({ limit: "4mb" });
+app.use((req, res, next) => {
+  const big = req.path === "/api/storefront/config" || /^\/api\/ws\/[^/]+\/domain$/.test(req.path);
+  return (big ? jsonBig : jsonDefault)(req, res, next);
+});
 
 const origins = (process.env.CORS_ORIGIN || "*").split(",").map((s) => s.trim());
 app.use(cors({ origin: origins.includes("*") ? true : origins }));
 
 // Every request gets a unique correlation id (req_...), echoed as X-Request-Id.
 app.use(requestId);
+// Baseline security headers on every response.
+app.use(securityHeaders);
+// Structured per-request logging + metrics.
+app.use(requestLog);
+
+// Reusable limiters for the abuse-prone endpoints.
+const loginLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 30, key: (req) => (req.ip || "") + ":" + ((req.body && req.body.email) || "") });
+const orderLimiter = rateLimit({ windowMs: 60 * 1000, max: 60, key: (req) => (req.ip || "") + ":" + req.params.wsId });
+const inquiryLimiter = rateLimit({ windowMs: 60 * 1000, max: 30, key: (req) => (req.ip || "") + ":" + req.params.wsId });
+const aiLimiter = rateLimit({ windowMs: 60 * 1000, max: 30 });
 
 // The marketing/login page is the public entry point; the app console
 // shell (index.html) is reached only after signing in.
@@ -51,6 +77,7 @@ if (JWT_SECRET === "dev-insecure-secret") {
 
 // Server-authoritative auth / tenancy / RBAC middleware.
 const { requireSession, tenantScope, authorizeCrud, resolveWsContext } = makeAuth({ JWT_SECRET, getMasterDb });
+initIdempotency({ getMasterDb });
 
 const GEMINI_KEY = (process.env.GEMINI_API_KEY || "").trim();
 const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.0-flash";
@@ -102,33 +129,23 @@ app.get("/public/login", (req, res) => res.sendFile(path.join(__dirname, "..", "
 app.get("/public/signup", (req, res) => res.sendFile(path.join(__dirname, "..", "public", "signup.html")));
 app.get("/public/index", (req, res) => res.sendFile(path.join(__dirname, "..", "public", "index.html")));
 
-/**
- * Extracts database context from request headers or environment variables
- */
-function getWorkspaceContext(req) {
-  const workspaceId = req.headers["x-workspace-id"] || "default";
-  const dbType = req.headers["x-workspace-db-type"] || "mongodb";
-  const dbUri = req.headers["x-workspace-db-uri"] || process.env.MONGODB_URI || "mongodb://127.0.0.1:27017";
-  return { workspaceId, dbType, dbUri };
-}
-
-/**
- * Resolve workspace context for portal routes from :wsId param OR req.portalWs (custom domain)
- */
-function getPortalContext(req) {
-  if (req.portalWs) {
-    return {
-      workspaceId: req.portalWs.id,
-      dbType: req.portalWs.dbType || "mongodb",
-      dbUri: req.portalWs.dbUri || process.env.MONGODB_URI || "mongodb://127.0.0.1:27017"
-    };
-  }
-  // Fallback: look up workspace from master DB by wsId param
-  return null; // caller handles
-}
+/* NOTE: workspace/DB context is no longer derived from client headers.
+   Authenticated requests get it from the signed session via the
+   tenantScope middleware (server/middleware/auth.js); public portal
+   routes resolve it from the :wsId path param via resolvePortalWs().
+   The old header-trust helpers were removed to keep that invariant. */
 
 /* ---- health probe ---- */
 app.get("/health", (req, res) => res.json({ ok: true, service: "souqi-api", time: new Date().toISOString() }));
+
+/* ---- metrics (gated by METRICS_TOKEN; disabled if unset) ---- */
+app.get("/metrics", (req, res, next) => {
+  const tok = (process.env.METRICS_TOKEN || "").trim();
+  if (!tok) return next(httpError(404, "not_found", "metrics disabled"));
+  const supplied = (req.headers.authorization || "").replace(/^Bearer\s+/i, "").trim();
+  if (supplied !== tok) return next(httpError(401, "unauthorized", "metrics token required"));
+  res.json(metrics.snapshot());
+});
 
 /* ---- dynamic db connection testing ---- */
 app.post("/api/db/test", async (req, res) => {
@@ -221,36 +238,53 @@ app.get("/api/ws/:id/config", async (req, res) => {
  * anchored on the email the signup form collected; anyone authenticating
  * later with a JWT for that same email is treated as the owner.
  */
-app.post("/api/ws", async (req, res) => {
+app.post("/api/ws", async (req, res, next) => {
   try {
     const masterDb = getMasterDb();
     if (!masterDb) return res.status(503).json({ error: "Master DB not available" });
 
     const { id, company, industry, country, ownerEmail, dbType, dbUri, logo, tagline } = req.body || {};
     if (!id || !ownerEmail) return res.status(400).json({ error: "id and ownerEmail are required" });
+    if (!/^ws_[A-Za-z0-9]{4,}$/.test(id)) return res.status(400).json({ error: "invalid workspace id" });
+    const email = String(ownerEmail).toLowerCase();
 
-    const patch = {
+    const existing = await masterDb.collection("workspaces").findOne({ id });
+    if (existing) {
+      // Takeover guard: an existing workspace's ownership and database are
+      // immutable through this unauthenticated signup endpoint. Only the
+      // recorded owner may re-post it, and only display fields update.
+      if (existing.ownerEmail && existing.ownerEmail !== email) {
+        return next(httpError(403, "forbidden", "workspace already owned by another account"));
+      }
+      await masterDb.collection("workspaces").updateOne(
+        { id },
+        { $set: {
+          company: company || existing.company,
+          industry: industry || existing.industry,
+          country: country || existing.country,
+          logo: logo != null ? logo : existing.logo,
+          tagline: tagline || existing.tagline
+        } }
+      );
+      return res.status(200).json({ ok: true, updated: true });
+    }
+
+    await masterDb.collection("workspaces").insertOne({
       id,
       company: company || "My Company",
       industry: industry || "logistics",
       country: country || "",
-      ownerEmail: String(ownerEmail).toLowerCase(),
+      ownerEmail: email,
       dbType: dbType || "local",
-      dbUri: dbUri || "",
+      dbUri: encryptSecret(dbUri || ""),
       logo: logo || null,
       tagline: tagline || "",
-      storefrontEnabled: true
-    };
-
-    await masterDb.collection("workspaces").updateOne(
-      { id },
-      { $set: patch, $setOnInsert: { createdAt: new Date().toISOString() } },
-      { upsert: true }
-    );
-    res.status(201).json({ ok: true });
+      storefrontEnabled: true,
+      createdAt: new Date().toISOString()
+    });
+    res.status(201).json({ ok: true, created: true });
   } catch (e) {
-    console.error("POST /api/ws error:", e.message);
-    res.status(500).json({ error: e.message });
+    next(e);
   }
 });
 
@@ -260,9 +294,9 @@ app.post("/api/ws", async (req, res) => {
  * Body: { domain: "store.example.com" | "" }
  * Requires the caller to own the workspace.
  */
-app.post("/api/ws/:id/domain", async (req, res) => {
+app.post("/api/ws/:id/domain", async (req, res, next) => {
   try {
-    const { masterDb } = await assertOwnsWorkspace(req, req.params.id);
+    const { decoded, masterDb } = await assertOwnsWorkspace(req, req.params.id);
 
     const { domain, storefrontEnabled, storefrontConfig } = req.body || {};
     const patch = {};
@@ -275,10 +309,58 @@ app.post("/api/ws/:id/domain", async (req, res) => {
       { $set: patch },
       { upsert: false }
     );
+    const ws = await resolveWsContext(req.params.id);
+    await writeAudit(dbAdapter, ws, {
+      requestId: req.id, actor: decoded.email, action: "workspace.domain.update",
+      entity: "workspace", entityId: req.params.id,
+      summary: "Domain/storefront settings updated"
+    });
     res.json({ ok: true });
   } catch (e) {
-    console.error("POST /api/ws/:id/domain error:", e.message);
-    res.status(e.status || 500).json({ error: e.message });
+    next(e);
+  }
+});
+
+/**
+ * GET /api/ws/:id/export  — GDPR data portability.
+ * Returns every collection for the workspace. Owner-only.
+ */
+app.get("/api/ws/:id/export", async (req, res, next) => {
+  try {
+    const { decoded } = await assertOwnsWorkspace(req, req.params.id);
+    const ws = await resolveWsContext(req.params.id);
+    const collections = {};
+    for (const c of COLLECTIONS) {
+      collections[c] = await dbAdapter.findAll(ws, c).catch(() => []);
+    }
+    await writeAudit(dbAdapter, ws, {
+      requestId: req.id, actor: decoded.email, action: "workspace.export",
+      entity: "workspace", entityId: req.params.id, summary: "Full data export"
+    });
+    res.json({ workspaceId: req.params.id, exportedAt: new Date().toISOString(), collections });
+  } catch (e) {
+    next(e);
+  }
+});
+
+/**
+ * DELETE /api/ws/:id  — GDPR right-to-erasure.
+ * Drops the workspace's tenant database and master record. Owner-only.
+ * The deletion itself is recorded to the PLATFORM audit (which survives).
+ */
+app.delete("/api/ws/:id", async (req, res, next) => {
+  try {
+    const { decoded, masterDb } = await assertOwnsWorkspace(req, req.params.id);
+    await writeMasterAudit(masterDb, {
+      requestId: req.id, actor: decoded.email, wsId: req.params.id,
+      action: "workspace.delete", entityId: req.params.id, summary: "Workspace erased"
+    });
+    const ws = await resolveWsContext(req.params.id);
+    await dbAdapter.purgeWorkspace(ws);
+    await masterDb.collection("workspaces").deleteOne({ id: req.params.id });
+    res.json({ ok: true, deleted: req.params.id });
+  } catch (e) {
+    next(e);
   }
 });
 
@@ -287,22 +369,26 @@ app.post("/api/ws/:id/domain", async (req, res) => {
  * Persists the full storefront (theme/pages/blocks) config. Requires the
  * caller to own the workspace.
  */
-app.post("/api/storefront/config", async (req, res) => {
+app.post("/api/storefront/config", async (req, res, next) => {
   try {
     const { wsId, storefrontConfig } = req.body || {};
     if (!wsId) return res.status(400).json({ error: "Missing wsId" });
 
-    const { masterDb } = await assertOwnsWorkspace(req, wsId);
+    const { decoded, masterDb } = await assertOwnsWorkspace(req, wsId);
 
     await masterDb.collection("workspaces").updateOne(
       { id: wsId },
       { $set: { storefrontConfig: storefrontConfig } },
       { upsert: false }
     );
+    const ws = await resolveWsContext(wsId);
+    await writeAudit(dbAdapter, ws, {
+      requestId: req.id, actor: decoded.email, action: "workspace.storefront.update",
+      entity: "workspace", entityId: wsId, summary: "Storefront config saved"
+    });
     res.json({ ok: true });
   } catch (e) {
-    console.error("POST /api/storefront/config error:", e.message);
-    res.status(e.status || 500).json({ error: e.message });
+    next(e);
   }
 });
 
@@ -358,18 +444,13 @@ app.get("/api/storefront/edit-token/verify", async (req, res) => {
    ================================================================= */
 
 /**
- * Helper: resolve workspace DB context from :wsId.
- * Tries master DB lookup first, falls back to localStorage-style header.
+ * Helper: resolve the server-owned DB context for a public portal :wsId.
+ * Delegates to the same resolver the authenticated CRUD path uses, so
+ * "local"/empty dbType normalizes to the platform default and no client
+ * value ever selects the database.
  */
 async function resolvePortalWs(wsId) {
-  try {
-    const masterDb = getMasterDb();
-    if (masterDb) {
-      const ws = await masterDb.collection("workspaces").findOne({ id: wsId });
-      if (ws) return { workspaceId: ws.id, dbType: ws.dbType || "mongodb", dbUri: ws.dbUri || process.env.MONGODB_URI };
-    }
-  } catch (e) { /* fallback */ }
-  return { workspaceId: wsId, dbType: "mongodb", dbUri: process.env.MONGODB_URI || "mongodb://127.0.0.1:27017" };
+  return resolveWsContext(wsId);
 }
 
 /**
@@ -416,18 +497,17 @@ app.get("/api/portal/:wsId/products", async (req, res) => {
  * Guest checkout — creates an order in the workspace's orders collection.
  * Body: { customer: { name, email, phone, address }, items: [...], note, type }
  */
-app.post("/api/portal/:wsId/orders", async (req, res) => {
+app.post("/api/portal/:wsId/orders",
+  orderLimiter,
+  withIdempotency((req) => req.params.wsId),
+  validateBody(orderSchema),
+  async (req, res, next) => {
   try {
     const ws = await resolvePortalWs(req.params.wsId);
-    const { customer, items, note, type, payment } = req.body || {};
-    if (!customer || !customer.name || !customer.email) {
-      return res.status(400).json({ error: "customer.name and customer.email are required" });
-    }
-    if (!items || !items.length) {
-      return res.status(400).json({ error: "items array is required" });
-    }
+    const { customer, items, note, type, payment } = req.valid;
     const total = items.reduce((s, i) => s + (Number(i.price || 0) * Number(i.qty || 1)), 0);
-    const ref = "PO-" + Date.now();
+    const orderId = idForCollection("orders");
+    const ref = "SQ-ORD-" + new Date().getFullYear() + "-" + orderId.split("_").pop().slice(-8);
     // Demo checkout only — no real payment gateway is wired up. Only the
     // method + a non-reversible {brand,last4} are ever stored; full card
     // numbers/CVCs are validated client-side and never sent here.
@@ -435,8 +515,10 @@ app.post("/api/portal/:wsId/orders", async (req, res) => {
       ? { method: payment.method, brand: payment.brand || null, last4: payment.last4 || null }
       : { method: "cod", brand: null, last4: null };
     const order = {
-      id: "O-" + Date.now(),
+      id: orderId,
       ref,
+      wsId: ws.workspaceId,
+      requestId: req.id,
       date: new Date().toISOString(),
       status: "Pending",
       source: "portal",
@@ -449,10 +531,13 @@ app.post("/api/portal/:wsId/orders", async (req, res) => {
       createdAt: new Date().toISOString()
     };
     await dbAdapter.insertOne(ws, "orders", order);
+    await writeAudit(dbAdapter, ws, {
+      requestId: req.id, actor: "guest:" + customer.email, action: "order.create",
+      entity: "orders", entityId: order.id, summary: "Guest order " + ref + " total " + total
+    });
     res.status(201).json({ ok: true, ref, orderId: order.id });
   } catch (e) {
-    console.error("POST /api/portal/:wsId/orders error:", e.message);
-    res.status(500).json({ error: e.message });
+    next(e);
   }
 });
 
@@ -489,16 +574,22 @@ app.get("/api/portal/:wsId/track/:ref", async (req, res) => {
  * Quote request / service inquiry form. Creates a lead in clients + a quote.
  * Body: { name, email, phone, message, budget, service }
  */
-app.post("/api/portal/:wsId/inquiry", async (req, res) => {
+app.post("/api/portal/:wsId/inquiry",
+  inquiryLimiter,
+  withIdempotency((req) => req.params.wsId),
+  validateBody(inquirySchema),
+  async (req, res, next) => {
   try {
     const ws = await resolvePortalWs(req.params.wsId);
-    const { name, email, phone, message, budget, service } = req.body || {};
-    if (!name || !email) return res.status(400).json({ error: "name and email are required" });
+    const { name, email, phone, message, budget, service } = req.valid;
 
-    const ref = "INQ-" + Date.now();
+    const quoteId = idForCollection("quotes");
+    const ref = "SQ-INQ-" + new Date().getFullYear() + "-" + quoteId.split("_").pop().slice(-8);
     const quote = {
-      id: "Q-" + Date.now(),
+      id: quoteId,
       ref,
+      wsId: ws.workspaceId,
+      requestId: req.id,
       date: new Date().toISOString(),
       status: "Draft",
       source: "portal-inquiry",
@@ -511,32 +602,39 @@ app.post("/api/portal/:wsId/inquiry", async (req, res) => {
       createdAt: new Date().toISOString()
     };
     await dbAdapter.insertOne(ws, "quotes", quote);
+    await writeAudit(dbAdapter, ws, {
+      requestId: req.id, actor: "guest:" + email, action: "inquiry.create",
+      entity: "quotes", entityId: quote.id, summary: "Portal inquiry " + ref
+    });
     res.status(201).json({ ok: true, ref });
   } catch (e) {
-    console.error("POST /api/portal/:wsId/inquiry error:", e.message);
-    res.status(500).json({ error: e.message });
+    next(e);
   }
 });
 
 /* ---- auth: verify a hashed password, return a token + safe profile ---- */
-app.post("/auth/login", async (req, res) => {
+app.post("/auth/login", loginLimiter, validateBody(loginSchema), async (req, res, next) => {
   try {
-    const { email, password } = req.body || {};
-    if (!email || !password) return res.status(400).json({ error: "email and password required" });
-    
-    const ws = getWorkspaceContext(req);
-    // Find user across DB-agnostic adapter
+    const { email, password } = req.valid;
+
+    // The workspace being signed into is named by the client; the DB context
+    // for it is resolved SERVER-SIDE (never from a client-supplied dbUri).
+    const wsId = String(req.headers["x-workspace-id"] || "default");
+    const ws = await resolveWsContext(wsId);
     const users = await dbAdapter.findAll(ws, "users");
     const u = users.find(usr => String(usr.email).toLowerCase() === String(email).toLowerCase());
-    
+
     if (!u || !u.active) return res.status(401).json({ error: "invalid credentials" });
 
-    // Support both hashed (production) and plaintext passwords.
-    const hashed = typeof u.password === "string" && u.password.startsWith("$2");
-    const ok = hashed ? await bcrypt.compare(password, u.password) : u.password === password;
+    // Only bcrypt-hashed passwords authenticate. Plaintext is never accepted
+    // server-side (the seeder hashes all users at provisioning time).
+    const stored = String(u.password || "");
+    const ok = stored.startsWith("$2") ? await bcrypt.compare(password, stored) : false;
     if (!ok) return res.status(401).json({ error: "invalid credentials" });
 
-    const session = { id: u.id, name: u.name, email: u.email, role: u.role, dept: u.dept };
+    // The signed token carries the workspace id — this is what every later
+    // request is scoped by, so tenancy can't be spoofed via a header.
+    const session = { id: u.id, name: u.name, email: u.email, role: u.role, dept: u.dept, wsId: ws.workspaceId };
     const token = jwt.sign(session, JWT_SECRET, { expiresIn: "12h" });
     res.json({ token, user: session });
   } catch (e) {
@@ -546,7 +644,7 @@ app.post("/auth/login", async (req, res) => {
 });
 
 /* ---- AI proxy: keep the Gemini key on the server ---- */
-app.post("/ai/chat", async (req, res) => {
+app.post("/ai/chat", aiLimiter, async (req, res) => {
   if (!GEMINI_KEY) return res.status(503).json({ error: "no-key", message: "AI proxy not configured" });
   try {
     const { prompt, contents, generationConfig } = req.body || {};
@@ -578,66 +676,62 @@ function guard(req, res, next) {
   next();
 }
 
-/* ---- generic CRUD over any allowed collection ---- */
-app.get("/:c", guard, async (req, res) => {
+/* ---- generic CRUD over any allowed collection ----
+   Every route is: guard (known collection) → requireSession (valid JWT)
+   → tenantScope (server-derived workspace + DB) → authorizeCrud (RBAC).
+   The workspace is taken from the signed session (req.ws), never from a
+   client header, and record ids are minted server-side. ---- */
+const crud = [guard, requireSession, tenantScope, authorizeCrud];
+
+app.get("/:c", crud, async (req, res, next) => {
   try {
-    const ws = getWorkspaceContext(req);
-    const docs = await dbAdapter.findAll(ws, req.params.c);
+    const docs = await dbAdapter.findAll(req.ws, req.params.c);
     res.json(docs);
-  } catch (e) { 
-    console.error(`Error GET /${req.params.c}:`, e.message);
-    res.status(500).json({ error: e.message }); 
-  }
+  } catch (e) { next(e); }
 });
 
-app.get("/:c/:id", guard, async (req, res) => {
+app.get("/:c/:id", crud, async (req, res, next) => {
   try {
-    const ws = getWorkspaceContext(req);
-    const doc = await dbAdapter.findOne(ws, req.params.c, req.params.id);
-    if (!doc) return res.status(404).json({ error: "not found" });
+    const doc = await dbAdapter.findOne(req.ws, req.params.c, req.params.id);
+    if (!doc) return next(httpError(404, "not_found", "not found"));
     res.json(doc);
-  } catch (e) { 
-    console.error(`Error GET /${req.params.c}/${req.params.id}:`, e.message);
-    res.status(500).json({ error: e.message }); 
-  }
+  } catch (e) { next(e); }
 });
 
-app.post("/:c", guard, async (req, res) => {
+app.post("/:c", crud, async (req, res, next) => {
   try {
-    const ws = getWorkspaceContext(req);
     const record = Object.assign({}, req.body);
-    if (!record.id) record.id = req.params.c.charAt(0).toUpperCase() + "-" + Date.now();
-    const saved = await dbAdapter.insertOne(ws, req.params.c, record);
+    // Server-authoritative id + traceability. The client's proposed id is
+    // ignored so ids are always globally unique and non-enumerable.
+    record.id = idForCollection(req.params.c);
+    record.wsId = req.ws.workspaceId;
+    record.requestId = req.id;
+    const saved = await dbAdapter.insertOne(req.ws, req.params.c, record);
     res.status(201).json(saved);
-  } catch (e) { 
-    console.error(`Error POST /${req.params.c}:`, e.message);
-    res.status(500).json({ error: e.message }); 
-  }
+  } catch (e) { next(e); }
 });
 
-app.put("/:c/:id", guard, async (req, res) => {
+app.put("/:c/:id", crud, async (req, res, next) => {
   try {
-    const ws = getWorkspaceContext(req);
     const patch = Object.assign({}, req.body);
-    const updated = await dbAdapter.updateOne(ws, req.params.c, req.params.id, patch);
-    if (!updated) return res.status(404).json({ error: "not found" });
+    // Identity fields are immutable through updates.
+    delete patch.id; delete patch.wsId;
+    const updated = await dbAdapter.updateOne(req.ws, req.params.c, req.params.id, patch);
+    if (!updated) return next(httpError(404, "not_found", "not found"));
     res.json(updated);
-  } catch (e) { 
-    console.error(`Error PUT /${req.params.c}/${req.params.id}:`, e.message);
-    res.status(500).json({ error: e.message }); 
-  }
+  } catch (e) { next(e); }
 });
 
-app.delete("/:c/:id", guard, async (req, res) => {
+app.delete("/:c/:id", crud, async (req, res, next) => {
   try {
-    const ws = getWorkspaceContext(req);
-    const ok = await dbAdapter.deleteOne(ws, req.params.c, req.params.id);
+    const ok = await dbAdapter.deleteOne(req.ws, req.params.c, req.params.id);
     res.json({ ok });
-  } catch (e) { 
-    console.error(`Error DELETE /${req.params.c}/${req.params.id}:`, e.message);
-    res.status(500).json({ error: e.message }); 
-  }
+  } catch (e) { next(e); }
 });
+
+// Central error handler — turns thrown/next(err) into a safe envelope
+// { error: { code, message, requestId } } and keeps 5xx details server-side.
+app.use(errorHandler);
 
 const PORT = process.env.PORT || 4000;
 connect()

@@ -1275,39 +1275,39 @@
     <div class="chero-demo" dir="ltr">
       <div class="cdemo" id="cdemo" dir="ltr">
         <div class="cdemo-top"><span class="cd-dot r"></span><span class="cd-dot y"></span><span class="cd-dot g"></span>
-          <span class="cd-url"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>demo.souqi.site</span>
-          <em class="cd-live" id="cdStatus"><i></i>building…</em>
+          <span class="cd-url"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg><span data-t="demo.souqi.site">demo.souqi.site</span></span>
+          <em class="cd-live" id="cdStatus"><i></i><span data-t="building…">building…</span></em>
         </div>
         <div class="cdemo-site" id="cdSite">
-          <div class="site-empty" id="siteEmpty">Watch your website build itself…</div>
+          <div class="site-empty" id="siteEmpty" data-t="Watch your website build itself…">Watch your website build itself…</div>
           <div class="site-head">
-            <span class="site-logo">◆ demo</span>
+            <span class="site-logo">◆ <span data-t="demo">demo</span></span>
             <span class="site-nav"><i></i><i></i><i></i></span>
-            <span class="site-cart" id="siteCart">Cart</span>
+            <span class="site-cart" id="siteCart" data-t="Cart">Cart</span>
           </div>
           <div class="site-hero" id="siteHero">
-            <div class="site-kick">STOREFRONT</div>
+            <div class="site-kick" data-t="STOREFRONT">STOREFRONT</div>
             <div class="site-title" id="siteTitle"></div>
-            <span class="site-btn">Shop now</span>
+            <span class="site-btn" data-t="Shop now">Shop now</span>
           </div>
           <div class="site-grid" id="siteGrid"></div>
           <div class="site-checkout" id="siteCheckout" aria-hidden="true">
             <div class="sco-card">
-              <div class="sco-h">Checkout</div>
-              <div class="sco-line"><span>Silk Dress × 1</span><b>$120</b></div>
-              <div class="sco-line"><span>Suede Boots × 1</span><b>$140</b></div>
-              <div class="sco-tot"><span>Total</span><b>$260</b></div>
-              <div class="sco-pay-lbl">Pay with</div>
+              <div class="sco-h" data-t="Checkout">Checkout</div>
+              <div class="sco-line"><span><span data-t="Silk Dress">Silk Dress</span> × 1</span><b data-t="$120">$120</b></div>
+              <div class="sco-line"><span><span data-t="Suede Boots">Suede Boots</span> × 1</span><b data-t="$140">$140</b></div>
+              <div class="sco-tot"><span data-t="Total">Total</span><b data-t="$260">$260</b></div>
+              <div class="sco-pay-lbl" data-t="Pay with">Pay with</div>
               <div class="sco-pays">
                 <span class="scp scp-visa">VISA</span>
                 <span class="scp scp-mc" aria-label="Mastercard"><svg viewBox="0 0 40 24" width="30" height="19" aria-hidden="true"><circle cx="16" cy="12" r="9" fill="#eb001b"/><circle cx="24" cy="12" r="9" fill="#f79e1b" fill-opacity=".92"/></svg></span>
                 <span class="scp scp-stripe">stripe</span>
                 <span class="scp scp-paypal"><b>Pay</b><i>Pal</i></span>
               </div>
-              <button class="sco-btn" id="scoBtn" type="button">Pay $260</button>
+              <button class="sco-btn" id="scoBtn" type="button" data-t="Pay $260">Pay $260</button>
             </div>
           </div>
-          <div class="cd-chip" id="cdChip"><span class="cd-spin"></span><span id="cdChipText">Creating your site…</span></div>
+          <div class="cd-chip" id="cdChip"><span class="cd-spin"></span><span id="cdChipText" data-t="Creating your site…">Creating your site…</span></div>
         </div>
       </div>
     </div>
@@ -1876,43 +1876,44 @@
   // ---- Claude-style hero: watch the website build itself for real ----
   var cdemo=document.getElementById("cdemo");
   if(cdemo){
+    var _t = window.UI && window.UI.t ? window.UI.t : function(s){return s;};
     var site=document.getElementById("cdSite"), empty=document.getElementById("siteEmpty"),
         head=site.querySelector(".site-head"), hero=document.getElementById("siteHero"),
         title=document.getElementById("siteTitle"), grid=document.getElementById("siteGrid"),
         cart=document.getElementById("siteCart"), status=document.getElementById("cdStatus"),
         chip=document.getElementById("cdChip"), chipText=document.getElementById("cdChipText");
-    var PRODUCTS=[["Linen Blazer","$89"],["Silk Dress","$120"],["Suede Boots","$140"]];
-    function setChip(txt,done){ chipText.textContent=txt; chip.classList.toggle("done",!!done); }
+    function getProducts(){ return [[_t("Linen Blazer"),_t("$89")],[_t("Silk Dress"),_t("$120")],[_t("Suede Boots"),_t("$140")]]; }
+    function setChip(txt,done){ chipText.textContent=_t(txt); chip.classList.toggle("done",!!done); }
     function typeInto(el,text,cb){ el.textContent=""; var car=document.createElement("span"); car.className="car"; el.appendChild(car); var i=0;
       (function tick(){ if(i<text.length){ car.insertAdjacentText("beforebegin",text.charAt(i)); i++; setTimeout(tick,46); } else { setTimeout(function(){ if(car.parentNode) car.remove(); cb&&cb(); },500); } })(); }
-    function skeleton(){ grid.innerHTML=PRODUCTS.map(function(){return '<div class="site-card"><div class="ph"></div><div class="nm">&nbsp;</div><div class="pr">&nbsp;</div></div>';}).join(""); }
+    function skeleton(){ grid.innerHTML=getProducts().map(function(){return '<div class="site-card"><div class="ph"></div><div class="nm">&nbsp;</div><div class="pr">&nbsp;</div></div>';}).join(""); }
     function reset(){
       site.style.setProperty("--st","#1aa6df"); site.classList.remove("live");
       head.classList.remove("in"); hero.classList.remove("in"); title.textContent=""; grid.innerHTML="";
-      cart.textContent="Cart"; empty.classList.remove("gone");
-      status.classList.remove("islive"); status.innerHTML='<i></i>building…';
+      cart.textContent=_t("Cart"); empty.classList.remove("gone");
+      status.classList.remove("islive"); status.innerHTML='<i></i>'+_t("building…");
       var co=document.getElementById("siteCheckout"); if(co) co.classList.remove("in");
-      var sb=document.getElementById("scoBtn"); if(sb){ sb.classList.remove("paid"); sb.textContent="Pay $260"; }
+      var sb=document.getElementById("scoBtn"); if(sb){ sb.classList.remove("paid"); sb.textContent=_t("Pay $260"); }
     }
     var steps=[
       function(next){ setChip("Creating your site…"); empty.classList.add("gone"); head.classList.add("in"); setTimeout(function(){ setChip("✓ Site created",1); next(); },1100); },
       function(next){ setChip("Applying the Retail template…"); hero.classList.add("in"); skeleton(); setTimeout(function(){ setChip("✓ Template applied",1); next(); },1300); },
-      function(next){ setChip("Adding products…"); var c=grid.querySelectorAll(".site-card");
-        c.forEach(function(el,i){ setTimeout(function(){ el.classList.add("in"); el.querySelector(".nm").textContent=PRODUCTS[i][0]; el.querySelector(".pr").textContent=PRODUCTS[i][1]; },i*280); });
+      function(next){ setChip("Adding products…"); var prods=getProducts(); var c=grid.querySelectorAll(".site-card");
+        c.forEach(function(el,i){ setTimeout(function(){ el.classList.add("in"); el.querySelector(".nm").textContent=prods[i][0]; el.querySelector(".pr").textContent=prods[i][1]; },i*280); });
         setTimeout(function(){ setChip("✓ 3 products added",1); next(); },1300); },
-      function(next){ setChip("Editing the hero text…"); typeInto(title,"New season, now live.",function(){ setChip("✓ Hero updated",1); next(); }); },
+      function(next){ setChip("Editing the hero text…"); typeInto(title,_t("New season, now live."),function(){ setChip("✓ Hero updated",1); next(); }); },
       function(next){ setChip("Switching theme → teal…"); site.style.setProperty("--st","#12a594"); setTimeout(function(){ setChip("✓ Theme changed",1); next(); },1200); },
-      function(next){ setChip("Publishing…"); setTimeout(function(){ site.classList.add("live"); cart.textContent="Cart · 2"; status.innerHTML='<i></i>live'; status.classList.add("islive"); setChip("✓ Published — live now",1); next(); },1200); },
+      function(next){ setChip("Publishing…"); setTimeout(function(){ site.classList.add("live"); cart.textContent=_t("Cart · 2"); status.innerHTML='<i></i>'+_t("live"); status.classList.add("islive"); setChip("✓ Published — live now",1); next(); },1200); },
       function(next){ setChip("A customer is checking out…");
         var co=document.getElementById("siteCheckout"), sb=document.getElementById("scoBtn");
         if(co) co.classList.add("in");
-        setTimeout(function(){ if(sb){ sb.classList.add("paid"); sb.textContent="✓ Paid"; } setChip("✓ Order paid · Visa •••• 4242",1);
+        setTimeout(function(){ if(sb){ sb.classList.add("paid"); sb.textContent=_t("✓ Paid"); } setChip("✓ Order paid · Visa •••• 4242",1);
           setTimeout(function(){ if(co) co.classList.remove("in"); next(); },1600);
         },1500); }
     ];
     if(reduce){
       empty.classList.add("gone"); head.classList.add("in"); hero.classList.add("in"); site.style.setProperty("--st","#12a594");
-      title.textContent="New season, now live."; cart.textContent="Cart · 2"; status.innerHTML='<i></i>live'; status.classList.add("islive");
+      title.textContent="New season, now live."; cart.textContent=_t("Cart · 2"); status.innerHTML='<i></i>'+_t("live"); status.classList.add("islive");
       grid.innerHTML=PRODUCTS.map(function(p){return '<div class="site-card in"><div class="ph"></div><div class="nm">'+p[0]+'</div><div class="pr">'+p[1]+'</div></div>';}).join("");
       setChip("Built with Souqi",1);
     } else {

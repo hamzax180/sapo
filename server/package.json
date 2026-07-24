@@ -10,8 +10,9 @@
     "seed": "node seed.js",
     "smoke-test": "node smoke-test.js",
     "test": "node unit-test.js",
+    "test:isolation": "node isolation-test.js",
     "lint": "eslint . --ext .js --max-warnings 50",
-    "ci": "npm run lint && npm test && npm run smoke-test"
+    "ci": "npm run lint && npm test && npm run test:isolation && npm run smoke-test"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
