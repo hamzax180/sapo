@@ -825,6 +825,7 @@
             <div class="step" data-s="1"><span class="dot">AI</span>Finance check</div>
             <div class="step" data-s="2"><span class="dot">▦</span>Ship label</div>
             <div class="step" data-s="3"><span class="dot">◧</span>Inventory</div>
+            <div class="step" data-s="4"><span class="dot">▥</span>Database</div>
           </aside>
           <div class="stage">
             <!-- scene 0 · invoice -->
@@ -857,6 +858,14 @@
               <div class="inv-row"><span class="nm">Steel Pipe 20mm<small>SKU-3120</small></span><span><span class="qty" data-to="348">320</span><span class="delta up">+28</span></span></div>
               <div class="inv-row"><span class="nm">Cement Bag 50kg<small>SKU-5500</small></span><span><span class="qty" data-to="512">540</span><span class="delta down">−28</span></span></div>
               <div class="inv-row"><span class="nm">Copper Wire 5mm<small>SKU-0885</small></span><span><span class="qty" data-to="64">88</span><span class="delta down">−24</span></span></div>
+            </div>
+            <!-- scene 4 · databases -->
+            <div class="scene" data-s="4">
+              <div class="sc-head"><span class="sc-t">Database synced</span><span class="sc-badge green">CLOUD BACKED-UP</span></div>
+              <div class="inv-row"><span class="nm">orders<small>collection</small></span><span><span class="qty" data-to="12480">12360</span><span class="delta up">+120</span></span></div>
+              <div class="inv-row"><span class="nm">products<small>collection</small></span><span><span class="qty" data-to="3204">3200</span><span class="delta up">+4</span></span></div>
+              <div class="inv-row"><span class="nm">invoices<small>collection</small></span><span><span class="qty" data-to="8801">8799</span><span class="delta up">+2</span></span></div>
+              <div class="chips"><span class="chip ok">MongoDB</span><span class="chip ok">PostgreSQL</span><span class="chip up">✓ Live backup</span></div>
             </div>
           </div>
         </div>
@@ -1044,12 +1053,12 @@
     function show(n){
       scenes.forEach(function(s,k){s.classList.toggle("active",k===n);});
       railSteps.forEach(function(s,k){s.classList.toggle("on",k===n);s.classList.toggle("done",k<n);});
-      if(n===3){ scenes[3].querySelectorAll(".qty").forEach(animQty); }
+      if(scenes[n]){ scenes[n].querySelectorAll(".qty").forEach(animQty); }
     }
-    // seed inventory start values so replays re-count
-    scenes[3] && scenes[3].querySelectorAll(".qty").forEach(function(q){q.setAttribute("data-from",q.textContent);});
+    // seed counter start values so replays re-count (inventory + database scenes)
+    scenes.forEach(function(s){ s.querySelectorAll(".qty").forEach(function(q){ q.setAttribute("data-from",q.textContent); }); });
     show(0);
-    if(!reduce){ setInterval(function(){ cur=(cur+1)%scenes.length; if(cur===3){scenes[3].querySelectorAll(".qty").forEach(function(q){q.textContent=q.getAttribute("data-from");});} show(cur); },2900); }
+    if(!reduce){ setInterval(function(){ cur=(cur+1)%scenes.length; if(scenes[cur]){scenes[cur].querySelectorAll(".qty").forEach(function(q){q.textContent=q.getAttribute("data-from");});} show(cur); },2900); }
   }
 
   // ---- make demo buttons respond (this is a preview: CTAs jump to the sign-up field) ----
