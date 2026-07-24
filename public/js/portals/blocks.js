@@ -62,6 +62,10 @@
       { key: "ctaAction", label: "Button action", type: "action-select" },
       { key: "ctaTarget", label: "Action target", type: "action-target" }
     ],
+    fieldGroups: [
+      { icon: "✏️", label: "Message", keys: ["message"] },
+      { icon: "🔗", label: "Button Action", keys: ["ctaLabel", "ctaAction", "ctaTarget"] }
+    ],
     render(props, ctx) {
       const cta = props.ctaLabel
         ? renderButton({ label: props.ctaLabel, action: props.ctaAction, target: props.ctaTarget }, "gb-topbar-cta")
@@ -88,6 +92,12 @@
         { key: "action", label: "Action", type: "action-select" },
         { key: "target", label: "Action target", type: "action-target" }
       ] }
+    ],
+    fieldGroups: [
+      { icon: "🖼", label: "Background & Media", keys: ["bgImage"] },
+      { icon: "✏️", label: "Title & Copy", keys: ["eyebrow", "eyebrowStyle", "title", "subtitle"] },
+      { icon: "🎨", label: "Colors & Style", keys: ["align", "accentColor", "titleGradient"] },
+      { icon: "🔗", label: "Buttons", keys: ["buttons"] }
     ],
     render(props, ctx) {
       const bg = props.bgImage ? '<div class="gb-hero-bg-img"><img src="' + esc(props.bgImage) + '" alt=""' + ed("bgImage") + ' /></div>' : "";
@@ -117,6 +127,10 @@
       { key: "items", label: "Stats", type: "list", itemSchema: [{ key: "value", label: "Value", type: "text" }, { key: "label", label: "Label", type: "text" }] },
       { key: "accentColor", label: "Number Color", type: "color" }
     ],
+    fieldGroups: [
+      { icon: "📊", label: "Statistics", keys: ["items"] },
+      { icon: "🎨", label: "Accent Color", keys: ["accentColor"] }
+    ],
     render(props, ctx) {
       const valueStyle = props.accentColor ? ' style="color:' + esc(props.accentColor) + '"' : "";
       return '<section class="portal-section gb-stats" data-block-id="' + ctx.blockId + '">' +
@@ -130,6 +144,9 @@
     label: "Brand / Trust Wall", category: "Content",
     defaultProps: { items: ["Partner One", "Partner Two", "Partner Three"] },
     schema: [{ key: "items", label: "Names", type: "list", itemSchema: [{ key: "value", label: "Name", type: "text" }] }],
+    fieldGroups: [
+      { icon: "🏢", label: "Partner Names", keys: ["items"] }
+    ],
     render(props, ctx) {
       const items = (props.items || []).map((it) => typeof it === "string" ? it : it.value);
       return '<section class="portal-section gb-brand-wall" data-block-id="' + ctx.blockId + '">' +
@@ -153,6 +170,11 @@
         { key: "desc", label: "Description", type: "textarea" },
         { key: "color", label: "Accent Color", type: "color" }
       ] }
+    ],
+    fieldGroups: [
+      { icon: "📋", label: "Section Header", keys: ["title", "subtitle"] },
+      { icon: "🃏", label: "Cards", keys: ["items"] },
+      { icon: "⚙️", label: "Layout", keys: ["columns"] }
     ],
     render(props, ctx) {
       return '<section class="portal-section" data-block-id="' + ctx.blockId + '">' +
@@ -188,6 +210,10 @@
         { key: "linkLabel", label: "Link label", type: "text" }
       ] }
     ],
+    fieldGroups: [
+      { icon: "📋", label: "Section Header", keys: ["title", "subtitle"] },
+      { icon: "🖼", label: "Editorial Cards", keys: ["items"] }
+    ],
     render(props, ctx) {
       return '<section class="portal-section gb-editorial" data-block-id="' + ctx.blockId + '">' +
         '<div class="section-head">' +
@@ -222,6 +248,10 @@
       { key: "ctaLabel", label: "Button under grid (optional)", type: "text" },
       { key: "ctaAction", label: "Button action", type: "action-select" },
       { key: "ctaTarget", label: "Action target", type: "action-target" }
+    ],
+    fieldGroups: [
+      { icon: "📋", label: "Display Settings", keys: ["title", "subtitle", "showCatBar", "limit"] },
+      { icon: "🔗", label: "Grid Button", keys: ["ctaLabel", "ctaAction", "ctaTarget"] }
     ],
     render(props, ctx) {
       const all = ctx.products || [];
@@ -272,6 +302,9 @@
       { key: "title", label: "Title", type: "text" },
       { key: "subtitle", label: "Eyebrow", type: "text" }
     ],
+    fieldGroups: [
+      { icon: "✏️", label: "Heading", keys: ["title", "subtitle"] }
+    ],
     render(props, ctx) {
       const id = ctx.blockId;
       return '<section class="portal-section" data-block-id="' + id + '">' +
@@ -312,6 +345,11 @@
         { key: "desc", label: "Description", type: "textarea" }
       ] }
     ],
+    fieldGroups: [
+      { icon: "📋", label: "Section Header", keys: ["title", "subtitle"] },
+      { icon: "📑", label: "Case Studies", keys: ["items"] },
+      { icon: "🎨", label: "Style", keys: ["accentColor"] }
+    ],
     render(props, ctx) {
       const metricStyle = props.accentColor ? ' style="color:' + esc(props.accentColor) + '"' : "";
       return '<section class="portal-section" data-block-id="' + ctx.blockId + '">' +
@@ -347,6 +385,11 @@
         { key: "bio", label: "Bio", type: "textarea" }
       ] }
     ],
+    fieldGroups: [
+      { icon: "📋", label: "Section Header", keys: ["title", "subtitle"] },
+      { icon: "👥", label: "Team Members", keys: ["items"] },
+      { icon: "🎨", label: "Style", keys: ["accentColor"] }
+    ],
     render(props, ctx) {
       const roleStyle = props.accentColor ? ' style="color:' + esc(props.accentColor) + '"' : "";
       return '<section class="portal-section" data-block-id="' + ctx.blockId + '">' +
@@ -376,6 +419,11 @@
       { key: "subtitle", label: "Eyebrow", type: "text" },
       { key: "perks", label: "Bullet points", type: "list", itemSchema: [{ key: "value", label: "Point", type: "text" }] },
       { key: "submitLabel", label: "Submit button label", type: "text" }
+    ],
+    fieldGroups: [
+      { icon: "✏️", label: "Heading", keys: ["title", "subtitle"] },
+      { icon: "✅", label: "Feature Highlights", keys: ["perks"] },
+      { icon: "📝", label: "Submit Button", keys: ["submitLabel"] }
     ],
     render(props, ctx) {
       const perks = (props.perks || []).map((it) => typeof it === "string" ? it : it.value);
@@ -411,6 +459,11 @@
       { key: "ctaLabel", label: "Button label (optional)", type: "text" },
       { key: "ctaAction", label: "Button action", type: "action-select" },
       { key: "ctaTarget", label: "Action target", type: "action-target" }
+    ],
+    fieldGroups: [
+      { icon: "💬", label: "Quote Text", keys: ["quote"] },
+      { icon: "🎨", label: "Colors", keys: ["textColor", "bgColor"] },
+      { icon: "🔗", label: "Button", keys: ["ctaLabel", "ctaAction", "ctaTarget"] }
     ],
     render(props, ctx) {
       const cta = props.ctaLabel ? renderButton({ label: props.ctaLabel, action: props.ctaAction, target: props.ctaTarget }, "gb-hero-btn gb-hero-btn-primary") : "";
@@ -454,6 +507,15 @@
           { key: "href", label: "URL", type: "text" }
         ] }
       ] }
+    ],
+    fieldGroups: [
+      { icon: "✏️", label: "Branding", keys: ["tagline", "desc"] },
+      { icon: "🎨", label: "Theme", keys: ["accentColor", "bgColor"] },
+      { icon: "📬", label: "Newsletter", keys: ["newsletter", "newsletterTitle", "newsletterSub"] },
+      { icon: "📍", label: "Contact Details", keys: ["contactAddress", "contactPhone", "contactEmail"] },
+      { icon: "🌐", label: "Social Links", keys: ["socials"] },
+      { icon: "🔗", label: "Navigation Columns", keys: ["columns"] },
+      { icon: "⚖️", label: "Legal", keys: ["legal"] }
     ],
     render(props, ctx) {
       const brand = (window.PortalState && window.PortalState.config && window.PortalState.config.company) || "";
@@ -518,6 +580,9 @@
       { key: "heading", label: "Heading", type: "text" },
       { key: "body", label: "Body text", type: "textarea" }
     ],
+    fieldGroups: [
+      { icon: "✏️", label: "Content", keys: ["heading", "body"] }
+    ],
     render(props, ctx) {
       return '<section class="portal-section gb-richtext" data-block-id="' + ctx.blockId + '">' +
         (props.heading ? "<h2>" + esc(props.heading) + "</h2>" : "") +
@@ -553,6 +618,11 @@
         { key: "desc", label: "Description", type: "textarea" }
       ] },
       { key: "quoteTitle", label: "Quote widget title", type: "text" }
+    ],
+    fieldGroups: [
+      { icon: "📍", label: "Tracking", keys: ["title", "subtitle", "inputPlaceholder", "submitLabel", "sampleRefs"] },
+      { icon: "📦", label: "Quick Action Cards", keys: ["sideCards"] },
+      { icon: "💰", label: "Quote Widget", keys: ["quoteTitle"] }
     ],
     /* Reuses the site's existing global Portal.doTrack()/openRateCalculator()/
        openPickupModal() functions (portal.js) unchanged — they already work
@@ -642,6 +712,10 @@
         { key: "buttonLabel", label: "Button label", type: "text" }
       ] }
     ],
+    fieldGroups: [
+      { icon: "📋", label: "Section Title", keys: ["title"] },
+      { icon: "📝", label: "Steps", keys: ["items"] }
+    ],
     render(props, ctx) {
       const items = props.items || [];
       // Fixed by position (matches the original template) — these are
@@ -689,6 +763,10 @@
         { key: "linkLabel", label: "Link label", type: "text" }
       ] }
     ],
+    fieldGroups: [
+      { icon: "📋", label: "Section Header", keys: ["title", "subtitle"] },
+      { icon: "🔗", label: "Quick Links", keys: ["items"] }
+    ],
     render(props, ctx) {
       const items = props.items || [];
       const actions = [
@@ -730,6 +808,11 @@
       { key: "action", label: "Button action", type: "action-select" },
       { key: "target", label: "Action target", type: "action-target" },
       { key: "image", label: "Image", type: "image" }
+    ],
+    fieldGroups: [
+      { icon: "✏️", label: "Content", keys: ["title", "subtitle"] },
+      { icon: "🖼", label: "Image", keys: ["image"] },
+      { icon: "🔗", label: "Button Action", keys: ["buttonLabel", "action", "target"] }
     ],
     render(props, ctx) {
       const btn = props.buttonLabel ? renderButton({ label: props.buttonLabel, action: props.action, target: props.target }, "btn btn-accent-gold btn-lg") : "";
@@ -788,6 +871,11 @@
         { key: "ctaAction", label: "Button action", type: "action-select" },
         { key: "ctaTarget", label: "Action target", type: "action-target" }
       ] }
+    ],
+    fieldGroups: [
+      { icon: "📋", label: "Section Header", keys: ["title", "subtitle"] },
+      { icon: "🎬", label: "Playback", keys: ["height", "autoplay", "interval", "showArrows", "showDots", "showCaptions", "overlay"] },
+      { icon: "🖼", label: "Slides", keys: ["slides"] }
     ],
     render(props, ctx) {
       const slides = (props.slides || []).length ? props.slides : [{}];

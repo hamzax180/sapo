@@ -235,6 +235,16 @@
           buttons: [{ id: genBlockId(), label: sc.ctaText || (ind && ind.portalCallToAction) || "Shop Now", action: "page", target: "shop" }]
         }),
         slideshowBlock("retail"),
+        b("stats", {
+          accentColor: "#38b6ff",
+          items: [
+            { value: "10,000+", label: "Products in stock" },
+            { value: "24h", label: "Express delivery" },
+            { value: "100%", label: "Secure checkout" },
+            { value: "30 days", label: "Easy returns" }
+          ]
+        }),
+        b("brand-wall", { items: ["Samsung", "Apple", "Sony", "Nike", "Dyson", "LG"] }),
         b("card-grid", {
           title: "Shop by Department", subtitle: "", columns: 4,
           items: [
@@ -245,6 +255,7 @@
           ]
         }),
         b("product-grid", featuredGridProps("retail")),
+        b("quote-banner", { quote: "Everything you need. One basket. Best prices.", bgColor: "#0b1220", textColor: "#38b6ff", ctaLabel: "Shop All Products", ctaAction: "page", ctaTarget: "shop" }),
         b("footer-rich", {
           accentColor: "#38b6ff", bgColor: "#0b1220",
           tagline: "Everything you need. In one basket.",
@@ -343,6 +354,7 @@
           buttons: [{ id: genBlockId(), label: sc.ctaText || (ind && ind.portalCallToAction) || "Shop Collection", action: "page", target: "collection" }]
         }),
         slideshowBlock("fashion"),
+        b("brand-wall", { items: ["Valentino", "Alexander McQueen", "Bottega Veneta", "Maison Margiela", "The Row"] }),
         b("editorial-grid", {
           title: "Editorial Lookbook", subtitle: "Curated seasonal trends and campaign highlights",
           items: [
@@ -350,6 +362,7 @@
             { tag: "CAPSULE 02", title: "Essential Accessories", linkLabel: "Discover Details", image: "https://images.unsplash.com/photo-1483985988355-763728e1935b?w=800&q=80" }
           ]
         }),
+        b("quote-banner", { quote: "Considered clothing, made to last.", bgColor: "#0a0a0a", textColor: "#c9a227", ctaLabel: "Explore The Collection", ctaAction: "page", ctaTarget: "collection" }),
         b("product-grid", featuredGridProps("fashion")),
         b("footer-rich", {
           accentColor: "#c9a227", bgColor: "#101010",
@@ -379,6 +392,23 @@
           buttons: [{ id: genBlockId(), label: sc.ctaText || (ind && ind.portalCallToAction) || "Order Now", action: "page", target: "menu" }]
         }),
         slideshowBlock("restaurant"),
+        b("stats", {
+          accentColor: "#e11d48",
+          items: [
+            { value: "50+", label: "Locations worldwide" },
+            { value: "1M+", label: "Happy customers" },
+            { value: "100%", label: "Fresh daily ingredients" },
+            { value: "15 min", label: "Average delivery time" }
+          ]
+        }),
+        b("card-grid", {
+          title: "Why Choose Us", subtitle: "Our Promise", columns: 3,
+          items: [
+            { icon: "🍗", title: "Fresh Every Day", tag: "Quality First", desc: "Hand-breaded with our signature blend of herbs and spices, never frozen.", color: "#e11d48" },
+            { icon: "🚀", title: "Lightning Fast", tag: "15 Min Delivery", desc: "From our kitchen to your door in 15 minutes or less. Hot and crispy, guaranteed.", color: "#f59e0b" },
+            { icon: "👨‍👩‍👧‍👦", title: "Family Recipes", tag: "Since 1952", desc: "Our recipes are passed down through generations. Taste the tradition in every bite.", color: "#10b981" }
+          ]
+        }),
         b("editorial-grid", {
           title: "Signature Classics", subtitle: "",
           items: [

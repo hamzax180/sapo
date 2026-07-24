@@ -54,9 +54,9 @@
     /* Launch screen — translucent backdrop showing sign up background */
     .launch-overlay {
       position: fixed; inset: 0; z-index: 9999;
-      background: rgba(15, 23, 42, 0.65);
-      backdrop-filter: blur(14px);
-      -webkit-backdrop-filter: blur(14px);
+      background: rgba(15, 23, 42, 0.55);
+      backdrop-filter: blur(16px) saturate(120%);
+      -webkit-backdrop-filter: blur(16px) saturate(120%);
       display: none; align-items: center; justify-content: center;
       padding: 20px;
       opacity: 0; pointer-events: none;
@@ -66,71 +66,90 @@
 
     .dhl-modal-card {
       background: #ffffff;
-      border-radius: 16px;
-      padding: 40px 36px;
-      max-width: 460px; width: 100%;
+      border-radius: 22px;
+      padding: 40px 40px 34px;
+      max-width: 440px; width: 100%;
       text-align: center;
-      box-shadow: 0 20px 60px rgba(0,0,0,0.3), 0 2px 10px rgba(0,0,0,0.1);
-      border: 1px solid #eef0f2;
-      position: relative;
+      box-shadow: 0 32px 80px -20px rgba(15,23,42,0.45), 0 8px 24px -12px rgba(15,23,42,0.18);
+      border: 1px solid rgba(15,23,42,0.06);
+      position: relative; overflow: hidden;
       font-family: system-ui, -apple-system, sans-serif;
-      transform: scale(0.95); opacity: 0;
-      transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease;
+      transform: scale(0.94) translateY(8px); opacity: 0;
+      transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease;
     }
-    .launch-overlay.show .dhl-modal-card { transform: scale(1); opacity: 1; }
+    .dhl-modal-card::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 4px;
+      background: linear-gradient(90deg, #d40511 0%, #ff5a2c 55%, #ffcc00 100%);
+    }
+    .launch-overlay.show .dhl-modal-card { transform: scale(1) translateY(0); opacity: 1; }
 
     .dhl-modal-close {
-      position: absolute; top: 16px; right: 16px;
-      width: 32px; height: 32px; border-radius: 50%;
-      border: 1px solid #e2e8f0;
-      background: #f8fafc; color: #64748b;
-      font-size: 1rem; cursor: pointer;
+      position: absolute; top: 18px; right: 18px;
+      width: 34px; height: 34px; border-radius: 50%;
+      border: 1px solid #eef0f2;
+      background: #f6f8fa; color: #94a3b8;
+      font-size: 0.95rem; cursor: pointer; line-height: 1;
       display: flex; align-items: center; justify-content: center;
-      transition: all 0.2s;
+      transition: all 0.2s ease;
     }
-    .dhl-modal-close:hover { background: #d40511; color: #fff; border-color: #d40511; }
+    .dhl-modal-close:hover { background: #f1f5f9; color: #d40511; border-color: #e2e8f0; transform: rotate(90deg); }
 
-    .dhl-modal-icon {
-      width: 64px; height: 64px; border-radius: 16px;
-      background: #fff8e6; border: 1px solid #fde68a;
+    /* Success badge with pulsing ring */
+    .dhl-modal-badge {
+      position: relative; width: 74px; height: 74px; margin: 6px auto 22px;
+      border-radius: 50%;
+      background: linear-gradient(145deg, #ffd21f 0%, #ffb400 100%);
       display: flex; align-items: center; justify-content: center;
-      font-size: 2rem; margin: 0 auto 20px;
+      box-shadow: 0 12px 26px -8px rgba(255,180,0,0.65), inset 0 1px 0 rgba(255,255,255,0.55);
+    }
+    .dhl-modal-badge svg { width: 34px; height: 34px; color: #7a2e00; }
+    .dhl-modal-badge::before, .dhl-modal-badge::after {
+      content: ''; position: absolute; inset: 0; border-radius: 50%;
+      border: 2px solid rgba(255,180,0,0.5);
+      animation: dhlPing 2.4s cubic-bezier(0, 0, 0.2, 1) infinite;
+    }
+    .dhl-modal-badge::after { animation-delay: 1.2s; }
+    @keyframes dhlPing {
+      0% { transform: scale(1); opacity: 0.8; }
+      80%, 100% { transform: scale(1.55); opacity: 0; }
     }
 
     .dhl-modal-title {
-      font-size: 1.6rem; font-weight: 900;
-      color: #111111; margin-bottom: 8px; letter-spacing: -0.02em;
+      font-size: 1.55rem; font-weight: 800;
+      color: #0f172a; margin-bottom: 8px; letter-spacing: -0.025em;
     }
 
     .dhl-modal-sub {
-      font-size: 0.92rem; color: #555555; line-height: 1.55;
-      margin-bottom: 28px;
+      font-size: 0.92rem; color: #64748b; line-height: 1.6;
+      margin-bottom: 28px; max-width: 320px; margin-left: auto; margin-right: auto;
     }
-    .dhl-modal-sub strong { color: #d40511; font-weight: 700; }
+    .dhl-modal-sub strong { color: #0f172a; font-weight: 700; }
 
     .dhl-modal-actions {
-      display: flex; flex-direction: column; gap: 12px;
+      display: flex; flex-direction: column; gap: 10px;
     }
 
     .btn-dhl-red {
       background: #d40511; color: #ffffff;
-      font-weight: 800; padding: 14px 24px;
-      border-radius: 6px; border: none;
+      font-weight: 700; padding: 15px 24px;
+      border-radius: 12px; border: none;
       font-size: 0.95rem; cursor: pointer; text-decoration: none;
       display: flex; align-items: center; justify-content: center; gap: 10px;
-      transition: background 0.15s ease; width: 100%;
+      box-shadow: 0 8px 20px -8px rgba(212,5,17,0.6);
+      transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease; width: 100%;
     }
-    .btn-dhl-red:hover { background: #cc0000; color: #fff; }
+    .btn-dhl-red:hover { background: #b8040f; color: #fff; transform: translateY(-1px); box-shadow: 0 12px 26px -8px rgba(212,5,17,0.55); }
+    .btn-dhl-red:active { transform: translateY(0); }
 
     .btn-dhl-outline {
-      background: #ffffff; color: #111111;
-      font-weight: 700; padding: 13px 24px;
-      border-radius: 6px; border: 1.5px solid #d1d5db;
+      background: #ffffff; color: #334155;
+      font-weight: 600; padding: 14px 24px;
+      border-radius: 12px; border: 1.5px solid #e2e8f0;
       font-size: 0.92rem; cursor: pointer; text-decoration: none;
-      display: flex; align-items: center; justify-content: center; gap: 10px;
+      display: flex; align-items: center; justify-content: center; gap: 9px;
       transition: all 0.15s ease; width: 100%;
     }
-    .btn-dhl-outline:hover { background: #f8fafc; border-color: #111111; color: #111111; }
+    .btn-dhl-outline:hover { background: #f8fafc; border-color: #cbd5e1; color: #0f172a; }
 
 
 
@@ -251,7 +270,14 @@
     }
     @media (max-width:620px) {
       .su-form { grid-template-columns:1fr; }
-      .login-card .ind-grid { grid-template-columns:1fr; }
+      /* two industry cards per row on phones; stack each card's contents
+         vertically (icon on top) so the pair fits side-by-side. */
+      .login-card .ind-grid { grid-template-columns:1fr 1fr; gap:10px; }
+      .login-card .ind-card { flex-direction:column; padding:13px; }
+      .login-card .ind-card .it { font-size:.9rem; }
+      .login-card .ind-card .ic { width:36px; height:36px; }
+      /* keep the long submit label from clipping on narrow phones */
+      .login-card .btn-primary { font-size:.86rem; letter-spacing:.02em; padding:15px 12px; }
     }
   </style>
 </head>
@@ -311,10 +337,12 @@
       <div class="launch-card dhl-modal-card">
         <button class="dhl-modal-close" onclick="document.getElementById('launchOverlay').classList.remove('show')" title="Close">✕</button>
 
-        <div class="dhl-modal-icon">📦</div>
+        <div class="dhl-modal-badge">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+        </div>
 
-        <h2 class="dhl-modal-title" id="launchTitle">Workspace Live & Ready</h2>
-        <p class="dhl-modal-sub" id="launchSub">Your <strong>Logistics & Trade</strong> workspace environment is configured and ready.</p>
+        <h2 class="dhl-modal-title" id="launchTitle">Your demo workspace is ready</h2>
+        <p class="dhl-modal-sub" id="launchSub">Your <strong>Logistics &amp; Trade</strong> workspace has been initialized and is ready to go.</p>
 
         <div class="dhl-modal-actions">
           <a class="btn btn-dhl-red btn-lg" id="launchAdminBtn" href="index.html">
@@ -334,36 +362,43 @@
     <!-- Form panel -->
     <div class="login-form-col">
       <div class="login-card">
+        <div style="display:flex; justify-content:flex-end; margin-bottom:12px;">
+          <select class="lang-select input" style="width:auto; padding:6px 12px; font-size:.84rem; border-radius:8px; border:1px solid var(--line); background:#fff; color:var(--ink);">
+            <option value="en">English</option>
+            <option value="tr">Türkçe</option>
+            <option value="ar">العربية</option>
+          </select>
+        </div>
         <div class="su-head">
-          <h2>Create your <span class="su-grad">workspace</span></h2>
-          <p class="lc-sub">A few details and your fitted console is ready in under a minute — no card required.</p>
+          <h2 data-t="Create your workspace">Create your <span class="su-grad">workspace</span></h2>
+          <p class="lc-sub" data-t="A few details and your fitted console is ready in under a minute — no card required.">A few details and your fitted console is ready in under a minute — no card required.</p>
         </div>
 
         <div class="login-err" id="err"></div>
 
         <form id="signupForm" autocomplete="on" class="su-form">
-          <div class="su-section su-full"><span class="su-legend">Your business</span></div>
+          <div class="su-section su-full"><span class="su-legend" data-t="Your business">Your business</span></div>
 
           <div class="field su-full">
-            <label>Company name</label>
+            <label data-t="Company name">Company name</label>
             <input class="input" type="text" id="company" placeholder="Acme Trading Co." required />
           </div>
 
           <div class="field su-full">
-            <label>Your industry</label>
+            <label data-t="Your industry">Your industry</label>
             <div class="ind-grid" id="indGrid"></div>
             <input type="hidden" id="industry" required />
           </div>
 
           <div class="field">
-            <label>Country</label>
+            <label data-t="Country">Country</label>
             <select class="input" id="country" required style="-webkit-appearance:none; appearance:none; background-image:url(&quot;data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2364758a' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E&quot;); background-repeat:no-repeat; background-position:right 14px center; padding-right:38px;">
-              <option value="" disabled>Select your country</option>
+              <option value="" disabled data-t="Select your country">Select your country</option>
             </select>
           </div>
 
           <div class="field">
-            <label>Company logo</label>
+            <label data-t="Company logo">Company logo</label>
             <div class="logo-row">
               <div class="logo-prev" id="logoPrev">
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/></svg>
@@ -375,24 +410,24 @@
             </div>
           </div>
 
-          <div class="su-section su-full"><span class="su-legend">Owner account</span></div>
+          <div class="su-section su-full"><span class="su-legend" data-t="Owner account">Owner account</span></div>
 
           <div class="field">
-            <label>Owner name</label>
+            <label data-t="Owner name">Owner name</label>
             <input class="input" type="text" id="owner" placeholder="Jane Doe" required />
           </div>
           <div class="field">
-            <label>Owner email</label>
+            <label data-t="Owner email">Owner email</label>
             <input class="input" type="email" id="email" placeholder="you@company.com" required />
           </div>
           <div class="field">
-            <label>Password</label>
+            <label data-t="Password">Password</label>
             <input class="input" type="password" id="password" placeholder="••••••••" minlength="4" required />
           </div>
 
           <!-- Database Configuration -->
           <div class="field">
-            <label>Database hosting</label>
+            <label data-t="Database hosting">Database hosting</label>
             <select class="input" id="dbType">
               <option value="local">WeboCloud Managed (Demo Mode / LocalStorage)</option>
               <option value="neon">Neon PostgreSQL (Cloud Database)</option>
@@ -410,19 +445,19 @@
             <div id="dbTestStatus" style="font-size:0.72rem; margin-top:6px; display:none;"></div>
           </div>
 
-          <div class="su-section su-full"><span class="su-legend">Your team <span class="muted" style="font-weight:400">(optional)</span></span><span class="muted" style="font-size:.78rem" id="teamCount">0 employees</span></div>
+          <div class="su-section su-full"><span class="su-legend" data-t="Initial team members">Your team <span class="muted" style="font-weight:400">(optional)</span></span><span class="muted" style="font-size:.78rem" id="teamCount">0 employees</span></div>
 
           <div class="field su-full">
             <p class="muted" style="font-size:.8rem;margin:0 0 10px">Add employees and give each a role — they each get their own email login.</p>
             <div id="empList"></div>
-            <button type="button" class="btn btn-ghost btn-sm" id="addEmp" style="width:100%;margin-top:2px">＋ Add employee</button>
+            <button type="button" class="btn btn-ghost btn-sm" id="addEmp" style="width:100%;margin-top:2px" data-t="Add team member">＋ Add employee</button>
           </div>
 
-          <button class="btn btn-primary su-full" type="submit">Create workspace &amp; sign in</button>
+          <button class="btn btn-primary su-full" type="submit" data-t="Create workspace">Create workspace &amp; sign in</button>
         </form>
 
         <div class="su-signin">
-          Already have a workspace? <a href="login.html">Sign in</a>
+          <span data-t="Already have a workspace?">Already have a workspace?</span> <a href="login.html" data-t="Sign in to console">Sign in</a>
         </div>
       </div>
     </div>
@@ -549,7 +584,7 @@
 
         // Update subtitle
         if (sub && label) {
-          sub.innerHTML = 'Your <strong>' + label + '</strong> workspace environment is initialized and ready.';
+          sub.innerHTML = 'Your <strong>' + label + '</strong> workspace has been initialized and is ready to go.';
         }
 
         // Show overlay with animation

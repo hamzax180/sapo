@@ -7,7 +7,11 @@
 
 /* ─── RESET & ROOT ────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-html { font-size: 16px; scroll-behavior: smooth; }
+/* overflow-x:clip on the root contains the off-canvas cart drawer
+   (position:fixed, translateX(100%)), which body's overflow-x:hidden
+   cannot clip because fixed elements are viewport-relative. Without
+   this the drawer widens the page and mobile browsers shrink-to-fit. */
+html { font-size: 16px; scroll-behavior: smooth; overflow-x: clip; }
 body {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   background: #fff;
@@ -4035,6 +4039,121 @@ body.is-srv-theme .pf-textarea:focus {
   font-size: 0.85rem;
   color: #94a3b8;
   line-height: 1.5;
+}
+
+/* ─────────────────────────────────────────────────────────────── */
+/*  UNIVERSAL 3-UP HORIZONTAL GRID FOR MOBILE & LIVE EDITOR PREVIEW*/
+/* ─────────────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .noon-product-grid, .product-grid, .zara-editorial-grid, .kfc-cat-grid, .kfc-product-grid, .mfg-product-grid, .block-products-grid, .gb-card-grid, .pgrid, .grid-section {
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 8px !important;
+  }
+  .noon-card, .product-card, .kfc-cat-card, .mfg-part-card, .gb-card {
+    padding: 8px 6px !important;
+    border-radius: 8px !important;
+  }
+  .noon-img-wrap, .product-img-wrap, .product-img {
+    height: 85px !important;
+    padding: 4px !important;
+  }
+  .noon-body, .product-info {
+    padding: 6px 4px !important;
+  }
+  .noon-cat, .product-cat, .gb-card-tag {
+    font-size: 0.55rem !important;
+    margin-bottom: 2px !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+  .noon-title, .product-title, .product-name, .gb-card-title {
+    font-size: 0.72rem !important;
+    line-height: 1.15 !important;
+    max-height: 2.3em !important;
+    overflow: hidden !important;
+    margin-bottom: 4px !important;
+  }
+  .noon-price, .product-price, .price {
+    font-size: 0.78rem !important;
+    font-weight: 800 !important;
+  }
+  .noon-rating {
+    font-size: 0.58rem !important;
+  }
+  .gb-card-icon {
+    font-size: 1.1rem !important;
+    margin-bottom: 4px !important;
+  }
+  .gb-card-desc {
+    font-size: 0.62rem !important;
+    line-height: 1.25 !important;
+  }
+}
+
+body.le-preview-mobile .noon-product-grid,
+body.le-preview-mobile .product-grid,
+body.le-preview-mobile .zara-editorial-grid,
+body.le-preview-mobile .kfc-cat-grid,
+body.le-preview-mobile .kfc-product-grid,
+body.le-preview-mobile .mfg-product-grid,
+body.le-preview-mobile .block-products-grid,
+body.le-preview-mobile .gb-card-grid,
+body.le-preview-mobile .pgrid,
+body.le-preview-mobile .grid-section {
+  grid-template-columns: repeat(3, 1fr) !important;
+  gap: 8px !important;
+}
+body.le-preview-mobile .noon-card,
+body.le-preview-mobile .product-card,
+body.le-preview-mobile .kfc-cat-card,
+body.le-preview-mobile .mfg-part-card,
+body.le-preview-mobile .gb-card {
+  padding: 8px 6px !important;
+  border-radius: 8px !important;
+}
+body.le-preview-mobile .noon-img-wrap,
+body.le-preview-mobile .product-img-wrap,
+body.le-preview-mobile .product-img {
+  height: 85px !important;
+  padding: 4px !important;
+}
+body.le-preview-mobile .noon-body,
+body.le-preview-mobile .product-info {
+  padding: 6px 4px !important;
+}
+body.le-preview-mobile .noon-cat,
+body.le-preview-mobile .product-cat,
+body.le-preview-mobile .gb-card-tag {
+  font-size: 0.55rem !important;
+  margin-bottom: 2px !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+body.le-preview-mobile .noon-title,
+body.le-preview-mobile .product-title,
+body.le-preview-mobile .product-name,
+body.le-preview-mobile .gb-card-title {
+  font-size: 0.72rem !important;
+  line-height: 1.15 !important;
+  max-height: 2.3em !important;
+  overflow: hidden !important;
+  margin-bottom: 4px !important;
+}
+body.le-preview-mobile .noon-price,
+body.le-preview-mobile .product-price,
+body.le-preview-mobile .price {
+  font-size: 0.78rem !important;
+  font-weight: 800 !important;
+}
+body.le-preview-mobile .gb-card-icon {
+  font-size: 1.1rem !important;
+  margin-bottom: 4px !important;
+}
+body.le-preview-mobile .gb-card-desc {
+  font-size: 0.62rem !important;
+  line-height: 1.25 !important;
 }
 
 

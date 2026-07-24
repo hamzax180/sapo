@@ -4,8 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="theme-color" content="#1aa6df" />
-  <meta name="description" content="WeboCloud plan prices â€” simple, transparent plans that scale with your business." />
-  <title>Plan prices â€” WeboCloud</title>
+  <meta name="description" content="WeboCloud plan prices — simple, transparent plans that scale with your business." />
+  <title>Plan prices — WeboCloud</title>
   <link rel="icon" type="image/svg+xml" href="assets/favicon.svg" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -110,23 +110,48 @@
     .wc-foot a:hover { color:var(--navy-700); }
     .ft-links { display:flex; gap:18px; }
 
-    /* ---------- mobile: feel like a real app ---------- */
+    /* ---------- mobile: 3 cards fit horizontally ---------- */
     @media (max-width:860px) {
-      .cards { grid-template-columns:1fr; max-width:440px; margin:0 auto; gap:14px; }
-      .card.rec { order:-1; }
-      .c-tag { min-height:0; }
-    }
-    @media (max-width:560px) {
-      .wrap { padding:20px 14px 30px; }
-      .seg { display:flex; width:100%; max-width:340px; margin:18px auto 22px; }
-      .seg button { flex:1; padding:11px 8px; }
-      .card { border-radius:16px; padding:20px 18px; }
-      .c-tag { min-height:0; }
-      .cta { padding:26px 22px; text-align:center; justify-content:center; flex-direction:column; }
+      .wrap { padding:18px 10px 30px; }
+      .price-hero p { font-size:.92rem; }
+      .seg { display:flex; width:100%; max-width:340px; margin:16px auto 20px; }
+      .seg button { flex:1; padding:9px 6px; font-size:.82rem; }
+      .cards { grid-template-columns:repeat(3,1fr); gap:6px; max-width:none; margin:0; }
+      .card { border-radius:12px; padding:12px 7px; order:0; min-width:0; }
+      .card.rec { order:0; }
+      .c-top { min-height:16px; }
+      .c-ico { display:none; }
+      .c-rec { font-size:.5rem; padding:2px 5px; letter-spacing:0; top:-8px; }
+      .c-name { font-size:.95rem; margin-top:6px; }
+      .c-tag { min-height:0; font-size:.64rem; margin-top:2px; line-height:1.2; }
+      .c-cycle { display:none; }
+      .c-price { min-height:0; margin:8px 0 2px; gap:2px; flex-wrap:wrap; align-items:baseline; }
+      .c-amt { font-size:1.35rem; }
+      .c-amt.sm { font-size:.98rem; }
+      .c-unit { font-size:.55rem; line-height:1.15; }
+      .c-cta { margin-top:8px; }
+      .c-cta .btn { padding:8px 3px; font-size:.65rem; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; text-align:center; justify-content:center; }
+      .c-sub { font-size:.55rem; margin-top:5px; min-height:0; }
+      .c-feats { margin-top:10px; padding-top:10px; }
+      .c-feats h4 { font-size:.62rem; margin-bottom:6px; }
+      .c-feat { font-size:.62rem; gap:4px; margin-bottom:6px; line-height:1.25; word-break:break-word; }
+      .c-feat .ck svg { width:11px; height:11px; }
+      .cta { padding:22px 18px; text-align:center; justify-content:center; flex-direction:column; }
       .cta-btns { justify-content:center; width:100%; }
       .cta-w, .cta-g { flex:1; justify-content:center; }
       .wc-foot { flex-direction:column; text-align:center; gap:14px; }
       .ft-links { flex-wrap:wrap; justify-content:center; }
+    }
+    @media (max-width:380px) {
+      .wrap { padding:14px 6px 24px; }
+      .cards { gap:4px; }
+      .card { padding:10px 5px; border-radius:10px; }
+      .c-name { font-size:.88rem; }
+      .c-amt { font-size:1.18rem; }
+      .c-amt.sm { font-size:.88rem; }
+      .c-unit { font-size:.5rem; }
+      .c-cta .btn { font-size:.58rem; padding:7px 2px; }
+      .c-feat { font-size:.58rem; }
     }
     
     /* FAQ Accordion hover effects */
@@ -172,21 +197,26 @@
     </nav>
 
     <div class="wc-actions">
-      <a class="wc-btn-ghost" href="login.html">Sign in</a>
-      <a class="wc-btn-dark" href="signup.html">Create workspace</a>
+      <select class="lang-select input" style="padding:6px 10px; font-size:.84rem; border-radius:8px; border:1px solid var(--line); background:#fff; color:var(--ink);">
+        <option value="en">English</option>
+        <option value="tr">Türkçe</option>
+        <option value="ar">العربية</option>
+      </select>
+      <a class="wc-btn-ghost" href="login.html" data-t="Console Sign In">Sign in</a>
+      <a class="wc-btn-dark" href="signup.html" data-t="Create workspace">Create workspace</a>
     </div>
   </header>
 
   <div class="wrap">
     <div class="price-hero">
-      <h1>Plan prices</h1>
-      <p>Start free, upgrade when you're ready. Every plan keeps your data exactly where it is â€” no rebuild, no migration.</p>
+      <h1 data-t="Plan prices">Plan prices</h1>
+      <p data-t="Start free, upgrade when you're ready. Every plan keeps your data exactly where it is — no rebuild, no migration.">Start free, upgrade when you're ready. Every plan keeps your data exactly where it is — no rebuild, no migration.</p>
     </div>
 
     <div style="text-align:center">
       <div class="seg" id="seg">
-        <button type="button" data-grp="individual" class="on">Individual</button>
-        <button type="button" data-grp="team">Team &amp; Enterprise</button>
+        <button type="button" data-grp="individual" class="on" data-t="Individual">Individual</button>
+        <button type="button" data-grp="team" data-t="Team &amp; Enterprise">Team &amp; Enterprise</button>
       </div>
     </div>
 
@@ -196,16 +226,16 @@
 
     <!-- FAQ Accordion Section -->
     <section class="faq-section" style="margin-top: 64px; margin-bottom: 58px;">
-      <h2 style="font-family:var(--font-head); font-size:1.85rem; font-weight:800; color:var(--navy-800); text-align:center; margin-bottom:28px; letter-spacing:-.01em;">Frequently Asked Questions</h2>
+      <h2 style="font-family:var(--font-head); font-size:1.85rem; font-weight:800; color:var(--navy-800); text-align:center; margin-bottom:28px; letter-spacing:-.01em;" data-t="Frequently Asked Questions">Frequently Asked Questions</h2>
       <div class="faq-container" style="max-width:760px; margin:0 auto; display:flex; flex-direction:column; gap:12px;">
         
         <div class="faq-item" style="background:#fff; border:1px solid var(--line); border-radius:12px; overflow:hidden; transition:border-color .15s;">
           <button type="button" class="faq-trigger" style="width:100%; display:flex; align-items:center; justify-content:space-between; gap:16px; padding:18px 20px; background:none; border:0; text-align:left; font:inherit; font-size:0.98rem; font-weight:700; color:var(--navy-800); cursor:pointer;">
-            <span>Can I switch plans later?</span>
+            <span data-t="Can I switch plans later?">Can I switch plans later?</span>
             <svg class="faq-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="width:16px; height:16px; flex:0 0 auto; color:var(--muted); transition:transform .2s;"><path d="m6 9 6 6 6-6"/></svg>
           </button>
           <div class="faq-content" style="max-height:0; overflow:hidden; transition:max-height .25s ease-out;">
-            <div style="padding:0 20px 18px; font-size:0.88rem; color:var(--ink); line-height:1.55;">
+            <div style="padding:0 20px 18px; font-size:0.88rem; color:var(--ink); line-height:1.55;" data-t="Yes, you can upgrade, downgrade, or cancel your subscription at any time directly from your console settings. Changes apply immediately.">
               Yes, you can upgrade, downgrade, or cancel your subscription at any time directly from your console settings. Changes apply immediately.
             </div>
           </div>
@@ -265,12 +295,12 @@
     <!-- CTA -->
     <div class="cta">
       <div>
-        <h2>Ready to get started?</h2>
-        <p>Everything you need to run your business â€” orders, inventory, team and finance in one place.</p>
+        <h2 data-t="Ready to get started?">Ready to get started?</h2>
+        <p data-t="Everything you need to run your business — orders, inventory, team and finance in one place.">Everything you need to run your business — orders, inventory, team and finance in one place.</p>
       </div>
       <div class="cta-btns">
-        <a href="signup.html" class="cta-w">Start free</a>
-        <a href="login.html" class="cta-g">Sign in</a>
+        <a href="signup.html" class="cta-w" data-t="Start free">Start free</a>
+        <a href="login.html" class="cta-g" data-t="Console Sign In">Sign in</a>
       </div>
     </div>
   </div>
@@ -320,17 +350,17 @@
             price:{ type:"fixed", amt:"$0", unit:"free forever" },
             cta:{ label:"Use WeboCloud free", href:"signup.html", style:"btn-ghost" }, sub:"No card needed",
             head:"What you get",
-            feats:["<b>1 user</b> â€” full owner access","Orders, inventory &amp; finance","Dashboard &amp; reports","10&nbsp;GB storage","Community support"] },
+            feats:["<b>1 user</b> — full owner access","Orders, inventory &amp; finance","Dashboard &amp; reports","10&nbsp;GB storage","Community support"] },
           { name:"Pro", icon:"spark", tag:"Run your whole business", rec:true,
-            price:{ type:"cycle", monthly:{ amt:"$20", unit:"USD / month<br>billed monthly" }, yearly:{ amt:"$17", unit:"USD / month<br>billed annually" } },
-            cta:{ label:"Get Pro plan", href:"checkout.html?plan=pro", style:"btn-dark" }, sub:"Cancel anytime",
+            price:{ type:"cycle", monthly:{ amt:"$0", unit:"USD / 6 mo. free<br><s style='color:#ef4444'>$20/mo originally</s>" }, yearly:{ amt:"$0", unit:"USD / 6 mo. free<br><s style='color:#ef4444'>$20/mo originally</s>" } },
+            cta:{ label:"Claim 6 Months Free", href:"checkout.html?plan=pro", style:"btn-dark" }, sub:"Cancel anytime",
             head:"Everything in Free, and:",
-            feats:["Unlimited orders &amp; invoices","<b>AI Accountant</b> â€” finance insights","E-fatura &amp; receipts","Shipment labels + QR printing","Full audit history","Email &amp; chat support"] },
+            feats:["Unlimited orders &amp; invoices","<b>AI Accountant</b> — finance insights","E-fatura &amp; receipts","Shipment labels + QR printing","Full audit history","Email &amp; chat support"] },
           { name:"Max", icon:"bolt", tag:"Higher limits, priority access",
             price:{ type:"from", amt:"From $100", unit:"USD / month<br>billed monthly" },
-            cta:{ label:"Get Max plan", href:"checkout.html?plan=max", style:"btn-dark" }, sub:"No commitment Â· Cancel anytime",
+            cta:{ label:"Get Max plan", href:"checkout.html?plan=max", style:"btn-dark" }, sub:"No commitment · Cancel anytime",
             head:"Everything in Pro, plus:",
-            feats:["Up to <b>20Ã— higher</b> limits","Priority processing","Advanced P&amp;L &amp; exports","Custom branding","Priority support"] }
+            feats:["Up to <b>20× higher</b> limits","Priority processing","Advanced P&amp;L &amp; exports","Custom branding","Priority support"] }
         ],
         team: [
           { name:"Team", icon:"users", tag:"For small teams",
@@ -345,9 +375,9 @@
             feats:["<b>Up to 25 employees</b>","Multi-warehouse &amp; multi-currency","Live AI Accountant (Gemini)","Quotations &amp; purchase orders","Advanced permissions","Priority support (12h)"] },
           { name:"Enterprise", icon:"building", tag:"Custom & unlimited",
             price:{ type:"custom", amt:"Custom", unit:"tailored to your org" },
-            cta:{ label:"Contact sales", href:"mailto:sales@webocloud.app", style:"btn-ghost" }, sub:"Custom onboarding Â· SLA",
+            cta:{ label:"Contact sales", href:"mailto:sales@webocloud.app", style:"btn-ghost" }, sub:"Custom onboarding · SLA",
             head:"Everything in Business, plus:",
-            feats:["<b>Unlimited</b> employees &amp; seats","Live cloud backend (REST + DB)","Custom domain &amp; white-label","SSO / SAML","Dedicated success manager","99.9% uptime SLA Â· 1h support"] }
+            feats:["<b>Unlimited</b> employees &amp; seats","Live cloud backend (REST + DB)","Custom domain &amp; white-label","SSO / SAML","Dedicated success manager","99.9% uptime SLA · 1h support"] }
         ]
       };
 
@@ -372,7 +402,7 @@
         if (p.price.type !== "cycle") return "";
         return '<div class="c-cycle" data-cyc>' +
           '<button type="button" data-c="monthly" class="' + (cycle === "monthly" ? "on" : "") + '">Monthly</button>' +
-          '<button type="button" data-c="yearly" class="' + (cycle === "yearly" ? "on" : "") + '">Yearly <span class="save">Â· Save 17%</span></button>' +
+          '<button type="button" data-c="yearly" class="' + (cycle === "yearly" ? "on" : "") + '">Yearly <span class="save">· Save 17%</span></button>' +
         '</div>';
       }
       function iconClass(i) { return i === "building" ? "gold" : (i === "users" ? "green" : ""); }

@@ -140,11 +140,37 @@
   margin-right: auto;
 }
 
-/* Footer */
-.gb-footer-rich { text-align: center; }
-.gb-footer-rich-inner { justify-items: center; }
-.gb-footer-desc { margin-left: auto; margin-right: auto; }
-.gb-footer-rich a { text-align: center; }
+/* Footer — Top-company left-aligned distributed multi-column layout */
+.gb-footer-rich,
+.portal-footer,
+.kfc-dark-footer,
+.cnst-dark-footer,
+.mfg-dark-footer,
+.srv-dark-footer {
+  text-align: left !important;
+}
+.gb-footer-rich-inner,
+.footer-top,
+.kfc-footer-inner,
+.cnst-footer-inner,
+.mfg-footer-inner,
+.srv-footer-inner {
+  justify-items: start !important;
+  text-align: left !important;
+}
+.gb-foot-brand,
+.gb-foot-col,
+.gb-foot-news,
+.gb-footer-desc,
+.gb-foot-tagline,
+.footer-brand-col {
+  text-align: left !important;
+  margin-left: 0 !important;
+}
+.gb-footer-rich a,
+.portal-footer a {
+  text-align: left !important;
+}
 
 /* Editorial / lookbook captions */
 .gb-editorial-info { text-align: center; }

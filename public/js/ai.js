@@ -79,7 +79,9 @@ window.AI = (function () {
     const lang = (window.UI && UI.getLang) ? UI.getLang() : "en";
     const languageNote = lang === "tr" 
       ? "IMPORTANT: You MUST write the report entirely in Turkish language (Türkçe)." 
-      : "You MUST write the report entirely in English language.";
+      : (lang === "ar"
+        ? "IMPORTANT: You MUST write the report entirely in Arabic language (العربية)."
+        : "You MUST write the report entirely in English language.");
     return [
       "You are a senior accountant for MERVEKS, a Turkish logistics & trading company (railway freight, food supply, Nano-Z coating distribution).",
       "Analyse the following accounts-receivable ledger and produce a concise, professional report in Markdown.",
@@ -87,10 +89,10 @@ window.AI = (function () {
       "Today's date is " + new Date().toISOString().slice(0, 10) + ".",
       "",
       "Structure the report with these sections (use ## headings):",
-      lang === "tr" ? "1. Nakit pozisyonu — faturalanan, tahsil edilen, bekleyen, vadesi geçmiş toplamlar (karışık para birimlerine dikkat edin)." : "1. Cash position — billed, collected, outstanding, overdue totals (note mixed currencies).",
-      lang === "tr" ? "2. Tahsilat önceliği — hangi vadesi geçmiş faturaların önce takip edileceği ve nedenleri." : "2. Collections priority — which overdue invoices to chase first and why.",
-      lang === "tr" ? "3. Risk faktörleri — yoğunlaşma, yaşlandırma, kur riski." : "3. Risk flags — concentration, ageing, currency exposure.",
-      lang === "tr" ? "4. Öneriler — 3 ila 5 somut sonraki adım." : "4. Recommendations — 3 to 5 concrete next actions.",
+      lang === "tr" ? "1. Nakit pozisyonu — faturalanan, tahsil edilen, bekleyen, vadesi geçmiş toplamlar (karışık para birimlerine dikkat edin)." : (lang === "ar" ? "1. الوضع النقدي — المبالغ المفروضة، المحصلة، المعلقة والمتأخرة (لاحظ العملات المختلفة)." : "1. Cash position — billed, collected, outstanding, overdue totals (note mixed currencies)."),
+      lang === "tr" ? "2. Tahsilat önceliği — hangi vadesi geçmiş faturaların önce takip edileceği ve nedenleri." : (lang === "ar" ? "2. أولوية التحصيل — الفواتير المتأخرة التي يجب متابعتها أولاً والأسباب." : "2. Collections priority — which overdue invoices to chase first and why."),
+      lang === "tr" ? "3. Risk faktörleri — yoğunlaşma, yaşlandırma, kur riski." : (lang === "ar" ? "3. مؤشرات المخاطر — التركز، التقادم، ومخاطر العملات." : "3. Risk flags — concentration, ageing, currency exposure."),
+      lang === "tr" ? "4. Öneriler — 3 ila 5 somut sonraki adım." : (lang === "ar" ? "4. التوصيات — 3 إلى 5 خطوات إجرائية محددة." : "4. Recommendations — 3 to 5 concrete next actions."),
       "Keep it under 350 words. Be specific with numbers and client names. Do not invent data.",
       "",
       "Invoice ledger (JSON):",

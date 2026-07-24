@@ -4,7 +4,7 @@
     {
       "name": "merveks-sap",
       "runtimeExecutable": "npx",
-      "runtimeArgs": ["serve", "-l", "3100", "."],
+      "runtimeArgs": ["serve", "-l", "3100", "public"],
       "port": 3100
     },
     {

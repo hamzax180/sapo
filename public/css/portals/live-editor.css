@@ -1,572 +1,962 @@
 /* =================================================================
    WeboCloud Portal Engine — Live Visual Editor Stylesheet
-   Clean, card-based dark UI (Replit/Linear-inspired): layered surfaces,
-   soft borders, generous spacing, rounded corners throughout.
+   Futuristic centered glassmorphism floating command bar.
+   Click any block to open a centered property editor.
    ================================================================= */
 
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+/* ================================================================
+   DESIGN TOKENS
+   ================================================================ */
 :root {
-  --le-bg: #0f1420;
-  --le-bg-card: #161d2e;
-  --le-bg-input: #1d2536;
-  --le-bg-hover: #232c40;
-  --le-border: rgba(255, 255, 255, 0.08);
-  --le-border-strong: rgba(255, 255, 255, 0.16);
-  --le-accent: #06b6d4;
-  --le-accent-soft: rgba(6, 182, 212, 0.14);
-  --le-danger: #f87171;
-  --le-text: #f1f5f9;
-  --le-text2: #cbd5e1;
-  --le-muted: #7c8aa0;
-  --le-radius: 14px;
-  --le-radius-sm: 9px;
-  --le-shadow: 0 20px 50px rgba(0,0,0,0.45);
+  --le-glass:          rgba(7, 10, 20, 0.88);
+  --le-glass-card:     rgba(12, 18, 38, 0.92);
+  --le-glass-input:    rgba(255, 255, 255, 0.06);
+  --le-glass-hover:    rgba(255, 255, 255, 0.10);
+  --le-border:         rgba(255, 255, 255, 0.09);
+  --le-border-strong:  rgba(255, 255, 255, 0.16);
+  --le-accent:         #38bdf8;
+  --le-accent-dim:     #1e9fd4;
+  --le-accent-glow:    rgba(56, 189, 248, 0.30);
+  --le-accent-soft:    rgba(56, 189, 248, 0.10);
+  --le-purple:         #a78bfa;
+  --le-purple-soft:    rgba(167, 139, 250, 0.12);
+  --le-danger:         #f87171;
+  --le-danger-soft:    rgba(248, 113, 113, 0.14);
+  --le-success:        #34d399;
+  --le-success-glow:   rgba(52, 211, 153, 0.30);
+  --le-text:           #eef2ff;
+  --le-text2:          #94a3c0;
+  --le-muted:          #4e607e;
+  --le-radius:         22px;
+  --le-radius-sm:      14px;
+  --le-radius-xs:      9px;
+  --le-shadow:         0 40px 100px rgba(0, 0, 0, 0.65),
+                       0 0 0 1px rgba(255, 255, 255, 0.06),
+                       inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  --le-blur:           blur(28px) saturate(180%);
+  --le-font:           'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
-/* live editor body adjustments */
-body.le-active {
-  margin-left: 368px !important;
-  transition: margin 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
+/* ── Body stays full-width, no margin shift ── */
+body.le-active { margin-left: 0 !important; }
 
-/* sidebar customizer drawer */
+/* ================================================================
+   BOTTOM COMMAND BAR  — pill anchored to bottom center
+   ================================================================ */
 .le-panel {
   position: fixed;
-  top: 0;
-  left: 0;
-  width: 368px;
-  height: 100vh;
-  background: var(--le-bg);
-  color: var(--le-text);
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
   z-index: 999999;
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 10px;
+  background: var(--le-glass);
+  backdrop-filter: var(--le-blur);
+  -webkit-backdrop-filter: var(--le-blur);
+  border: 1px solid var(--le-border-strong);
+  border-top: 1px solid rgba(255,255,255,0.14);
+  border-radius: 999px;
+  box-shadow: var(--le-shadow), 0 0 0 1px rgba(56,189,248,0.08);
+  font-family: var(--le-font);
+  color: var(--le-text);
+  -webkit-font-smoothing: antialiased;
+  white-space: nowrap;
+  overflow: visible;
+  /* Slide-up intro */
+  animation: le-bar-in 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+@keyframes le-bar-in {
+  from { opacity: 0; transform: translateX(-50%) translateY(20px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+/* Hide old sidebar elements if they somehow render */
+.le-header, .le-hint, .le-tabs, .le-content, .le-footer { display: none !important; }
+
+/* ── Pill separator ── */
+.le-panel-sep {
+  width: 1px;
+  height: 20px;
+  background: var(--le-border-strong);
+  margin: 0 3px;
+  flex-shrink: 0;
+}
+
+/* ── Generic command bar button ── */
+.le-cmd-btn {
+  background: transparent;
+  border: none;
+  color: var(--le-text2);
+  height: 36px;
+  padding: 0 12px;
+  border-radius: 999px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+  font-family: var(--le-font);
+  letter-spacing: -0.01em;
+}
+.le-cmd-btn:hover {
+  background: var(--le-glass-hover);
+  color: var(--le-text);
+}
+.le-cmd-btn.active {
+  background: var(--le-accent-soft);
+  color: var(--le-accent);
+  box-shadow: 0 0 0 1px rgba(56,189,248,0.3);
+}
+.le-cmd-btn:disabled { opacity: 0.28; cursor: default; }
+
+/* ── Add Block — glowing gradient pill ── */
+.le-cmd-add {
+  background: linear-gradient(135deg, var(--le-accent) 0%, var(--le-purple) 100%);
+  color: #fff;
+  border: none;
+  height: 36px;
+  padding: 0 18px;
+  border-radius: 999px;
+  font-size: 0.84rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-family: var(--le-font);
+  box-shadow: 0 0 20px var(--le-accent-glow), 0 4px 16px rgba(0,0,0,0.35);
+  transition: filter 0.15s ease, transform 0.12s ease, box-shadow 0.15s ease;
+}
+.le-cmd-add:hover {
+  filter: brightness(1.12);
+  transform: scale(1.04);
+  box-shadow: 0 0 32px var(--le-accent-glow), 0 6px 20px rgba(0,0,0,0.4);
+}
+.le-cmd-add:active { transform: scale(0.97); }
+
+/* ── Publish pill ── */
+.le-cmd-pub {
+  background: var(--le-success);
+  color: #021a0e;
+  border: none;
+  height: 36px;
+  padding: 0 16px;
+  border-radius: 999px;
+  font-size: 0.84rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--le-font);
+  box-shadow: 0 0 18px var(--le-success-glow);
+  transition: filter 0.15s ease, transform 0.12s ease;
+}
+.le-cmd-pub:hover { filter: brightness(1.1); }
+.le-cmd-pub:active { transform: scale(0.97); }
+
+/* ── Discard ghost pill ── */
+.le-cmd-disc {
+  background: transparent;
+  color: var(--le-text2);
+  border: 1px solid var(--le-border-strong);
+  height: 36px;
+  padding: 0 12px;
+  border-radius: 999px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--le-font);
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+.le-cmd-disc:hover {
+  background: var(--le-danger-soft);
+  color: var(--le-danger);
+  border-color: rgba(248,113,113,0.3);
+}
+
+/* ================================================================
+   PROPERTY PANEL  — centered, pops up when a block is clicked
+   ================================================================ */
+.le-prop-panel {
+  position: fixed;
+  /* position above the command bar, not obscuring it */
+  bottom: 82px;
+  left: 50%;
+  transform: translateX(-50%) scale(0.94) translateY(12px);
+  z-index: 999998;
+  width: min(500px, calc(100vw - 40px));
+  max-height: calc(100vh - 140px);
+  background: var(--le-glass-card);
+  backdrop-filter: var(--le-blur);
+  -webkit-backdrop-filter: var(--le-blur);
+  border: 1px solid var(--le-border-strong);
+  border-top: 1px solid rgba(255,255,255,0.15);
+  border-radius: var(--le-radius);
   box-shadow: var(--le-shadow);
-  transition: transform 0.3s ease;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  color: var(--le-text);
+  font-family: var(--le-font);
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.22s ease,
+              transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
   -webkit-font-smoothing: antialiased;
 }
-
-.le-panel.collapsed {
-  transform: translateX(-368px);
+.le-prop-panel.visible {
+  opacity: 1;
+  pointer-events: all;
+  transform: translateX(-50%) scale(1) translateY(0);
 }
 
-.le-header {
-  padding: 18px 20px;
+/* Property panel header */
+.le-prop-header {
+  padding: 12px 14px 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--le-border);
+  flex-shrink: 0;
+  background: rgba(255,255,255,0.025);
+}
+.le-prop-title {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--le-text);
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex: 1;
+  justify-content: center;
+}
+.le-prop-title-badge {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--le-accent);
+  background: var(--le-accent-soft);
+  border: 1px solid rgba(56,189,248,0.22);
+  padding: 2px 9px;
+  border-radius: 99px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.le-prop-close {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid var(--le-border);
+  color: var(--le-text2);
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.8rem;
+  transition: background 0.15s, color 0.15s;
+  flex-shrink: 0;
+}
+.le-prop-close:hover { background: var(--le-danger-soft); color: var(--le-danger); border-color: rgba(248,113,113,0.3); }
+
+/* Prev / Next block navigation arrows */
+.le-prop-nav-btn {
+  background: transparent;
+  border: none;
+  color: var(--le-text2);
+  width: 26px; height: 26px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 1.1rem;
+  display: flex; align-items: center; justify-content: center;
+  transition: background 0.13s, color 0.13s;
+  flex-shrink: 0;
+  line-height: 1;
+}
+.le-prop-nav-btn:hover:not(:disabled) { background: var(--le-glass-hover); color: var(--le-text); }
+.le-prop-nav-btn:disabled { opacity: 0.22; cursor: default; }
+
+/* Block position counter (e.g. "3 / 7") */
+.le-prop-pos {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--le-muted);
+  margin-left: 4px;
+  white-space: nowrap;
+}
+
+/* Property panel footer quick actions */
+.le-prop-footer {
+  padding: 10px 16px;
+  border-top: 1px solid var(--le-border);
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-shrink: 0;
+  background: rgba(0,0,0,0.15);
+}
+.le-prop-foot-btn {
+  background: var(--le-glass-input);
+  border: 1px solid var(--le-border);
+  color: var(--le-text2);
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 5px 11px;
+  border-radius: var(--le-radius-xs);
+  cursor: pointer;
+  display: flex; align-items: center; gap: 4px;
+  transition: background 0.13s, color 0.13s, border-color 0.13s;
+  font-family: var(--le-font);
+}
+.le-prop-foot-btn:hover:not(:disabled) { background: var(--le-glass-hover); color: var(--le-text); border-color: var(--le-border-strong); }
+.le-prop-foot-btn:disabled { opacity: 0.25; cursor: default; }
+.le-prop-foot-btn.danger:hover { background: var(--le-danger-soft); color: var(--le-danger); border-color: rgba(248,113,113,0.3); }
+
+
+/* Property panel scrollable body */
+.le-prop-body {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overscroll-behavior: contain;
+}
+.le-prop-body::-webkit-scrollbar { width: 5px; }
+.le-prop-body::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 99px; }
+.le-prop-body::-webkit-scrollbar-track { background: transparent; }
+
+/* ================================================================
+   FLOATING SUB-PANELS  — Layers, Design, Pages
+   Each slides up from just above the command bar
+   ================================================================ */
+.le-pages-panel,
+.le-design-panel {
+  position: fixed;
+  bottom: 78px;
+  left: 50%;
+  transform: translateX(-50%) translateY(16px);
+  z-index: 999997;
+  background: var(--le-glass-card);
+  backdrop-filter: var(--le-blur);
+  -webkit-backdrop-filter: var(--le-blur);
+  border: 1px solid var(--le-border-strong);
+  border-top: 1px solid rgba(255,255,255,0.14);
+  border-radius: var(--le-radius);
+  box-shadow: var(--le-shadow);
+  color: var(--le-text);
+  font-family: var(--le-font);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.22s ease,
+              transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+  -webkit-font-smoothing: antialiased;
+}
+.le-pages-panel { width: min(400px, calc(100vw - 40px)); max-height: min(440px, calc(100vh - 120px)); }
+.le-design-panel { width: min(440px, calc(100vw - 40px)); max-height: min(480px, calc(100vh - 120px)); }
+
+.le-pages-panel.visible,
+.le-design-panel.visible {
+  opacity: 1;
+  pointer-events: all;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* Shared sub-panel header */
+.le-sub-header {
+  padding: 13px 16px;
   border-bottom: 1px solid var(--le-border);
   display: flex;
   align-items: center;
   justify-content: space-between;
   flex-shrink: 0;
+  background: rgba(255,255,255,0.025);
 }
-.le-logo {
-  font-size: 0.95rem;
+.le-sub-title {
+  font-size: 0.84rem;
   font-weight: 700;
   color: var(--le-text);
-  letter-spacing: -0.01em;
-  display: flex;
-  align-items: center;
-  gap: 8px;
 }
-.le-close-btn {
-  background: transparent;
-  border: none;
-  color: var(--le-muted);
-  font-size: 1rem;
-  width: 30px; height: 30px;
-  border-radius: 8px;
+.le-sub-close {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid var(--le-border);
+  color: var(--le-text2);
+  width: 26px; height: 26px;
+  border-radius: 50%;
   cursor: pointer;
   display: flex; align-items: center; justify-content: center;
-  transition: background 0.15s ease, color 0.15s ease;
+  font-size: 0.78rem;
+  transition: background 0.15s, color 0.15s;
 }
-.le-close-btn:hover { background: var(--le-bg-hover); color: var(--le-text); }
+.le-sub-close:hover { background: var(--le-danger-soft); color: var(--le-danger); }
 
-.le-content {
+/* Shared sub-panel body */
+.le-sub-body {
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-.le-content::-webkit-scrollbar { width: 8px; }
-.le-content::-webkit-scrollbar-thumb { background: var(--le-border-strong); border-radius: 99px; }
-.le-content::-webkit-scrollbar-track { background: transparent; }
-
-/* ---- groups render as clean cards ---- */
-.le-section-title {
-  font-size: 0.72rem;
-  font-weight: 700;
-  color: var(--le-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  margin-bottom: 2px;
-}
-.le-group {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  background: var(--le-bg-card);
-  border: 1px solid var(--le-border);
-  border-radius: var(--le-radius);
-  padding: 16px;
-}
-.le-field {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-.le-field label {
-  font-size: 0.78rem;
-  font-weight: 600;
-  color: var(--le-text2);
-}
-.le-input, .le-select, .le-textarea {
-  background: var(--le-bg-input);
-  border: 1px solid var(--le-border);
-  color: var(--le-text);
-  padding: 9px 12px;
-  border-radius: var(--le-radius-sm);
-  font-size: 0.86rem;
-  outline: none;
-  font-family: inherit;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
-  width: 100%;
-  box-sizing: border-box;
-}
-.le-input:focus, .le-select:focus, .le-textarea:focus {
-  border-color: var(--le-accent);
-  box-shadow: 0 0 0 3px var(--le-accent-soft);
-}
-.le-input::placeholder, .le-textarea::placeholder { color: var(--le-muted); }
-.le-textarea { resize: vertical; min-height: 64px; line-height: 1.5; }
-.le-select { cursor: pointer; }
-
-.le-color-row {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-}
-.le-color-picker {
-  width: 42px;
-  height: 38px;
-  border-radius: var(--le-radius-sm);
-  border: 1px solid var(--le-border);
-  background: transparent;
-  cursor: pointer;
-  padding: 2px;
-  flex-shrink: 0;
-}
-
-/* visual editing outlines */
-[contenteditable="true"] {
-  outline: none;
-}
-[contenteditable="true"]:hover {
-  outline: 2px dashed var(--le-accent) !important;
-  outline-offset: 4px;
-  cursor: text;
-}
-[contenteditable="true"]:focus {
-  outline: 2px solid var(--le-accent) !important;
-  outline-offset: 4px;
-  background: rgba(6, 182, 212, 0.05);
-}
-
-/* image edit handle overlay */
-.le-img-editable {
-  position: relative;
-  cursor: pointer;
-}
-.le-img-editable:hover::after {
-  content: '📸 Change Image';
-  position: absolute;
-  inset: 0;
-  background: rgba(15, 23, 42, 0.75);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #ffffff;
-  font-weight: 800;
-  font-size: 0.9rem;
-  border: 2px dashed var(--le-accent);
-}
-
-/* Section Movement & Control Handles (legacy contenteditable-mode hooks) */
-.portal-section {
-  position: relative;
-}
-.portal-section:hover .le-section-handle {
-  display: flex;
-}
-.le-section-handle {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  background: var(--le-bg-card);
-  border: 1px solid var(--le-border);
-  padding: 6px 10px;
-  border-radius: var(--le-radius-sm);
-  display: none;
-  gap: 8px;
-  z-index: 9999;
-}
-.le-handle-btn {
-  background: var(--le-bg-hover);
-  border: none;
-  color: #fff;
-  font-size: 0.78rem;
-  padding: 4px 8px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-weight: 700;
-}
-.le-handle-btn:hover {
-  background: var(--le-accent);
-}
-
-/* Button hover options */
-.le-btn-editable {
-  position: relative;
-}
-.le-btn-handle {
-  position: absolute;
-  top: -26px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: var(--le-bg-card);
-  border: 1px solid var(--le-border);
-  border-radius: 4px;
-  display: none;
-  gap: 4px;
-  padding: 2px;
-  z-index: 1000;
-}
-.le-btn-editable:hover .le-btn-handle {
-  display: flex;
-}
-
-/* ---- Footer action bar ---- */
-.le-footer {
   padding: 14px 16px;
-  border-top: 1px solid var(--le-border);
   display: flex;
+  flex-direction: column;
   gap: 10px;
-  flex-shrink: 0;
-  background: var(--le-bg);
+  overscroll-behavior: contain;
 }
-.le-btn-pub {
-  background: var(--le-accent);
-  color: #05202a;
-  border: none;
-  font-weight: 700;
-  font-size: 0.88rem;
-  padding: 11px 20px;
-  border-radius: var(--le-radius-sm);
-  flex: 1;
-  cursor: pointer;
-  text-align: center;
-  transition: filter 0.15s ease, transform 0.1s ease;
-}
-.le-btn-pub:hover { filter: brightness(1.08); }
-.le-btn-pub:active { transform: scale(0.98); }
-.le-btn-disc {
-  background: transparent;
-  color: var(--le-text2);
-  border: 1px solid var(--le-border-strong);
-  font-weight: 600;
-  font-size: 0.86rem;
-  padding: 11px 16px;
-  border-radius: var(--le-radius-sm);
-  cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease;
-}
-.le-btn-disc:hover { background: var(--le-bg-hover); color: var(--le-text); }
+.le-sub-body::-webkit-scrollbar { width: 5px; }
+.le-sub-body::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.10); border-radius: 99px; }
 
-/* Modal overlay styling */
+/* ================================================================
+   MODAL OVERLAY (Add Block picker)
+   ================================================================ */
 .le-modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(8, 12, 20, 0.7);
-  backdrop-filter: blur(6px);
+  background: rgba(3, 6, 15, 0.78);
+  backdrop-filter: blur(10px);
   z-index: 9999999;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 20px;
+  animation: le-overlay-in 0.18s ease;
 }
+@keyframes le-overlay-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
 .le-modal {
-  background: var(--le-bg-card);
+  background: var(--le-glass-card);
+  backdrop-filter: var(--le-blur);
+  -webkit-backdrop-filter: var(--le-blur);
   border: 1px solid var(--le-border-strong);
+  border-top: 1px solid rgba(255,255,255,0.14);
   border-radius: var(--le-radius);
   width: 90%;
   max-width: 560px;
-  max-height: 82vh;
-  color: #fff;
+  max-height: 78vh;
+  color: var(--le-text);
   display: flex;
   flex-direction: column;
   overflow: hidden;
   box-shadow: var(--le-shadow);
-  font-family: inherit;
+  font-family: var(--le-font);
+  animation: le-modal-in 0.26s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+@keyframes le-modal-in {
+  from { opacity: 0; transform: scale(0.90) translateY(18px); }
+  to   { opacity: 1; transform: scale(1)    translateY(0);    }
 }
 .le-modal-hd {
-  padding: 18px 20px;
+  padding: 16px 20px;
   border-bottom: 1px solid var(--le-border);
   display: flex;
   justify-content: space-between;
   align-items: center;
   flex-shrink: 0;
+  background: rgba(255,255,255,0.025);
 }
-.le-modal-title {
-  font-size: 1.02rem;
-  font-weight: 700;
-}
+.le-modal-title { font-size: 1rem; font-weight: 700; }
 .le-modal-close {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid var(--le-border);
+  color: var(--le-text2);
+  font-size: 0.9rem;
+  width: 30px; height: 30px; border-radius: 50%;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: background 0.15s, color 0.15s;
+}
+.le-modal-close:hover { background: var(--le-danger-soft); color: var(--le-danger); }
+.le-modal-body {
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.le-modal-body::-webkit-scrollbar { width: 5px; }
+.le-modal-body::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.10); border-radius: 99px; }
+
+/* ================================================================
+   SHARED FORM / FIELD STYLES
+   ================================================================ */
+.le-section-title {
+  font-size: 0.67rem;
+  font-weight: 800;
+  color: var(--le-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 2px;
+}
+
+.le-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid var(--le-border);
+  border-radius: var(--le-radius-sm);
+  padding: 13px 14px;
+}
+
+/* ── Collapsible property-panel groups ────────────────────────── */
+.le-prop-group {
+  border: 1px solid var(--le-border);
+  border-radius: var(--le-radius-sm);
+  overflow: hidden;
+  background: rgba(255,255,255,0.02);
+  transition: border-color 0.2s;
+}
+.le-prop-group + .le-prop-group { margin-top: 2px; }
+.le-prop-group:hover { border-color: rgba(255,255,255,0.12); }
+.le-prop-group.is-open { border-color: rgba(56,189,248,0.25); }
+
+.le-prop-group-header {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 11px 14px;
+  border: none;
+  background: transparent;
+  color: var(--le-text);
+  font-size: 0.82rem;
+  font-weight: 600;
+  font-family: var(--le-font);
+  cursor: pointer;
+  transition: background 0.15s;
+  text-align: left;
+}
+.le-prop-group-header:hover {
+  background: rgba(255,255,255,0.04);
+}
+.le-prop-group.is-open .le-prop-group-header {
+  background: rgba(56,189,248,0.06);
+  border-bottom: 1px solid var(--le-border);
+}
+.le-prop-group-icon {
+  font-size: 1.05rem;
+  width: 22px;
+  text-align: center;
+  flex-shrink: 0;
+}
+.le-prop-group-label {
+  flex: 1;
+  letter-spacing: 0.02em;
+}
+.le-prop-group-chevron {
+  font-size: 1.1rem;
+  color: var(--le-text2);
+  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transform: rotate(0deg);
+  flex-shrink: 0;
+}
+.le-prop-group.is-open .le-prop-group-chevron {
+  transform: rotate(90deg);
+  color: var(--le-accent);
+}
+
+.le-prop-group-body {
+  display: none;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 14px;
+}
+.le-prop-group.is-open .le-prop-group-body {
+  display: flex;
+}
+
+.le-canvas-el-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  margin-bottom: 8px;
+  background: rgba(255,255,255,0.04);
+  border-radius: var(--le-radius-xs);
+  font-weight: 700;
+  font-size: 0.85rem;
+  color: var(--le-text);
+}
+
+.le-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.le-field label {
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: var(--le-text2);
+}
+
+.le-input,
+.le-select,
+textarea.le-input {
+  background: var(--le-glass-input);
+  border: 1px solid var(--le-border);
+  color: var(--le-text);
+  padding: 8px 11px;
+  border-radius: var(--le-radius-xs);
+  font-size: 0.84rem;
+  outline: none;
+  font-family: var(--le-font);
+  transition: border-color 0.15s, box-shadow 0.15s;
+  width: 100%;
+  box-sizing: border-box;
+}
+.le-input:focus,
+.le-select:focus,
+textarea.le-input:focus {
+  border-color: var(--le-accent);
+  box-shadow: 0 0 0 3px var(--le-accent-soft);
+}
+.le-input::placeholder { color: var(--le-muted); }
+.le-select { cursor: pointer; }
+textarea.le-input { resize: vertical; }
+
+.le-color-row { display: flex; gap: 8px; align-items: center; }
+.le-color-picker {
+  width: 38px; height: 34px;
+  border-radius: var(--le-radius-xs);
+  border: 1px solid var(--le-border);
+  background: transparent;
+  cursor: pointer;
+  padding: 2px;
+  flex-shrink: 0;
+}
+
+/* ================================================================
+   LAYER LIST  (layers panel)
+   ================================================================ */
+.le-layer-list { display: flex; flex-direction: column; gap: 4px; }
+
+.le-layer-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--le-glass-input);
+  border: 1px solid var(--le-border);
+  border-radius: var(--le-radius-xs);
+  padding: 8px 10px;
+  cursor: pointer;
+  font-size: 0.83rem;
+  transition: border-color 0.15s, background 0.15s;
+}
+.le-layer-row:hover  { border-color: var(--le-border-strong); background: var(--le-glass-hover); }
+.le-layer-row.selected { border-color: var(--le-accent); background: var(--le-accent-soft); color: var(--le-accent); }
+.le-layer-row.drag-over { border-color: var(--le-accent); border-style: dashed; }
+.le-layer-row.dragging  { opacity: 0.35; }
+.le-layer-drag  { cursor: grab; color: var(--le-muted); font-size: 0.9rem; flex-shrink: 0; }
+.le-layer-label { flex: 1; font-weight: 500; }
+
+.le-layer-controls { display: flex; gap: 2px; }
+.le-layer-controls button {
   background: transparent;
   border: none;
   color: var(--le-muted);
-  font-size: 1rem;
-  width: 30px; height: 30px; border-radius: 8px;
+  width: 26px; height: 26px;
+  border-radius: 6px;
   cursor: pointer;
+  font-size: 0.8rem;
   display: flex; align-items: center; justify-content: center;
-  transition: background 0.15s ease, color 0.15s ease;
+  transition: background 0.13s, color 0.13s;
 }
-.le-modal-close:hover { background: var(--le-bg-hover); color: var(--le-text); }
-.le-modal-body {
-  padding: 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-  overflow-y: auto;
-}
-.le-presets-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
-  margin-top: 4px;
-}
-.le-preset-item {
-  border-radius: var(--le-radius-sm);
-  overflow: hidden;
-  cursor: pointer;
-  border: 2px solid transparent;
-  height: 72px;
-  transition: border-color 0.15s ease, transform 0.1s ease;
-}
-.le-preset-item img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-.le-preset-item:hover { border-color: var(--le-accent); transform: scale(1.02); }
-.le-preset-item.selected { border-color: var(--le-accent); }
+.le-layer-controls button:hover { background: var(--le-glass-hover); color: var(--le-text); }
+.le-layer-controls button:last-child:hover { background: var(--le-danger-soft); color: var(--le-danger); }
 
-/* ---- Tabs — clean segmented control ---- */
-.le-tabs {
-  display: flex; gap: 4px;
-  padding: 12px 16px 4px;
-  flex-shrink: 0;
-}
-.le-tab-btn {
-  flex: 1; background: transparent; border: none; color: var(--le-muted);
-  padding: 9px 8px; font-size: 0.82rem; font-weight: 600; cursor: pointer;
-  border-radius: var(--le-radius-sm);
-  transition: background 0.15s ease, color 0.15s ease;
-}
-.le-tab-btn.active { color: var(--le-text); background: var(--le-bg-card); }
-.le-tab-btn:hover:not(.active) { color: var(--le-text2); background: var(--le-bg-hover); }
-
-/* ---- Layer list (blocks on the current page) ---- */
-.le-layer-list { display: flex; flex-direction: column; gap: 6px; }
-.le-layer-row {
-  display: flex; align-items: center; gap: 8px;
-  background: var(--le-bg-input); border: 1px solid var(--le-border);
-  border-radius: var(--le-radius-sm); padding: 9px 10px; cursor: pointer; font-size: 0.84rem;
-  transition: border-color 0.15s ease, background 0.15s ease;
-}
-.le-layer-row:hover { border-color: var(--le-border-strong); }
-.le-layer-row.selected { border-color: var(--le-accent); background: var(--le-accent-soft); }
-.le-layer-row.drag-over { border-color: var(--le-accent); border-style: dashed; }
-.le-layer-row.dragging { opacity: 0.4; }
-.le-layer-drag { cursor: grab; color: var(--le-muted); }
-.le-layer-label { flex: 1; font-weight: 500; }
-.le-layer-controls { display: flex; gap: 4px; }
-.le-layer-controls button {
-  background: transparent; border: none; color: var(--le-muted);
-  width: 24px; height: 24px; border-radius: 6px; cursor: pointer; font-size: 0.82rem;
-  display: flex; align-items: center; justify-content: center;
-  transition: background 0.15s ease, color 0.15s ease;
-}
-.le-layer-controls button:hover { background: var(--le-bg-hover); color: var(--le-text); }
 .le-btn-add-block {
-  align-self: stretch; background: var(--le-accent-soft); border: 1px solid var(--le-accent);
-  color: var(--le-accent); font-weight: 700; font-size: 0.84rem; padding: 10px; border-radius: var(--le-radius-sm);
-  cursor: pointer; transition: background 0.15s ease, color 0.15s ease;
+  background: var(--le-accent-soft);
+  border: 1px dashed rgba(56,189,248,0.35);
+  color: var(--le-accent);
+  font-weight: 700;
+  font-size: 0.82rem;
+  padding: 10px 14px;
+  border-radius: var(--le-radius-xs);
+  cursor: pointer;
+  font-family: var(--le-font);
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
 }
-.le-btn-add-block:hover { background: var(--le-accent); color: #05202a; }
+.le-btn-add-block:hover { background: var(--le-accent); color: #021826; border-style: solid; border-color: var(--le-accent); }
 
-.le-muted-note { font-size: 0.78rem; color: var(--le-muted); line-height: 1.5; padding: 2px 0; }
+.le-muted-note { font-size: 0.78rem; color: var(--le-muted); line-height: 1.55; padding: 2px 0; }
 
-/* ---- Generic repeatable list editor (card items, buttons, links, ...) ----
-   Each item is its own mini-card with a slim toolbar (index + reorder +
-   delete) up top, and the actual fields below — reads far cleaner than
-   cramming controls into a corner. */
-.le-list { display: flex; flex-direction: column; gap: 10px; }
+/* ================================================================
+   LIST EDITOR  (repeatable items — slides, buttons, links…)
+   ================================================================ */
+.le-list { display: flex; flex-direction: column; gap: 8px; }
+
 .le-list-item {
-  border: 1px solid var(--le-border); border-radius: var(--le-radius-sm);
-  background: var(--le-bg-input); overflow: hidden;
+  border: 1px solid var(--le-border);
+  border-radius: var(--le-radius-xs);
+  background: var(--le-glass-input);
+  overflow: hidden;
 }
 .le-list-item-toolbar {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 7px 10px; background: rgba(255,255,255,0.03);
+  padding: 6px 10px;
+  background: rgba(255,255,255,0.03);
   border-bottom: 1px solid var(--le-border);
 }
-.le-list-item-index { font-size: 0.72rem; font-weight: 700; color: var(--le-muted); letter-spacing: 0.03em; }
+.le-list-item-index { font-size: 0.69rem; font-weight: 700; color: var(--le-muted); letter-spacing: 0.04em; }
 .le-list-item-actions { display: flex; gap: 2px; }
 .le-list-item-actions button {
   background: transparent; border: none; color: var(--le-muted);
-  width: 24px; height: 24px; border-radius: 6px; cursor: pointer; font-size: 0.76rem;
-  display: flex; align-items: center; justify-content: center;
-  transition: background 0.15s ease, color 0.15s ease;
+  width: 24px; height: 24px; border-radius: 5px; cursor: pointer;
+  font-size: 0.76rem; display: flex; align-items: center; justify-content: center;
+  transition: background 0.13s, color 0.13s;
 }
-.le-list-item-actions button:hover { background: var(--le-bg-hover); color: var(--le-text); }
-.le-list-item-actions button.le-list-item-delete:hover { background: rgba(248,113,113,0.15); color: var(--le-danger); }
+.le-list-item-actions button:hover { background: var(--le-glass-hover); color: var(--le-text); }
+.le-list-item-actions button.le-list-item-delete:hover { background: var(--le-danger-soft); color: var(--le-danger); }
 .le-list-item-body { padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+
 .le-btn-add-item {
-  background: transparent; border: 1.5px dashed var(--le-border-strong); color: var(--le-text2);
-  padding: 9px; border-radius: var(--le-radius-sm); cursor: pointer; font-size: 0.82rem; font-weight: 600;
-  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+  background: transparent;
+  border: 1.5px dashed var(--le-border-strong);
+  color: var(--le-text2);
+  padding: 9px;
+  border-radius: var(--le-radius-xs);
+  cursor: pointer;
+  font-size: 0.82rem;
+  font-weight: 600;
+  font-family: var(--le-font);
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
 }
 .le-btn-add-item:hover { border-color: var(--le-accent); color: var(--le-accent); background: var(--le-accent-soft); }
 
-/* ---- Page manager ---- */
-.le-page-list { display: flex; flex-direction: column; gap: 6px; }
+/* ================================================================
+   PAGE MANAGER
+   ================================================================ */
+.le-page-list { display: flex; flex-direction: column; gap: 5px; }
+
 .le-page-row {
   display: flex; align-items: center; justify-content: space-between;
-  background: var(--le-bg-input); border: 1px solid var(--le-border);
-  border-radius: var(--le-radius-sm); padding: 9px 12px; cursor: pointer; font-size: 0.85rem;
-  transition: border-color 0.15s ease;
+  background: var(--le-glass-input); border: 1px solid var(--le-border);
+  border-radius: var(--le-radius-xs); padding: 10px 13px; cursor: pointer;
+  font-size: 0.85rem; transition: border-color 0.15s, background 0.15s;
 }
-.le-page-row:hover { border-color: var(--le-border-strong); }
-.le-page-row.selected { border-color: var(--le-accent); background: var(--le-accent-soft); }
+.le-page-row:hover    { border-color: var(--le-border-strong); background: var(--le-glass-hover); }
+.le-page-row.selected { border-color: var(--le-accent); background: var(--le-accent-soft); color: var(--le-accent); }
 .le-page-row button {
-  background: transparent; border: none; color: var(--le-muted); cursor: pointer; font-size: 0.85rem;
-  width: 22px; height: 22px; border-radius: 6px; display: flex; align-items: center; justify-content: center;
+  background: transparent; border: none; color: var(--le-muted);
+  cursor: pointer; font-size: 0.85rem;
+  width: 22px; height: 22px; border-radius: 5px;
+  display: flex; align-items: center; justify-content: center;
 }
-.le-page-row button:hover { color: var(--le-danger); background: rgba(248,113,113,0.12); }
+.le-page-row button:hover { color: var(--le-danger); background: var(--le-danger-soft); }
 
-/* ---- Image field preview ---- */
+/* ================================================================
+   IMAGE FIELD
+   ================================================================ */
 .le-img-preview-row { display: flex; gap: 10px; align-items: center; }
-.le-img-preview { width: 54px; height: 54px; border-radius: var(--le-radius-sm); object-fit: cover; border: 1px solid var(--le-border); flex-shrink: 0; background: rgba(255,255,255,0.04); }
-
-/* ---- Upload from device ---- */
+.le-img-preview {
+  width: 50px; height: 50px;
+  border-radius: var(--le-radius-xs);
+  object-fit: cover;
+  border: 1px solid var(--le-border);
+  flex-shrink: 0;
+  background: rgba(255,255,255,0.04);
+}
 .le-upload-btn {
-  width: 100%; margin-top: 8px;
-  background: var(--le-accent-soft); border: 1px solid var(--le-accent);
+  width: 100%; margin-top: 6px;
+  background: var(--le-accent-soft);
+  border: 1px solid rgba(56,189,248,0.28);
   color: var(--le-accent);
-  padding: 9px; border-radius: var(--le-radius-sm); cursor: pointer;
-  font-size: 0.82rem; font-weight: 700; font-family: inherit;
-  transition: background 0.15s ease, filter 0.15s ease;
+  padding: 9px;
+  border-radius: var(--le-radius-xs);
+  cursor: pointer;
+  font-size: 0.82rem; font-weight: 700;
+  font-family: var(--le-font);
+  transition: background 0.15s, filter 0.15s;
 }
 .le-upload-btn:hover { filter: brightness(1.15); }
-.le-btn-bulk-upload {
-  border-style: solid; border-color: var(--le-accent);
-  color: var(--le-accent); background: var(--le-accent-soft);
-  margin-bottom: 6px;
-}
+.le-btn-bulk-upload { margin-bottom: 6px; }
 
-/* ---- Canvas selection outline while editing ---- */
+.le-presets-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  margin-top: 4px;
+}
+.le-preset-item {
+  border-radius: var(--le-radius-xs);
+  overflow: hidden;
+  cursor: pointer;
+  border: 2px solid transparent;
+  height: 60px;
+  transition: border-color 0.15s, transform 0.12s;
+}
+.le-preset-item img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.le-preset-item:hover { border-color: var(--le-accent); transform: scale(1.03); }
+.le-preset-item.selected { border-color: var(--le-accent); }
+
+/* ================================================================
+   CANVAS BLOCK SELECTION  — outlines and selection state
+   ================================================================ */
 .le-active [data-block-id] { cursor: pointer; }
-.le-active [data-block-id]:hover { outline: 2px dashed var(--le-accent); outline-offset: -2px; }
-.le-active [data-block-id].le-selected { outline: 2px solid var(--le-accent); outline-offset: -2px; }
-
-/* On-canvas drag handle — every block gets one, so reordering never
-   requires opening the side panel's layer list. */
-.le-block-drag-handle {
-  position: absolute; top: 8px; left: 8px; z-index: 500;
-  width: 30px; height: 30px; border-radius: var(--le-radius-sm);
-  background: var(--le-bg-card); border: 1px solid var(--le-border-strong);
-  color: var(--le-text); display: flex; align-items: center; justify-content: center;
-  font-size: 1rem; cursor: grab; opacity: 0; transition: opacity 0.15s ease, background 0.15s ease;
-  box-shadow: 0 4px 14px rgba(0,0,0,0.3);
+.le-active [data-block-id]:hover { outline: 2px dashed rgba(56,189,248,0.55); outline-offset: -2px; }
+.le-active [data-block-id].le-selected {
+  outline: 2px solid var(--le-accent);
+  outline-offset: -2px;
+  box-shadow: inset 0 0 0 1px rgba(56,189,248,0.15);
 }
-.le-active [data-block-id]:hover .le-block-drag-handle { opacity: 1; }
-.le-block-drag-handle:hover { background: var(--le-accent); border-color: var(--le-accent); color: #05202a; }
-.le-block-drag-handle:active { cursor: grabbing; }
-[data-block-id].dragging { opacity: 0.4; }
 
-/* Inline-draggable content (buttons/images/text inside a normal, non-canvas
-   block) — hints that grabbing and moving it turns that block freeform. */
-.le-active .le-inline-draggable { cursor: move; }
-.le-active .le-inline-draggable:hover { outline: 1px dashed var(--le-accent); outline-offset: 2px; }
-[data-block-id].drag-over { outline: 3px dashed var(--le-accent); outline-offset: -3px; }
-
-/* Floating toggler when collapsed */
-.le-float-toggle {
-  position: fixed;
-  top: 20px;
-  left: 20px;
-  background: var(--le-bg-card);
+/* ================================================================
+   ON-CANVAS BLOCK DRAG HANDLE
+   ================================================================ */
+.le-block-drag-handle {
+  position: absolute; top: 8px; left: 8px; z-index: 501;
+  width: 28px; height: 28px;
+  border-radius: var(--le-radius-xs);
+  background: rgba(7,10,20,0.88);
   border: 1px solid var(--le-border-strong);
   color: var(--le-text);
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.25rem;
-  cursor: pointer;
-  box-shadow: var(--le-shadow);
-  z-index: 999998;
-  transition: transform 0.15s ease, border-color 0.15s ease;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.95rem;
+  cursor: grab;
+  opacity: 0;
+  transition: opacity 0.15s, background 0.13s;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.4);
+  backdrop-filter: blur(10px);
 }
-.le-float-toggle:hover {
-  transform: scale(1.06);
-  border-color: var(--le-accent);
-}
+.le-active [data-block-id]:hover .le-block-drag-handle { opacity: 1; }
+.le-block-drag-handle:hover { background: var(--le-accent); color: #021826; border-color: var(--le-accent); }
+.le-block-drag-handle:active { cursor: grabbing; }
+[data-block-id].dragging  { opacity: 0.35; }
+[data-block-id].drag-over { outline: 3px dashed var(--le-accent); outline-offset: -3px; }
 
-/* ---- Freeform canvas block editor ---- */
-.le-bp-toggle { display: flex; gap: 6px; background: var(--le-bg-input); padding: 4px; border-radius: var(--le-radius-sm); border: 1px solid var(--le-border); }
-.le-bp-btn {
-  flex: 1; background: transparent; border: none; color: var(--le-muted);
-  padding: 7px; border-radius: 6px; cursor: pointer; font-size: 0.8rem; font-weight: 600;
-  transition: background 0.15s ease, color 0.15s ease;
+/* ================================================================
+   ON-CANVAS BLOCK CONTEXT MENU
+   Appears above every block on hover — Edit / Move / Duplicate / Delete
+   ================================================================ */
+.le-block-ctx {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 502;
+  display: none;
+  align-items: center;
+  gap: 3px;
+  background: rgba(7,10,20,0.92);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid var(--le-border-strong);
+  border-radius: 10px;
+  padding: 4px 6px;
+  box-shadow: 0 8px 28px rgba(0,0,0,0.5);
+  pointer-events: auto;
 }
-.le-bp-btn.active { background: var(--le-accent); color: #05202a; }
+.le-active [data-block-id]:hover .le-block-ctx { display: flex; }
+
+.le-block-ctx button {
+  background: transparent;
+  border: none;
+  color: var(--le-text2);
+  font-size: 0.77rem;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex; align-items: center; gap: 4px;
+  transition: background 0.12s, color 0.12s;
+  font-family: var(--le-font);
+  white-space: nowrap;
+}
+.le-block-ctx button:hover { background: var(--le-glass-hover); color: var(--le-text); }
+.le-block-ctx button.danger:hover { background: var(--le-danger-soft); color: var(--le-danger); }
+.le-block-ctx .ctx-sep { width: 1px; height: 14px; background: var(--le-border-strong); margin: 0 1px; }
+
+/* ================================================================
+   INLINE DRAGGABLE  (elements inside non-canvas blocks)
+   ================================================================ */
+.le-active .le-inline-draggable { cursor: move; }
+.le-active .le-inline-draggable:hover { outline: 1px dashed var(--le-accent); outline-offset: 2px; }
+
+/* ================================================================
+   CANVAS BREAKPOINT (mobile preview)
+   ================================================================ */
+.le-bp-toggle {
+  display: flex; gap: 5px;
+  background: var(--le-glass-input);
+  padding: 4px; border-radius: var(--le-radius-xs);
+  border: 1px solid var(--le-border);
+}
+.le-bp-btn {
+  flex: 1;
+  background: transparent; border: none; color: var(--le-muted);
+  padding: 7px; border-radius: 6px;
+  cursor: pointer; font-size: 0.8rem; font-weight: 600;
+  font-family: var(--le-font);
+  transition: background 0.13s, color 0.13s;
+}
+.le-bp-btn.active { background: var(--le-accent); color: #021826; }
 .le-bp-btn:hover:not(.active) { color: var(--le-text); }
 
-.le-add-el-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.le-add-el-row { display: flex; flex-wrap: wrap; gap: 6px; }
 .le-add-el-row button {
-  background: transparent; border: 1.5px dashed var(--le-border-strong); color: var(--le-text2);
-  padding: 8px 12px; border-radius: var(--le-radius-sm); cursor: pointer; font-size: 0.8rem; font-weight: 600;
-  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+  background: var(--le-glass-input);
+  border: 1px solid var(--le-border);
+  color: var(--le-text2);
+  padding: 7px 12px;
+  border-radius: var(--le-radius-xs);
+  cursor: pointer; font-size: 0.8rem; font-weight: 600;
+  font-family: var(--le-font);
+  transition: border-color 0.13s, color 0.13s, background 0.13s;
 }
 .le-add-el-row button:hover { border-color: var(--le-accent); color: var(--le-accent); background: var(--le-accent-soft); }
 
-.le-pos-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
-.le-pos-row .le-field { gap: 4px; }
-.le-pos-row .le-field label { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.04em; }
-.le-pos-row .le-input { padding: 7px 8px; text-align: center; }
+.le-pos-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.le-pos-row .le-field { gap: 3px; }
+.le-pos-row .le-field label { font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.05em; }
+.le-pos-row .le-input { padding: 6px 8px; text-align: center; }
 
-.le-flex-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.le-flex-row { display: flex; flex-wrap: wrap; gap: 6px; }
 .le-flex-row button {
-  background: var(--le-bg-hover); border: 1px solid var(--le-border); color: var(--le-text2);
-  padding: 7px 11px; border-radius: var(--le-radius-sm); cursor: pointer; font-size: 0.78rem; font-weight: 600;
-  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  background: var(--le-glass-input);
+  border: 1px solid var(--le-border);
+  color: var(--le-text2);
+  padding: 7px 11px;
+  border-radius: var(--le-radius-xs);
+  cursor: pointer; font-size: 0.78rem; font-weight: 600;
+  font-family: var(--le-font);
+  transition: background 0.13s, color 0.13s, border-color 0.13s;
 }
-.le-flex-row button:hover { background: var(--le-accent); color: #05202a; border-color: var(--le-accent); }
+.le-flex-row button:hover { background: var(--le-accent); color: #021826; border-color: var(--le-accent); }
+.le-flex-row button:last-child:hover { background: var(--le-danger-soft); color: var(--le-danger); border-color: rgba(248,113,113,0.3); }
 
-/* On-canvas selection handles overlay for the freeform canvas block */
+/* ================================================================
+   FREEFORM CANVAS HANDLES
+   ================================================================ */
 .fc-handles { z-index: 9999; pointer-events: none; }
 .fc-handles::before {
-  content: ""; position: absolute; inset: 0; border: 2px solid var(--le-accent); border-radius: 2px; pointer-events: none;
+  content: "";
+  position: absolute; inset: 0;
+  border: 2px solid var(--le-accent); border-radius: 2px;
+  pointer-events: none;
+  box-shadow: 0 0 0 1px rgba(56,189,248,0.2);
 }
 .fc-drag-body { position: absolute; inset: 0; cursor: move; pointer-events: auto; }
 .fc-handle {
-  position: absolute; width: 12px; height: 12px; background: #fff; border: 2px solid var(--le-accent);
+  position: absolute; width: 11px; height: 11px;
+  background: var(--le-accent); border: 2px solid #fff;
   border-radius: 50%; pointer-events: auto; z-index: 2;
+  box-shadow: 0 0 8px var(--le-accent-glow);
 }
 .fc-handle-nw { left: -6px; top: -6px; cursor: nwse-resize; }
 .fc-handle-n  { left: 50%; top: -6px; margin-left: -6px; cursor: ns-resize; }
@@ -576,125 +966,97 @@ body.le-active {
 .fc-handle-s  { left: 50%; bottom: -6px; margin-left: -6px; cursor: ns-resize; }
 .fc-handle-sw { left: -6px; bottom: -6px; cursor: nesw-resize; }
 .fc-handle-w  { left: -6px; top: 50%; margin-top: -6px; cursor: ew-resize; }
+.fc-el-wrap:hover { outline: 1px dashed rgba(56,189,248,0.6); }
 
-.fc-el-wrap:hover { outline: 1px dashed var(--le-accent); }
-
-/* Mobile breakpoint preview — narrows the storefront's top-level sections
-   so what you're positioning while toggled to Mobile matches what a real
-   narrow-viewport visitor's `@media` rule would show them. */
-body.le-preview-mobile { background: #4b5563; }
+/* ================================================================
+   MOBILE PREVIEW
+   ================================================================ */
+body.le-preview-mobile { background: #374151; }
 body.le-preview-mobile > nav.portal-nav,
 body.le-preview-mobile > .announce-bar,
 body.le-preview-mobile > main,
 body.le-preview-mobile > footer.portal-footer {
-  max-width: 375px; margin-left: auto; margin-right: auto;
-  box-shadow: 0 0 0 1px rgba(0,0,0,0.15), 0 20px 60px rgba(0,0,0,0.35);
+  max-width: 375px;
+  margin-left: auto; margin-right: auto;
+  box-shadow: 0 0 0 1px rgba(0,0,0,0.2), 0 20px 60px rgba(0,0,0,0.4);
 }
 
-/* =================================================================
+/* ================================================================
    DIRECT ON-PAGE EDITING
-   Click any headline to type in it, any photo to replace it. These
-   affordances only exist while the editor is mounted (body.le-active),
-   so the published storefront is completely unaffected.
-   ================================================================= */
-
-/* The whole-block hover outline would fight the per-field one — inside
-   an annotated block, the field is the thing you're aiming at. */
+   ================================================================ */
 .le-active [data-edit] {
   outline-offset: 2px;
-  transition: outline-color 0.12s ease, background-color 0.12s ease;
+  transition: outline-color 0.12s, background-color 0.12s;
   cursor: text;
 }
 .le-active .de-text:hover {
-  outline: 1px dashed var(--le-accent, #6366f1);
-  background: rgba(99, 102, 241, 0.06);
+  outline: 1px dashed rgba(56,189,248,0.6);
+  background: rgba(56,189,248,0.05);
   border-radius: 2px;
 }
 .le-active .de-image { cursor: pointer; }
-.le-active .de-image:hover { outline: 2px solid var(--le-accent, #6366f1); }
-
-/* Being typed into: solid ring, no dashes, no background tint so the
-   real colors are visible while you work. */
+.le-active .de-image:hover { outline: 2px solid var(--le-accent); }
 .le-active .de-editing,
 .le-active .de-editing:hover {
-  outline: 2px solid var(--le-accent, #6366f1);
+  outline: 2px solid var(--le-accent);
   background: transparent;
   border-radius: 2px;
 }
 .le-active .de-editing { caret-color: currentColor; }
+.le-active .de-drop { outline: 3px dashed var(--le-accent); filter: brightness(1.15); }
 
-/* Drag a photo from the desktop straight onto an image */
-.le-active .de-drop {
-  outline: 3px dashed var(--le-accent, #6366f1);
-  filter: brightness(1.15);
-}
-
-/* ---- floating toolbar ---- */
+/* ================================================================
+   FLOATING TEXT FORMAT TOOLBAR
+   ================================================================ */
 .de-toolbar {
   position: absolute;
   z-index: 1000000;
   display: none;
   align-items: center;
   gap: 2px;
-  padding: 5px;
-  background: #1e1f26;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: 4px;
-  box-shadow: 0 10px 34px rgba(0, 0, 0, 0.45);
-  font-family: 'Inter', -apple-system, sans-serif;
+  padding: 4px 6px;
+  background: rgba(7,10,20,0.94);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255,255,255,0.13);
+  border-radius: 10px;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.55);
+  font-family: var(--le-font);
 }
 .de-toolbar button {
-  min-width: 30px;
-  height: 30px;
-  padding: 0 8px;
-  background: transparent;
-  border: none;
-  border-radius: 2px;
-  color: #e6e7ea;
-  font-size: 0.86rem;
-  font-weight: 700;
-  font-family: inherit;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background 0.12s ease;
+  min-width: 30px; height: 30px; padding: 0 8px;
+  background: transparent; border: none; border-radius: 6px;
+  color: #e6e7ea; font-size: 0.86rem; font-weight: 700;
+  font-family: inherit; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: background 0.12s;
 }
-.de-toolbar button:hover { background: rgba(255, 255, 255, 0.14); }
-.de-toolbar button:active { background: var(--le-accent, #6366f1); }
-.de-sep { width: 1px; height: 18px; background: rgba(255, 255, 255, 0.16); margin: 0 3px; }
-
-/* Color control — the native swatch is hidden behind a round chip */
+.de-toolbar button:hover { background: rgba(255,255,255,0.14); }
+.de-toolbar button:active { background: var(--le-accent); color: #021826; }
+.de-sep { width: 1px; height: 18px; background: rgba(255,255,255,0.16); margin: 0 3px; }
 .de-color { position: relative; width: 30px; height: 30px; cursor: pointer; display: block; }
 .de-color input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
 .de-color span {
-  position: absolute; inset: 6px;
-  border-radius: 50%;
+  position: absolute; inset: 6px; border-radius: 50%;
   background: conic-gradient(#ef4444, #f59e0b, #10b981, #3b82f6, #a855f7, #ef4444);
-  border: 1.5px solid rgba(255, 255, 255, 0.5);
+  border: 1.5px solid rgba(255,255,255,0.5);
   pointer-events: none;
 }
 
-/* ---- undo / redo in the panel header ---- */
-.le-history { display: flex; gap: 4px; margin-left: auto; margin-right: 8px; }
+/* ================================================================
+   HISTORY BUTTONS (undo/redo inside command bar)
+   ================================================================ */
+.le-history { display: flex; gap: 4px; }
 .le-hist-btn {
   width: 28px; height: 28px;
   background: transparent;
-  border: 1px solid var(--le-border, rgba(255,255,255,0.12));
-  border-radius: 2px;
-  color: var(--le-text, #e6e7ea);
-  font-size: 0.95rem; line-height: 1;
+  border: 1px solid var(--le-border);
+  border-radius: 6px;
+  color: var(--le-text);
+  font-size: 0.95rem;
   cursor: pointer;
   display: flex; align-items: center; justify-content: center;
-  transition: background 0.12s ease, opacity 0.12s ease;
+  transition: background 0.12s, opacity 0.12s;
 }
-.le-hist-btn:hover:not(:disabled) { background: var(--le-bg-hover, rgba(255,255,255,0.08)); }
-.le-hist-btn:disabled { opacity: 0.3; cursor: default; }
-
-.le-hint {
-  padding: 9px 14px;
-  font-size: 0.76rem;
-  color: var(--le-muted, #9aa0aa);
-  background: var(--le-accent-soft, rgba(99,102,241,0.12));
-  border-bottom: 1px solid var(--le-border, rgba(255,255,255,0.1));
-}
+.le-hist-btn:hover:not(:disabled) { background: var(--le-glass-hover); }
+.le-hist-btn:disabled { opacity: 0.25; cursor: default; }

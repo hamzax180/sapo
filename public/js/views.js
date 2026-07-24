@@ -2442,8 +2442,7 @@ window.Views = (function () {
     const owner = Auth.isOwner();
     const aiLive = AI.hasKey();
 
-    let activeLangNameSetting = "Türkçe (TR)";
-    if (lang === "en") activeLangNameSetting = "English (EN)";
+    let activeLangNameSetting = lang === "ar" ? "العربية (AR)" : (lang === "tr" ? "Türkçe (TR)" : "English (EN)");
 
     const langCard =
       '<div class="card" style="margin-bottom:18px"><div class="card-h"><h3>' + UI.t("Language") + '</h3></div>' +
@@ -2457,6 +2456,7 @@ window.Views = (function () {
           '<ul class="lang-list" id="settingsLangList" style="width:100%; text-align:left;">' +
             '<li data-value="en" class="lang-item' + (lang === "en" ? " active" : "") + '">English (EN)</li>' +
             '<li data-value="tr" class="lang-item' + (lang === "tr" ? " active" : "") + '">Türkçe (TR)</li>' +
+            '<li data-value="ar" class="lang-item' + (lang === "ar" ? " active" : "") + '">العربية (AR)</li>' +
           '</ul>' +
         '</div>'
       ) +

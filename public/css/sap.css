@@ -485,7 +485,10 @@ textarea.input { resize: vertical; min-height: 84px; }
    RESPONSIVE
    ================================================================= */
 @media (max-width: 1100px) {
-  .kpis { grid-template-columns: repeat(2, 1fr); }
+  /* !important overrides the inline grid-template-columns the dashboard
+     JS writes onto .kpis (repeat(N,1fr)); without it the media queries
+     below can never win and the KPI cards stay squeezed on phones. */
+  .kpis { grid-template-columns: repeat(2, 1fr) !important; }
   .grid-2, .grid-3 { grid-template-columns: 1fr; }
 }
 @media (max-width: 880px) {
@@ -498,11 +501,109 @@ textarea.input { resize: vertical; min-height: 84px; }
   .login-form-col { height: auto; overflow-y: visible; }
   .login-art { display: none; }
 }
+@media (max-width: 860px) {
+  .kpis { grid-template-columns: repeat(3, 1fr) !important; gap: 8px !important; }
+  .kpi { padding: 10px 8px !important; border-radius: 12px !important; }
+  .kpi .ic { width: 28px !important; height: 28px !important; border-radius: 8px !important; margin-bottom: 6px !important; }
+  .kpi .ic svg { width: 14px !important; height: 14px !important; }
+  .kpi .n { font-size: 1.12rem !important; line-height: 1.1 !important; letter-spacing: -0.02em !important; }
+  .kpi .l { font-size: .62rem !important; margin-top: 3px !important; white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important; }
+  .kpi .delta { font-size: .6rem !important; margin-top: 2px !important; white-space: nowrap !important; }
+  .kpi .spark { width: calc(100% + 16px) !important; height: 24px !important; margin: 6px -8px -10px !important; }
+}
 @media (max-width: 560px) {
-  .kpis { grid-template-columns: 1fr; }
-  .content { padding: 16px; }
+  .content { padding: 12px; }
   .form-row, .dgrid { grid-template-columns: 1fr; }
   .tb-user .un, .tb-user .ur { display: none; }
+  .topbar { gap: 4px !important; padding: 0 8px !important; justify-content: space-between !important; }
+  .hamburger { padding: 4px 6px !important; }
+  .hamburger > span { display: none; }
+  .help-btn { display: none !important; }
+  .lang-trigger { padding: 4px 8px !important; font-size: .74rem !important; margin: 0 !important; }
+  .notif-btn { width: 30px !important; height: 30px !important; }
+  .tb-user { padding: 2px !important; gap: 4px !important; }
+  .avatar { width: 28px !important; height: 28px !important; font-size: .72rem !important; }
+}
+
+@media (max-width: 768px) {
+  /* Prevent horizontal viewport overflow */
+  body, .app, .main, .content, .card, .card-b {
+    max-width: 100vw !important;
+    overflow-x: hidden !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Flex button action rows wrap cleanly on mobile */
+  .flex, div[style*="display:flex"], div[style*="display: flex"] {
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+  }
+  .flex > .btn, div[style*="display:flex"] > .btn, div[style*="display: flex"] > .btn,
+  .flex > a.btn, div[style*="display:flex"] > a.btn, div[style*="display: flex"] > a.btn {
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+    padding: 8px 10px !important;
+    font-size: .7rem !important;
+    letter-spacing: .04em !important;
+    text-align: center !important;
+    white-space: normal !important;
+    word-break: break-word !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Definition Fields (.dfield) & Code formatting */
+  .dfield {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 6px !important;
+  }
+  .dfield .v {
+    width: 100% !important;
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 6px !important;
+    align-items: center !important;
+  }
+  .dfield code, code {
+    word-break: break-all !important;
+    max-width: 100% !important;
+    white-space: normal !important;
+  }
+
+  /* Input fields */
+  .input, select.input, textarea.input {
+    max-width: 100% !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+  input[type="color"].input {
+    width: 100% !important;
+  }
+
+  /* Tables & Data Grids */
+  .tbl-wrap, .table-wrap, .tb-wrap, .dtable-wrap {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    box-sizing: border-box !important;
+  }
+  table.tbl {
+    display: table !important;
+    width: 100% !important;
+    min-width: 460px !important;
+  }
+  .tbl thead th, th {
+    padding: 10px 10px !important;
+    font-size: .68rem !important;
+    white-space: nowrap !important;
+  }
+  .tbl tbody td, td {
+    padding: 10px 10px !important;
+    font-size: .76rem !important;
+    white-space: nowrap !important;
+  }
 }
 
 /* boot hide */
@@ -965,4 +1066,92 @@ textarea.input { resize: vertical; min-height: 84px; }
   100% { opacity: 0; transform: translateY(-190%) scale(0.7); }
 }
 
+/* =================================================================
+   RIGHT-TO-LEFT (RTL) STYLES FOR ARABIC (ar)
+   ================================================================= */
+html[dir="rtl"] body,
+[dir="rtl"] {
+  direction: rtl;
+  text-align: right;
+}
 
+html[dir="rtl"] .app {
+  grid-template-columns: 1fr var(--sidebar-w);
+}
+html[dir="rtl"] .app.sidebar-collapsed {
+  grid-template-columns: 1fr 0px;
+}
+
+html[dir="rtl"] .sidebar {
+  order: 2;
+  border-right: none;
+  border-left: 1px solid var(--navy-600);
+}
+html[dir="rtl"] .main {
+  order: 1;
+}
+
+html[dir="rtl"] .topbar {
+  flex-direction: row-reverse;
+}
+
+html[dir="rtl"] .topbar-right,
+html[dir="rtl"] .topbar-actions {
+  flex-direction: row-reverse;
+}
+
+html[dir="rtl"] .nav-item {
+  text-align: right;
+  flex-direction: row-reverse;
+  justify-content: flex-end;
+}
+html[dir="rtl"] .nav-item .ic {
+  margin-left: 10px;
+  margin-right: 0;
+}
+
+html[dir="rtl"] .modal-close,
+html[dir="rtl"] .dhl-modal-close {
+  left: 18px;
+  right: auto;
+}
+
+html[dir="rtl"] .npanel {
+  left: auto;
+  right: 0;
+}
+
+html[dir="rtl"] th,
+html[dir="rtl"] td {
+  text-align: right;
+}
+
+html[dir="rtl"] .form-group input,
+html[dir="rtl"] .form-group select,
+html[dir="rtl"] .form-group textarea,
+html[dir="rtl"] .input,
+html[dir="rtl"] select.input {
+  text-align: right;
+}
+
+html[dir="rtl"] .pill {
+  flex-direction: row-reverse;
+}
+
+html[dir="rtl"] .ind-card {
+  text-align: right;
+}
+
+html[dir="rtl"] .nav {
+  flex-direction: row-reverse;
+}
+html[dir="rtl"] .nav .lnk {
+  margin-left: 0;
+  margin-right: auto;
+  flex-direction: row-reverse;
+}
+
+html[dir="rtl"] .drawer-right {
+  left: 0;
+  right: auto;
+}

@@ -9,53 +9,57 @@
    ================================================================= */
 window.Tour = (function () {
   const KEY = (uid) => "sap_tour_v1_" + (uid || "anon");
-  const lang = () => (window.UI && UI.getLang ? UI.getLang() : "tr");
-  const L = (o) => o[lang()] || o.en;
+  const lang = () => (window.UI && UI.getLang ? UI.getLang() : "en");
+  const L = (o) => o[lang()] || o.ar || o.en;
   const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   const NARROW = () => window.innerWidth <= 880;
 
   /* every page that can appear in the tour, in a natural walking order.
      Each is shown only if the current role may view it. */
   const PAGES = [
-    { id: "mywork", t: { tr: "İşlerim", en: "My Work", ru: "Мои задачи" },
-      b: { tr: "Her gün buradan başla — görevlerin, sana devredilen işler ve acil olan her şey.", en: "Start here every day — your tasks, handoffs and anything urgent.", ru: "Начинайте отсюда каждый день — задачи, передачи и всё срочное." } },
-    { id: "dashboard", t: { tr: "Panel", en: "Dashboard", ru: "Панель" },
-      b: { tr: "İşletmenin canlı özeti: sevkiyatlar, siparişler ve nakit bir bakışta.", en: "A live snapshot of the business: shipments, orders and cash at a glance.", ru: "Живой обзор бизнеса: отгрузки, заказы и деньги." } },
-    { id: "quotes", t: { tr: "Teklifler", en: "Quotations", ru: "Предложения" },
-      b: { tr: "Fiyat tekliflerini hazırla ve gönder; kabul edilince otomatik siparişe dönüşür.", en: "Build and send price offers; accepted ones turn into orders automatically.", ru: "Создавайте предложения; принятые автоматически становятся заказами." } },
-    { id: "orders", t: { tr: "Siparişler", en: "Orders", ru: "Заказы" },
-      b: { tr: "Onaylanan satışlar burada — sevkiyat ve fatura buradan başlar.", en: "Confirmed sales live here — shipments and invoices start from here.", ru: "Подтверждённые продажи здесь — отсюда начинаются отгрузки и счета." } },
-    { id: "clients", t: { tr: "Müşteriler", en: "Clients", ru: "Клиенты" },
-      b: { tr: "Müşteri hesapları, iletişim bilgileri ve ödeme vadeleri.", en: "Customer accounts, contacts and payment terms.", ru: "Клиенты, контакты и условия оплаты." } },
-    { id: "shipments", t: { tr: "Sevkiyatlar", en: "Shipments", ru: "Отгрузки" },
-      b: { tr: "Yük hareketlerini takip et: demiryolu, karayolu ve deniz.", en: "Track freight in motion: rail, road and sea.", ru: "Отслеживайте грузы в пути: ж/д, авто и море." } },
-    { id: "inventory", t: { tr: "Envanter", en: "Inventory", ru: "Склад" },
-      b: { tr: "Stok seviyeleri ve ürünler; kritik stok burada uyarır.", en: "Stock levels and products; low stock is flagged here.", ru: "Остатки и товары; низкий запас отмечается здесь." } },
-    { id: "purchasing", t: { tr: "Satın Alma", en: "Purchasing", ru: "Закупки" },
-      b: { tr: "Tedarikçi siparişlerini ve faturalarını yönet.", en: "Manage purchase orders and supplier bills.", ru: "Управляйте заказами поставщикам и счетами." } },
-    { id: "suppliers", t: { tr: "Tedarikçiler", en: "Suppliers", ru: "Поставщики" },
-      b: { tr: "Tedarik ortakların ve performansları.", en: "Your procurement partners and their performance.", ru: "Ваши поставщики и их показатели." } },
-    { id: "finance", t: { tr: "Finans", en: "Finance", ru: "Финансы" },
-      b: { tr: "Faturalar, tahsilatlar ve ödemeler tek yerde.", en: "Invoices, collections and payments in one place.", ru: "Счета, поступления и платежи в одном месте." } },
-    { id: "accounting", t: { tr: "Muhasebe", en: "Accounting", ru: "Бухгалтерия" },
-      b: { tr: "Alacaklar, borçlar, nakit ve kâr-zarar — ve yapay zeka muhasebeci.", en: "Receivables, payables, cash and P&L — plus your AI accountant.", ru: "Дебиторка, кредиторка, деньги и P&L — и ИИ-бухгалтер." } },
-    { id: "users", t: { tr: "Ekip ve Hesaplar", en: "Team & Accounts", ru: "Команда и аккаунты" },
-      b: { tr: "Çalışan hesaplarını, rolleri ve erişim yetkilerini yönet.", en: "Manage employee accounts, roles and their access.", ru: "Управляйте аккаунтами сотрудников, ролями и доступом." } }
+    { id: "mywork", t: { tr: "İşlerim", en: "My Work", ru: "Мои задачи", ar: "مهامي" },
+      b: { tr: "Her gün buradan başla — görevlerin, sana devredilen işler ve acil olan her şey.", en: "Start here every day — your tasks, handoffs and anything urgent.", ru: "Начинайте отсюда каждый день — задачи, передачи и всё срочное.", ar: "ابدأ من هنا يومياً — مهامك، التسليمات والمسائل العاجلة." } },
+    { id: "dashboard", t: { tr: "Panel", en: "Dashboard", ru: "Панель", ar: "لوحة التحكم" },
+      b: { tr: "İşletmenin canlı özeti: sevkiyatlar, siparişler ve nakit bir bakışta.", en: "A live snapshot of the business: shipments, orders and cash at a glance.", ru: "Живой обзор бизнеса: отгрузки, заказы и деньги.", ar: "نظرة عامة على العمليات والشحنات والطلبات والنقدية." } },
+    { id: "quotes", t: { tr: "Teklifler", en: "Quotations", ru: "Предложения", ar: "عروض الأسعار" },
+      b: { tr: "Fiyat tekliflerini hazırla ve gönder; kabul edilince otomatik siparişe dönüşür.", en: "Build and send price offers; accepted ones turn into orders automatically.", ru: "Создавайте предложения; принятые автоматически становятся заказами.", ar: "قم بإعداد وإرسال عروض الأسعار؛ العروض المقبولة تتحول لطلبات تلقائياً." } },
+    { id: "orders", t: { tr: "Siparişler", en: "Orders", ru: "Заказы", ar: "الطلبات" },
+      b: { tr: "Onaylanan satışlar burada — sevkiyat ve fatura buradan başlar.", en: "Confirmed sales live here — shipments and invoices start from here.", ru: "Подтверждённые продажи здесь — отсюда начинаются отгрузки и счета.", ar: "المبيعات المعتمدة هنا — الشحنات والفواتير تبدأ من هنا." } },
+    { id: "clients", t: { tr: "Müşteriler", en: "Clients", ru: "Клиенты", ar: "العملاء" },
+      b: { tr: "Müşteri hesapları, iletişim bilgileri ve ödeme vadeleri.", en: "Customer accounts, contacts and payment terms.", ru: "Клиенты, контакты и условия оплаты.", ar: "حسابات العملاء، جهات الاتصال وشروط الدفع." } },
+    { id: "shipments", t: { tr: "Sevkiyatlar", en: "Shipments", ru: "Отгрузки", ar: "الشحنات" },
+      b: { tr: "Yük hareketlerini takip et: demiryolu, karayolu ve deniz.", en: "Track freight in motion: rail, road and sea.", ru: "Отслеживайте грузы в пути: ж/д, авто и море.", ar: "تتبع حركة الشحنات: السكة الحديدية، البري والبحري." } },
+    { id: "inventory", t: { tr: "Envanter", en: "Inventory", ru: "Склад", ar: "المخزون" },
+      b: { tr: "Stok seviyeleri ve ürünler; kritik stok burada uyarır.", en: "Stock levels and products; low stock is flagged here.", ru: "Остатки и товары; низкий запас отмечается здесь.", ar: "مستويات المخزون والمنتجات؛ تنبيهات المخزون المنخفض تظهر هنا." } },
+    { id: "purchasing", t: { tr: "Satın Alma", en: "Purchasing", ru: "Закупки", ar: "المشتريات" },
+      b: { tr: "Tedarikçi siparişlerini ve faturalarını yönet.", en: "Manage purchase orders and supplier bills.", ru: "Управляйте заказами поставщикам и счетами.", ar: "إدارة أوامر الشراء وفواتير الموردين." } },
+    { id: "suppliers", t: { tr: "Tedarikçiler", en: "Suppliers", ru: "Поставщики", ar: "الموردون" },
+      b: { tr: "Tedarik ortakların ve performansları.", en: "Your procurement partners and their performance.", ru: "Ваши поставщики и их показатели.", ar: "شركاء التوريد وأداؤهم." } },
+    { id: "finance", t: { tr: "Finans", en: "Finance", ru: "Финансы", ar: "المالية" },
+      b: { tr: "Faturalar, tahsilatlar ve ödemeler tek yerde.", en: "Invoices, collections and payments in one place.", ru: "Счета, поступления и платежи в одном месте.", ar: "الفواتير والمحصّلات والمدفوعات في مكان واحد." } },
+    { id: "accounting", t: { tr: "Muhasebe", en: "Accounting", ru: "Бухгалтерия", ar: "المحاسبة" },
+      b: { tr: "Alacaklar, borçlar, nakit ve kâr-zarar — ve yapay zeka muhasebeci.", en: "Receivables, payables, cash and P&L — plus your AI accountant.", ru: "Дебиторка, кредиторка, деньги и P&L — и ИИ-бухгалтер.", ar: "الذمم المدينة والدائنة والنقد والأرباح والخسائر ومحاسب الذكاء الاصطناعي." } },
+    { id: "users", t: { tr: "Ekip ve Hesaplar", en: "Team & Accounts", ru: "Команда и аккаунты", ar: "الفريق والحسابات" },
+      b: { tr: "Çalışan hesaplarını, rolleri ve erişim yetkilerini yönet.", en: "Manage employee accounts, roles and their access.", ru: "Управляйте аккаунтами сотрудников, ролями и доступом.", ar: "إدارة حسابات الموظفين والأدوار وصلاحيات الوصول." } }
   ];
 
   function intro(role, first) {
     if (role === "Owner") return { tr: "Selam " + first + " 👑 — sen Kurucusun. Her şeyi görür ve yönetirsin: satış, operasyon, finans ve tüm ekip. Hadi her yeri gezelim.",
       en: "Hey " + first + " 👑 — you're the Owner. You can see and control everything: sales, operations, finance and your whole team. Let me show you around.",
-      ru: "Привет, " + first + " 👑 — вы Владелец. Вы видите и контролируете всё: продажи, операции, финансы и команду. Давайте всё покажу." };
+      ru: "Привет, " + first + " 👑 — вы Владелец. Вы видите и контролируете всё: продажи, операции, финансы и команду. Давайте всё покажу.",
+      ar: "مرحباً " + first + " 👑 — أنت المالك. يمكنك رؤية وإدارة كل شيء: المبيعات، العمليات، المالية والفريق بالكامل. دعني آخذك في جولة." };
     if (role === "Operations Manager") return { tr: "Merhaba " + first + " — işleri sen yürütürsün. Teklifler, siparişler, sevkiyatlar, stok ve satın alma senin alanın.",
       en: "Hi " + first + " — you keep things moving. Quotes, orders, shipments, stock and purchasing are your world.",
-      ru: "Привет, " + first + " — вы держите всё в движении: заявки, заказы, отгрузки, склад и закупки." };
+      ru: "Привет, " + first + " — вы держите всё в движении: заявки, заказы, отгрузки, склад и закупки.",
+      ar: "مرحباً " + first + " — أنت تُبقي العمليات مستمرة: عروض الأسعار، الطلبات، الشحنات، المخزون والمشتريات." };
     if (role === "Finance Officer") return { tr: "Merhaba " + first + " — para tarafı sende. Faturalar, tahsilatlar ve müşteri hesapları.",
       en: "Hi " + first + " — you own the money side: invoices, collections and client accounts.",
-      ru: "Привет, " + first + " — за вами финансы: счета, поступления и клиенты." };
+      ru: "Привет, " + first + " — за вами финансы: счета, поступления и клиенты.",
+      ar: "مرحباً " + first + " — الجانب المالي مسؤوليتك: الفواتير، التحصيلات وحسابات العملاء." };
     return { tr: "Merhaba " + first + " — satışı sen büyütürsün: teklifler, siparişler, müşteriler ve kurduğun sevkiyatlar.",
       en: "Hi " + first + " — you drive sales: quotes, orders, clients and the shipments you set up.",
-      ru: "Привет, " + first + " — вы развиваете продажи: предложения, заказы, клиенты и отгрузки." };
+      ru: "Привет, " + first + " — вы развиваете продажи: предложения, заказы, клиенты и отгрузки.",
+      ar: "مرحباً " + first + " — أنت تقود المبيعات: عروض الأسعار، الطلبات، العملاء والشحنات." };
   }
 
   function steps() {
@@ -63,18 +67,18 @@ window.Tour = (function () {
     const first = (u.name || "").split(" ")[0] || "";
     const allow = (id) => id === "mywork" || (window.Auth && Auth.can(id, "view"));
 
-    const out = [{ sel: null, t: L({ tr: "Hoş geldin!", en: "Welcome!", ru: "Добро пожаловать!" }), b: L(intro(u.role, first)) }];
+    const out = [{ sel: null, t: L({ tr: "Hoş geldin!", en: "Welcome!", ru: "Добро пожаловать!", ar: "أهلاً بك!" }), b: L(intro(u.role, first)) }];
 
     PAGES.filter((p) => allow(p.id)).forEach((p) =>
       out.push({ sel: '.sb-link[data-nav="' + p.id + '"]', nav: "#/" + p.id, t: L(p.t), b: L(p.b) }));
 
-    out.push({ sel: "#notifWrap", t: L({ tr: "Bildirimler", en: "Notifications", ru: "Уведомления" }),
-      b: L({ tr: "Sana iş atandığında veya senden bahsedildiğinde burada belirir.", en: "When work is assigned to you or someone mentions you, it shows up here.", ru: "Когда вам назначают работу или упоминают вас, это появится здесь." }) });
+    out.push({ sel: "#notifWrap", t: L({ tr: "Bildirimler", en: "Notifications", ru: "Уведомления", ar: "الإشعارات" }),
+      b: L({ tr: "Sana iş atandığında veya senden bahsedildiğinde burada belirir.", en: "When work is assigned to you or someone mentions you, it shows up here.", ru: "Когда вам назначают работу или упоминают вас, это появится здесь.", ar: "عند إسناد مهمة لك أو الإشارة إليك، ستظهر هنا." }) });
 
     const finishB = u.role === "Owner"
-      ? { tr: "Hepsi bu! Her şey senin kontrolünde. Dili sağ üstten değiştir, bu turu ? düğmesiyle tekrar izle.", en: "That's it — it's all under your control. Switch language top-right, replay this tour anytime with the ? button.", ru: "Вот и всё — всё под вашим контролем. Язык справа вверху, повтор тура — кнопкой ?." }
-      : { tr: "Hazırsın! Güne “İşlerim”den başla. Bu turu istediğin an ? düğmesiyle tekrar izleyebilirsin.", en: "You're ready! Start your day from My Work. Replay this tour anytime with the ? button.", ru: "Готово! Начинайте день с «Моих задач». Повтор тура — кнопкой ?." };
-    out.push({ sel: null, nav: "#/mywork", t: L({ tr: "Hazırsın 🎉", en: "You're all set 🎉", ru: "Готово 🎉" }), b: L(finishB), finish: true });
+      ? { tr: "Hepsi bu! Her şey senin kontrolünde. Dili sağ üstten değiştir, bu turu ? düğmesiyle tekrar izle.", en: "That's it — it's all under your control. Switch language top-right, replay this tour anytime with the ? button.", ru: "Вот и всё — всё под вашим контролем. Язык справа вверху, повтор тура — кнопкой ?.", ar: "هذا كل شيء — كل الأمور تحت سيطرتك. اختر اللغة من أعلى اليمين ويمكنك إعادة الجولة بأي وقت عبر زر ?." }
+      : { tr: "Hazırsın! Güne “İşlerim”den başla. Bu turu istediğin an ? düğmesiyle tekrar izleyebilirsin.", en: "You're ready! Start your day from My Work. Replay this tour anytime with the ? button.", ru: "Готово! Начинайте день с «Моих задач». Повтор тура — кнопкой ?.", ar: "أنت جاهز! ابدأ يومك من صفحة مهامي. يمكنك إعادة الجولة بالضغط على زر ?." };
+    out.push({ sel: null, nav: "#/mywork", t: L({ tr: "Hazırsın 🎉", en: "You're all set 🎉", ru: "Готово 🎉", ar: "أنت جاهز تماماً 🎉" }), b: L(finishB), finish: true });
     return out;
   }
 

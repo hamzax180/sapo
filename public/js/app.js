@@ -128,8 +128,7 @@ window.App = (function () {
     const u = Auth.current() || {};
     const lang = UI.getLang();
     
-    let activeLangName = "Türkçe";
-    if (lang === "en") activeLangName = "English";
+    let activeLangName = lang === "ar" ? "العربية" : (lang === "tr" ? "Türkçe" : "English");
 
     const langDropdownHTML = 
       '<div class="lang-dropdown" id="langDropdown">' +
@@ -140,6 +139,7 @@ window.App = (function () {
         '<ul class="lang-list" id="langList">' +
           '<li data-value="en" class="lang-item' + (lang === "en" ? " active" : "") + '">English</li>' +
           '<li data-value="tr" class="lang-item' + (lang === "tr" ? " active" : "") + '">Türkçe</li>' +
+          '<li data-value="ar" class="lang-item' + (lang === "ar" ? " active" : "") + '">العربية</li>' +
         '</ul>' +
       '</div>';
       

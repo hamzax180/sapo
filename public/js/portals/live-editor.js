@@ -150,6 +150,9 @@
       markSelectedOnCanvas();
     });
     document.addEventListener("click", onCanvasClick, true);
+
+    // Brief intro hint — auto-dismisses
+    setTimeout(() => toast("✨ Click any section to edit it — or hover for more options."), 800);
   }
 
   /* ---- push draftConfig into the live PortalState and re-render the canvas ---- */
@@ -184,25 +187,45 @@
     }
   }
 
-  /* Every block (not just Freeform Canvas elements) gets a small drag
-     handle that appears on hover, so reordering never requires opening
-     the side panel's layer list — grab the block where you see it. */
+  /* Every block gets a drag handle + a small context action bar that
+     appears on hover, so users can Edit / Duplicate / Delete directly
+     on the canvas without needing to open the layers side-panel. */
   function enableBlockDragHandles() {
     const blocks = currentPage().blocks || [];
     document.querySelectorAll("#portalMain > [data-block-id]").forEach((section) => {
       if (getComputedStyle(section).position === "static") section.style.position = "relative";
-      const idx = blocks.findIndex((b) => b.id === section.getAttribute("data-block-id"));
+      const blockId = section.getAttribute("data-block-id");
+      const idx = blocks.findIndex((b) => b.id === blockId);
+
+      // ── Drag handle ───────────────────────────────────────────────
       let handle = section.querySelector(":scope > .le-block-drag-handle");
       if (!handle) {
         handle = document.createElement("div");
         handle.className = "le-block-drag-handle";
         handle.innerHTML = "⠿";
-        handle.title = "Drag to move this block";
+        handle.title = "Drag to reorder";
         handle.draggable = true;
         handle.setAttribute("data-role", "canvas-block-row");
         section.insertBefore(handle, section.firstChild);
       }
       handle.dataset.index = idx;
+
+      // ── Context action bar ────────────────────────────────────────
+      let ctx = section.querySelector(":scope > .le-block-ctx");
+      if (!ctx) {
+        ctx = document.createElement("div");
+        ctx.className = "le-block-ctx";
+        ctx.setAttribute("data-le-no-eject", "1");
+        section.insertBefore(ctx, section.firstChild);
+      }
+      ctx.innerHTML =
+        '<button type="button" data-le-action="ctx-edit-block" data-block-id="' + blockId + '" title="Edit">✎ Edit</button>' +
+        '<span class="ctx-sep"></span>' +
+        '<button type="button" data-le-action="ctx-move-block-up" data-index="' + idx + '" title="Move up">↑</button>' +
+        '<button type="button" data-le-action="ctx-move-block-down" data-index="' + idx + '" title="Move down">↓</button>' +
+        '<span class="ctx-sep"></span>' +
+        '<button type="button" data-le-action="duplicate-block" data-index="' + idx + '" title="Duplicate">⧉</button>' +
+        '<button type="button" class="danger" data-le-action="delete-block" data-index="' + idx + '" title="Delete">✕</button>';
     });
   }
 
@@ -465,12 +488,34 @@
   }
 
   function onCanvasClick(e) {
-    const panel = document.getElementById("lePanel");
-    if (panel && panel.contains(e.target)) return; // let the editor panel behave normally
-    const overlay = document.querySelector(".le-modal-overlay");
-    if (overlay && overlay.contains(e.target)) return;
+    // Block all interaction when clicking any editor panel
+    if (isInAnyPanel(e.target)) return;
     if (e.target.closest("#fcHandles")) return; // handle drag/resize manages its own events
     if (e.target.closest(".de-toolbar")) return; // floating edit toolbar owns its clicks
+
+    // ── Canvas on-block context actions (Edit / Move / Duplicate / Delete) ──
+    const ctxBtn = e.target.closest("[data-le-action]");
+    if (ctxBtn && e.target.closest(".le-block-ctx")) {
+      e.preventDefault();
+      e.stopPropagation();
+      const action = ctxBtn.dataset.leAction;
+      if (action === "ctx-edit-block") {
+        selectBlock(ctxBtn.dataset.blockId);
+        return;
+      }
+      if (action === "ctx-move-block-up" || action === "ctx-move-block-down") {
+        const i = Number(ctxBtn.dataset.index);
+        const blocks = currentPage().blocks;
+        const j = action === "ctx-move-block-up" ? i - 1 : i + 1;
+        if (j < 0 || j >= blocks.length) return;
+        const tmp = blocks[i]; blocks[i] = blocks[j]; blocks[j] = tmp;
+        renderPanel(); applyDraft();
+        return;
+      }
+      // duplicate-block / delete-block: delegate to the shared handler
+      onPanelClick(e);
+      return;
+    }
 
     // Typing into a field: let clicks inside it place the caret normally.
     if (activeEdit && activeEdit.el.contains(e.target)) return;
@@ -497,14 +542,17 @@
       const elWrap = e.target.closest(".fc-el-wrap");
       expandedBlockId = blockId;
       canvasSelection = elWrap ? { blockId, elementId: elWrap.dataset.elId } : null;
-      activeTab = "blocks";
       renderPanel();
       markSelectedOnCanvas();
       return;
     }
 
+    // No block clicked and no canvas section — clicking empty canvas closes prop panel
     const blockEl = e.target.closest("[data-block-id]");
-    if (!blockEl) return;
+    if (!blockEl) {
+      if (expandedBlockId) { expandedBlockId = null; canvasSelection = null; renderPanel(); markSelectedOnCanvas(); }
+      return;
+    }
     // Allow real navigation (nav links, page-nav) to work normally — only
     // intercept clicks that land on/inside a block's own content.
     if (e.target.closest("a[href^='#/']")) return;
@@ -517,7 +565,13 @@
   function selectBlock(id) {
     expandedBlockId = id;
     canvasSelection = null;
-    activeTab = "blocks";
+    // Close sub-panels so prop panel has full attention
+    ["leBlocksPanel","leDesignPanel","lePagesPanel"].forEach((pid) => {
+      const el = document.getElementById(pid); if (el) el.classList.remove("visible");
+    });
+    ["leCmdBlocks","leCmdDesign","leCmdPages"].forEach((pid) => {
+      const el = document.getElementById(pid); if (el) el.classList.remove("active");
+    });
     renderPanel();
     markSelectedOnCanvas();
   }
@@ -531,34 +585,83 @@
   }
 
   /* ================================================================
-     PANEL SHELL
+     PANEL SHELL — futuristic centered floating command bar
      ================================================================ */
   function mountPanel() {
+    // ── Bottom command bar (pill) ──────────────────────────────────
     const panel = document.createElement("div");
     panel.className = "le-panel";
     panel.id = "lePanel";
     panel.innerHTML =
-      '<div class="le-header"><span class="le-logo">✏️ Site Editor</span>' +
-        '<div class="le-history">' +
-          '<button id="leUndoBtn" class="le-hist-btn" data-le-action="undo" title="Undo (Ctrl+Z)">↶</button>' +
-          '<button id="leRedoBtn" class="le-hist-btn" data-le-action="redo" title="Redo (Ctrl+Shift+Z)">↷</button>' +
-        "</div>" +
-        '<button class="le-close-btn" data-le-action="toggle-collapse">✕</button></div>' +
-      '<div class="le-hint">Click any text or photo on the page to edit it.</div>' +
-      '<div class="le-tabs">' +
-        '<button type="button" class="le-tab-btn" data-le-action="switch-tab" data-tab="blocks">Blocks</button>' +
-        '<button type="button" class="le-tab-btn" data-le-action="switch-tab" data-tab="design">Design</button>' +
-        '<button type="button" class="le-tab-btn" data-le-action="switch-tab" data-tab="pages">Pages</button>' +
-      "</div>" +
-      '<div class="le-content" id="leContent"></div>' +
-      '<div class="le-footer"><button class="le-btn-disc" data-le-action="discard">Discard</button><button class="le-btn-pub" data-le-action="publish">Publish Changes</button></div>';
+      '<button class="le-cmd-btn" id="leUndoBtn" data-le-action="undo" title="Undo (Ctrl+Z)"><span class="le-cmd-icon">↶</span></button>' +
+      '<button class="le-cmd-btn" id="leRedoBtn" data-le-action="redo" title="Redo (Ctrl+Shift+Z)"><span class="le-cmd-icon">↷</span></button>' +
+      '<div class="le-panel-sep"></div>' +
+      '<button class="le-cmd-btn" id="leCmdBlocks" data-le-action="toggle-blocks-panel"><span class="le-cmd-icon">◧</span> Layers</button>' +
+      '<button class="le-cmd-btn" id="leCmdDesign" data-le-action="toggle-design-panel"><span class="le-cmd-icon">🎨</span> Design</button>' +
+      '<button class="le-cmd-btn" id="leCmdPages" data-le-action="toggle-pages-panel"><span class="le-cmd-icon">📄</span> Pages</button>' +
+      '<div class="le-panel-sep"></div>' +
+      '<button class="le-cmd-add" data-le-action="open-add-block"><span class="le-cmd-icon">＋</span> Add Block</button>' +
+      '<div class="le-panel-sep"></div>' +
+      '<button class="le-cmd-disc" data-le-action="discard">Discard</button>' +
+      '<button class="le-cmd-pub" data-le-action="publish"><span class="le-cmd-icon">🚀</span> Publish</button>';
     document.body.appendChild(panel);
 
-    panel.addEventListener("click", onPanelClick);
-    panel.addEventListener("input", onFieldChange);
-    panel.addEventListener("change", onFieldChange);
-    // Attached to `document`, not just the panel — on-canvas block drag
-    // handles (enableBlockDragHandles) live in #portalMain, outside the panel.
+    // ── Floating property panel (click-to-edit block) ───────────────
+    const propPanel = document.createElement("div");
+    propPanel.className = "le-prop-panel";
+    propPanel.id = "lePropPanel";
+    propPanel.innerHTML =
+      '<div class="le-prop-header">' +
+        '<button class="le-prop-nav-btn" id="lePropPrev" data-le-action="prop-prev-block" title="Previous block">‹</button>' +
+        '<span class="le-prop-title" id="lePropTitle">Block Settings</span>' +
+        '<button class="le-prop-nav-btn" id="lePropNext" data-le-action="prop-next-block" title="Next block">›</button>' +
+        '<button class="le-prop-close" data-le-action="close-block-editor" title="Close">✕</button>' +
+      '</div>' +
+      '<div class="le-prop-body" id="lePropBody"></div>' +
+      '<div class="le-prop-footer" id="lePropFooter"></div>';
+    document.body.appendChild(propPanel);
+
+    // ── Floating layers panel ───────────────────────────────────────
+    const blocksPanel = document.createElement("div");
+    blocksPanel.className = "le-pages-panel";
+    blocksPanel.id = "leBlocksPanel";
+    blocksPanel.innerHTML =
+      '<div class="le-sub-header"><span class="le-sub-title">◧ Layers</span>' +
+        '<button class="le-sub-close" data-le-action="close-blocks-panel">✕</button>' +
+      '</div>' +
+      '<div class="le-sub-body" id="leBlocksPanelBody"></div>';
+    document.body.appendChild(blocksPanel);
+
+    // ── Floating design panel ───────────────────────────────────────
+    const designPanel = document.createElement("div");
+    designPanel.className = "le-design-panel";
+    designPanel.id = "leDesignPanel";
+    designPanel.innerHTML =
+      '<div class="le-sub-header"><span class="le-sub-title">🎨 Design &amp; Theme</span>' +
+        '<button class="le-sub-close" data-le-action="close-design-panel">✕</button>' +
+      '</div>' +
+      '<div class="le-sub-body" id="leDesignPanelBody"></div>';
+    document.body.appendChild(designPanel);
+
+    // ── Floating pages panel ────────────────────────────────────────
+    const pagesPanel = document.createElement("div");
+    pagesPanel.className = "le-pages-panel";
+    pagesPanel.id = "lePagesPanel";
+    pagesPanel.innerHTML =
+      '<div class="le-sub-header"><span class="le-sub-title">📄 Pages</span>' +
+        '<button class="le-sub-close" data-le-action="close-pages-panel">✕</button>' +
+      '</div>' +
+      '<div class="le-sub-body" id="lePagesPanelBody"></div>';
+    document.body.appendChild(pagesPanel);
+
+    // ── Event delegation across all panels ─────────────────────────
+    [panel, propPanel, blocksPanel, designPanel, pagesPanel].forEach((el) => {
+      el.addEventListener("click", onPanelClick);
+      el.addEventListener("input", onFieldChange);
+      el.addEventListener("change", onFieldChange);
+    });
+
+    // Attached to `document` — on-canvas block drag handles live in #portalMain
     document.addEventListener("dragstart", onDragStart);
     document.addEventListener("dragover", onDragOver);
     document.addEventListener("dragleave", onDragLeave);
@@ -568,32 +671,148 @@
     renderPanel();
   }
 
+  /* Returns true if any floating sub-panel contains the element */
+  function isInAnyPanel(el) {
+    const ids = ["lePanel", "lePropPanel", "leBlocksPanel", "leDesignPanel", "lePagesPanel"];
+    if (ids.some((id) => { const p = document.getElementById(id); return p && p.contains(el); })) return true;
+    // Also catch modals (class-based, not always id-based)
+    const modal = document.querySelector(".le-modal-overlay");
+    return !!(modal && modal.contains(el));
+  }
+
   function renderPanel() {
-    const content = document.getElementById("leContent");
-    if (!content) return;
-    document.querySelectorAll(".le-tab-btn").forEach((b) => b.classList.toggle("active", b.dataset.tab === activeTab));
-    if (activeTab === "design") content.innerHTML = renderDesignTab();
-    else if (activeTab === "pages") content.innerHTML = renderPagesTab();
-    else content.innerHTML = renderBlocksTab();
+    renderPropPanel();
+    // Only update visible sub-panels to avoid wasted re-renders
+    const blocksP = document.getElementById("leBlocksPanel");
+    const designP = document.getElementById("leDesignPanel");
+    const pagesP  = document.getElementById("lePagesPanel");
+    if (blocksP && blocksP.classList.contains("visible")) renderBlocksFloating();
+    if (designP && designP.classList.contains("visible")) renderDesignFloating();
+    if (pagesP  && pagesP.classList.contains("visible"))  renderPagesFloating();
+    updateHistoryButtons();
   }
 
   /* ================================================================
-     BLOCKS TAB — layer list + selected block's property form
+     FLOATING PANEL RENDERERS
      ================================================================ */
   function currentPage() { return draftConfig.pages[activePage] || draftConfig.pages.main; }
 
-  function renderBlocksTab() {
+  /* ── Layers / blocks floating panel ────────────────────────────── */
+  function renderBlocksFloating() {
+    const body = document.getElementById("leBlocksPanelBody");
+    if (!body) return;
     const page = currentPage();
     const blocks = page.blocks || [];
-    let html = '<div class="le-group">' +
-      '<span class="le-section-title">Sections — ' + esc(page.title || activePage) + "</span>" +
-      '<div class="le-layer-list">' +
-      (blocks.map((b, i) => renderLayerRow(b, i)).join("") || '<div class="le-muted-note">Nothing on this page yet — add a section below.</div>') +
-      "</div>" +
-      '<button type="button" class="le-btn-add-block" data-le-action="open-add-block">＋ Add Section</button>' +
-      "</div>";
-    if (expandedBlockId) html += renderBlockEditor(blocks);
-    return html;
+    body.innerHTML =
+      '<div class="le-group">' +
+        '<span class="le-section-title">Sections — ' + esc(page.title || activePage) + '</span>' +
+        '<div class="le-layer-list">' +
+          (blocks.map((b, i) => renderLayerRow(b, i)).join('') || '<div class="le-muted-note">Nothing on this page yet — add a section below.</div>') +
+        '</div>' +
+        '<button type="button" class="le-btn-add-block" data-le-action="open-add-block">＋ Add Section</button>' +
+      '</div>';
+  }
+
+  /* ── Design floating panel ──────────────────────────────────────── */
+  function renderDesignFloating() {
+    const body = document.getElementById("leDesignPanelBody");
+    if (!body) return;
+    body.innerHTML = renderDesignTab();
+  }
+
+  /* ── Pages floating panel ───────────────────────────────────────── */
+  function renderPagesFloating() {
+    const body = document.getElementById("lePagesPanelBody");
+    if (!body) return;
+    body.innerHTML = renderPagesTab();
+  }
+
+  /* ── Property panel (appears when a block is selected) ──────────── */
+  function renderPropPanel() {
+    const panel = document.getElementById("lePropPanel");
+    const titleEl = document.getElementById("lePropTitle");
+    const body = document.getElementById("lePropBody");
+    if (!panel || !body) return;
+
+    if (!expandedBlockId) {
+      panel.classList.remove("visible");
+      return;
+    }
+
+    const blocks = currentPage().blocks || [];
+    const idx = blocks.findIndex((b) => b.id === expandedBlockId);
+    if (idx === -1) { panel.classList.remove("visible"); return; }
+
+    const b = blocks[idx];
+    const meta = window.PortalBlocks[b.type];
+    if (!meta) { panel.classList.remove("visible"); return; }
+
+    // ── Category badge color ─────────────────────────────────────
+    const CATEGORY_COLORS = {
+      "Header": "#38bdf8", "Content": "#a78bfa", "Commerce": "#34d399",
+      "Forms": "#fb923c", "Social proof": "#f472b6", "Interactive": "#facc15",
+      "Footer": "#94a3b8", "Logistics": "#1aa6df", "Media": "#c084fc"
+    };
+    const catColor = CATEGORY_COLORS[meta.category] || "#64748b";
+
+    // ── Title: block type badge + position counter ──────────────
+    if (titleEl) {
+      titleEl.innerHTML =
+        '<span class="le-prop-title-badge" style="background:' + catColor + '22;color:' + catColor + ';border:1px solid ' + catColor + '44">' + esc(meta.label || b.type) + '</span>' +
+        '<span class="le-prop-pos">' + (idx + 1) + ' / ' + blocks.length + '</span>';
+    }
+
+    // ── Navigation buttons (← →) in header ─────────────────────
+    const prevBtn = document.getElementById("lePropPrev");
+    const nextBtn = document.getElementById("lePropNext");
+    if (prevBtn) prevBtn.disabled = idx === 0;
+    if (nextBtn) nextBtn.disabled = idx === blocks.length - 1;
+
+    // ── Body fields ─────────────────────────────────────────────
+    if (b.type === "canvas") {
+      body.innerHTML = renderCanvasBlockEditorBody(b, idx);
+    } else {
+      const basePath = "pages." + activePage + ".blocks." + idx + ".props";
+      const groups = meta.fieldGroups;
+      if (groups && groups.length) {
+        // ── Grouped, collapsible sections per block type ────────
+        const schemaMap = {};
+        (meta.schema || []).forEach(function (f) { schemaMap[f.key] = f; });
+        body.innerHTML = groups.map(function (g, gi) {
+          const groupFields = (g.keys || []).map(function (k) {
+            var f = schemaMap[k];
+            return f ? renderField(f, basePath + "." + f.key) : "";
+          }).join("");
+          if (!groupFields) return "";
+          return '<div class="le-prop-group' + (gi === 0 ? ' is-open' : '') + '" data-le-group-idx="' + gi + '">' +
+            '<button type="button" class="le-prop-group-header" data-le-action="toggle-group" data-group="' + gi + '">' +
+              '<span class="le-prop-group-icon">' + (g.icon || "⚙️") + '</span>' +
+              '<span class="le-prop-group-label">' + esc(g.label) + '</span>' +
+              '<span class="le-prop-group-chevron">›</span>' +
+            '</button>' +
+            '<div class="le-prop-group-body">' + groupFields + '</div>' +
+          '</div>';
+        }).join("");
+      } else {
+        body.innerHTML =
+          '<div class="le-group">' +
+            (meta.schema || []).map(function (f) { return renderField(f, basePath + "." + f.key); }).join('') +
+          '</div>';
+      }
+    }
+
+    // ── Footer quick actions ─────────────────────────────────────
+    const footer = document.getElementById("lePropFooter");
+    if (footer) {
+      footer.innerHTML =
+        '<button class="le-prop-foot-btn" data-le-action="ctx-move-block-up" data-index="' + idx + '" ' + (idx === 0 ? "disabled" : "") + ' title="Move up">↑ Move up</button>' +
+        '<button class="le-prop-foot-btn" data-le-action="ctx-move-block-down" data-index="' + idx + '" ' + (idx === blocks.length - 1 ? "disabled" : "") + ' title="Move down">↓ Move down</button>' +
+        '<div style="flex:1"></div>' +
+        '<button class="le-prop-foot-btn" data-le-action="duplicate-block" data-index="' + idx + '" title="Duplicate">⧉</button>' +
+        '<button class="le-prop-foot-btn danger" data-le-action="delete-block" data-index="' + idx + '" title="Delete">✕ Delete</button>';
+    }
+
+    panel.classList.add("visible");
   }
 
   function renderLayerRow(b, i) {
@@ -609,102 +828,139 @@
       "</div>";
   }
 
+  /* ── Kept for backward compat (used nowhere in new UI, but action handlers call it) ── */
   function renderBlockEditor(blocks) {
-    const idx = blocks.findIndex((b) => b.id === expandedBlockId);
-    if (idx === -1) return "";
-    const b = blocks[idx];
-    const meta = window.PortalBlocks[b.type];
-    if (!meta) return "";
-    if (b.type === "canvas") return renderCanvasBlockEditor(b, idx);
-    const basePath = "pages." + activePage + ".blocks." + idx + ".props";
-    return '<div class="le-group le-block-editor">' +
-      '<span class="le-section-title">Editing — ' + esc(meta.label) + "</span>" +
-      (meta.schema || []).map((f) => renderField(f, basePath + "." + f.key)).join("") +
-      '<button type="button" class="le-btn-disc" data-le-action="close-block-editor">Close</button>' +
-      "</div>";
+    return ""; // handled by renderPropPanel now
   }
 
   /* ================================================================
-     FREEFORM CANVAS BLOCK EDITOR — block-level settings + add-element
-     toolbar, plus the selected element's property form when one is
-     picked on-canvas. Position editing itself happens via drag/resize
-     handles (see mountCanvasHandles below), not this form — the X/Y/W/H
-     number fields here are a precise-entry fallback for the same values.
+     FREEFORM CANVAS BLOCK EDITOR BODY
      ================================================================ */
-  function renderCanvasBlockEditor(b, idx) {
+  function renderCanvasBlockEditorBody(b, idx) {
     const basePath = "pages." + activePage + ".blocks." + idx + ".props";
     const elements = b.props.elements || [];
-    let html = '<div class="le-group le-block-editor">' +
-      '<span class="le-section-title">Freeform Section</span>' +
+    let html = '<div class="le-group">' +
+      '<span class="le-section-title">Canvas View</span>' +
       '<div class="le-field"><label>Viewing as</label><div class="le-bp-toggle">' +
         '<button type="button" class="le-bp-btn' + (activeBreakpoint === "desktop" ? " active" : "") + '" data-le-action="set-breakpoint" data-bp="desktop">🖥 Desktop</button>' +
         '<button type="button" class="le-bp-btn' + (activeBreakpoint === "mobile" ? " active" : "") + '" data-le-action="set-breakpoint" data-bp="mobile">📱 Mobile</button>' +
-      "</div></div>" +
+      '</div></div>' +
       renderField({ label: "Height", type: "number" }, basePath + ".minHeight") +
       renderField({ label: "Background color", type: "text" }, basePath + ".background.color") +
       fieldWrap("Background image", imageFieldHtml(basePath + ".background.image", (b.props.background || {}).image)) +
-      '<div class="le-field"><label>Add to this section</label><div class="le-add-el-row">' +
+    '</div>' +
+    '<div class="le-group">' +
+      '<span class="le-section-title">Add to Canvas</span>' +
+      '<div class="le-add-el-row">' +
         '<button type="button" data-le-action="add-element" data-kind="text">＋ Text</button>' +
         '<button type="button" data-le-action="add-element" data-kind="image">＋ Image</button>' +
         '<button type="button" data-le-action="add-element" data-kind="button">＋ Button</button>' +
         '<button type="button" data-le-action="add-element" data-kind="box">＋ Box</button>' +
-      "</div></div>";
+      '</div>' +
+    '</div>';
 
     if (canvasSelection && canvasSelection.blockId === b.id) {
       const elIdx = elements.findIndex((e2) => e2.id === canvasSelection.elementId);
       if (elIdx > -1) html += renderCanvasElementEditor(idx, elements[elIdx], elIdx, elements);
     } else {
-      html += '<div class="le-muted-note">Click anything on the page to edit or move it.</div>';
+      html += '<div class="le-muted-note" style="padding:4px 0">Click any element on the page to edit or move it.</div>';
     }
 
-    html += '<button type="button" class="le-btn-disc" data-le-action="close-block-editor">Close</button></div>';
     return html;
   }
 
   function renderCanvasElementEditor(blockIdx, el, elIdx, elements) {
-    // Editing a never-touched element in Mobile mode needs a concrete rect
-    // to show/edit — promote it (matching the same auto-stack fallback a
-    // real mobile visitor would already see) the first time it's viewed.
     if (activeBreakpoint === "mobile") promoteMobileRect(el, elements, elIdx);
 
     const basePath = "pages." + activePage + ".blocks." + blockIdx + ".props.elements." + elIdx;
     const posPath = basePath + "." + activeBreakpoint;
-    let fields = "";
+
+    // ── Kind-specific icon, label, and grouped fields ───────────
+    const KIND_META = {
+      text:   { icon: "✏️", label: "Text Element",   color: "#a78bfa" },
+      image:  { icon: "🖼", label: "Image Element",  color: "#38bdf8" },
+      button: { icon: "🔗", label: "Button Element", color: "#34d399" },
+      box:    { icon: "⬜", label: "Box Element",    color: "#fb923c" },
+      widget: { icon: "⚡", label: "Live Form",      color: "#facc15" }
+    };
+    const km = KIND_META[el.kind] || { icon: "⚙️", label: el.kind, color: "#64748b" };
+
+    var contentFields = "";
+    var styleFields = "";
+
     if (el.kind === "text") {
-      fields = renderField({ label: "Text", type: "textarea" }, basePath + ".content.text") +
-        renderField({ label: "Text Color", type: "color" }, basePath + ".content.color");
+      contentFields = renderField({ label: "Text", type: "textarea" }, basePath + ".content.text");
+      styleFields = renderField({ label: "Text Color", type: "color" }, basePath + ".content.color");
     } else if (el.kind === "image") {
-      fields = fieldWrap("Image", imageFieldHtml(basePath + ".content.src", el.content.src)) +
+      contentFields = fieldWrap("Image", imageFieldHtml(basePath + ".content.src", el.content.src)) +
         renderField({ label: "Alt text", type: "text" }, basePath + ".content.alt");
     } else if (el.kind === "button") {
-      fields = renderField({ label: "Label", type: "text" }, basePath + ".content.label") +
-        renderField({ label: "Background Color", type: "color" }, basePath + ".content.bgColor") +
-        renderField({ label: "Text Color", type: "color" }, basePath + ".content.textColor") +
-        renderField({ label: "Action", type: "action-select" }, basePath + ".content.action") +
+      contentFields = renderField({ label: "Label", type: "text" }, basePath + ".content.label");
+      styleFields = renderField({ label: "Background Color", type: "color" }, basePath + ".content.bgColor") +
+        renderField({ label: "Text Color", type: "color" }, basePath + ".content.textColor");
+      contentFields += renderField({ label: "Action", type: "action-select" }, basePath + ".content.action") +
         renderField({ label: "Action target", type: "action-target" }, basePath + ".content.target");
     } else if (el.kind === "widget") {
-      fields = '<div class="le-muted-note">This is a live, working form (its fields, submit button, and any live results all came along together). Drag or resize it here — to change what it says or how it works, use it directly on the page.</div>';
+      contentFields = '<div class="le-muted-note">This is a live form widget. Drag or resize it — to edit its content, interact with it directly on the page.</div>';
     } else {
-      fields = renderField({ label: "Background Color", type: "color" }, basePath + ".content.color") +
+      styleFields = renderField({ label: "Background Color", type: "color" }, basePath + ".content.color") +
         fieldWrap("Background image", imageFieldHtml(basePath + ".content.image", el.content.image));
     }
 
-    const kindLabel = el.kind === "widget" ? "Live Form" : el.kind;
-    return '<div class="le-group le-canvas-el-editor">' +
-      '<span class="le-section-title">Element — ' + esc(kindLabel) + " (" + activeBreakpoint + ')</span>' +
-      fields +
-      '<div class="le-pos-row">' +
-        renderField({ label: "X", type: "number" }, posPath + ".x") +
-        renderField({ label: "Y", type: "number" }, posPath + ".y") +
-        renderField({ label: "W", type: "number" }, posPath + ".w") +
-        renderField({ label: "H", type: "number" }, posPath + ".h") +
-      "</div>" +
-      '<div class="le-flex-row">' +
-        '<button type="button" data-le-action="element-front" data-path="' + basePath + '">Bring to front</button>' +
-        '<button type="button" data-le-action="element-back" data-path="' + basePath + '">Send to back</button>' +
-        '<button type="button" data-le-action="duplicate-element" data-path="' + basePath + '">Duplicate</button>' +
-        '<button type="button" data-le-action="delete-element" data-path="' + basePath + '">Delete</button>' +
-      "</div></div>";
+    // Build collapsible groups for canvas elements
+    var groups = '';
+
+    // Content group
+    if (contentFields) {
+      groups += '<div class="le-prop-group is-open">' +
+        '<button type="button" class="le-prop-group-header" data-le-action="toggle-group" data-group="ce-content">' +
+          '<span class="le-prop-group-icon">' + km.icon + '</span>' +
+          '<span class="le-prop-group-label">Content</span>' +
+          '<span class="le-prop-group-chevron">›</span>' +
+        '</button>' +
+        '<div class="le-prop-group-body">' + contentFields + '</div>' +
+      '</div>';
+    }
+
+    // Style group
+    if (styleFields) {
+      groups += '<div class="le-prop-group is-open">' +
+        '<button type="button" class="le-prop-group-header" data-le-action="toggle-group" data-group="ce-style">' +
+          '<span class="le-prop-group-icon">🎨</span>' +
+          '<span class="le-prop-group-label">Style</span>' +
+          '<span class="le-prop-group-chevron">›</span>' +
+        '</button>' +
+        '<div class="le-prop-group-body">' + styleFields + '</div>' +
+      '</div>';
+    }
+
+    // Position group
+    groups += '<div class="le-prop-group">' +
+      '<button type="button" class="le-prop-group-header" data-le-action="toggle-group" data-group="ce-pos">' +
+        '<span class="le-prop-group-icon">📐</span>' +
+        '<span class="le-prop-group-label">Position & Size (' + activeBreakpoint + ')</span>' +
+        '<span class="le-prop-group-chevron">›</span>' +
+      '</button>' +
+      '<div class="le-prop-group-body">' +
+        '<div class="le-pos-row">' +
+          renderField({ label: "X", type: "number" }, posPath + ".x") +
+          renderField({ label: "Y", type: "number" }, posPath + ".y") +
+          renderField({ label: "W", type: "number" }, posPath + ".w") +
+          renderField({ label: "H", type: "number" }, posPath + ".h") +
+        '</div>' +
+        '<div class="le-flex-row">' +
+          '<button type="button" data-le-action="element-front" data-path="' + basePath + '">Front</button>' +
+          '<button type="button" data-le-action="element-back" data-path="' + basePath + '">Back</button>' +
+          '<button type="button" data-le-action="duplicate-element" data-path="' + basePath + '">Duplicate</button>' +
+          '<button type="button" data-le-action="delete-element" data-path="' + basePath + '">Delete</button>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+
+    return '<div class="le-canvas-el-header" style="border-left:3px solid ' + km.color + '">' +
+      '<span class="le-prop-group-icon">' + km.icon + '</span>' +
+      '<span>' + esc(km.label) + '</span>' +
+    '</div>' + groups;
   }
 
   /* ================================================================
@@ -1326,12 +1582,98 @@
     if (!t) return;
     const action = t.dataset.leAction;
 
-    if (action === "toggle-collapse") { document.getElementById("lePanel").classList.toggle("collapsed"); document.body.classList.toggle("le-active"); return; }
     if (action === "undo") { undo(); return; }
     if (action === "redo") { redo(); return; }
-    if (action === "switch-tab") { activeTab = t.dataset.tab; renderPanel(); return; }
+
+    // ── Collapsible property group toggle ───────────────────────────
+    if (action === "toggle-group") {
+      var group = t.closest(".le-prop-group");
+      if (group) group.classList.toggle("is-open");
+      return;
+    }
+
+    // ── Floating panel toggles ─────────────────────────────────────
+    if (action === "toggle-blocks-panel") {
+      const p = document.getElementById("leBlocksPanel");
+      const btn = document.getElementById("leCmdBlocks");
+      const isOpen = p && p.classList.contains("visible");
+      // Close all sub-panels first
+      ["leBlocksPanel","leDesignPanel","lePagesPanel"].forEach((id) => {
+        const el = document.getElementById(id); if (el) el.classList.remove("visible");
+      });
+      ["leCmdBlocks","leCmdDesign","leCmdPages"].forEach((id) => {
+        const el = document.getElementById(id); if (el) el.classList.remove("active");
+      });
+      if (!isOpen && p) { renderBlocksFloating(); p.classList.add("visible"); if (btn) btn.classList.add("active"); }
+      return;
+    }
+    if (action === "toggle-design-panel") {
+      const p = document.getElementById("leDesignPanel");
+      const btn = document.getElementById("leCmdDesign");
+      const isOpen = p && p.classList.contains("visible");
+      ["leBlocksPanel","leDesignPanel","lePagesPanel"].forEach((id) => {
+        const el = document.getElementById(id); if (el) el.classList.remove("visible");
+      });
+      ["leCmdBlocks","leCmdDesign","leCmdPages"].forEach((id) => {
+        const el = document.getElementById(id); if (el) el.classList.remove("active");
+      });
+      if (!isOpen && p) { renderDesignFloating(); p.classList.add("visible"); if (btn) btn.classList.add("active"); }
+      return;
+    }
+    if (action === "toggle-pages-panel") {
+      const p = document.getElementById("lePagesPanel");
+      const btn = document.getElementById("leCmdPages");
+      const isOpen = p && p.classList.contains("visible");
+      ["leBlocksPanel","leDesignPanel","lePagesPanel"].forEach((id) => {
+        const el = document.getElementById(id); if (el) el.classList.remove("visible");
+      });
+      ["leCmdBlocks","leCmdDesign","leCmdPages"].forEach((id) => {
+        const el = document.getElementById(id); if (el) el.classList.remove("active");
+      });
+      if (!isOpen && p) { renderPagesFloating(); p.classList.add("visible"); if (btn) btn.classList.add("active"); }
+      return;
+    }
+    if (action === "close-blocks-panel") {
+      const p = document.getElementById("leBlocksPanel"); if (p) p.classList.remove("visible");
+      const b = document.getElementById("leCmdBlocks"); if (b) b.classList.remove("active");
+      return;
+    }
+    if (action === "close-design-panel") {
+      const p = document.getElementById("leDesignPanel"); if (p) p.classList.remove("visible");
+      const b = document.getElementById("leCmdDesign"); if (b) b.classList.remove("active");
+      return;
+    }
+    if (action === "close-pages-panel") {
+      const p = document.getElementById("lePagesPanel"); if (p) p.classList.remove("visible");
+      const b = document.getElementById("leCmdPages"); if (b) b.classList.remove("active");
+      return;
+    }
+
     if (action === "select-block") { selectBlock(t.dataset.blockId); return; }
     if (action === "close-block-editor") { expandedBlockId = null; canvasSelection = null; renderPanel(); markSelectedOnCanvas(); return; }
+
+    // ── Prop panel prev / next block navigation ────────────────────
+    if (action === "prop-prev-block" || action === "prop-next-block") {
+      const blocks = currentPage().blocks || [];
+      const idx = blocks.findIndex((b) => b.id === expandedBlockId);
+      const next = action === "prop-next-block" ? idx + 1 : idx - 1;
+      if (next >= 0 && next < blocks.length) selectBlock(blocks[next].id);
+      return;
+    }
+
+    // ── On-canvas / prop panel footer block move ───────────────────
+    if (action === "ctx-move-block-up" || action === "ctx-move-block-down") {
+      const i = Number(t.dataset.index);
+      const blocks = currentPage().blocks;
+      const j = action === "ctx-move-block-up" ? i - 1 : i + 1;
+      if (j < 0 || j >= blocks.length) return;
+      const tmp = blocks[i]; blocks[i] = blocks[j]; blocks[j] = tmp;
+      // Keep expanded block tracking correct after move
+      if (expandedBlockId && blocks[i].id === expandedBlockId) expandedBlockId = blocks[i].id;
+      if (expandedBlockId && blocks[j].id === expandedBlockId) expandedBlockId = blocks[j].id;
+      renderPanel(); applyDraft();
+      return;
+    }
     if (action === "duplicate-block") {
       const i = Number(t.dataset.index);
       const blocks = currentPage().blocks;
@@ -1477,7 +1819,7 @@
       expandedBlockId = null;
       canvasSelection = null;
       location.hash = activePage === "main" ? "#/" : "#/p/" + activePage;
-      renderPanel();
+      renderPanel(); // refreshes layers panel + prop panel
       return;
     }
     if (action === "open-new-page") { createPage(); return; }
@@ -1787,8 +2129,8 @@
      PUBLISH / DISCARD
      ================================================================ */
   async function publishConfig() {
-    const btn = document.querySelector(".le-btn-pub");
-    if (btn) btn.textContent = "Publishing…";
+    const btn = document.querySelector(".le-cmd-pub");
+    if (btn) btn.innerHTML = "⏳ Publishing…";
     try {
       const et = urlParams.get("et");
       if (et) {
@@ -1806,11 +2148,11 @@
         if (idx > -1) { list[idx].storefrontConfig = draftConfig; localStorage.setItem("sap_workspaces", JSON.stringify(list)); }
       }
       toast("🎉 Storefront published!");
-      if (btn) btn.textContent = "Publish Changes";
+      if (btn) btn.innerHTML = '🚀 Publish';
     } catch (err) {
       console.error("[LiveEditor] publish failed:", err);
       toast("Failed to publish: " + err.message, "error");
-      if (btn) btn.textContent = "Publish Changes";
+      if (btn) btn.innerHTML = '🚀 Publish';
     }
   }
 
