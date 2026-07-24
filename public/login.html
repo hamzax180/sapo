@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#0d2338">
-<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+<link rel="icon" type="image/png" href="assets/logo.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Jost:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -89,6 +89,17 @@
   .trust div{display:flex;flex-direction:column}
   .trust b{font-family:var(--disp);font-size:1.7rem;color:var(--navy-800);font-weight:800;font-variant-numeric:tabular-nums}
   .trust span{font-size:.76rem;color:var(--mut);margin-top:2px}
+
+  /* ---------- Custom Language Dropdown ---------- */
+  .lang-dropdown { position: relative; display: inline-block; font-family: var(--disp); font-size: 0.85rem; z-index: 1000; }
+  .lang-trigger { display: flex; align-items: center; justify-content: center; background: #ffffff; border: 2px solid #d0112b; border-radius: 0; padding: 10px 18px; color: #d0112b; font-weight: 700; cursor: pointer; box-shadow: none; transition: background .16s; outline: none; user-select: none; min-width: 100px; }
+  .lang-trigger:hover { background: #fdf5f5; }
+  .lang-trigger .lang-arrow { display: none; }
+  .lang-list { position: absolute; top: 100%; right: 0; left: 0; background: #ffffff; border: 1px solid #111; border-top: none; border-radius: 0; box-shadow: none; padding: 0; margin: 0; list-style: none; display: none; overflow: hidden; }
+  .lang-dropdown.open .lang-list { display: block; }
+  .lang-item { padding: 10px 16px; cursor: pointer; font-weight: 700; text-align: center; color: #d0112b; background: #ffffff; transition: background .16s, color .16s; }
+  .lang-item:hover { background: #f5f5f5; }
+  .lang-item.active { background: #1e73be; color: #ffffff; }
 
   /* product window */
   .win{background:#fff;border:1px solid var(--line);border-radius:18px;overflow:hidden;
@@ -1041,6 +1052,56 @@
   .wcx-realform-alt a{color:var(--accent);font-weight:600;text-decoration:none}
 
   /* ============================================================
+     TABLET & LANDSCAPE PHONE — iPad Frame + Height Fit
+     ============================================================ */
+  @media (min-width: 601px) and (max-width: 1180px), (max-height: 550px) and (orientation: landscape) {
+    .second-hero .wrap { grid-template-columns: 1fr; }
+    .second-hero .wrap > * { min-width: 0; }
+    .device, .device-screen, .second-hero .win, .second-hero .win-b, .second-hero .stage { min-width: 0; }
+    .device {
+      width: min(800px, 90vw, calc((100vh - 120px) * 1.33 + 48px)); max-width: none;
+      margin: 16px auto 0; padding: 20px; border-radius: 28px;
+      background: linear-gradient(145deg, #434952 0%, #20242b 44%, #111419 100%);
+      box-shadow: 0 0 0 1px rgba(0,0,0,.65), inset 0 2px 2px rgba(255,255,255,.16), inset 0 -3px 7px rgba(0,0,0,.55), 0 34px 66px rgba(3,10,20,.62);
+    }
+    .device::before, .device::after { display: none; }
+    .device-screen {
+      position: relative; aspect-ratio: 4/3; padding: 0; border-radius: 12px; overflow: hidden; display: flex;
+      background: #0a1a2b; box-shadow: inset 0 0 0 2px #05080d, inset 0 0 0 4px #171b22;
+    }
+    .device-screen::before {
+      content: ""; position: absolute; left: -10px; top: 50%; transform: translateY(-50%);
+      width: 6px; height: 6px; border-radius: 50%; background: #000; box-shadow: inset 0 0 0 1px rgba(120,190,240,.35);
+      z-index: 50;
+    }
+    .device-screen::after { display: none; }
+    .device-base { display: none; }
+    .device-screen .win {
+      flex: 1; display: flex; flex-direction: column; border-radius: 12px; border: 0; overflow: hidden; max-width: none;
+    }
+    .second-hero .win { max-width: 100%; }
+    .ios-bar { display: none; }
+  }
+
+  @media (max-height: 550px) and (orientation: landscape) {
+    .scrolly-pin { align-items: flex-start; padding-top: 10px; }
+    .sc-screen { height: calc(100vh - 60px); width: auto; max-width: 100%; max-height: 400px; aspect-ratio: 16/10; }
+    .scrolly-copy blockquote { font-size: clamp(1rem, 4vh, 1.3rem); margin-top: 10px; line-height: 1.3; }
+    .scrolly-grid { gap: 20px; }
+    .inx-pin { align-items: flex-start; padding-top: 10px; }
+    .inx-main { gap: 20px; }
+    .inx-card { height: calc(100vh - 80px); width: auto; max-width: 100%; max-height: 400px; display: flex; flex-direction: column; justify-content: center; }
+    .inx-card-hero { padding: 10px 12px; }
+    .inx-card-grid { padding: 8px; gap: 6px; }
+    .inx-prod .ph { height: 30px; }
+    .inx-name { font-size: clamp(2rem, 8vh, 3rem); line-height: 1; margin: 0; }
+    .inx-name-wrap { padding-bottom: 0; }
+    .inx-tag { font-size: clamp(0.9rem, 3vh, 1.1rem); margin-top: 8px; }
+    .inx-cta { margin-top: 10px; padding: 10px 18px; font-size: 0.85rem; }
+    .inx-top { margin-bottom: 10px; }
+    .inx-dots { margin-top: 10px; }
+  }
+  /* ============================================================
      MOBILE FIT-UP (<=600px) — keep every section inside the
      viewport on phones without touching the desktop/tablet
      layout defined above. Grid children get min-width:0 so the
@@ -1131,7 +1192,7 @@
 
 
 <header class="nav" id="nav">
-  <span class="brand"><svg width="26" height="26" viewBox="0 0 64 64"><defs><linearGradient id="g1" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#1aa6df"/><stop offset="1" stop-color="#5cb12f"/></linearGradient></defs><circle cx="20" cy="27" r="7.5" fill="url(#g1)"/><circle cx="32" cy="23" r="9.5" fill="url(#g1)"/><circle cx="44" cy="27" r="7.5" fill="url(#g1)"/><rect x="12.5" y="29" width="39" height="8" fill="url(#g1)"/><path d="M14 37 L20 50 L27 40 L32 50 L37 40 L44 50 L50 37 Z" fill="url(#g1)"/></svg>Souqi</span>
+  <span class="brand"><img src="assets/logo.png" alt="Souqi Logo" style="width:26px; height:26px; object-fit:contain; border-radius:4px;">Souqi</span>
   <nav class="lnk">
     <div class="ndrop">
       <button type="button" class="ntop"><span data-t="Platform">Platform</span> <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></button>
@@ -1165,14 +1226,14 @@
     </div>
   </nav>
   <div class="lang-dropdown" id="langDropdown">
-    <button type="button" class="lang-trigger" id="langTrigger" onclick="event.stopPropagation(); this.closest('.lang-dropdown').classList.toggle('open');">
+    <button type="button" class="lang-trigger" id="langTrigger">
       <span class="lang-current">English</span>
       <svg class="lang-arrow" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
     </button>
     <ul class="lang-list" id="langList">
-      <li data-value="en" class="lang-item" onclick="event.stopPropagation(); if(window.UI &amp;&amp; UI.setLang){ UI.setLang('en'); } else { localStorage.setItem('sap_lang','en'); } location.reload();">English</li>
-      <li data-value="tr" class="lang-item" onclick="event.stopPropagation(); if(window.UI &amp;&amp; UI.setLang){ UI.setLang('tr'); } else { localStorage.setItem('sap_lang','tr'); } location.reload();">Türkçe</li>
-      <li data-value="ar" class="lang-item" onclick="event.stopPropagation(); if(window.UI &amp;&amp; UI.setLang){ UI.setLang('ar'); } else { localStorage.setItem('sap_lang','ar'); } location.reload();">العربية</li>
+      <li data-value="en" class="lang-item">English</li>
+      <li data-value="tr" class="lang-item">Türkçe</li>
+      <li data-value="ar" class="lang-item">العربية</li>
     </ul>
   </div>
   <a class="btn-g" id="navSignin" href="#cheroAuth" data-t="Sign in to console">Sign in</a><a class="btn-d" href="signup" data-t="Create workspace">Create workspace</a>
@@ -1183,7 +1244,7 @@
   <div class="chero-aura"></div>
   <div class="wrap chero-grid">
     <div class="chero-copy">
-      <h1 class="chero-h" data-t="Build your store.<br>Edit it live.">Build your store.<br>Edit it live.</h1>
+      <h1 class="chero-h" data-t="Build your website.<br>Edit it live.">Build your website.<br>Edit it live.</h1>
       <p class="chero-sub" data-t="Create your website in minutes, then change anything by clicking it — no code.">Create your website in minutes, then change anything by clicking it — no code.</p>
       <div class="chero-auth" id="cheroAuth">
         <div class="cauth-card">
@@ -1467,7 +1528,7 @@
     <div class="inx-grain"></div>
     <div class="wrap inx-inner">
       <div class="inx-top">
-        <span class="inx-eyebrow">8 industries you choose from</span>
+        <span class="inx-eyebrow" data-t="8 industries you choose from">8 industries you choose from</span>
         <span class="inx-count"><b id="inxNum">01</b><em>/ 08</em></span>
       </div>
       <div class="inx-main">
@@ -1884,13 +1945,14 @@
     function retrig(el,cls){ el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls); }
     function paint(i){
       if(i===icur) return; icur=i; var d=INDX[i];
+      var _t = window.UI && window.UI.t ? window.UI.t : function(s){return s;};
       inx.style.setProperty("--c",d.c);
-      inxName.textContent=d.n; retrig(inxName,"swap");
-      inxTag.textContent=d.tag; retrig(inxTag,"swap");
+      inxName.textContent=_t(d.n); retrig(inxName,"swap");
+      inxTag.textContent=_t(d.tag); retrig(inxTag,"swap");
       inxNum.textContent=pad(i+1);
-      inxHost.textContent=d.host; inxCardTag.textContent=d.ctag;
-      inxCta.textContent="Explore "+d.n+" →";
-      inxGrid.innerHTML=d.items.map(function(it){return '<div class="inx-prod"><div class="ph"></div><div class="pn">'+it[0]+'</div><div class="pp">'+it[1]+'</div></div>';}).join("");
+      inxHost.textContent=_t(d.host); inxCardTag.textContent=_t(d.ctag);
+      inxCta.textContent=_t("Explore ") + _t(d.n) + " →";
+      inxGrid.innerHTML=d.items.map(function(it){return '<div class="inx-prod"><div class="ph"></div><div class="pn">'+_t(it[0])+'</div><div class="pp">'+_t(it[1])+'</div></div>';}).join("");
       retrig(inxGrid,"swap");
       inxDots.querySelectorAll("button").forEach(function(b,k){b.classList.toggle("on",k===i);});
     }
