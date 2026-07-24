@@ -63,7 +63,7 @@
       clearTimeout(t);
       if (r.ok) {
         const cfg = await r.json();
-        if (cfg && cfg.company && cfg.company !== "WeboCloud") return cfg;
+        if (cfg && cfg.company && cfg.company !== "Souqi") return cfg;
       }
     } catch {}
     return readConfigFromLocalStorage(id);
@@ -843,7 +843,7 @@
         <li><a href="#tracker" class="active">Tracking</a></li>
         <li><a href="javascript:void(0)" onclick="Portal.openRateCalculator()">Shipping Rates</a></li>
         <li><a href="javascript:void(0)" onclick="Portal.openPickupModal()">Freight Pickup</a></li>
-        <li><a href="javascript:void(0)" onclick="alert('Support: 24/7 Logistics Desk available at support@webocloud.com')">Support</a></li>
+        <li><a href="javascript:void(0)" onclick="alert('Support: 24/7 Logistics Desk available at support@souqi.site')">Support</a></li>
       `;
     }
 
@@ -1022,7 +1022,7 @@
             <div class="us-card-title">Customs eFiling & Compliance</div>
             <div class="us-card-link">Check Status ↗</div>
           </div>
-          <div class="ups-service-card reveal" onclick="alert('Support: Contact our 24/7 logistics desk at support@webocloud.com')">
+          <div class="ups-service-card reveal" onclick="alert('Support: Contact our 24/7 logistics desk at support@souqi.site')">
             <div class="us-card-title">Customer Support & Inquiries</div>
             <div class="us-card-link">Contact Support ↗</div>
           </div>

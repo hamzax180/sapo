@@ -1030,7 +1030,7 @@ window.Views = (function () {
         doc.write('.qr { margin-top: 20px; display: flex; justify-content: center; }');
         doc.write('</style></head><body>');
 
-        const labelBrand = (window.Workspace ? Workspace.company() : "WeboCloud");
+        const labelBrand = (window.Workspace ? Workspace.company() : "Souqi");
         labelsData.forEach(({ s, dataUrl }) => {
           const sClient = clientMap[s.client] || {};
           doc.write('<div class="label-card">');
@@ -1311,7 +1311,7 @@ window.Views = (function () {
         doc.write('.qr { margin-top: 20px; display: flex; justify-content: center; }');
         doc.write('</style></head><body>');
         doc.write('<div class="label-card">');
-        doc.write('<div class="logo">' + esc(window.Workspace ? Workspace.company() : "WeboCloud") + '</div>');
+        doc.write('<div class="logo">' + esc(window.Workspace ? Workspace.company() : "Souqi") + '</div>');
         doc.write('<div style="font-size:0.75rem; text-transform:uppercase; color:#666; font-weight: 600; letter-spacing: 0.05em;">Cargo shipment label</div>');
         doc.write('<div class="ref">' + esc(s.ref) + '</div>');
         doc.write('<hr style="border:0; border-top:1px dashed #ccc; margin:12px 0;">');
@@ -2015,7 +2015,7 @@ window.Views = (function () {
     }
 
     // brand the document to the signed-in workspace (falls back to platform default)
-    const B = window.Workspace ? Workspace.brand() : { company: "WeboCloud", tagline: "", email: "" };
+    const B = window.Workspace ? Workspace.brand() : { company: "Souqi", tagline: "", email: "" };
 
     const iframe = document.createElement("iframe");
     iframe.style.position = "fixed";
@@ -2188,7 +2188,7 @@ window.Views = (function () {
         }
 
         // opening greeting — branded to the signed-in company
-        const coName = window.Workspace ? Workspace.company() : "WeboCloud";
+        const coName = window.Workspace ? Workspace.company() : "Souqi";
         const greet = tr
           ? "Merhaba 👋 Ben " + coName + " **baş muhasebecisiyim** — şirketin tüm defterlerine erişimim var (satış, alış, nakit, envanter, bordro). Kâr-zarar, nakit durumu, riskler… ne öğrenmek istersiniz?"
           : "Hi 👋 I'm the " + coName + " **chief accountant** — I can read the whole company's books (sales, purchases, cash, inventory, payroll). Ask me about P&L, cash position, risks… what would you like to know?";
@@ -3524,7 +3524,7 @@ window.Views = (function () {
         "</tbody></table></div></div>";
 
     function generatePDF() {
-      const B = window.Workspace ? Workspace.brand() : { company: "WeboCloud", tagline: "" };
+      const B = window.Workspace ? Workspace.brand() : { company: "Souqi", tagline: "" };
       const iframe = document.createElement("iframe");
       iframe.style.position = "fixed";
       iframe.style.right = "0";
@@ -3802,7 +3802,7 @@ window.Views = (function () {
       : '<p class="muted" style="margin:8px 0">' + UI.t("No tracking events yet.") + '</p>';
 
     // brand the public portal to the workspace: its uploaded logo if any, else the platform mark
-    const trackBrand = window.Workspace ? Workspace.brand() : { company: "WeboCloud", logo: null };
+    const trackBrand = window.Workspace ? Workspace.brand() : { company: "Souqi", logo: null };
     const defaultMark = '<svg viewBox="0 0 64 64" style="width:40px; height:40px;" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path fill="#5cb12f" d="M32 5a27 27 0 0 1 0 54 13.5 13.5 0 0 1 0-27 13.5 13.5 0 0 0 0-27z"/><path fill="#1aa6df" d="M32 59a27 27 0 0 1 0-54 13.5 13.5 0 0 1 0 27 13.5 13.5 0 0 0 0 27z"/><circle cx="32" cy="18.5" r="4.2" fill="#1aa6df"/><circle cx="32" cy="45.5" r="4.2" fill="#5cb12f"/></svg>';
     const brandLogo = trackBrand.logo ? '<img src="' + esc(trackBrand.logo) + '" alt="" style="width:40px; height:40px; object-fit:contain; border-radius:8px;">' : defaultMark;
 

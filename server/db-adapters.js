@@ -1,5 +1,5 @@
 /* =================================================================
-   WeboCloud Database Adapter
+   Souqi Database Adapter
    -----------------------------------------------------------------
    Dynamically manages and caches connections for multiple client
    databases (MongoDB or PostgreSQL/Neon).

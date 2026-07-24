@@ -47,7 +47,7 @@ const COLLECTIONS = ["users", "clients", "suppliers", "products", "quotes", "ord
    ================================================================= */
 const PLATFORM_HOSTS = new Set([
   "localhost", "127.0.0.1",
-  (process.env.PLATFORM_HOST || "app.webocloud.com").toLowerCase()
+  (process.env.PLATFORM_HOST || "app.souqi.site").toLowerCase()
 ]);
 
 app.use(async (req, res, next) => {
@@ -109,7 +109,7 @@ function getPortalContext(req) {
 }
 
 /* ---- health probe ---- */
-app.get("/health", (req, res) => res.json({ ok: true, service: "webocloud-api", time: new Date().toISOString() }));
+app.get("/health", (req, res) => res.json({ ok: true, service: "souqi-api", time: new Date().toISOString() }));
 
 /* ---- dynamic db connection testing ---- */
 app.post("/api/db/test", async (req, res) => {
@@ -368,7 +368,7 @@ app.get("/api/portal/:wsId/config", async (req, res) => {
       }
     }
     // Fallback: return minimal config so portal can still render
-    res.json({ id: req.params.wsId, company: "WeboCloud", industry: "logistics", storefrontEnabled: true });
+    res.json({ id: req.params.wsId, company: "Souqi", industry: "logistics", storefrontEnabled: true });
   } catch (e) {
     console.error("GET /api/portal/:wsId/config error:", e.message);
     res.status(500).json({ error: e.message });
@@ -622,8 +622,8 @@ app.delete("/:c/:id", guard, async (req, res) => {
 
 const PORT = process.env.PORT || 4000;
 connect()
-  .then(() => app.listen(PORT, () => console.log("✓ WeboCloud API listening on http://localhost:" + PORT)))
+  .then(() => app.listen(PORT, () => console.log("✓ Souqi API listening on http://localhost:" + PORT)))
   .catch((e) => { 
     console.warn("✗ Failed to connect to default master MongoDB, starting API server anyway..."); 
-    app.listen(PORT, () => console.log("✓ WeboCloud API listening on http://localhost:" + PORT));
+    app.listen(PORT, () => console.log("✓ Souqi API listening on http://localhost:" + PORT));
   });

@@ -566,7 +566,7 @@
         "</div>" +
         '<div class="gb-foot-bottom">' +
           "<span>© " + new Date().getFullYear() + " " + esc(brand || "") + ". " + esc(props.legal || "All rights reserved.") + "</span>" +
-          '<span class="gb-foot-powered">Powered by <a href="https://webocloud.com" target="_blank" rel="noopener">WeboCloud</a></span>' +
+          '<span class="gb-foot-powered">Powered by <a href="https://souqi.site" target="_blank" rel="noopener">Souqi</a></span>' +
         "</div>" +
       "</footer>";
     }
@@ -775,7 +775,7 @@
         "Portal.setupAlerts()",
         "document.getElementById('trackInput') && document.getElementById('trackInput').scrollIntoView({behavior:'smooth'})",
         "Portal.showInfo('Customs eFiling','📋','<p class=\\'pam-text\\'>All export documentation is active and compliant.</p><div class=\\'pam-result-row\\'><span>Status</span><b>✅ Cleared</b></div>')",
-        "Portal.showInfo('Support','💬','<p class=\\'pam-text\\'>Contact our 24/7 logistics desk any time.</p><div class=\\'pam-result-row\\'><span>Email</span><b>support@webocloud.com</b></div><div class=\\'pam-result-row\\'><span>Hotline</span><b>+1 (800) 555-0134</b></div>')"
+        "Portal.showInfo('Support','💬','<p class=\\'pam-text\\'>Contact our 24/7 logistics desk any time.</p><div class=\\'pam-result-row\\'><span>Email</span><b>support@souqi.site</b></div><div class=\\'pam-result-row\\'><span>Hotline</span><b>+1 (800) 555-0134</b></div>')"
       ];
       return '<section class="portal-section" data-block-id="' + ctx.blockId + '">' +
         '<div class="ups-section-hd">' +

@@ -31,7 +31,7 @@
         <li><a href="#tracker" class="active">Tracking</a></li>
         <li><a href="javascript:void(0)" onclick="Portal.openRateCalculator()">Shipping Rates</a></li>
         <li><a href="javascript:void(0)" onclick="Portal.openPickupModal()">Freight Pickup</a></li>
-        <li><a href="javascript:void(0)" onclick="alert('Support: 24/7 Logistics Desk available at support@webocloud.com')">Support</a></li>
+        <li><a href="javascript:void(0)" onclick="alert('Support: 24/7 Logistics Desk available at support@souqi.site')">Support</a></li>
       `;
     }
 

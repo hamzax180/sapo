@@ -1,5 +1,5 @@
 /* =================================================================
-   WeboCloud API Server - Mocked Unit Tests
+   Souqi API Server - Mocked Unit Tests
    -----------------------------------------------------------------
    Tests all backend routes, CRUD operations, authentication guards,
    and clean URL frontend page serving using a mocked database adapter.
@@ -105,7 +105,7 @@ express.application.listen = function(...args) {
   return serverInstance;
 };
 
-console.log("Starting WeboCloud test server...");
+console.log("Starting Souqi test server...");
 require("./index.js");
 
 const base = "http://localhost:4099";

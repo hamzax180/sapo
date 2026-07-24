@@ -246,7 +246,7 @@ window.Workspace = (function () {
 
   /* Branding — the active company's values, else neutral platform defaults. */
   const cfg = window.SAP_CONFIG || {};
-  function company() { const w = active(); return (w && w.company) || "WeboCloud"; }
+  function company() { const w = active(); return (w && w.company) || "Souqi"; }
   function tagline() { const w = active(); return (w && w.tagline) || preset().tagline || cfg.TAGLINE || ""; }
   function logo() { const w = active(); return (w && w.logo) || null; }
   function email() { const w = active(); return (w && w.email) || ""; }
