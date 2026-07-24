@@ -355,11 +355,17 @@
     <div class="login-form-col">
       <div class="login-card">
         <div style="display:flex; justify-content:flex-end; margin-bottom:12px;">
-          <select class="lang-select input" style="width:auto; padding:6px 12px; font-size:.84rem; border-radius:8px; border:1px solid var(--line); background:#fff; color:var(--ink);">
-            <option value="en">English</option>
-            <option value="tr">Türkçe</option>
-            <option value="ar">العربية</option>
-          </select>
+          <div class="lang-dropdown" id="langDropdown">
+            <button type="button" class="lang-trigger" id="langTrigger">
+              <span class="lang-current">English</span>
+              <svg class="lang-arrow" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+            </button>
+            <ul class="lang-list" id="langList">
+              <li data-value="en" class="lang-item">English</li>
+              <li data-value="tr" class="lang-item">Türkçe</li>
+              <li data-value="ar" class="lang-item">العربية</li>
+            </ul>
+          </div>
         </div>
         <div class="su-head">
           <h2 data-t="Create your workspace">Create your <span class="su-grad">workspace</span></h2>
@@ -789,20 +795,7 @@
       setInterval(function () { i = (i + 1) % words.length; setWord(words[i]); }, 2600);
     })();
 
-    // Wire up language selector
-    (function() {
-      var selects = document.querySelectorAll(".lang-select");
-      var currentLang = (window.UI && UI.getLang) ? UI.getLang() : (localStorage.getItem("sap_lang") || "en");
-      selects.forEach(function(sel) {
-        sel.value = currentLang;
-        sel.addEventListener("change", function(e) {
-          var val = e.target.value;
-          if (window.UI && UI.setLang) { UI.setLang(val); }
-          else { localStorage.setItem("sap_lang", val); }
-          location.reload();
-        });
-      });
-    })();
+
   </script>
 </body>
 </html>
