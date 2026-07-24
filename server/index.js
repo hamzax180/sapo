@@ -16,6 +16,10 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const { connect, getMasterDb } = require("./db"); // default master MongoDB connection
 const { testConnection, seedWorkspaceDatabase, findWorkspaceByDomain, dbAdapter } = require("./db-adapters");
+const { newId, idForCollection } = require("./lib/ids");
+const { httpError, errorHandler } = require("./lib/errors");
+const requestId = require("./middleware/requestId");
+const { makeAuth } = require("./middleware/auth");
 
 const app = express();
 // Storefront configs carry uploaded slideshow/hero images inline as data
@@ -26,6 +30,9 @@ app.use(express.json({ limit: "12mb" }));
 const origins = (process.env.CORS_ORIGIN || "*").split(",").map((s) => s.trim());
 app.use(cors({ origin: origins.includes("*") ? true : origins }));
 
+// Every request gets a unique correlation id (req_...), echoed as X-Request-Id.
+app.use(requestId);
+
 // The marketing/login page is the public entry point; the app console
 // shell (index.html) is reached only after signing in.
 app.get("/", (req, res) => res.sendFile(path.join(__dirname, "..", "public", "login.html")));
@@ -33,6 +40,18 @@ app.get("/", (req, res) => res.sendFile(path.join(__dirname, "..", "public", "lo
 app.use(express.static(path.join(__dirname, "..", "public")));
 
 const JWT_SECRET = process.env.JWT_SECRET || "dev-insecure-secret";
+// Fail closed: never boot production with a default/placeholder secret.
+if (process.env.NODE_ENV === "production" && (!process.env.JWT_SECRET || JWT_SECRET === "dev-insecure-secret")) {
+  console.error("FATAL: JWT_SECRET must be set to a strong secret in production. Refusing to start.");
+  process.exit(1);
+}
+if (JWT_SECRET === "dev-insecure-secret") {
+  console.warn("⚠ JWT_SECRET is using the insecure development default — set a strong JWT_SECRET before production.");
+}
+
+// Server-authoritative auth / tenancy / RBAC middleware.
+const { requireSession, tenantScope, authorizeCrud, resolveWsContext } = makeAuth({ JWT_SECRET, getMasterDb });
+
 const GEMINI_KEY = (process.env.GEMINI_API_KEY || "").trim();
 const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.0-flash";
 

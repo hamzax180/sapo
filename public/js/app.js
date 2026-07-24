@@ -101,7 +101,7 @@ window.App = (function () {
       links += '<button class="sb-link" data-nav="' + n.id + '">' + icon(n.ic) + "<span>" + UI.t(lbl) + "</span>" + cnt + "</button>";
     });
     // workspace branding: uploaded logo + company name, else the MERVEKS mark
-    const defaultMark = '<svg viewBox="0 0 64 64" class="brand-mark" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><defs><linearGradient id="sb-grad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#1aa6df"/><stop offset="100%" stop-color="#5cb12f"/></linearGradient></defs><circle cx="20" cy="27" r="7.5" fill="url(#sb-grad)"/><circle cx="32" cy="23" r="9.5" fill="url(#sb-grad)"/><circle cx="44" cy="27" r="7.5" fill="url(#sb-grad)"/><rect x="12.5" y="29" width="39" height="8" fill="url(#sb-grad)"/><path d="M14 37 L20 50 L27 40 L32 50 L37 40 L44 50 L50 37 Z" fill="url(#sb-grad)"/><path d="M20 20 L26 35 L32 25 L38 35 L44 20" fill="none" stroke="#0b1e33" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    const defaultMark = '<img src="assets/logo.png" alt="Souqi Logo" style="width:100%;height:100%;object-fit:contain;border-radius:7px" />';
     const ws = window.Workspace;
     const logo = ws && ws.logo();
     const mark = logo ? '<img src="' + logo + '" alt="" style="width:100%;height:100%;object-fit:contain;border-radius:7px" />' : defaultMark;

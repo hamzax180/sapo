@@ -709,7 +709,10 @@
   @media (max-width:860px){
     .chero-grid{grid-template-columns:1fr;gap:30px}
     .cdemo{transform:none}
-    .chero-h{font-size:clamp(2.5rem,11vw,3.6rem)}
+    /* full-bleed hero on phones: tighten the side gutter and let the
+       headline break out to the screen edges */
+    .chero .wrap{padding-left:14px;padding-right:14px}
+    .chero-h{font-size:clamp(2.5rem,11vw,3.6rem);margin-left:-8px;margin-right:-8px}
   }
 
   /* ---------- NEW industries hero ---------- */
@@ -1197,7 +1200,7 @@
 
 
 <header class="nav" id="nav">
-  <span class="brand"><img src="assets/logo.png" alt="Souqi Logo" style="width:26px; height:26px; object-fit:contain; border-radius:4px;">Souqi</span>
+  <span class="brand"><img src="assets/logo.png" alt="Souqi Logo" style="width:26px; height:26px; object-fit:contain; border-radius:4px;"><span data-t="Souqi">Souqi</span></span>
   <nav class="lnk">
     <div class="ndrop">
       <button type="button" class="ntop"><span data-t="Platform">Platform</span> <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></button>
@@ -1639,7 +1642,7 @@
   </div>
 </section>
 
-<footer class="foot"><div class="wrap"><span>© 2026 WeboCloud · Cloud Operations Platform</span><span>Create workspace · Sign in · Contact sales</span></div></footer>
+<footer class="foot"><div class="wrap"><span>© 2026 WeboCloud · <span data-t="Cloud Operations Platform">Cloud Operations Platform</span></span><span><a href="signup" data-t="Create workspace">Create workspace</a> · <a href="login" data-t="Sign in">Sign in</a> · <a href="mailto:sales@souqi.site">Contact sales</a></span></div></footer>
 
 
 <script src="js/config.js?v=28"></script>
