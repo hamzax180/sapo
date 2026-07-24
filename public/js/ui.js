@@ -346,6 +346,9 @@ window.UI = (function () {
   }
 
   const LANG_KEY = "sap_lang";
+
+  const TRANSLATIONS = {
+    tr: {
       "A few details and your fitted console is ready in under a minute — no card required.": "Birkaç detay ve özelleştirilmiş konsolunuz bir dakikadan kısa sürede hazır — kart gerekmez.",
       "Your business": "Şirketiniz",
       "Your industry": "Sektörünüz",
@@ -1588,8 +1591,10 @@ window.UI = (function () {
 
   function getLang() { return localStorage.getItem(LANG_KEY) || "en"; }
   function setLang(lang) {
+    if (!lang) return;
     localStorage.setItem(LANG_KEY, lang);
     applyLanguage(lang);
+    translatePage();
   }
   function applyLanguage(lang) {
     if (!lang) lang = getLang();
@@ -1602,37 +1607,77 @@ window.UI = (function () {
     }
   }
   function t(key) {
+    if (!key) return "";
     const lang = getLang();
     if (lang === "en") return key;
-    return (TRANSLATIONS[lang] && TRANSLATIONS[lang][key]) || key;
+    const dict = TRANSLATIONS[lang] || {};
+    if (dict[key]) return dict[key];
+
+    // Normalized lookup (strip extra spaces & newlines)
+    const normKey = key.trim().replace(/\s+/g, " ");
+    if (dict[normKey]) return dict[normKey];
+
+    // Cleaned HTML tag lookup (e.g. replace <br> or <br/> with space)
+    const altKey = normKey.replace(/<br\s*\/?>/gi, " ");
+    if (dict[altKey]) return dict[altKey];
+
+    const brKey = normKey.replace(/\.\s+/g, ".<br>");
+    if (dict[brKey]) return dict[brKey];
+
+    return key;
   }
   window.t = t;
 
   function translatePage() {
     applyLanguage();
+    const lang = getLang();
     document.querySelectorAll("[data-t]").forEach((el) => {
-      const key = el.dataset.t;
+      const key = el.getAttribute("data-t") || el.dataset.t;
       if (!key) return;
+      const translated = t(key);
+      if (!translated) return;
+
       if (el.tagName === "INPUT" || el.tagName === "TEXTAREA") {
         if (el.type === "text" || el.type === "email" || el.type === "password" || el.type === "search" || el.tagName === "TEXTAREA") {
-          el.placeholder = t(key);
+          el.placeholder = translated;
+        } else if (el.type === "submit" || el.type === "button") {
+          el.value = translated;
         }
+      } else if (el.tagName === "OPTION") {
+        el.textContent = translated;
       } else {
-        el.innerHTML = t(key);
+        const svg = el.querySelector("svg");
+        if (svg) {
+          const span = el.querySelector("span[data-t]") || el.querySelector("span");
+          if (span && span !== el) {
+            span.innerHTML = translated;
+          } else {
+            for (let node of el.childNodes) {
+              if (node.nodeType === Node.TEXT_NODE && node.nodeValue.trim().length > 0) {
+                node.nodeValue = translated.replace(/<br\s*\/?>/gi, " ");
+                break;
+              }
+            }
+          }
+        } else {
+          el.innerHTML = translated;
+        }
       }
     });
   }
 
-  // Ensure direction is set immediately on script execution
+  // Ensure direction and initial page translation execute immediately
   applyLanguage();
 
   function initLanguageControls() {
     translatePage();
 
+    const currentLang = getLang();
+
     // 1) Standard HTML select controls (.lang-select)
     const selectors = document.querySelectorAll(".lang-select, #langSelect");
     selectors.forEach((ls) => {
-      ls.value = getLang();
+      ls.value = currentLang;
       if (!ls.dataset.bound) {
         ls.dataset.bound = "true";
         ls.addEventListener("change", (e) => {
@@ -1643,7 +1688,6 @@ window.UI = (function () {
     });
 
     // 2) Custom dropdown controls (.lang-dropdown)
-    const currentLang = getLang();
     document.querySelectorAll(".lang-dropdown").forEach((dd) => {
       const currentSpan = dd.querySelector(".lang-current");
       if (currentSpan) {
@@ -1651,13 +1695,14 @@ window.UI = (function () {
       }
 
       dd.querySelectorAll(".lang-item").forEach((item) => {
-        item.classList.toggle("active", item.dataset.value === currentLang);
+        const val = item.getAttribute("data-value") || item.dataset.value;
+        item.classList.toggle("active", val === currentLang);
         if (!item.dataset.bound) {
           item.dataset.bound = "true";
           item.addEventListener("click", (e) => {
             e.preventDefault();
             e.stopPropagation();
-            setLang(item.dataset.value);
+            setLang(val);
             location.reload();
           });
         }

@@ -353,14 +353,15 @@
   .second-hero .win{box-shadow:0 4px 14px rgba(11,30,51,.08),0 44px 96px rgba(11,30,51,.22),0 0 0 1px rgba(11,30,51,.04)}
 
   /* ---------- language switcher (matches the app's own dropdown) ---------- */
-  .lang-dropdown{position:relative;display:inline-block;font-family:var(--disp);font-size:.85rem;z-index:1000}
+  .lang-dropdown{position:relative;display:inline-block;font-family:var(--disp);font-size:.85rem;z-index:9999}
   .lang-trigger{display:flex;align-items:center;justify-content:center;background:#fff;border:2px solid #d0112b;border-radius:0;
     padding:10px 18px;color:#d0112b;font-weight:700;cursor:pointer;transition:background .18s;outline:none;user-select:none;min-width:100px}
+  .lang-trigger *{pointer-events:none}
   .lang-trigger:hover{background:#fdf5f5}
   .lang-trigger .lang-arrow{display:none}
   .lang-list{position:absolute;top:100%;right:0;left:0;background:#fff;border:1px solid #111;border-top:none;border-radius:0;
-    padding:0;margin:0;list-style:none;display:none;overflow:hidden;z-index:1000}
-  .lang-dropdown.open .lang-list{display:block}
+    padding:0;margin:0;list-style:none;display:none;overflow:hidden;z-index:10000}
+  .lang-dropdown.open .lang-list{display:block!important;visibility:visible!important;opacity:1!important}
   .lang-item{padding:10px 16px;cursor:pointer;font-weight:700;text-align:center;color:#d0112b;background:#fff;transition:background .18s,color .18s}
   .lang-item:hover{background:#f5f5f5}
   .lang-item.active{background:#1e73be;color:#fff}
@@ -1124,6 +1125,7 @@
   }
   @keyframes curTap{0%{opacity:.85;transform:scale(.25)}100%{opacity:0;transform:scale(2)}}
 </style>
+<script src="js/ui.js?v=28"></script>
 </head>
 <body>
 
@@ -1163,14 +1165,14 @@
     </div>
   </nav>
   <div class="lang-dropdown" id="langDropdown">
-    <button type="button" class="lang-trigger" id="langTrigger">
-      <span class="lang-current">Türkçe</span>
+    <button type="button" class="lang-trigger" id="langTrigger" onclick="event.stopPropagation(); this.closest('.lang-dropdown').classList.toggle('open');">
+      <span class="lang-current">English</span>
       <svg class="lang-arrow" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
     </button>
     <ul class="lang-list" id="langList">
-      <li data-value="en" class="lang-item">English</li>
-      <li data-value="tr" class="lang-item">Türkçe</li>
-      <li data-value="ar" class="lang-item">العربية</li>
+      <li data-value="en" class="lang-item" onclick="event.stopPropagation(); if(window.UI &amp;&amp; UI.setLang){ UI.setLang('en'); } else { localStorage.setItem('sap_lang','en'); } location.reload();">English</li>
+      <li data-value="tr" class="lang-item" onclick="event.stopPropagation(); if(window.UI &amp;&amp; UI.setLang){ UI.setLang('tr'); } else { localStorage.setItem('sap_lang','tr'); } location.reload();">Türkçe</li>
+      <li data-value="ar" class="lang-item" onclick="event.stopPropagation(); if(window.UI &amp;&amp; UI.setLang){ UI.setLang('ar'); } else { localStorage.setItem('sap_lang','ar'); } location.reload();">العربية</li>
     </ul>
   </div>
   <a class="btn-g" id="navSignin" href="#cheroAuth" data-t="Sign in to console">Sign in</a><a class="btn-d" href="signup.html" data-t="Create workspace">Create workspace</a>
@@ -1982,27 +1984,10 @@
       });
     }
 
-    // Real language switcher (remembers the choice via UI.setLang).
+    // Execute page translation and language UI binding
     try {
-      var currentLang = (window.UI && UI.getLang) ? UI.getLang() : "en";
-      var langCurrent = document.querySelector(".lang-current");
-      if (langCurrent) {
-        langCurrent.textContent = currentLang === "ar" ? "العربية" : (currentLang === "tr" ? "Türkçe" : "English");
-      }
-      document.querySelectorAll(".lang-item").forEach(function (it) {
-        it.classList.toggle("active", it.dataset.value === currentLang);
-      });
-      var trigger = document.getElementById("langTrigger"), dropdown = document.getElementById("langDropdown");
-      if (trigger && dropdown) {
-        trigger.addEventListener("click", function (ev) { ev.stopPropagation(); dropdown.classList.toggle("open"); });
-        document.addEventListener("click", function () { dropdown.classList.remove("open"); });
-        dropdown.querySelectorAll(".lang-item").forEach(function (it) {
-          it.addEventListener("click", function (ev) {
-            ev.stopPropagation();
-            if (window.UI && UI.setLang) UI.setLang(it.dataset.value);
-            location.reload();
-          });
-        });
+      if (window.UI && UI.translatePage) {
+        UI.translatePage();
       }
     } catch (e) {}
   }
