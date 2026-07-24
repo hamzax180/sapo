@@ -100,6 +100,7 @@ button { font-family: inherit; }
   z-index: 100;
 }
 .app.sidebar-collapsed .sidebar { transform: translateX(-100%); }
+html[dir="rtl"] .app.sidebar-collapsed .sidebar { transform: translateX(100%); }
 .sb-brand {
   display: flex; align-items: center; gap: 11px;
   padding: 18px 20px;
@@ -1075,39 +1076,9 @@ html[dir="rtl"] body,
   text-align: right;
 }
 
-html[dir="rtl"] .app {
-  grid-template-columns: 1fr var(--sidebar-w);
-}
-html[dir="rtl"] .app.sidebar-collapsed {
-  grid-template-columns: 1fr 0px;
-}
-
 html[dir="rtl"] .sidebar {
-  order: 2;
   border-right: none;
   border-left: 1px solid var(--navy-600);
-}
-html[dir="rtl"] .main {
-  order: 1;
-}
-
-html[dir="rtl"] .topbar {
-  flex-direction: row-reverse;
-}
-
-html[dir="rtl"] .topbar-right,
-html[dir="rtl"] .topbar-actions {
-  flex-direction: row-reverse;
-}
-
-html[dir="rtl"] .nav-item {
-  text-align: right;
-  flex-direction: row-reverse;
-  justify-content: flex-end;
-}
-html[dir="rtl"] .nav-item .ic {
-  margin-left: 10px;
-  margin-right: 0;
 }
 
 html[dir="rtl"] .modal-close,
@@ -1134,24 +1105,20 @@ html[dir="rtl"] select.input {
   text-align: right;
 }
 
-html[dir="rtl"] .pill {
-  flex-direction: row-reverse;
-}
 
-html[dir="rtl"] .ind-card {
-  text-align: right;
-}
-
-html[dir="rtl"] .nav {
-  flex-direction: row-reverse;
-}
-html[dir="rtl"] .nav .lnk {
-  margin-left: 0;
-  margin-right: auto;
-  flex-direction: row-reverse;
-}
 
 html[dir="rtl"] .drawer-right {
   left: 0;
   right: auto;
+}
+
+@media (max-width: 880px) {
+  html[dir="rtl"] .sidebar {
+    left: auto;
+    right: 0;
+    transform: translateX(100%);
+  }
+  html[dir="rtl"] .sidebar.open {
+    transform: translateX(0);
+  }
 }
