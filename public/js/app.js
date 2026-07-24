@@ -195,9 +195,9 @@ window.App = (function () {
         if (demo) {
           if (window.Store && Store.purgeWorkspace) Store.purgeWorkspace(demo.id);
           if (window.Workspace) Workspace.remove(demo.id);
-          location.href = "signup.html";
+          location.href = "signup";
         } else {
-          location.href = "login.html";
+          location.href = "login";
         }
       });
     }
@@ -329,7 +329,7 @@ window.App = (function () {
           </div>
           <h2 style="font-family:var(--font-head); font-weight:800; color:var(--navy-800); font-size:1.8rem; margin-bottom:12px; letter-spacing:-0.01em;">COMPANY ACCOUNT LOCKED UNTIL PAYMENT</h2>
           <p style="color:var(--muted); font-size:0.98rem; max-width:440px; line-height:1.5; margin-bottom:28px;">To activate your company account and start using Souqi Console, please complete your subscription payment.</p>
-          <a href="checkout.html" class="btn btn-primary" style="padding:14px 32px; font-weight:700; font-size:1rem; border-radius:12px; box-shadow:0 6px 20px rgba(26,166,223,0.25); text-decoration:none;">GO TO PAYMENT</a>
+          <a href="checkout" class="btn btn-primary" style="padding:14px 32px; font-weight:700; font-size:1rem; border-radius:12px; box-shadow:0 6px 20px rgba(26,166,223,0.25); text-decoration:none;">GO TO PAYMENT</a>
         </div>
       `;
       const sidebarNav = document.querySelector(".sb-nav");

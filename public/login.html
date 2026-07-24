@@ -1175,7 +1175,7 @@
       <li data-value="ar" class="lang-item" onclick="event.stopPropagation(); if(window.UI &amp;&amp; UI.setLang){ UI.setLang('ar'); } else { localStorage.setItem('sap_lang','ar'); } location.reload();">العربية</li>
     </ul>
   </div>
-  <a class="btn-g" id="navSignin" href="#cheroAuth" data-t="Sign in to console">Sign in</a><a class="btn-d" href="signup.html" data-t="Create workspace">Create workspace</a>
+  <a class="btn-g" id="navSignin" href="#cheroAuth" data-t="Sign in to console">Sign in</a><a class="btn-d" href="signup" data-t="Create workspace">Create workspace</a>
 </header>
 
 <!-- ============ TOP HERO · exact Claude-style, website-builder demo ============ -->
@@ -1200,7 +1200,7 @@
           </form>
           <p class="cauth-note" data-t="By continuing, you acknowledge Souqi's Privacy Policy.">By continuing, you acknowledge Souqi's <a href="#">Privacy Policy</a>.</p>
         </div>
-        <p class="cauth-alt"><span data-t="New company?">New company?</span> <a href="signup.html" data-t="Create your workspace">Create your workspace</a></p>
+        <p class="cauth-alt"><span data-t="New company?">New company?</span> <a href="signup" data-t="Create your workspace">Create your workspace</a></p>
       </div>
     </div>
     <div class="chero-demo" dir="ltr">
@@ -1474,7 +1474,7 @@
         <div class="inx-left">
           <div class="inx-name-wrap"><h2 class="inx-name" id="inxName">Logistics &amp; Trade</h2></div>
           <p class="inx-tag" id="inxTag">Freight, customs and fleet — tracked end to end.</p>
-          <a class="inx-cta" id="inxCta" href="signup.html">Explore Logistics &amp; Trade →</a>
+          <a class="inx-cta" id="inxCta" href="signup">Explore Logistics &amp; Trade →</a>
         </div>
         <div class="inx-right">
           <div class="inx-card" id="inxCard">
@@ -1531,7 +1531,7 @@
         <div class="pc-name">Free</div>
         <div class="pc-price"><b>$0</b><span>free forever</span></div>
         <div class="pc-tag">Get your business online.</div>
-        <a class="pc-cta ghost" href="signup.html">Start free</a>
+        <a class="pc-cta ghost" href="signup">Start free</a>
         <ul class="pc-feats"><li>1 user — full owner access</li><li>Orders, inventory &amp; finance</li><li>Dashboard &amp; reports</li><li>10&nbsp;GB storage</li><li>Community support</li></ul>
       </div>
       <div class="pcard rec rvl" style="--d:.08s">
@@ -1540,7 +1540,7 @@
         <div class="pc-price"><b>$0</b><span>/ 6 months free</span></div>
         <div style="font-size:.76rem;color:var(--muted);margin:-4px 0 6px"><s style="color:#ef4444;font-weight:700">$20/mo</s> originally &bull; 100% Free</div>
         <div class="pc-tag">Run your whole business.</div>
-        <a class="pc-cta solid" href="checkout.html?plan=pro">Claim 6 Months Free</a>
+        <a class="pc-cta solid" href="checkout?plan=pro">Claim 6 Months Free</a>
         <ul class="pc-feats"><li>Unlimited orders &amp; invoices</li><li>AI Accountant — finance insights</li><li>E-fatura &amp; receipts</li><li>Shipment labels + QR printing</li><li>Full audit history</li><li>Email &amp; chat support</li></ul>
       </div>
       <div class="pcard rvl" style="--d:.16s">
@@ -1549,7 +1549,7 @@
         <div class="pc-price"><b>$0</b><span>/ 6 months free</span></div>
         <div style="font-size:.76rem;color:var(--muted);margin:-4px 0 6px"><s style="color:#ef4444;font-weight:700">$100/mo</s> originally &bull; 100% Free</div>
         <div class="pc-tag">Scale across branches.</div>
-        <a class="pc-cta ghost" href="checkout.html?plan=business">Claim 6 Months Free</a>
+        <a class="pc-cta ghost" href="checkout?plan=business">Claim 6 Months Free</a>
         <ul class="pc-feats"><li>Up to 25 employees</li><li>Multi-warehouse &amp; multi-currency</li><li>Live AI Accountant</li><li>Quotations &amp; purchase orders</li><li>Advanced permissions</li><li>Priority support (12h)</li></ul>
       </div>
     </div>
@@ -1715,7 +1715,7 @@
   function goSignup(e){ if(e){e.preventDefault();} var c=document.querySelector(".close"); if(c){c.scrollIntoView({behavior:reduce?"auto":"smooth"}); setTimeout(function(){var inp=document.querySelector(".capture input"); if(inp) inp.focus();}, reduce?0:450);} }
   document.querySelectorAll(".cta .big,.cta .ghost").forEach(function(b){ b.style.cursor="pointer"; b.addEventListener("click",goSignup); });
   var cap=document.querySelector(".capture");
-  if(cap){ cap.addEventListener("submit",function(e){ e.preventDefault(); var v=(cap.querySelector("input")||{}).value||""; location.href="signup.html"+(v?"?email="+encodeURIComponent(v):""); }); }
+  if(cap){ cap.addEventListener("submit",function(e){ e.preventDefault(); var v=(cap.querySelector("input")||{}).value||""; location.href="signup"+(v?"?email="+encodeURIComponent(v):""); }); }
 
   // (language switcher wired by the real app script below)
 
@@ -1921,8 +1921,8 @@
 (function () {
   function boot() {
     // If already signed in, go straight to the console.
-    try { if (window.Auth && Auth.current && Auth.current()) { location.href = "index.html"; return; } } catch (e) {}
-    if (location.hash && location.hash.indexOf("#/track") === 0) { location.href = "index.html" + location.hash; return; }
+    try { if (window.Auth && Auth.current && Auth.current()) { location.href = "/"; return; } } catch (e) {}
+    if (location.hash && location.hash.indexOf("#/track") === 0) { location.href = "/" + location.hash; return; }
 
     // Build the Solutions menu from the real industry registry (falls back to the static list).
     try {
@@ -1930,7 +1930,7 @@
       if (m && window.INDUSTRIES && window.UI) {
         m.innerHTML = Object.keys(INDUSTRIES).map(function (k) {
           var ind = INDUSTRIES[k];
-          return '<a href="signup.html"><b>' + ind.name + '</b><small>' + (ind.blurb || "") + '</small></a>';
+          return '<a href="signup"><b>' + ind.name + '</b><small>' + (ind.blurb || "") + '</small></a>';
         }).join("");
       }
     } catch (e) {}
@@ -1974,7 +1974,7 @@
         var pass = document.getElementById("password").value;
         try {
           var session = await Auth.loginAny(email, pass);
-          if (session) { location.href = "index.html"; return; }
+          if (session) { location.href = "/"; return; }
         } catch (e) {}
         var noCompanies = !window.Workspace || Workspace.all().length === 0;
         if (err) {

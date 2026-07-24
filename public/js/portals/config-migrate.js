@@ -677,7 +677,7 @@
     }
 
     // Nav bar item order — "actions" is the existing search+cart group (kept
-    // together; they share a flex-gap wrapper in portal.html), reorderable
+    // together; they share a flex-gap wrapper in portal), reorderable
     // relative to the brand/logo and the page-nav links.
     cfg.nav = cfg.nav || { items: ["brand", "links", "actions"] };
     return cfg;

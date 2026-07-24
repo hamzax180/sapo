@@ -1,24 +1,10 @@
 {
-  "routes": [
+  "cleanUrls": true,
+  "trailingSlash": false,
+  "rewrites": [
     {
-      "src": "/portal(/.*)?",
-      "dest": "/portal.html"
-    },
-    {
-      "src": "/login",
-      "dest": "/login.html"
-    },
-    {
-      "src": "/pricing",
-      "dest": "/pricing.html"
-    },
-    {
-      "src": "/signup",
-      "dest": "/signup.html"
-    },
-    {
-      "src": "/checkout",
-      "dest": "/checkout.html"
+      "source": "/portal/:path*",
+      "destination": "/portal"
     }
   ]
 }

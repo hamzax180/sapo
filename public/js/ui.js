@@ -161,7 +161,7 @@ window.Auth = (function () {
   function requireAuth() {
     if (!current()) {
       if (location.hash.startsWith("#/track")) return true;
-      location.href = "login.html"; return false;
+      location.href = "login"; return false;
     }
     return true;
   }

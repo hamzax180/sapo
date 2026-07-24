@@ -2186,7 +2186,7 @@
 
       console.log("[Portal] Workspace:", cfg.company, "| Industry:", cfg.industry, "| Products:", prods.length);
 
-      // Wires the shared UI chrome that lives in portal.html's static shell
+      // Wires the shared UI chrome that lives in portal's static shell
       // (search, cart drawer, checkout, product modal, Escape key) — these
       // elements exist regardless of which template/renderer runs below,
       // so this only needs to happen once per page load.
