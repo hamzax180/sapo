@@ -469,9 +469,9 @@
   .chero-h{animation:heroUp .8s var(--ease) both;animation-delay:.04s}
   .chero-sub{animation:heroUp .8s var(--ease) both;animation-delay:.14s}
   .chero-auth{animation:heroUp .8s var(--ease) both;animation-delay:.24s}
-  .chero-app{animation:heroUp .8s var(--ease) both;animation-delay:.32s}
+  .chero-getapp{animation:heroUp .8s var(--ease) both;animation-delay:.32s}
   .chero-demo{animation:heroUp .9s var(--ease) both;animation-delay:.18s}
-  @media (prefers-reduced-motion:reduce){.chero-h,.chero-sub,.chero-auth,.chero-app,.chero-demo{animation:none}}
+  @media (prefers-reduced-motion:reduce){.chero-h,.chero-sub,.chero-auth,.chero-getapp,.chero-demo{animation:none}}
   .chero-aura{position:absolute;inset:0;pointer-events:none;
     background:radial-gradient(40% 48% at 84% 26%,rgba(26,166,223,.24),transparent 60%),radial-gradient(34% 40% at 8% 88%,rgba(92,177,47,.12),transparent 60%)}
   .chero-grid{position:relative;z-index:1;display:grid;grid-template-columns:0.9fr 1.12fr;gap:clamp(28px,4vw,60px);align-items:start}
@@ -510,9 +510,16 @@
   .cauth-alt a{color:#fff;font-weight:600;text-decoration:none}
   .chero-auth .login-err{display:none;background:#fdecea;color:#c0392b;border:1px solid #f5c6cb;border-radius:8px;padding:8px 11px;font-size:.84rem;margin-bottom:10px}
   .chero-auth .login-err.show{display:block}
-  .chero-app{display:inline-flex;align-items:center;gap:9px;margin-top:16px;padding:12px 18px;border-radius:12px;background:rgba(255,255,255,.06);
-    border:1px solid rgba(255,255,255,.14);color:#dceaf5;font:inherit;font-weight:600;font-size:.92rem;cursor:pointer;transition:background .16s}
-  .chero-app:hover{background:rgba(255,255,255,.11)}
+  .chero-getapp{margin-top:20px}
+  .chero-getapp-lbl{display:block;font-size:.72rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#7f9bb3;margin-bottom:10px}
+  .chero-badges{display:flex;gap:12px;flex-wrap:wrap}
+  .app-badge{display:inline-flex;align-items:center;gap:10px;padding:9px 16px 9px 14px;border-radius:12px;background:#0a0a0a;
+    border:1px solid rgba(255,255,255,.14);color:#fff;text-decoration:none;transition:transform .16s,border-color .16s}
+  .app-badge:hover{transform:translateY(-2px);border-color:rgba(255,255,255,.3)}
+  .app-badge svg{width:24px;height:24px;flex:0 0 auto}
+  .app-badge span{display:flex;flex-direction:column;line-height:1.1}
+  .app-badge small{font-size:.62rem;font-weight:500;opacity:.8}
+  .app-badge b{font-family:var(--disp);font-size:1.02rem;font-weight:700;letter-spacing:-.01em}
   /* big live demo canvas */
   .chero-demo{perspective:none}
   /* the demo panel stays perfectly flat and fixed — no tilt, no drift, and its
@@ -769,7 +776,19 @@
         </div>
         <p class="cauth-alt">New company? <a href="signup.html">Create your workspace</a></p>
       </div>
-      <button class="chero-app" type="button"><svg viewBox="0 0 24 24" width="17" height="17" fill="currentColor" aria-hidden="true"><rect x="3" y="3" width="8" height="8" rx="1"/><rect x="13" y="3" width="8" height="8" rx="1"/><rect x="3" y="13" width="8" height="8" rx="1"/><rect x="13" y="13" width="8" height="8" rx="1"/></svg>Get the WeboCloud app</button>
+      <div class="chero-getapp">
+        <span class="chero-getapp-lbl">Get the app</span>
+        <div class="chero-badges">
+          <a class="app-badge" href="#" aria-label="Download on the App Store">
+            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17.05 12.54c-.02-2.06 1.68-3.05 1.76-3.1-0.96-1.4-2.46-1.6-2.99-1.62-1.27-.13-2.48.75-3.13.75-.64 0-1.64-.73-2.7-.71-1.39.02-2.67.81-3.38 2.05-1.44 2.5-.37 6.2 1.03 8.23.68 1 1.49 2.11 2.56 2.07 1.03-.04 1.42-.66 2.66-.66 1.24 0 1.59.66 2.68.64 1.11-.02 1.81-1.01 2.49-2.01.78-1.15 1.11-2.27 1.12-2.33-.02-.01-2.15-.82-2.18-3.28zM15.02 6.7c.56-.69.94-1.63.83-2.58-.81.03-1.8.54-2.38 1.22-.52.6-.98 1.57-.86 2.49.9.07 1.83-.46 2.41-1.13z"/></svg>
+            <span><small>Download on the</small><b>App Store</b></span>
+          </a>
+          <a class="app-badge" href="#" aria-label="Get it on Google Play">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#00d2ff" d="M3.6 2.3c-.2.2-.3.5-.3.9v17.6c0 .4.1.7.3.9l.1.1L13.4 12v-.1L3.7 2.2z"/><path fill="#00e676" d="M16.8 15.3L13.4 12v-.1l3.4-3.3.1.1 4 2.3c1.1.6 1.1 1.7 0 2.3l-4.1 2.3z"/><path fill="#ff3d00" d="M16.9 15.2L13.4 12 3.6 21.7c.4.4 1 .4 1.6.1l11.7-6.6"/><path fill="#ffab00" d="M16.9 8.8L5.2 2.2c-.6-.3-1.2-.3-1.6.1L13.4 12z"/></svg>
+            <span><small>GET IT ON</small><b>Google Play</b></span>
+          </a>
+        </div>
+      </div>
     </div>
     <div class="chero-demo">
       <div class="cdemo" id="cdemo">
