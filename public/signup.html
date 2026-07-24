@@ -51,6 +51,90 @@
       border-color: var(--ind-accent, #1aa6df);
     }
 
+    /* Launch screen — translucent backdrop showing sign up background */
+    .launch-overlay {
+      position: fixed; inset: 0; z-index: 9999;
+      background: rgba(15, 23, 42, 0.65);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      display: none; align-items: center; justify-content: center;
+      padding: 20px;
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.3s ease;
+    }
+    .launch-overlay.show { display: flex; opacity: 1; pointer-events: auto; }
+
+    .dhl-modal-card {
+      background: #ffffff;
+      border-radius: 16px;
+      padding: 40px 36px;
+      max-width: 460px; width: 100%;
+      text-align: center;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3), 0 2px 10px rgba(0,0,0,0.1);
+      border: 1px solid #eef0f2;
+      position: relative;
+      font-family: system-ui, -apple-system, sans-serif;
+      transform: scale(0.95); opacity: 0;
+      transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease;
+    }
+    .launch-overlay.show .dhl-modal-card { transform: scale(1); opacity: 1; }
+
+    .dhl-modal-close {
+      position: absolute; top: 16px; right: 16px;
+      width: 32px; height: 32px; border-radius: 50%;
+      border: 1px solid #e2e8f0;
+      background: #f8fafc; color: #64748b;
+      font-size: 1rem; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: all 0.2s;
+    }
+    .dhl-modal-close:hover { background: #d40511; color: #fff; border-color: #d40511; }
+
+    .dhl-modal-icon {
+      width: 64px; height: 64px; border-radius: 16px;
+      background: #fff8e6; border: 1px solid #fde68a;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 2rem; margin: 0 auto 20px;
+    }
+
+    .dhl-modal-title {
+      font-size: 1.6rem; font-weight: 900;
+      color: #111111; margin-bottom: 8px; letter-spacing: -0.02em;
+    }
+
+    .dhl-modal-sub {
+      font-size: 0.92rem; color: #555555; line-height: 1.55;
+      margin-bottom: 28px;
+    }
+    .dhl-modal-sub strong { color: #d40511; font-weight: 700; }
+
+    .dhl-modal-actions {
+      display: flex; flex-direction: column; gap: 12px;
+    }
+
+    .btn-dhl-red {
+      background: #d40511; color: #ffffff;
+      font-weight: 800; padding: 14px 24px;
+      border-radius: 6px; border: none;
+      font-size: 0.95rem; cursor: pointer; text-decoration: none;
+      display: flex; align-items: center; justify-content: center; gap: 10px;
+      transition: background 0.15s ease; width: 100%;
+    }
+    .btn-dhl-red:hover { background: #cc0000; color: #fff; }
+
+    .btn-dhl-outline {
+      background: #ffffff; color: #111111;
+      font-weight: 700; padding: 13px 24px;
+      border-radius: 6px; border: 1.5px solid #d1d5db;
+      font-size: 0.92rem; cursor: pointer; text-decoration: none;
+      display: flex; align-items: center; justify-content: center; gap: 10px;
+      transition: all 0.15s ease; width: 100%;
+    }
+    .btn-dhl-outline:hover { background: #f8fafc; border-color: #111111; color: #111111; }
+
+
+
+
     /* rotating caption pill — traveling glow border, letter reveals, gradient text */
     @property --capang { syntax:'<angle>'; initial-value:0deg; inherits:false; }
     .dx-cap { align-self:flex-start; position:relative; z-index:1; display:inline-flex; align-items:center; gap:9px;
@@ -89,6 +173,85 @@
     @keyframes tickRing { 0% { transform:scale(.55); opacity:.75; } 70% { opacity:0; } 100% { transform:scale(1.7); opacity:0; } }
     @media (prefers-reduced-motion:reduce) {
       .dx-cap, .dx-cap::before, .dx-cap .arrow svg, .dx-cap .to .grad, .dx-cap .to .tick::after, .dx-cap .rot .ltr { animation:none !important; }
+    }
+
+    /* =========================================================
+       Wide, container-less, horizontal sign-up
+       ========================================================= */
+    .login-art { display:none !important; }
+    .login-wrap {
+      display:block !important; height:auto !important; min-height:100vh; overflow:visible !important;
+      background:
+        radial-gradient(55% 50% at 85% 4%, rgba(26,166,223,.12), transparent 60%),
+        radial-gradient(45% 45% at 8% 100%, rgba(92,177,47,.10), transparent 60%),
+        linear-gradient(180deg, #eef4fa, #f6fafd 55%, #eef4fa);
+    }
+    .login-form-col {
+      height:auto !important; min-height:100vh; overflow:visible !important;
+      display:flex; align-items:flex-start; justify-content:center;
+      background:transparent !important; padding:clamp(32px,5vw,72px) clamp(18px,4vw,48px);
+    }
+    /* no container: the form breathes across the page */
+    .login-card {
+      width:100%; max-width:1000px;
+      background:transparent; border:0; border-radius:0; padding:0; box-shadow:none;
+    }
+
+    /* centred header (no logo) */
+    .su-head { text-align:center; margin-bottom:clamp(30px,3.4vw,46px); }
+    .su-eyebrow {
+      display:inline-block; font-size:.72rem; font-weight:700; letter-spacing:.14em; text-transform:uppercase;
+      color:var(--accent-ink,#0d5f86); background:#e7f5fc; border:1px solid #cfe8f6;
+      padding:6px 14px; border-radius:999px; margin-bottom:18px;
+    }
+    .login-card .su-head h2 { font-size:clamp(2.1rem,4vw,3rem); letter-spacing:-.03em; line-height:1.04; margin:0 0 12px; }
+    .su-grad { background:linear-gradient(100deg,#1aa6df,#5cb12f); -webkit-background-clip:text; background-clip:text; color:transparent; }
+    .login-card .su-head .lc-sub { font-size:clamp(1rem,1.4vw,1.12rem); color:var(--muted); margin:0 auto; max-width:44ch; line-height:1.55; }
+
+    /* horizontal 2-column form grid */
+    .su-form { display:grid; grid-template-columns:1fr 1fr; gap:20px clamp(20px,3vw,40px); align-items:start; }
+    .su-form .su-full { grid-column:1 / -1; }
+    .su-form .field { margin:0; }
+    .su-form .field > label { display:block; font-size:.82rem; font-weight:700; color:var(--navy-700); margin-bottom:7px; letter-spacing:.01em; }
+
+    /* section header rows with a divider line */
+    .su-section { display:flex; align-items:center; justify-content:space-between; gap:14px; margin:clamp(10px,1.4vw,20px) 0 2px; }
+    .su-section::after { content:""; flex:1; height:1px; background:var(--line); }
+    .su-section:first-child { margin-top:0; }
+    .su-legend { font-family:var(--font-head); font-weight:800; font-size:.82rem; letter-spacing:.12em; text-transform:uppercase; color:var(--navy-600); white-space:nowrap; }
+
+    /* larger controls */
+    .login-card .input {
+      width:100%; padding:14px 16px; font-size:.98rem; border:1.5px solid var(--line); border-radius:12px;
+      background:#fff; color:var(--ink); transition:border-color .15s, box-shadow .15s;
+    }
+    .login-card .input:focus { outline:none; border-color:#9cc4e4; box-shadow:0 0 0 3px rgba(26,166,223,.14); }
+    .login-card select.input { cursor:pointer; }
+    .login-card .btn-primary {
+      width:100%; padding:16px; font-size:1.02rem; font-weight:700; border-radius:13px; margin-top:8px;
+      box-shadow:0 14px 30px rgba(26,166,223,.28);
+    }
+    .login-card .btn-primary:hover { transform:translateY(-1px); }
+    .su-signin { text-align:center; margin-top:22px; font-size:.9rem; color:var(--muted); }
+    .su-signin a { color:var(--accent); font-weight:600; text-decoration:none; }
+
+    /* wide industry picker with hover lift */
+    .login-card .ind-grid { grid-template-columns:repeat(4,1fr); gap:14px; }
+    .login-card .ind-card { padding:16px; border-radius:16px; background:#fff; border:1.5px solid var(--line);
+      transition:transform .18s var(--ease,cubic-bezier(.16,1,.3,1)), box-shadow .18s, border-color .18s; }
+    .login-card .ind-card:hover { transform:translateY(-3px); box-shadow:0 16px 34px rgba(11,30,51,.1); border-color:#bfe0f3; }
+    .login-card .ind-card.sel { border-color:var(--accent); box-shadow:0 0 0 3px rgba(26,166,223,.16), 0 16px 34px rgba(26,166,223,.14); background:#f3fafe; }
+    .login-card .ind-card .ic { width:40px; height:40px; border-radius:11px; transition:background .18s, color .18s; }
+    .login-card .ind-card:hover .ic, .login-card .ind-card.sel .ic { background:var(--accent); color:#fff; }
+    .login-card .ind-card .ic svg { width:21px; height:21px; }
+    .login-card .ind-card .it { font-size:.98rem; }
+
+    @media (max-width:900px) {
+      .login-card .ind-grid { grid-template-columns:1fr 1fr; }
+    }
+    @media (max-width:620px) {
+      .su-form { grid-template-columns:1fr; }
+      .login-card .ind-grid { grid-template-columns:1fr; }
     }
   </style>
 </head>
@@ -142,24 +305,61 @@
       <div class="la-foot">© 2024–2026 WeboCloud · Cloud Operations Platform</div>
     </div>
 
+    <!-- Launch screen overlay (shown after workspace is created or demo selected) -->
+    <div class="launch-overlay" id="launchOverlay">
+      <!-- Clean DHL Enterprise Modal Dialog -->
+      <div class="launch-card dhl-modal-card">
+        <button class="dhl-modal-close" onclick="document.getElementById('launchOverlay').classList.remove('show')" title="Close">✕</button>
+
+        <div class="dhl-modal-icon">📦</div>
+
+        <h2 class="dhl-modal-title" id="launchTitle">Workspace Live & Ready</h2>
+        <p class="dhl-modal-sub" id="launchSub">Your <strong>Logistics & Trade</strong> workspace environment is configured and ready.</p>
+
+        <div class="dhl-modal-actions">
+          <a class="btn btn-dhl-red btn-lg" id="launchAdminBtn" href="index.html">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+            Go to Admin Panel
+          </a>
+          <a class="btn btn-dhl-outline btn-lg" id="launchPortalBtn" href="#" target="_blank" rel="noopener">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+            Preview Customer Storefront ↗
+          </a>
+        </div>
+      </div>
+    </div>
+
+
+
     <!-- Form panel -->
     <div class="login-form-col">
       <div class="login-card">
-        <h2>Create your workspace</h2>
-        <p class="lc-sub">A few details and your fitted console is ready.</p>
+        <div class="su-head">
+          <h2>Create your <span class="su-grad">workspace</span></h2>
+          <p class="lc-sub">A few details and your fitted console is ready in under a minute — no card required.</p>
+        </div>
 
         <div class="login-err" id="err"></div>
 
-        <form id="signupForm" autocomplete="on">
-          <div class="field">
+        <form id="signupForm" autocomplete="on" class="su-form">
+          <div class="su-section su-full"><span class="su-legend">Your business</span></div>
+
+          <div class="field su-full">
             <label>Company name</label>
             <input class="input" type="text" id="company" placeholder="Acme Trading Co." required />
           </div>
 
-          <div class="field">
+          <div class="field su-full">
             <label>Your industry</label>
             <div class="ind-grid" id="indGrid"></div>
             <input type="hidden" id="industry" required />
+          </div>
+
+          <div class="field">
+            <label>Country</label>
+            <select class="input" id="country" required style="-webkit-appearance:none; appearance:none; background-image:url(&quot;data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2364758a' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E&quot;); background-repeat:no-repeat; background-position:right 14px center; padding-right:38px;">
+              <option value="" disabled>Select your country</option>
+            </select>
           </div>
 
           <div class="field">
@@ -175,16 +375,7 @@
             </div>
           </div>
 
-          <div style="height:1px;background:var(--line);margin:6px 0 14px"></div>
-
-          <div class="field">
-            <label>Country</label>
-            <select class="input" id="country" required style="-webkit-appearance:none; appearance:none; background-image:url(&quot;data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2364758a' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E&quot;); background-repeat:no-repeat; background-position:right 14px center; padding-right:38px;">
-              <option value="" disabled>Select your country</option>
-            </select>
-          </div>
-
-          <div style="height:1px;background:var(--line);margin:6px 0 14px"></div>
+          <div class="su-section su-full"><span class="su-legend">Owner account</span></div>
 
           <div class="field">
             <label>Owner name</label>
@@ -199,46 +390,39 @@
             <input class="input" type="password" id="password" placeholder="••••••••" minlength="4" required />
           </div>
 
-          <div style="height:1px;background:var(--line);margin:6px 0 12px"></div>
-
           <!-- Database Configuration -->
           <div class="field">
-            <label>Database Hosting</label>
-            <p class="muted" style="font-size:.74rem;margin:2px 0 8px">Select where to store your workspace database records.</p>
-            <select class="input" id="dbType" style="margin-bottom:8px">
+            <label>Database hosting</label>
+            <select class="input" id="dbType">
               <option value="local">WeboCloud Managed (Demo Mode / LocalStorage)</option>
               <option value="neon">Neon PostgreSQL (Cloud Database)</option>
               <option value="mongodb">MongoDB Atlas (NoSQL Cloud)</option>
               <option value="postgres">Self-Hosted PostgreSQL</option>
             </select>
-            
-            <div id="dbUriGroup" style="display:none; transition: all 0.2s ease;">
-              <label style="font-size:0.78rem">Database Connection URI</label>
-              <div style="display:flex; gap:8px; align-items:center;">
-                <input class="input" type="text" id="dbUri" placeholder="postgres://user:pass@host/dbname" style="flex:1" />
-                <button type="button" class="btn btn-ghost" id="btnTestDb" style="padding:8px 12px; font-size:0.8rem; flex-shrink:0;">Test</button>
-              </div>
-              <div id="dbTestStatus" style="font-size:0.72rem; margin-top:4px; display:none;"></div>
-            </div>
           </div>
 
-          <div style="height:1px;background:var(--line);margin:6px 0 12px"></div>
-
-          <div class="field">
-            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
-              <label style="margin:0">Your team <span class="muted" style="font-weight:400">(optional)</span></label>
-              <span class="muted" style="font-size:.74rem" id="teamCount">0 employees</span>
+          <div class="field su-full" id="dbUriGroup" style="display:none">
+            <label>Database connection URI</label>
+            <div style="display:flex; gap:8px; align-items:center;">
+              <input class="input" type="text" id="dbUri" placeholder="postgres://user:pass@host/dbname" style="flex:1" />
+              <button type="button" class="btn btn-ghost" id="btnTestDb" style="padding:11px 16px; font-size:.85rem; flex-shrink:0;">Test</button>
             </div>
-            <p class="muted" style="font-size:.74rem;margin:4px 0 8px">Add employees and give each a role — they each get their own email login.</p>
+            <div id="dbTestStatus" style="font-size:0.72rem; margin-top:6px; display:none;"></div>
+          </div>
+
+          <div class="su-section su-full"><span class="su-legend">Your team <span class="muted" style="font-weight:400">(optional)</span></span><span class="muted" style="font-size:.78rem" id="teamCount">0 employees</span></div>
+
+          <div class="field su-full">
+            <p class="muted" style="font-size:.8rem;margin:0 0 10px">Add employees and give each a role — they each get their own email login.</p>
             <div id="empList"></div>
             <button type="button" class="btn btn-ghost btn-sm" id="addEmp" style="width:100%;margin-top:2px">＋ Add employee</button>
           </div>
 
-          <button class="btn btn-primary" type="submit">Create workspace &amp; sign in</button>
+          <button class="btn btn-primary su-full" type="submit">Create workspace &amp; sign in</button>
         </form>
 
-        <div style="margin-top:16px;text-align:center;font-size:.86rem;color:var(--muted)">
-          Already have a workspace? <a href="login.html" style="color:var(--accent);font-weight:600;text-decoration:none">Sign in</a>
+        <div class="su-signin">
+          Already have a workspace? <a href="login.html">Sign in</a>
         </div>
       </div>
     </div>
@@ -298,32 +482,39 @@
         if (btn) {
           e.stopPropagation();
           const key = btn.dataset.demo;
-          const ind = INDUSTRIES[key];
+          const ind = INDUSTRIES[key] || { name: key };
           
           btn.innerHTML = 'Loading...';
           btn.disabled = true;
 
-          // Register a demo workspace on the fly
-          const session = await Auth.register({
-            company: "Demo " + ind.name,
-            owner: "Demo Admin",
-            email: "admin@demo.com",
-            password: "demo",
-            country: "TR",
-            industry: key,
-            logo: null,
-            sampleData: true
-          });
-          
-          if (session) {
-            location.href = "index.html";
-          } else {
+          try {
+            const session = await Auth.register({
+              company: "Demo " + ind.name,
+              owner: "Demo Admin",
+              email: "admin@demo.com",
+              password: "demo",
+              country: "TR",
+              industry: key,
+              logo: null,
+              sampleData: true
+            });
+            
+            if (session) {
+              const wsId = localStorage.getItem("sap_active_ws");
+              showLaunchScreen(wsId, ind.name);
+            } else {
+              showErr("Something went wrong loading the demo. Please try again.");
+            }
+          } catch(err) {
+            console.error("Demo launch error:", err);
+            showErr("Failed to start demo workspace. Please try again.");
+          } finally {
             btn.innerHTML = 'Show Demo &rarr;';
             btn.disabled = false;
-            showErr("Something went wrong loading the demo. Please try again.");
           }
         }
       });
+
 
       // Logo → data URL (with a soft size guard)
       let logoData = null;
@@ -343,6 +534,31 @@
 
       const err = document.getElementById("err");
       function showErr(m) { err.textContent = m; err.classList.add("show"); }
+
+      // Shows the post-creation launch screen with Admin + Portal buttons
+      function showLaunchScreen(wsId, label) {
+
+        const overlay = document.getElementById("launchOverlay");
+        const sub = document.getElementById("launchSub");
+        const portalBtn = document.getElementById("launchPortalBtn");
+        if (!overlay) { location.href = "index.html"; return; }
+
+        // Set portal URL
+        const portalUrl = location.origin + "/portal/" + wsId;
+        if (portalBtn) portalBtn.href = portalUrl;
+
+        // Update subtitle
+        if (sub && label) {
+          sub.innerHTML = 'Your <strong>' + label + '</strong> workspace environment is initialized and ready.';
+        }
+
+        // Show overlay with animation
+        overlay.classList.add("show");
+      }
+
+
+
+
 
       // ---- team builder: add employees with roles ----
       const EMP_ROLES = ["HR Manager", "Operations Manager", "Finance Officer", "Trade Specialist"];
@@ -520,8 +736,9 @@
             const apiBase = Store.getApiBase() || "http://localhost:4000";
             Store.setApiBase(apiBase);
           }
-          submitBtn.textContent = "Redirecting...";
-          location.href = "index.html"; 
+          const wsId = localStorage.getItem("sap_active_ws");
+          const companyName = document.getElementById("company").value.trim();
+          showLaunchScreen(wsId, companyName);
         } else {
           showErr("Something went wrong creating your workspace. Please try again.");
           submitBtn.disabled = false;

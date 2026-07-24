@@ -1,0 +1,95 @@
+/* =================================================================
+   WeboCloud Portal — Official Restaurant & Menu CSS Module
+   (Signature Classics Restaurant & Menu Styles)
+   ================================================================= */
+
+body.is-kfc-theme {
+  background-color: #f8f8f8;
+  font-family: 'Inter', -apple-system, sans-serif;
+}
+body.is-kfc-theme .portal-nav {
+  background: #ffffff;
+  border-bottom: 2px solid #e4002b;
+}
+body.is-kfc-theme .nav-brand-name {
+  color: #e4002b;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+body.is-kfc-theme .nav-cats a.active {
+  background: #e4002b;
+  color: #ffffff;
+  font-weight: 800;
+}
+body.is-kfc-theme .nav-cart-btn {
+  background: #e4002b;
+  color: #ffffff;
+}
+
+.kfc-top-loc-bar {
+  background: #202020;
+  color: #ffffff;
+  text-align: center;
+  padding: 10px 24px;
+  font-weight: 800;
+  font-size: 0.85rem;
+}
+.kfc-subnav-bar {
+  background: #e4002b;
+  color: #ffffff;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 48px;
+}
+.kfc-subnav-title { font-size: 1.1rem; font-weight: 900; letter-spacing: 0.05em; }
+.kfc-discover-btn { background: #ffffff; color: #e4002b; border: none; font-weight: 900; padding: 8px 20px; border-radius: 6px; cursor: pointer; }
+
+.kfc-hero {
+  position: relative;
+  min-height: 480px;
+  background: linear-gradient(135deg, #111111 0%, #e4002b 100%), url('https://images.unsplash.com/photo-1513185158878-8d8c2a2a3da3?w=1600&q=80') center/cover no-repeat;
+  background-blend-mode: overlay;
+  display: flex;
+  align-items: center;
+  padding: 60px 48px;
+  color: #ffffff;
+}
+.kfc-hero-overlay { position: absolute; inset: 0; background: linear-gradient(to right, rgba(0,0,0,0.85), transparent); }
+.kfc-hero-content { position: relative; z-index: 2; max-width: 640px; }
+.kfc-hero-badge { display: inline-block; background: #e4002b; color: #ffffff; font-weight: 900; font-size: 0.75rem; padding: 4px 10px; border-radius: 4px; margin-bottom: 14px; }
+.kfc-hero-title { font-size: 3.2rem; font-weight: 900; line-height: 1.05; margin-bottom: 14px; text-transform: uppercase; }
+.kfc-hero-title span { color: #ffc107; }
+.kfc-hero-sub { font-size: 1.05rem; color: #ddd; margin-bottom: 24px; }
+.kfc-hero-actions { display: flex; gap: 16px; }
+.btn.kfc-btn-red { background: #e4002b; color: #fff; font-weight: 900; padding: 12px 28px; border-radius: 6px; border: none; }
+.btn.kfc-btn-outline { background: transparent; border: 2px solid #fff; color: #fff; font-weight: 800; padding: 12px 28px; border-radius: 6px; }
+
+.kfc-classics-section { padding: 60px 48px; }
+.kfc-sec-title { font-size: 2.2rem; font-weight: 900; color: #202020; margin-bottom: 32px; letter-spacing: -0.02em; }
+.kfc-cat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px; }
+@media (max-width: 900px) { .kfc-cat-grid { grid-template-columns: repeat(2, 1fr); } }
+
+.kfc-cat-card { background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 16px rgba(0,0,0,0.06); cursor: pointer; transition: transform 0.2s; }
+.kfc-cat-card:hover { transform: translateY(-4px); }
+.kfc-cat-img-wrap { width: 100%; height: 160px; overflow: hidden; }
+.kfc-cat-img-wrap img { width: 100%; height: 100%; object-fit: cover; }
+.kfc-cat-title { font-size: 1.1rem; font-weight: 900; color: #202020; padding: 16px; text-align: center; }
+
+.kfc-quote-section { background: #e4002b; color: #fff; padding: 48px; text-align: center; }
+.kfc-slogan { font-size: 2.6rem; font-weight: 900; font-style: italic; margin-bottom: 16px; }
+.kfc-menu-link-btn { background: #ffffff; color: #e4002b; border: none; font-weight: 900; padding: 12px 32px; border-radius: 99px; cursor: pointer; }
+
+.kfc-promo-banner { background: #202020; color: #fff; padding: 48px; text-align: center; }
+.kfc-promo-title { font-size: 2rem; font-weight: 900; margin-bottom: 16px; }
+.kfc-tikla-btn { background: #e4002b; color: #fff; border: none; font-weight: 900; padding: 12px 36px; border-radius: 6px; cursor: pointer; }
+
+.kfc-dark-footer { background: #181818; color: #fff; padding: 60px 48px 24px 48px; margin-top: 60px; }
+.kfc-footer-inner { display: grid; grid-template-columns: 2fr repeat(4, 1fr); gap: 32px; margin-bottom: 40px; }
+.kfc-footer-logo { font-size: 1.8rem; font-weight: 900; color: #e4002b; margin-bottom: 12px; }
+.kfc-footer-desc { color: #888; font-size: 0.85rem; }
+.kfc-footer-col h4 { font-size: 0.95rem; font-weight: 800; margin-bottom: 16px; }
+.kfc-footer-col a { display: block; color: #888; font-size: 0.85rem; margin-bottom: 10px; text-decoration: none; }
+.kfc-footer-col a:hover { color: #e4002b; }
+.kfc-loc-link { color: #e4002b !important; font-weight: 800 !important; }
+.kfc-footer-bottom { text-align: center; padding-top: 24px; border-top: 1px solid #333; color: #666; font-size: 0.8rem; }

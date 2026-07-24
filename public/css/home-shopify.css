@@ -1,0 +1,169 @@
+/* =================================================================
+   WeboCloud — marketing home page sections
+   -----------------------------------------------------------------
+   The large-format landing layout used on login.html (which doubles as
+   the public home page): oversized tight-tracked headings, a scrolling
+   customer wall, dark rounded feature slabs, big stat cards and a
+   closing capture form.
+
+   Scoped under `hs-` so nothing here can reach the sign-in card, the
+   pricing table or the app console that share the page.
+   ================================================================= */
+
+.hs {
+  --hs-ink: #0b1e33;
+  --hs-ink2: #4d5f74;
+  --hs-paper: #f4f4ef;
+  --hs-cool: #f5f9fc;
+  --hs-accent-wash: #e7f5fc;
+  --hs-accent-ink: #0d5f86;
+  --hs-dark: #0a0a0a;
+  --hs-line: #e4ecf4;
+  --hs-accent: #1aa6df;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  color: var(--hs-ink);
+}
+.hs-wrap { max-width: 1240px; margin: 0 auto; padding: 0 clamp(20px, 5vw, 56px); }
+
+.hs-h {
+  font-family: 'Jost', var(--hs-disp, inherit);
+  font-size: clamp(2.1rem, 5.4vw, 4.1rem);
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: -0.035em;
+  margin: 0 0 18px;
+}
+.hs-sub {
+  font-size: clamp(1rem, 1.5vw, 1.22rem);
+  line-height: 1.55;
+  color: var(--hs-ink2);
+  max-width: 620px;
+  margin: 0;
+}
+.hs-eyebrow {
+  font-size: 0.78rem; font-weight: 700; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--hs-accent); margin-bottom: 14px;
+}
+
+/* ---- pill buttons ---- */
+.hs-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 15px 30px;
+  background: var(--hs-ink); color: #fff;
+  border: 1px solid var(--hs-ink); border-radius: 99px;
+  font-size: 0.95rem; font-weight: 600; font-family: inherit;
+  text-decoration: none; cursor: pointer; white-space: nowrap;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.hs-btn:hover { background: #2e2e2e; }
+.hs-btn-ghost { background: transparent; color: var(--hs-ink); }
+.hs-btn-ghost:hover { background: rgba(0, 0, 0, 0.06); }
+.hs-on-dark .hs-btn { background: #fff; color: #0a0a0a; border-color: #fff; }
+.hs-on-dark .hs-btn:hover { background: #dcdcdc; }
+
+/* ---- email capture ---- */
+.hs-capture {
+  display: flex; align-items: center; gap: 6px;
+  background: #fff;
+  border: 1px solid var(--hs-line);
+  border-radius: 99px;
+  padding: 6px 6px 6px 22px;
+  max-width: 540px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+.hs-capture input {
+  flex: 1; min-width: 0;
+  border: 0; outline: 0; background: transparent;
+  font-family: inherit; font-size: 0.98rem; color: var(--hs-ink);
+  padding: 13px 0;
+}
+.hs-capture input::placeholder { color: #8a8a86; }
+.hs-capture .hs-btn { flex-shrink: 0; }
+.hs-capture-note { font-size: 0.82rem; color: #86867f; margin-top: 12px; }
+.hs-capture.sent { border-color: #16a34a; }
+
+/* ---- customer wall (marquee) ---- */
+.hs-wall { background: var(--hs-cool); padding: 74px 0 84px; overflow: hidden; border-block: 1px solid var(--hs-line); }
+.hs-wall .hs-h { font-size: clamp(1.7rem, 3.4vw, 2.7rem); margin-bottom: 44px; text-align: center; }
+.hs-marquee { display: flex; overflow: hidden; -webkit-mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent); mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent); }
+.hs-marquee-row { display: flex; gap: 68px; padding-right: 68px; animation: hs-scroll 34s linear infinite; flex-shrink: 0; }
+.hs-marquee:hover .hs-marquee-row { animation-play-state: paused; }
+.hs-logo {
+  font-family: 'Jost', inherit;
+  font-size: clamp(1.1rem, 2vw, 1.6rem); font-weight: 700;
+  letter-spacing: -0.02em; color: #163655; white-space: nowrap;
+  opacity: .3; animation: hs-glow 3.6s ease-in-out infinite; animation-delay: calc(var(--wi, 0) * .22s);
+  transition: color .2s, opacity .2s; cursor: default;
+}
+.hs-logo:hover { opacity: 1; color: var(--hs-accent); }
+@keyframes hs-glow { 0%, 100% { opacity: .24; color: #163655; } 45% { opacity: .92; color: var(--hs-accent); } }
+@keyframes hs-scroll { from { transform: translateX(0); } to { transform: translateX(-100%); } }
+@media (prefers-reduced-motion: reduce) { .hs-marquee-row { animation: none; } .hs-logo { animation: none; opacity: .5; } }
+
+/* ---- quote slab ---- */
+.hs-quote { background: var(--hs-dark); color: #fff; border-radius: 28px; margin: 0 clamp(10px,2vw,22px) 22px; padding: clamp(52px,7vw,96px) 0; }
+.hs-quote blockquote {
+  font-family: 'Jost', inherit;
+  font-size: clamp(1.25rem, 3vw, 2.15rem); font-weight: 600;
+  line-height: 1.32; letter-spacing: -0.02em; margin: 0 0 28px; max-width: 980px;
+}
+.hs-quote-by { font-size: 1rem; font-weight: 700; }
+.hs-quote-role { font-size: 0.88rem; color: rgba(255, 255, 255, 0.55); margin-top: 3px; }
+
+/* ---- stats ---- */
+.hs-stats { padding: clamp(64px, 8vw, 104px) 0; }
+.hs-stat-grid { display: grid; gap: 18px; margin-top: 46px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+.hs-stat { background: var(--hs-paper); border-radius: 18px; padding: 40px 34px 44px; transition: transform .25s ease, box-shadow .25s ease; }
+.hs-stat:hover { transform: translateY(-4px); box-shadow: 0 22px 48px rgba(11,30,51,.1); }
+.hs-stat-num {
+  font-family: 'Jost', inherit;
+  font-size: clamp(2.1rem, 4.4vw, 3.3rem); font-weight: 800;
+  letter-spacing: -0.035em; line-height: 1; margin-bottom: 12px;
+}
+.hs-stat-label { font-size: 0.98rem; color: var(--hs-ink2); line-height: 1.5; }
+
+/* ---- help / support row ---- */
+.hs-help { padding: clamp(60px, 7vw, 104px) 0; }
+.hs-help .hs-eyebrow { margin-bottom: 14px; }
+.hs-help .hs-h { font-size: clamp(1.9rem, 4vw, 2.9rem); }
+.hs-help-grid { display: grid; gap: 34px; margin-top: 46px; grid-template-columns: repeat(4, 1fr); }
+.hs-help-ic {
+  width: 46px; height: 46px; border-radius: 12px;
+  display: grid; place-items: center; margin-bottom: 16px;
+  background: var(--hs-accent-wash); color: var(--hs-accent-ink);
+}
+.hs-help-ic svg { width: 22px; height: 22px; }
+.hs-help-col h3 { font-size: 1.1rem; color: var(--hs-ink); font-weight: 700; margin: 0 0 9px; letter-spacing: -0.015em; }
+.hs-help-col p { font-size: 0.9rem; line-height: 1.55; color: var(--hs-ink2); margin: 0; }
+@media (max-width: 860px) { .hs-help-grid { grid-template-columns: 1fr 1fr; } }
+
+/* ---- closing CTA ---- */
+.hs-close { background: var(--hs-cool); border-top: 1px solid var(--hs-line); padding: clamp(66px, 8vw, 112px) 0; text-align: center; }
+.hs-close .hs-h { margin-bottom: 30px; }
+.hs-close .hs-capture { margin: 0 auto; }
+.hs-close .hs-capture-note { text-align: center; }
+
+/* ---- big footer ---- */
+.hs-foot { background: var(--hs-dark); color: rgba(255, 255, 255, 0.62); padding: 66px 0 26px; }
+.hs-foot-grid { display: grid; gap: 34px; grid-template-columns: 1.6fr repeat(auto-fit, minmax(150px, 1fr)); }
+.hs-foot-brand-name { font-size: 1.15rem; font-weight: 800; color: #fff; letter-spacing: -0.02em; margin-bottom: 12px; }
+.hs-foot-desc { font-size: 0.88rem; line-height: 1.65; max-width: 320px; }
+.hs-foot h4 { font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.1em; color: #fff; margin: 0 0 15px; font-weight: 800; }
+.hs-foot a { display: block; color: rgba(255, 255, 255, 0.62); text-decoration: none; font-size: 0.88rem; margin-bottom: 10px; transition: color 0.15s ease; }
+.hs-foot a:hover { color: #fff; }
+.hs-foot-bottom {
+  margin-top: 44px; padding-top: 22px;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  display: flex; justify-content: space-between; gap: 14px; flex-wrap: wrap;
+  font-size: 0.8rem; color: rgba(255, 255, 255, 0.45);
+}
+.hs-foot-bottom a { display: inline; margin: 0 0 0 18px; }
+
+@media (max-width: 720px) {
+  .hs-capture { flex-direction: column; align-items: stretch; border-radius: 18px; padding: 12px; gap: 10px; }
+  .hs-capture input { padding: 10px 12px; }
+  .hs-capture .hs-btn { width: 100%; }
+  .hs-foot-grid { grid-template-columns: 1fr 1fr; }
+  .hs-foot-brand { grid-column: 1 / -1; }
+  .hs-foot-bottom { justify-content: center; text-align: center; }
+}

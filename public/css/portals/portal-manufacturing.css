@@ -1,0 +1,482 @@
+/* =================================================================
+   WeboCloud Portal — Manufacturing & Industrial Plants CSS Module
+   (Smart Manufacturing, Precision OEM & Supply Chain Portal Styles)
+   ================================================================= */
+
+body.is-mfg-theme {
+  background-color: #0b0f17;
+  color: #f1f5f9;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+body.is-mfg-theme .portal-nav {
+  background: #111827;
+  border-bottom: 1px solid #1f2937;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+}
+body.is-mfg-theme .nav-brand-name {
+  color: #38bdf8;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  font-size: 1.5rem;
+  text-transform: uppercase;
+}
+body.is-mfg-theme .nav-cats a {
+  color: #94a3b8;
+  font-weight: 800;
+  font-size: 0.82rem;
+  letter-spacing: 0.05em;
+}
+body.is-mfg-theme .nav-cats a.active {
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.12);
+  border: 1px solid rgba(56, 189, 248, 0.3);
+}
+body.is-mfg-theme .nav-cart-btn {
+  background: #0284c7;
+  color: #ffffff;
+  border-radius: 6px;
+  font-weight: 900;
+}
+body.is-mfg-theme .nav-search-btn {
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: #ffffff;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+body.is-mfg-theme .nav-search-btn svg {
+  stroke: #ffffff !important;
+  stroke-width: 2.5px !important;
+  width: 20px;
+  height: 20px;
+}
+body.is-mfg-theme .nav-search-btn:hover {
+  background: #0284c7;
+  border-color: #0284c7;
+  color: #ffffff;
+  transform: scale(1.06);
+}
+
+/* TOP STEEL & SAFETY BAR */
+.mfg-top-bar {
+  background: #111827;
+  color: #cbd5e1;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.82rem;
+  font-weight: 700;
+  padding: 10px 48px;
+  border-bottom: 1px solid #1f2937;
+}
+.mfg-hotline {
+  color: #38bdf8;
+  font-weight: 900;
+}
+
+/* SUB-HEADER BAR */
+.mfg-subnav-bar {
+  background: #1e293b;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 48px;
+  border-bottom: 1px solid #334155;
+}
+.mfg-subnav-title {
+  font-size: 1.05rem;
+  font-weight: 900;
+  letter-spacing: 0.05em;
+  color: #f8fafc;
+}
+.mfg-rfq-btn {
+  background: #0284c7;
+  color: #ffffff;
+  border: none;
+  font-weight: 900;
+  font-size: 0.82rem;
+  padding: 10px 24px;
+  border-radius: 6px;
+  cursor: pointer;
+  letter-spacing: 0.05em;
+  transition: transform 0.2s, background 0.2s;
+}
+.mfg-rfq-btn:hover {
+  background: #0369a1;
+  transform: scale(1.03);
+}
+
+/* HEAVY INDUSTRIAL HERO */
+.mfg-hero {
+  position: relative;
+  min-height: 520px;
+  background: linear-gradient(135deg, #090d16 0%, #0f172a 60%, #0369a1 100%), url('https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?w=1600&q=80') center/cover no-repeat;
+  background-blend-mode: overlay;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 80px 48px;
+  color: #ffffff;
+}
+.mfg-hero-overlay {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at center, rgba(11, 15, 23, 0.75), rgba(11, 15, 23, 0.95) 100%);
+}
+.mfg-hero-content {
+  position: relative;
+  z-index: 2;
+  max-width: 840px;
+  margin: 0 auto;
+  text-align: center;
+}
+.mfg-hero-badge {
+  display: inline-block;
+  background: rgba(56, 189, 248, 0.18);
+  border: 1px solid #38bdf8;
+  color: #38bdf8;
+  font-weight: 900;
+  font-size: 0.78rem;
+  padding: 6px 14px;
+  border-radius: 4px;
+  letter-spacing: 0.1em;
+  margin: 0 auto 18px auto;
+}
+.mfg-hero-title {
+  font-size: 3.4rem;
+  font-weight: 900;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  margin-bottom: 18px;
+  text-transform: uppercase;
+  text-align: center;
+}
+.mfg-hero-title span {
+  color: #38bdf8;
+}
+.mfg-hero-sub {
+  font-size: 1.15rem;
+  color: #94a3b8;
+  line-height: 1.6;
+  margin: 0 auto 32px auto;
+  max-width: 680px;
+  text-align: center;
+}
+.mfg-hero-actions {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+}
+.btn.mfg-btn-blue {
+  background: #0284c7;
+  color: #ffffff;
+  font-weight: 900;
+  padding: 14px 32px;
+  border-radius: 6px;
+  font-size: 0.95rem;
+  border: none;
+}
+.btn.mfg-btn-blue:hover {
+  background: #0369a1;
+}
+.btn.mfg-btn-outline {
+  background: transparent;
+  border: 2px solid #475569;
+  color: #f8fafc;
+  font-weight: 800;
+  padding: 14px 32px;
+  border-radius: 6px;
+  font-size: 0.95rem;
+}
+.btn.mfg-btn-outline:hover {
+  border-color: #38bdf8;
+  color: #38bdf8;
+}
+
+/* LIVE STATS STRIP */
+.mfg-stats-strip {
+  background: #111827;
+  border-y: 1px solid #1f2937;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  padding: 32px 48px;
+  text-align: center;
+  gap: 24px;
+}
+@media (max-width: 850px) { .mfg-stats-strip { grid-template-columns: repeat(2, 1fr); } }
+.mfg-stat-num {
+  font-size: 2.6rem;
+  font-weight: 900;
+  color: #38bdf8;
+  line-height: 1;
+  margin-bottom: 8px;
+}
+.mfg-stat-label {
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: #94a3b8;
+  letter-spacing: 0.08em;
+}
+
+/* CAPABILITIES GRID */
+.mfg-cap-section {
+  padding: 64px 48px;
+  background: #0b0f17;
+}
+.mfg-sec-eyebrow {
+  color: #38bdf8;
+  font-weight: 900;
+  font-size: 0.82rem;
+  letter-spacing: 0.1em;
+  margin-bottom: 6px;
+}
+.mfg-sec-title {
+  font-size: 2.4rem;
+  font-weight: 900;
+  color: #f8fafc;
+  letter-spacing: 0.02em;
+}
+.mfg-cap-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+  margin-top: 36px;
+}
+@media (max-width: 950px) { .mfg-cap-grid { grid-template-columns: 1fr; } }
+
+.mfg-cap-card {
+  background: #111827;
+  border: 1px solid #1f2937;
+  border-radius: 10px;
+  padding: 28px 24px;
+  transition: transform 0.3s, border-color 0.3s;
+}
+.mfg-cap-card:hover {
+  transform: translateY(-6px);
+  border-color: #38bdf8;
+}
+.mfg-cap-icon {
+  font-size: 2.4rem;
+  margin-bottom: 16px;
+}
+.mfg-cap-tag {
+  display: inline-block;
+  background: rgba(56, 189, 248, 0.1);
+  color: #38bdf8;
+  font-weight: 800;
+  font-size: 0.72rem;
+  padding: 3px 8px;
+  border-radius: 4px;
+  margin-bottom: 10px;
+}
+.mfg-cap-title {
+  font-size: 1.2rem;
+  font-weight: 900;
+  color: #f8fafc;
+  margin-bottom: 8px;
+}
+.mfg-cap-desc {
+  font-size: 0.88rem;
+  color: #94a3b8;
+  line-height: 1.5;
+}
+
+/* RFQ SECTION */
+.mfg-rfq-section {
+  background: #111827;
+  padding: 70px 48px;
+}
+.mfg-rfq-wrap {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 48px;
+  align-items: center;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+@media (max-width: 900px) { .mfg-rfq-wrap { grid-template-columns: 1fr; } }
+
+.mfg-rfq-heading {
+  font-size: 2.6rem;
+  font-weight: 900;
+  color: #f8fafc;
+  margin-bottom: 16px;
+}
+.mfg-rfq-text {
+  font-size: 1.05rem;
+  color: #94a3b8;
+  line-height: 1.6;
+  margin-bottom: 24px;
+}
+.mfg-perk-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.mfg-perk-item {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #cbd5e1;
+}
+
+.mfg-form-card {
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 12px;
+  padding: 32px;
+}
+body.is-mfg-theme .pf-label { color: #cbd5e1; }
+body.is-mfg-theme .pf-input,
+body.is-mfg-theme .pf-select,
+body.is-mfg-theme .pf-textarea {
+  background: #0f172a;
+  border-color: #334155;
+  color: #f8fafc;
+}
+body.is-mfg-theme .pf-input:focus,
+body.is-mfg-theme .pf-select:focus,
+body.is-mfg-theme .pf-textarea:focus {
+  border-color: #38bdf8;
+}
+
+/* MANUFACTURING PRODUCT CARDS */
+.mfg-product-grid .mfg-card {
+  background: #111827;
+  border: 1px solid #1f2937;
+  border-radius: 10px;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.3s, border-color 0.3s;
+}
+.mfg-product-grid .mfg-card:hover {
+  transform: translateY(-4px);
+  border-color: #38bdf8;
+}
+.mfg-card-top { margin-bottom: 12px; }
+.mfg-badge {
+  background: rgba(56, 189, 248, 0.15);
+  border: 1px solid #38bdf8;
+  color: #38bdf8;
+  font-weight: 900;
+  font-size: 0.68rem;
+  padding: 3px 8px;
+  border-radius: 4px;
+}
+.mfg-img-wrap {
+  width: 100%;
+  height: 180px;
+  border-radius: 8px;
+  overflow: hidden;
+}
+.mfg-img-wrap img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.mfg-prod-name {
+  font-size: 1.15rem;
+  font-weight: 900;
+  color: #f8fafc;
+  margin-top: 14px;
+  margin-bottom: 6px;
+}
+.mfg-prod-desc {
+  font-size: 0.82rem;
+  color: #94a3b8;
+  line-height: 1.4;
+  margin-bottom: 16px;
+  flex-grow: 1;
+}
+.mfg-price-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: auto;
+  padding-top: 12px;
+  border-top: 1px solid #1f2937;
+}
+.mfg-curr { font-size: 0.72rem; font-weight: 800; color: #64748b; }
+.mfg-price { font-size: 1.3rem; font-weight: 900; color: #38bdf8; margin-left: 4px; }
+.mfg-add-btn {
+  background: #0284c7;
+  color: #ffffff;
+  font-weight: 900;
+  font-size: 0.78rem;
+  padding: 8px 16px;
+  border-radius: 6px;
+  border: none;
+}
+.mfg-add-btn:hover { background: #0369a1; }
+
+/* DARK METAL FOOTER */
+.mfg-dark-footer {
+  background: #0b0f17;
+  border-top: 1px solid #1f2937;
+  color: #ffffff;
+  padding: 60px 48px 30px 48px;
+  margin-top: 60px;
+}
+.mfg-footer-inner {
+  display: grid;
+  grid-template-columns: 2fr repeat(4, 1fr);
+  gap: 32px;
+  margin-bottom: 40px;
+}
+@media (max-width: 900px) { .mfg-footer-inner { grid-template-columns: 1fr 1fr; } }
+
+.mfg-footer-logo {
+  font-size: 1.8rem;
+  font-weight: 900;
+  color: #38bdf8;
+  letter-spacing: 0.03em;
+  margin-bottom: 12px;
+}
+.mfg-footer-desc {
+  color: #94a3b8;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  margin-bottom: 14px;
+}
+.mfg-cert-badge {
+  display: inline-block;
+  background: rgba(56, 189, 248, 0.12);
+  border: 1px solid #38bdf8;
+  color: #38bdf8;
+  font-weight: 900;
+  font-size: 0.72rem;
+  padding: 4px 10px;
+  border-radius: 4px;
+}
+.mfg-footer-col h4 {
+  font-size: 0.95rem;
+  font-weight: 800;
+  margin-bottom: 16px;
+  color: #f8fafc;
+}
+.mfg-footer-col a {
+  display: block;
+  color: #64748b;
+  font-size: 0.85rem;
+  margin-bottom: 10px;
+  transition: color 0.2s;
+}
+.mfg-footer-col a:hover {
+  color: #38bdf8;
+}
+.mfg-loc-link { color: #38bdf8 !important; font-weight: 800 !important; }
+.mfg-footer-bottom {
+  text-align: center;
+  padding-top: 24px;
+  border-top: 1px solid #1f2937;
+  color: #64748b;
+  font-size: 0.8rem;
+}

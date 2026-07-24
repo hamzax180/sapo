@@ -6,6 +6,13 @@
       "runtimeExecutable": "npx",
       "runtimeArgs": ["serve", "-l", "3100", "."],
       "port": 3100
+    },
+    {
+      "name": "sapo-api",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["server/index.js"],
+      "port": 4000,
+      "autoPort": true
     }
   ]
 }

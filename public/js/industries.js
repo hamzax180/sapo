@@ -20,6 +20,11 @@ window.INDUSTRIES = {
     blurb: "Freight, shipments, customs and distribution across borders.",
     icon: "truck",
     accent: "#1aa6df",
+    // "portal template" tells the portal frontend which UI to render
+    portalTemplate: "tracker",
+    portalHero: "Track Your Shipment",
+    portalSubhero: "Enter your shipment reference number to get real-time updates.",
+    portalCallToAction: "Track Now",
     // "*" = every module; otherwise an explicit, ordered allow-list
     modules: "*",
     labels: {},
@@ -30,29 +35,29 @@ window.INDUSTRIES = {
     origin: "Mersin, TR",
     warehouses: ["Mersin Main", "Mersin Cold Store", "Istanbul DC"]
   },
-  ecommerce: {
-    key: "ecommerce",
-    name: "E-commerce",
-    tagline: "Online Retail",
-    blurb: "Online store orders, fulfilment, returns and customers.",
-    icon: "cart",
-    accent: "#7c5cff",
-    modules: ["dashboard", "mywork", "orders", "clients", "inventory", "shipments", "purchasing", "suppliers", "finance", "accounting", "history", "users", "settings"],
+  fashion: {
+    key: "fashion",
+    name: "Fashion & Apparel",
+    tagline: "Fashion & Luxury Editorial",
+    blurb: "Apparel, luxury collections, seasonal drops and lookbooks.",
+    icon: "bag",
+    accent: "#111111",
+    portalTemplate: "fashion",
+    portalHero: "THE COLLECTION 2026",
+    portalSubhero: "Elevated everyday luxury. Designed with refined silhouettes.",
+    portalCallToAction: "Shop Collection",
+    modules: ["dashboard", "mywork", "orders", "clients", "inventory", "purchasing", "suppliers", "finance", "accounting", "history", "users", "settings"],
     labels: {
-      orders:    ["Orders", "Store orders"],
-      clients:   ["Customers", "Buyer accounts"],
-      inventory: ["Products", "Catalogue & stock"],
-      shipments: ["Deliveries", "Fulfilment & carriers"],
-      suppliers: ["Vendors", "Supply partners"],
-      purchasing: ["Restock Orders", "Inbound purchasing"],
-      finance:   ["Revenue & Invoices", "Receivables"]
+      orders:    ["Orders", "Customer orders"],
+      inventory: ["Catalog", "Apparel & collections"]
     },
-    shipModes: ["Courier", "Parcel", "Express", "Pickup"],
+    shipModes: ["Courier", "Express Air", "Boutique Pickup"],
     freightDetails: false,
-    refPrefix: "DLV-",
-    origin: "Main Fulfilment",
-    warehouses: ["Main Fulfilment", "Returns Center"]
+    refPrefix: "FSH-",
+    origin: "Central Warehouse",
+    warehouses: ["Boutique Store", "Main Warehouse"]
   },
+
   wholesale: {
     key: "wholesale",
     name: "Wholesale / Distribution",
@@ -60,6 +65,10 @@ window.INDUSTRIES = {
     blurb: "Bulk buying and selling between suppliers and trade buyers.",
     icon: "package",
     accent: "#0f9d6b",
+    portalTemplate: "catalog",
+    portalHero: "Wholesale Catalogue",
+    portalSubhero: "Browse our product range and place a trade order.",
+    portalCallToAction: "Request Quote",
     modules: ["dashboard", "mywork", "quotes", "orders", "clients", "inventory", "shipments", "purchasing", "suppliers", "finance", "accounting", "history", "users", "settings"],
     labels: {
       clients:   ["Buyers", "Trade accounts"],
@@ -74,11 +83,15 @@ window.INDUSTRIES = {
   },
   retail: {
     key: "retail",
-    name: "Retail",
-    tagline: "Retail & Store",
+    name: "Retail Superstore",
+    tagline: "Retail & Superstore",
     blurb: "Store sales, stock on shelves and supplier replenishment.",
     icon: "bag",
-    accent: "#e6534b",
+    accent: "#feee00",
+    portalTemplate: "retail",
+    portalHero: "Welcome to Our Store",
+    portalSubhero: "Browse our full range and order online.",
+    portalCallToAction: "Shop Now",
     modules: ["dashboard", "mywork", "orders", "clients", "inventory", "purchasing", "suppliers", "finance", "accounting", "history", "users", "settings"],
     labels: {
       orders:    ["Sales", "Counter & online sales"],
@@ -87,6 +100,7 @@ window.INDUSTRIES = {
       suppliers: ["Vendors", "Replenishment partners"],
       purchasing: ["Stock Orders", "Replenishment"]
     },
+
     shipModes: ["Pickup", "Courier", "Local Delivery"],
     freightDetails: false,
     refPrefix: "DLV-",
@@ -100,6 +114,11 @@ window.INDUSTRIES = {
     blurb: "Raw materials, production runs, finished goods and dispatch.",
     icon: "factory",
     accent: "#d97706",
+    portalTemplate: "manufacturing",
+    portalHero: "Precision OEM & Smart Manufacturing",
+    portalSubhero: "Custom CNC machining, sheet metal, injection molding & batch production.",
+    portalCallToAction: "Request RFQ Quote",
+
     modules: ["dashboard", "mywork", "quotes", "orders", "clients", "inventory", "shipments", "purchasing", "suppliers", "finance", "accounting", "attendance", "payroll", "history", "users", "settings"],
     labels: {
       orders:    ["Production Orders", "Work orders & runs"],
@@ -122,6 +141,10 @@ window.INDUSTRIES = {
     blurb: "Menu, table & online orders, kitchen stock and supplier deliveries.",
     icon: "utensils",
     accent: "#e11d48",
+    portalTemplate: "menu",
+    portalHero: "Order Online",
+    portalSubhero: "Fresh food, delivered to your door or ready for pickup.",
+    portalCallToAction: "Order Now",
     modules: ["dashboard", "mywork", "orders", "clients", "inventory", "purchasing", "suppliers", "finance", "accounting", "attendance", "payroll", "history", "users", "settings"],
     labels: {
       orders:    ["Orders", "Table & online orders"],
@@ -144,6 +167,10 @@ window.INDUSTRIES = {
     blurb: "Projects, material procurement, site deliveries and subcontractors.",
     icon: "hammer",
     accent: "#b45309",
+    portalTemplate: "inquiry",
+    portalHero: "Start Your Project",
+    portalSubhero: "Tell us about your project and get a free quote.",
+    portalCallToAction: "Get a Quote",
     modules: ["dashboard", "mywork", "quotes", "orders", "clients", "inventory", "shipments", "purchasing", "suppliers", "finance", "accounting", "attendance", "payroll", "history", "users", "settings"],
     labels: {
       quotes:    ["Tenders", "Bids & estimates"],
@@ -167,6 +194,11 @@ window.INDUSTRIES = {
     blurb: "Client projects, billable work, proposals and invoicing.",
     icon: "briefcase",
     accent: "#0f766e",
+    portalTemplate: "services",
+    portalHero: "Professional Strategy & Advisory",
+    portalSubhero: "Strategy, digital transformation, financial advisory & corporate risk mitigation.",
+    portalCallToAction: "Request RFP Proposal",
+
     modules: ["dashboard", "mywork", "quotes", "orders", "clients", "finance", "accounting", "attendance", "payroll", "history", "users", "settings"],
     labels: {
       quotes:    ["Proposals", "Scopes & estimates"],
@@ -264,6 +296,10 @@ window.Workspace = (function () {
   }
 
   function checkSubscription() {
+    // TEMP TEST BYPASS: payment lock disabled app-wide for testing.
+    // Delete this early return to restore the real paywall.
+    return { locked: false, trial: false };
+
     const w = active();
     if (!w) return { locked: false, trial: false };
     if (w.email === "admin@demo.com" || String(w.company).startsWith("Demo ")) {

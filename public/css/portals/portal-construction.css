@@ -1,0 +1,485 @@
+/* =================================================================
+   WeboCloud Portal — Construction & Heavy Contracting CSS Module
+   (Heavy Civil, Structural Engineering & RFP Tender Portal Styles)
+   ================================================================= */
+
+body.is-construction-theme {
+  background-color: #0f1115;
+  color: #f8fafc;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+body.is-construction-theme .portal-nav {
+  background: #181a20;
+  border-bottom: 1px solid #2d3139;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+}
+body.is-construction-theme .nav-brand-name {
+  color: #f59e0b;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  font-size: 1.5rem;
+  text-transform: uppercase;
+}
+body.is-construction-theme .nav-cats a {
+  color: #94a3b8;
+  font-weight: 800;
+  font-size: 0.82rem;
+  letter-spacing: 0.05em;
+}
+body.is-construction-theme .nav-cats a.active {
+  color: #f59e0b;
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+body.is-construction-theme .nav-cart-btn {
+  background: #f59e0b;
+  color: #0f1115;
+  border-radius: 6px;
+  font-weight: 900;
+}
+body.is-construction-theme .nav-search-btn {
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: #ffffff;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+body.is-construction-theme .nav-search-btn svg {
+  stroke: #ffffff !important;
+  stroke-width: 2.5px !important;
+  width: 20px;
+  height: 20px;
+}
+body.is-construction-theme .nav-search-btn:hover {
+  background: #f59e0b;
+  border-color: #f59e0b;
+  color: #0f1115;
+  transform: scale(1.06);
+}
+body.is-construction-theme .nav-search-btn:hover svg {
+  stroke: #0f1115 !important;
+}
+
+/* TOP STEEL & SAFETY BAR */
+.cnst-top-bar {
+  background: #181a20;
+  color: #cbd5e1;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.82rem;
+  font-weight: 700;
+  padding: 10px 48px;
+  border-bottom: 1px solid #2d3139;
+}
+.cnst-hotline {
+  color: #f59e0b;
+  font-weight: 900;
+}
+
+/* SUB-HEADER BAR */
+.cnst-subnav-bar {
+  background: #252830;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 48px;
+  border-bottom: 1px solid #333842;
+}
+.cnst-subnav-title {
+  font-size: 1.05rem;
+  font-weight: 900;
+  letter-spacing: 0.05em;
+  color: #f8fafc;
+}
+.cnst-tender-btn {
+  background: #f59e0b;
+  color: #0f1115;
+  border: none;
+  font-weight: 900;
+  font-size: 0.82rem;
+  padding: 10px 24px;
+  border-radius: 6px;
+  cursor: pointer;
+  letter-spacing: 0.05em;
+  transition: transform 0.2s, background 0.2s;
+}
+.cnst-tender-btn:hover {
+  background: #d97706;
+  transform: scale(1.03);
+}
+
+/* HEAVY CONSTRUCTION HERO */
+.cnst-hero {
+  position: relative;
+  min-height: 520px;
+  background: linear-gradient(135deg, #090a0c 0%, #1c1f26 60%, #312612 100%), url('https://images.unsplash.com/photo-1541888946425-d0fbb186a5b3?w=1600&q=80') center/cover no-repeat;
+  background-blend-mode: overlay;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 80px 48px;
+  color: #ffffff;
+}
+.cnst-hero-overlay {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at center, rgba(15, 17, 21, 0.75), rgba(15, 17, 21, 0.95) 100%);
+}
+.cnst-hero-content {
+  position: relative;
+  z-index: 2;
+  max-width: 840px;
+  margin: 0 auto;
+  text-align: center;
+}
+.cnst-hero-badge {
+  display: inline-block;
+  background: rgba(245, 158, 11, 0.18);
+  border: 1px solid #f59e0b;
+  color: #f59e0b;
+  font-weight: 900;
+  font-size: 0.78rem;
+  padding: 6px 14px;
+  border-radius: 4px;
+  letter-spacing: 0.1em;
+  margin: 0 auto 18px auto;
+}
+.cnst-hero-title {
+  font-size: 3.4rem;
+  font-weight: 900;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  margin-bottom: 18px;
+  text-transform: uppercase;
+  text-align: center;
+}
+.cnst-hero-title span {
+  color: #f59e0b;
+}
+.cnst-hero-sub {
+  font-size: 1.15rem;
+  color: #94a3b8;
+  line-height: 1.6;
+  margin: 0 auto 32px auto;
+  max-width: 680px;
+  text-align: center;
+}
+.cnst-hero-actions {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+}
+.btn.cnst-btn-amber {
+  background: #f59e0b;
+  color: #0f1115;
+  font-weight: 900;
+  padding: 14px 32px;
+  border-radius: 6px;
+  font-size: 0.95rem;
+  border: none;
+}
+.btn.cnst-btn-amber:hover {
+  background: #d97706;
+}
+.btn.cnst-btn-outline {
+  background: transparent;
+  border: 2px solid #475569;
+  color: #f8fafc;
+  font-weight: 800;
+  padding: 14px 32px;
+  border-radius: 6px;
+  font-size: 0.95rem;
+}
+.btn.cnst-btn-outline:hover {
+  border-color: #f59e0b;
+  color: #f59e0b;
+}
+
+/* LIVE STATS STRIP */
+.cnst-stats-strip {
+  background: #181a20;
+  border-y: 1px solid #2d3139;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  padding: 32px 48px;
+  text-align: center;
+  gap: 24px;
+}
+@media (max-width: 850px) { .cnst-stats-strip { grid-template-columns: repeat(2, 1fr); } }
+.cnst-stat-num {
+  font-size: 2.6rem;
+  font-weight: 900;
+  color: #f59e0b;
+  line-height: 1;
+  margin-bottom: 8px;
+}
+.cnst-stat-label {
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: #94a3b8;
+  letter-spacing: 0.08em;
+}
+
+/* CAPABILITIES GRID */
+.cnst-cap-section {
+  padding: 64px 48px;
+  background: #0f1115;
+}
+.cnst-sec-eyebrow {
+  color: #f59e0b;
+  font-weight: 900;
+  font-size: 0.82rem;
+  letter-spacing: 0.1em;
+  margin-bottom: 6px;
+}
+.cnst-sec-title {
+  font-size: 2.4rem;
+  font-weight: 900;
+  color: #f8fafc;
+  letter-spacing: 0.02em;
+}
+.cnst-cap-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+  margin-top: 36px;
+}
+@media (max-width: 950px) { .cnst-cap-grid { grid-template-columns: 1fr; } }
+
+.cnst-cap-card {
+  background: #181a20;
+  border: 1px solid #2d3139;
+  border-radius: 10px;
+  padding: 28px 24px;
+  transition: transform 0.3s, border-color 0.3s;
+}
+.cnst-cap-card:hover {
+  transform: translateY(-6px);
+  border-color: #f59e0b;
+}
+.cnst-cap-icon {
+  font-size: 2.4rem;
+  margin-bottom: 16px;
+}
+.cnst-cap-tag {
+  display: inline-block;
+  background: rgba(245, 158, 11, 0.1);
+  color: #f59e0b;
+  font-weight: 800;
+  font-size: 0.72rem;
+  padding: 3px 8px;
+  border-radius: 4px;
+  margin-bottom: 10px;
+}
+.cnst-cap-title {
+  font-size: 1.2rem;
+  font-weight: 900;
+  color: #f8fafc;
+  margin-bottom: 8px;
+}
+.cnst-cap-desc {
+  font-size: 0.88rem;
+  color: #94a3b8;
+  line-height: 1.5;
+}
+
+/* TENDER SECTION */
+.cnst-tender-section {
+  background: #181a20;
+  padding: 70px 48px;
+}
+.cnst-tender-wrap {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 48px;
+  align-items: center;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+@media (max-width: 900px) { .cnst-tender-wrap { grid-template-columns: 1fr; } }
+
+.cnst-tender-heading {
+  font-size: 2.6rem;
+  font-weight: 900;
+  color: #f8fafc;
+  margin-bottom: 16px;
+}
+.cnst-tender-text {
+  font-size: 1.05rem;
+  color: #94a3b8;
+  line-height: 1.6;
+  margin-bottom: 24px;
+}
+.cnst-perk-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.cnst-perk-item {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #cbd5e1;
+}
+
+.cnst-form-card {
+  background: #20242c;
+  border: 1px solid #333842;
+  border-radius: 12px;
+  padding: 32px;
+}
+body.is-construction-theme .pf-label { color: #cbd5e1; }
+body.is-construction-theme .pf-input,
+body.is-construction-theme .pf-select,
+body.is-construction-theme .pf-textarea {
+  background: #14161b;
+  border-color: #333842;
+  color: #f8fafc;
+}
+body.is-construction-theme .pf-input:focus,
+body.is-construction-theme .pf-select:focus,
+body.is-construction-theme .pf-textarea:focus {
+  border-color: #f59e0b;
+}
+
+/* CONSTRUCTION PRODUCT CARDS */
+.cnst-product-grid .cnst-card {
+  background: #181a20;
+  border: 1px solid #2d3139;
+  border-radius: 10px;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.3s, border-color 0.3s;
+}
+.cnst-product-grid .cnst-card:hover {
+  transform: translateY(-4px);
+  border-color: #f59e0b;
+}
+.cnst-card-top { margin-bottom: 12px; }
+.cnst-badge {
+  background: rgba(245, 158, 11, 0.15);
+  border: 1px solid #f59e0b;
+  color: #f59e0b;
+  font-weight: 900;
+  font-size: 0.68rem;
+  padding: 3px 8px;
+  border-radius: 4px;
+}
+.cnst-img-wrap {
+  width: 100%;
+  height: 180px;
+  border-radius: 8px;
+  overflow: hidden;
+}
+.cnst-img-wrap img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.cnst-prod-name {
+  font-size: 1.15rem;
+  font-weight: 900;
+  color: #f8fafc;
+  margin-top: 14px;
+  margin-bottom: 6px;
+}
+.cnst-prod-desc {
+  font-size: 0.82rem;
+  color: #94a3b8;
+  line-height: 1.4;
+  margin-bottom: 16px;
+  flex-grow: 1;
+}
+.cnst-price-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: auto;
+  padding-top: 12px;
+  border-top: 1px solid #2d3139;
+}
+.cnst-curr { font-size: 0.72rem; font-weight: 800; color: #64748b; }
+.cnst-price { font-size: 1.3rem; font-weight: 900; color: #f59e0b; margin-left: 4px; }
+.cnst-add-btn {
+  background: #f59e0b;
+  color: #0f1115;
+  font-weight: 900;
+  font-size: 0.78rem;
+  padding: 8px 16px;
+  border-radius: 6px;
+  border: none;
+}
+.cnst-add-btn:hover { background: #d97706; }
+
+/* DARK INDUSTRIAL FOOTER */
+.cnst-dark-footer {
+  background: #14161b;
+  border-top: 1px solid #2d3139;
+  color: #ffffff;
+  padding: 60px 48px 30px 48px;
+  margin-top: 60px;
+}
+.cnst-footer-inner {
+  display: grid;
+  grid-template-columns: 2fr repeat(4, 1fr);
+  gap: 32px;
+  margin-bottom: 40px;
+}
+@media (max-width: 900px) { .cnst-footer-inner { grid-template-columns: 1fr 1fr; } }
+
+.cnst-footer-logo {
+  font-size: 1.8rem;
+  font-weight: 900;
+  color: #f59e0b;
+  letter-spacing: 0.03em;
+  margin-bottom: 12px;
+}
+.cnst-footer-desc {
+  color: #94a3b8;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  margin-bottom: 14px;
+}
+.cnst-cert-badge {
+  display: inline-block;
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid #f59e0b;
+  color: #f59e0b;
+  font-weight: 900;
+  font-size: 0.72rem;
+  padding: 4px 10px;
+  border-radius: 4px;
+}
+.cnst-footer-col h4 {
+  font-size: 0.95rem;
+  font-weight: 800;
+  margin-bottom: 16px;
+  color: #f8fafc;
+}
+.cnst-footer-col a {
+  display: block;
+  color: #64748b;
+  font-size: 0.85rem;
+  margin-bottom: 10px;
+  transition: color 0.2s;
+}
+.cnst-footer-col a:hover {
+  color: #f59e0b;
+}
+.cnst-loc-link { color: #f59e0b !important; font-weight: 800 !important; }
+.cnst-footer-bottom {
+  text-align: center;
+  padding-top: 24px;
+  border-top: 1px solid #2d3139;
+  color: #64748b;
+  font-size: 0.8rem;
+}
