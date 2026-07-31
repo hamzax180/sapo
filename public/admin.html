@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Souqi — Platform Admin</title>
+  <link rel="icon" type="image/png" href="assets/logo.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Jost:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    :root{
+      --bg:#eef2f7; --panel:#ffffff; --ink:#0b1e33; --ink2:#5b6b7f; --mut:#8798ab;
+      --line:#e7edf4; --accent:#1aa6df; --green:#22a565; --violet:#6b6ff0;
+      --amber:#e0a11a; --pink:#e0498b; --sidebar:#0b1626; --sidebar2:#0f1e33;
+      --shadow:0 1px 2px rgba(11,30,51,.04),0 8px 24px rgba(11,30,51,.06);
+    }
+    body{font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased}
+    .admin{display:grid;grid-template-columns:248px 1fr;min-height:100vh}
+
+    /* ---------- sidebar ---------- */
+    .side{background:linear-gradient(180deg,var(--sidebar),var(--sidebar2));color:#cdd8e6;padding:22px 16px;position:sticky;top:0;height:100vh;display:flex;flex-direction:column;gap:6px}
+    .side-brand{display:flex;align-items:center;gap:11px;padding:6px 8px 20px;border-bottom:1px solid rgba(255,255,255,.08);margin-bottom:14px}
+    .side-brand img{width:34px;height:34px;object-fit:contain;border-radius:8px;background:#fff}
+    .side-brand b{font-family:'Jost';font-weight:800;font-size:1.2rem;color:#fff;letter-spacing:-.02em}
+    .side-brand span{display:block;font-size:.66rem;letter-spacing:.16em;text-transform:uppercase;color:#66809b}
+    .nav-item{display:flex;align-items:center;gap:12px;padding:11px 12px;border-radius:10px;color:#aebccd;font-weight:600;font-size:.92rem;cursor:pointer;transition:background .15s,color .15s;text-decoration:none}
+    .nav-item svg{width:18px;height:18px;flex:0 0 auto}
+    .nav-item:hover{background:rgba(255,255,255,.06);color:#fff}
+    .nav-item.active{background:var(--accent);color:#04121d}
+    .side-foot{margin-top:auto;font-size:.72rem;color:#5f7899;padding:12px 8px;border-top:1px solid rgba(255,255,255,.08)}
+
+    /* ---------- main ---------- */
+    .main{display:flex;flex-direction:column;min-width:0}
+    .topbar{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:20px 30px;background:var(--panel);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
+    .topbar h1{font-family:'Jost';font-size:1.4rem;font-weight:700;letter-spacing:-.02em}
+    .topbar .sub{font-size:.84rem;color:var(--ink2);margin-top:2px}
+    .top-actions{display:flex;align-items:center;gap:12px}
+    .btn{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line);background:#fff;color:var(--ink);border-radius:10px;padding:9px 14px;font:inherit;font-weight:600;font-size:.86rem;cursor:pointer;transition:.15s}
+    .btn:hover{border-color:#c5d4e4;background:#f7fafd}
+    .btn-primary{background:var(--accent);border-color:var(--accent);color:#04121d}
+    .btn-primary:hover{background:#3bb8ea}
+    .chip{display:inline-flex;align-items:center;gap:9px;padding:6px 12px 6px 6px;border:1px solid var(--line);border-radius:999px;font-size:.82rem;font-weight:600;color:var(--ink2)}
+    .chip .av{width:26px;height:26px;border-radius:50%;background:var(--accent);color:#04121d;display:grid;place-items:center;font-weight:800;font-size:.8rem}
+
+    .wrap{padding:26px 30px 60px;max-width:1360px;width:100%}
+    .demo-banner{display:none;align-items:center;gap:10px;background:#fff7e6;border:1px solid #f2d891;color:#7a5a12;padding:10px 16px;border-radius:12px;font-size:.85rem;font-weight:600;margin-bottom:20px}
+    .demo-banner.show{display:flex}
+
+    /* ---------- KPI cards ---------- */
+    .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:22px}
+    @media (max-width:1120px){.kpis{grid-template-columns:repeat(2,1fr)}}
+    @media (max-width:560px){.kpis{grid-template-columns:1fr}}
+    .kpi{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px 20px;box-shadow:var(--shadow);position:relative;overflow:hidden}
+    .kpi .k-ic{width:38px;height:38px;border-radius:10px;display:grid;place-items:center;margin-bottom:14px}
+    .kpi .k-ic svg{width:19px;height:19px}
+    .kpi .k-label{font-size:.78rem;color:var(--ink2);font-weight:600;letter-spacing:.01em}
+    .kpi .k-val{font-family:'Jost';font-size:1.9rem;font-weight:800;letter-spacing:-.03em;margin-top:3px;line-height:1}
+    .kpi .k-sub{font-size:.76rem;color:var(--mut);margin-top:7px;display:flex;align-items:center;gap:5px}
+    .k-up{color:var(--green);font-weight:700}.k-down{color:var(--pink);font-weight:700}
+
+    /* ---------- panels/grid ---------- */
+    .grid{display:grid;gap:16px}
+    .g-2{grid-template-columns:1.6fr 1fr}
+    .g-2b{grid-template-columns:1fr 1fr}
+    .card{background:var(--panel);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);padding:20px 22px;margin-bottom:16px}
+    .card-h{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+    .card-h h3{font-family:'Jost';font-size:1.06rem;font-weight:700;letter-spacing:-.01em}
+    .card-h .hint{font-size:.76rem;color:var(--mut)}
+    .seg{display:inline-flex;background:#f1f5f9;border-radius:9px;padding:3px}
+    .seg button{border:0;background:transparent;font:inherit;font-size:.78rem;font-weight:600;color:var(--ink2);padding:5px 11px;border-radius:7px;cursor:pointer}
+    .seg button.on{background:#fff;color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.06)}
+
+    /* ---------- charts ---------- */
+    .chart{width:100%;overflow:hidden}
+    .legend{display:flex;flex-wrap:wrap;gap:10px 18px;margin-top:8px}
+    .legend .li{display:flex;align-items:center;gap:7px;font-size:.8rem;color:var(--ink2);font-weight:600}
+    .legend .dot{width:10px;height:10px;border-radius:3px}
+    .donut-wrap{display:flex;align-items:center;gap:22px}
+    .donut-center{text-align:center}
+    .donut-center b{font-family:'Jost';font-size:1.6rem;font-weight:800;display:block;line-height:1}
+    .donut-center span{font-size:.74rem;color:var(--mut)}
+
+    /* ---------- tables ---------- */
+    table{width:100%;border-collapse:collapse}
+    th{text-align:left;font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--mut);font-weight:700;padding:0 12px 11px;border-bottom:1px solid var(--line)}
+    td{padding:13px 12px;border-bottom:1px solid var(--line);font-size:.88rem}
+    tr:last-child td{border-bottom:0}
+    .store-cell{display:flex;align-items:center;gap:11px}
+    .store-logo{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;font-family:'Jost';font-weight:800;color:#fff;font-size:.9rem;flex:0 0 auto}
+    .store-cell b{font-weight:700}.store-cell small{display:block;color:var(--mut);font-size:.75rem}
+    .rank{font-family:'Jost';font-weight:800;color:var(--mut);width:26px}
+    .rev{font-family:'Jost';font-weight:800}
+    .revbar{height:6px;border-radius:4px;background:#eef2f7;margin-top:6px;overflow:hidden}
+    .revbar i{display:block;height:100%;border-radius:4px;background:linear-gradient(90deg,var(--accent),#6bd0f5)}
+    .plan-badge{display:inline-block;padding:3px 10px;border-radius:999px;font-size:.72rem;font-weight:700;text-transform:capitalize}
+    .num{font-variant-numeric:tabular-nums}
+    .inp{border:1px solid var(--line);border-radius:10px;padding:9px 12px;font:inherit;font-size:.88rem;outline:none}
+    .inp:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(26,166,223,.16)}
+    .filters{display:flex;flex-wrap:wrap;gap:8px}
+    .fchip{border:1px solid var(--line);background:#fff;border-radius:999px;padding:6px 13px;font:inherit;font-size:.8rem;font-weight:600;color:var(--ink2);cursor:pointer;text-transform:capitalize}
+    .fchip.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+    .plan-sel{border:1px solid var(--line);border-radius:8px;padding:6px 8px;font:inherit;font-size:.82rem;font-weight:600;text-transform:capitalize;cursor:pointer;background:#fff}
+    .plan-sel:hover{border-color:var(--accent)}
+
+    /* ---------- gate ---------- */
+    .gate{position:fixed;inset:0;background:rgba(11,22,38,.55);backdrop-filter:blur(4px);display:none;align-items:center;justify-content:center;z-index:50;padding:20px}
+    .gate.show{display:flex}
+    .gate-card{background:#fff;border-radius:18px;max-width:420px;width:100%;padding:30px;text-align:center;box-shadow:0 30px 80px rgba(0,0,0,.35)}
+    .gate-card .g-ic{width:56px;height:56px;border-radius:16px;background:#fdecef;color:var(--pink);display:grid;place-items:center;margin:0 auto 16px}
+    .gate-card h2{font-family:'Jost';font-size:1.3rem;margin-bottom:8px}
+    .gate-card p{color:var(--ink2);font-size:.9rem;line-height:1.55;margin-bottom:20px}
+    .gate-card .fld{width:100%;padding:12px 14px;border:1px solid var(--line);border-radius:11px;font:inherit;font-size:.95rem;margin-bottom:10px;outline:none}
+    .gate-card .fld:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(26,166,223,.16)}
+    .gate-card .err{color:#c0392b;font-size:.82rem;margin:0 0 10px;min-height:16px;text-align:left}
+
+    @media (max-width:1000px){.admin{grid-template-columns:1fr}.side{display:none}.g-2,.g-2b{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+  <div class="admin">
+    <aside class="side">
+      <div class="side-brand">
+        <img src="assets/logo.png" alt="Souqi" onerror="this.style.display='none'" />
+        <div><b>Souqi</b><span>Admin</span></div>
+      </div>
+      <a class="nav-item active" data-view="overview"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z"/></svg> Overview</a>
+      <a class="nav-item" data-view="accounts"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg> Accounts</a>
+      <a class="nav-item" data-view="subscribers"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l2.4 7.4H22l-6 4.6 2.3 7.4-6.3-4.6L5.7 21 8 14 2 9.4h7.6z"/></svg> Subscribers</a>
+      <a class="nav-item" data-view="stores"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg> Stores</a>
+      <a class="nav-item" data-view="traffic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg> Traffic</a>
+      <div class="side-foot">Platform analytics · <span id="genAt">—</span></div>
+    </aside>
+
+    <div class="main">
+      <div class="topbar">
+        <div>
+          <h1 id="pageTitle">Platform Overview</h1>
+          <div class="sub" id="topSub">Loading platform analytics…</div>
+        </div>
+        <div class="top-actions">
+          <button class="btn" id="refreshBtn"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.5 9a9 9 0 0 1 14.9-3.4L23 10M1 14l4.6 4.4A9 9 0 0 0 20.5 15"/></svg> Refresh</button>
+          <div class="chip"><span class="av" id="meAv">A</span><span id="meName">Admin</span></div>
+          <button class="btn" id="signOutBtn" title="Sign out"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5M21 12H9"/></svg></button>
+        </div>
+      </div>
+
+      <div class="wrap">
+       <div id="view-overview">
+        <div class="kpis" id="kpis"></div>
+
+        <div class="grid g-2">
+          <div class="card">
+            <div class="card-h"><h3>Traffic &amp; signups</h3>
+              <div class="seg"><button class="on" data-series="visits">Visits</button><button data-series="signups">Signups</button></div>
+            </div>
+            <div class="chart" id="lineChart"></div>
+            <div class="legend" id="lineLegend"></div>
+          </div>
+          <div class="card">
+            <div class="card-h"><h3>Plans</h3><span class="hint">distribution</span></div>
+            <div class="donut-wrap"><div id="donut"></div>
+              <div style="flex:1"><div class="legend" id="planLegend" style="flex-direction:column;gap:9px"></div></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-h"><h3>Top selling stores</h3><span class="hint">by total order revenue</span></div>
+          <table><thead><tr><th></th><th>Store</th><th>Plan</th><th>Orders</th><th style="text-align:right">Revenue</th></tr></thead>
+            <tbody id="storesBody"></tbody></table>
+        </div>
+
+        <div class="card">
+          <div class="card-h"><h3>Recent signups</h3><span class="hint">newest workspaces</span></div>
+          <table><thead><tr><th>Company</th><th>Owner</th><th>Industry</th><th>Country</th><th>Plan</th><th style="text-align:right">Joined</th></tr></thead>
+            <tbody id="signupsBody"></tbody></table>
+        </div>
+       </div>
+
+       <div id="view-accounts" hidden></div>
+       <div id="view-subscribers" hidden></div>
+       <div id="view-stores" hidden></div>
+       <div id="view-traffic" hidden></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" style="position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(20px);background:#0b1e33;color:#fff;padding:11px 18px;border-radius:10px;font:600 .85rem Inter,sans-serif;box-shadow:0 12px 30px rgba(0,0,0,.3);opacity:0;pointer-events:none;transition:.25s;z-index:60"></div>
+
+  <div class="gate" id="gate">
+    <div class="gate-card">
+      <div class="g-ic"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div>
+      <h2 id="gateTitle">Admin sign in</h2>
+      <p id="gateMsg">Sign in with your platform-admin account.</p>
+      <form id="loginForm" style="display:none">
+        <input class="fld" id="fEmail" type="email" placeholder="Admin email" autocomplete="username" required />
+        <input class="fld" id="fPass" type="password" placeholder="Password" autocomplete="current-password" required />
+        <div class="err" id="loginErr"></div>
+        <button class="btn btn-primary" id="loginBtn" type="submit" style="width:100%;justify-content:center">Sign in</button>
+      </form>
+      <a class="btn" id="gateBtn" href="index" style="display:none">Back to console</a>
+      <button class="btn" id="retryBtn" style="display:none">Retry</button>
+    </div>
+  </div>
+
+  <script>
+  (function(){
+    "use strict";
+    var PLAN_COLORS = { free:"#94a3b8", pro:"#1aa6df", business:"#6b6ff0", max:"#e0a11a", team:"#22a565", enterprise:"#e0498b" };
+    var STORE_COLORS = ["#1aa6df","#6b6ff0","#22a565","#e0a11a","#e0498b","#0ea5e9","#8b5cf6","#f97316","#14b8a6","#ef4444"];
+    var fmt = function(n){ return (n||0).toLocaleString("en-US"); };
+    var money = function(n){ n=Number(n)||0; return "$"+(n>=1000? (n/1000).toFixed(n>=100000?0:1)+"k" : n.toFixed(0)); };
+    var moneyFull = function(n){ return "$"+(Number(n)||0).toLocaleString("en-US",{maximumFractionDigits:0}); };
+    var esc = function(s){ return String(s==null?"":s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];}); };
+    var initials = function(s){ s=String(s||"?").trim(); return (s[0]||"?").toUpperCase(); };
+    var byId = function(id){ return document.getElementById(id); };
+
+    /* ---------------- SVG charts ---------------- */
+    function lineChart(el, series, color){
+      var w=640, h=180, pad=26, n=series.length;
+      var max=Math.max.apply(null, series.map(function(s){return s.v;}).concat([1]));
+      var x=function(i){ return pad + i*(w-pad*2)/Math.max(1,n-1); };
+      var y=function(v){ return h-24 - (v/max)*(h-46); };
+      var pts=series.map(function(s,i){ return x(i)+","+y(s.v); });
+      var area="M"+x(0)+","+(h-24)+" L"+pts.join(" L")+" L"+x(n-1)+","+(h-24)+" Z";
+      var line="M"+pts.join(" L");
+      var grid=""; for(var g=0;g<=3;g++){ var gy=24+g*(h-46)/3; grid+='<line x1="'+pad+'" y1="'+gy+'" x2="'+(w-pad)+'" y2="'+gy+'" stroke="#eef2f7"/>'; }
+      var lbls=""; for(var i=0;i<n;i+=Math.ceil(n/7)){ lbls+='<text x="'+x(i)+'" y="'+(h-6)+'" font-size="10" fill="#8798ab" text-anchor="middle">'+series[i].label+'</text>'; }
+      var dots=series.map(function(s,i){ return '<circle cx="'+x(i)+'" cy="'+y(s.v)+'" r="2.5" fill="'+color+'"/>'; }).join("");
+      el.innerHTML='<svg viewBox="0 0 '+w+' '+h+'" width="100%" preserveAspectRatio="xMidYMid meet">'
+        +'<defs><linearGradient id="lg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="'+color+'" stop-opacity=".22"/><stop offset="1" stop-color="'+color+'" stop-opacity="0"/></linearGradient></defs>'
+        +grid+'<path d="'+area+'" fill="url(#lg)"/><path d="'+line+'" fill="none" stroke="'+color+'" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>'+dots+lbls+'</svg>';
+    }
+    function donut(el, data){
+      var total=data.reduce(function(s,d){return s+d.v;},0)||1;
+      var r=52, c=2*Math.PI*r, off=0, cx=64, cy=64, segs="";
+      data.forEach(function(d){ var frac=d.v/total; if(frac<=0)return; var len=frac*c;
+        segs+='<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="none" stroke="'+d.color+'" stroke-width="18" stroke-dasharray="'+len+' '+(c-len)+'" stroke-dashoffset="'+(-off)+'" transform="rotate(-90 '+cx+' '+cy+')"/>'; off+=len; });
+      el.innerHTML='<div style="position:relative;width:128px;height:128px"><svg viewBox="0 0 128 128" width="128" height="128"><circle cx="64" cy="64" r="52" fill="none" stroke="#eef2f7" stroke-width="18"/>'+segs+'</svg>'
+        +'<div class="donut-center" style="position:absolute;inset:0;display:grid;place-items:center"><div><b>'+fmt(total)+'</b><span>accounts</span></div></div></div>';
+    }
+
+    /* ---------------- render ---------------- */
+    function render(d){
+      byId("topSub").textContent = "Live · " + fmt(d.totals.accounts)+" accounts · "+fmt(d.totals.visits)+" visits";
+      byId("genAt").textContent = new Date(d.generatedAt||Date.now()).toLocaleString();
+
+      var t=d.totals;
+      var cards=[
+        {ic:'<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>', bg:"#e7f5fc",fg:"#0d5f86", label:"Total visits", val:fmt(t.visits), sub:fmt(t.uniqueVisitors)+" unique visitors"},
+        {ic:'<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/>', bg:"#eae9ff",fg:"#4b45c4", label:"Accounts created", val:fmt(t.accounts), sub:fmt(t.freeAccounts)+" on free plan"},
+        {ic:'<path d="M12 2l2.4 7.4H22l-6 4.6 2.3 7.4-6.3-4.6L5.7 21 8 14 2 9.4h7.6z"/>', bg:"#fff3d6",fg:"#a5720a", label:"Subscribers", val:fmt(t.subscribers!=null?t.subscribers:t.premium), sub:moneyFull(t.mrr||0)+"/mo MRR · "+pct(t.premium,t.accounts)+"% of accounts"},
+        {ic:'<path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>', bg:"#dcf5e8",fg:"#178a52", label:"Total revenue", val:moneyFull(t.revenue), sub:fmt(t.orders)+" orders across stores"}
+      ];
+      byId("kpis").innerHTML=cards.map(function(c){
+        return '<div class="kpi"><div class="k-ic" style="background:'+c.bg+';color:'+c.fg+'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">'+c.ic+'</svg></div>'
+          +'<div class="k-label">'+c.label+'</div><div class="k-val num">'+c.val+'</div><div class="k-sub">'+c.sub+'</div></div>';
+      }).join("");
+
+      // plan donut + legend
+      var planData=(d.plans||Object.keys(d.byPlan)).map(function(p){ return {label:p, v:d.byPlan[p]||0, color:PLAN_COLORS[p]||"#94a3b8"}; }).filter(function(x){return x.v>0;});
+      donut(byId("donut"), planData);
+      byId("planLegend").innerHTML=planData.map(function(p){
+        return '<div class="li"><span class="dot" style="background:'+p.color+'"></span><span style="text-transform:capitalize">'+p.label+'</span><b style="margin-left:auto">'+fmt(p.v)+'</b></div>';
+      }).join("");
+
+      // line chart (default visits)
+      window.__data=d; drawLine("visits");
+
+      // top stores
+      var maxRev=Math.max.apply(null, d.topStores.map(function(s){return s.revenue;}).concat([1]));
+      byId("storesBody").innerHTML=d.topStores.map(function(s,i){
+        var col=STORE_COLORS[i%STORE_COLORS.length];
+        return '<tr><td class="rank">'+(i+1)+'</td>'
+          +'<td><div class="store-cell"><div class="store-logo" style="background:'+col+'">'+initials(s.company)+'</div>'
+          +'<div><b>'+esc(s.company)+'</b><small>'+esc(s.country||s.industry||"")+(s.customDomain?" · "+esc(s.customDomain):"")+'</small></div></div></td>'
+          +'<td>'+planBadge(s.plan)+'</td>'
+          +'<td class="num">'+fmt(s.orders)+'</td>'
+          +'<td style="text-align:right;min-width:150px"><div class="rev num">'+moneyFull(s.revenue)+'</div><div class="revbar"><i style="width:'+Math.max(3,(s.revenue/maxRev*100))+'%;background:linear-gradient(90deg,'+col+',#ffffff00)"></i></div></td></tr>';
+      }).join("") || emptyRow(5);
+
+      // recent signups
+      byId("signupsBody").innerHTML=d.recentSignups.map(function(s){
+        return '<tr><td><b>'+esc(s.company||"—")+'</b></td><td>'+esc(s.ownerEmail||"—")+'</td>'
+          +'<td style="text-transform:capitalize">'+esc(s.industry||"—")+'</td><td>'+esc(s.country||"—")+'</td>'
+          +'<td>'+planBadge(s.plan)+'</td><td style="text-align:right;color:var(--ink2)">'+timeAgo(s.createdAt)+'</td></tr>';
+      }).join("") || emptyRow(6);
+    }
+    function drawLine(series){
+      var d=window.__data; if(!d)return;
+      var src = series==="signups" ? d.signupsByDay : d.visitsByDay;
+      var color = series==="signups" ? "#6b6ff0" : "#1aa6df";
+      var arr=src.map(function(r){ return { label:(r.day||"").slice(5), v: series==="signups"? r.count : r.visits }; });
+      lineChart(byId("lineChart"), arr, color);
+      var totalV=arr.reduce(function(s,x){return s+x.v;},0);
+      byId("lineLegend").innerHTML='<div class="li"><span class="dot" style="background:'+color+'"></span>'
+        +(series==="signups"?"New signups":"Visits")+' · last 14 days <b style="margin-left:6px">'+fmt(totalV)+'</b></div>';
+    }
+    function planBadge(p){ p=p||"free"; var c=PLAN_COLORS[p]||"#94a3b8"; return '<span class="plan-badge" style="background:'+hexA(c,.14)+';color:'+c+'">'+esc(p)+'</span>'; }
+    function hexA(hex,a){ var n=parseInt(hex.slice(1),16); return "rgba("+(n>>16&255)+","+(n>>8&255)+","+(n&255)+","+a+")"; }
+    function pct(a,b){ return b? Math.round(a/b*100) : 0; }
+    function emptyRow(cols){ return '<tr><td colspan="'+cols+'" style="text-align:center;color:var(--mut);padding:30px">No data yet</td></tr>'; }
+    function timeAgo(iso){ if(!iso)return "—"; var d=new Date(iso), s=(Date.now()-d)/1000; if(s<3600)return Math.max(1,Math.floor(s/60))+"m ago"; if(s<86400)return Math.floor(s/3600)+"h ago"; if(s<86400*30)return Math.floor(s/86400)+"d ago"; return d.toLocaleDateString(); }
+
+    document.addEventListener("click", function(e){
+      var b=e.target.closest(".seg button"); if(b){ b.parentNode.querySelectorAll("button").forEach(function(x){x.classList.remove("on");}); b.classList.add("on"); drawLine(b.dataset.series); }
+    });
+    /* ---------------- state + view routing ---------------- */
+    var state = { view:"overview", overview:null, accounts:null, acctFilter:"all", acctQ:"" };
+    var TITLES = { overview:"Platform Overview", accounts:"Accounts", subscribers:"Subscribers", stores:"Stores", traffic:"Traffic" };
+    // The panel keeps NO token in JS storage (httpOnly cookie only) — purge any legacy token.
+    try{ localStorage.removeItem("sap_token"); localStorage.removeItem("sap_session"); }catch(e){}
+
+    function setMe(admin){ var who=admin&&(admin.name||admin.email); if(who){ byId("meName").textContent=who; byId("meAv").textContent=initials(who); } }
+    function toast(msg){ var t=byId("toast"); t.textContent=msg; t.style.opacity="1"; t.style.transform="translateX(-50%) translateY(0)"; clearTimeout(t._t); t._t=setTimeout(function(){ t.style.opacity="0"; t.style.transform="translateX(-50%) translateY(20px)"; },2200); }
+
+    function showView(v){
+      state.view=v;
+      ["overview","accounts","subscribers","stores","traffic"].forEach(function(x){ byId("view-"+x).hidden = (x!==v); });
+      document.querySelectorAll(".nav-item").forEach(function(n){ n.classList.toggle("active", n.dataset.view===v); });
+      byId("pageTitle").textContent = TITLES[v]||"Platform";
+      if(v==="accounts") loadAccounts();
+      else if(v==="subscribers") renderSubscribers();
+      else if(v==="stores") renderStores();
+      else if(v==="traffic") renderTraffic();
+    }
+    document.querySelector(".side").addEventListener("click", function(e){
+      var n=e.target.closest(".nav-item"); if(n&&n.dataset.view){ e.preventDefault(); showView(n.dataset.view); }
+    });
+
+    /* ---------------- gates + cookie auth ---------------- */
+    function hideGate(){ byId("gate").classList.remove("show"); }
+    function gateLogin(msg){ byId("gateTitle").textContent="Admin sign in"; byId("gateMsg").textContent=msg||"Sign in with your platform-admin account."; byId("loginForm").style.display="block"; byId("gateBtn").style.display="none"; byId("retryBtn").style.display="none"; byId("gate").classList.add("show"); }
+    function gateMsg(title,msg,btnText,href,retry){ byId("gateTitle").textContent=title; byId("gateMsg").textContent=msg; byId("loginForm").style.display="none"; byId("gateBtn").style.display=href?"inline-flex":"none"; if(href){ byId("gateBtn").textContent=btnText; byId("gateBtn").href=href; } byId("retryBtn").style.display=retry?"inline-flex":"none"; byId("gate").classList.add("show"); }
+
+    byId("retryBtn").addEventListener("click", loadOverview);
+    byId("refreshBtn").addEventListener("click", function(){ state.accounts=null; loadOverview(); });
+    byId("loginForm").addEventListener("submit", function(e){ e.preventDefault(); doLogin(); });
+    byId("signOutBtn").addEventListener("click", function(){ fetch("/auth/logout",{method:"POST",credentials:"same-origin"}).catch(function(){}).then(function(){ state.overview=null; state.accounts=null; gateLogin("Signed out. Sign in to continue."); }); });
+
+    function doLogin(){
+      var email=byId("fEmail").value.trim(), pass=byId("fPass").value;
+      var err=byId("loginErr"); err.textContent="";
+      var btn=byId("loginBtn"); btn.disabled=true; btn.textContent="Signing in…";
+      // No token is stored in JS — the server sets an httpOnly session cookie.
+      fetch("/auth/login",{method:"POST",headers:{"Content-Type":"application/json"},credentials:"same-origin",body:JSON.stringify({email:email,password:pass})})
+        .then(function(r){ return r.json().catch(function(){return {};}).then(function(j){ return {s:r.status,j:j}; }); })
+        .then(function(o){ btn.disabled=false; btn.textContent="Sign in";
+          if(o.s===200){ hideGate(); loadOverview(); }
+          else { err.textContent=(o.j&&o.j.error&&(o.j.error.message||o.j.error))||"Invalid email or password."; }
+        }).catch(function(){ btn.disabled=false; btn.textContent="Sign in"; err.textContent="Cannot reach the server."; });
+    }
+
+    // Every admin request relies on the httpOnly cookie (same-origin sends it).
+    function apiGet(p){ return fetch(p,{credentials:"same-origin"}); }
+
+    function loadOverview(){
+      apiGet("/api/admin/overview").then(function(r){
+        if(r.status===401){ gateLogin(); throw "gated"; }
+        if(r.status===403){ gateMsg("Not a platform admin","This account isn't authorized. Add your email to ADMIN_EMAILS on the server, then sign in again.","Back to console","index",false); throw "gated"; }
+        if(!r.ok) throw "http"; return r.json();
+      }).then(function(d){
+        if(d&&d.empty){ gateMsg("Master database not connected","The API is running but its master database isn't reachable yet.","",null,true); return; }
+        hideGate(); state.overview=d; setMe(d.admin); render(d); showView(state.view);
+      }).catch(function(err){ if(err==="gated") return; gateMsg("Can't load analytics","The Souqi API is unreachable or returned an error. Make sure the backend is running, then retry.","",null,true); });
+    }
+
+    /* ---------------- Accounts / Stores / Traffic tabs ---------------- */
+    function ensureAccounts(cb){
+      if(state.accounts){ cb(state.accounts); return; }
+      apiGet("/api/admin/accounts").then(function(r){ if(!r.ok) throw "http"; return r.json(); })
+        .then(function(d){ state.accounts=d.accounts||[]; cb(state.accounts); }).catch(function(){ cb([]); });
+    }
+    function loadAccounts(){ ensureAccounts(renderAccounts); }
+
+    function renderAccounts(){
+      var list=state.accounts||[]; var plans=(state.overview&&state.overview.plans)||["free","pro","business","max","team","enterprise"];
+      var q=(state.acctQ||"").toLowerCase();
+      var rows=list.filter(function(a){ return (state.acctFilter==="all"||a.plan===state.acctFilter) && (!q || (a.company+" "+a.ownerEmail+" "+a.country+" "+a.industry).toLowerCase().indexOf(q)>-1); });
+      var chips='<button class="fchip'+(state.acctFilter==="all"?" on":"")+'" data-plan="all">All</button>'+plans.map(function(p){ return '<button class="fchip'+(state.acctFilter===p?" on":"")+'" data-plan="'+p+'">'+p+'</button>'; }).join("");
+      var body=rows.map(function(a){
+        var sel='<select class="plan-sel" data-ws="'+esc(a.wsId)+'">'+plans.map(function(p){ return '<option value="'+p+'"'+(p===a.plan?" selected":"")+'>'+p+'</option>'; }).join("")+'</select>';
+        return '<tr><td><div class="store-cell"><div class="store-logo" style="background:'+(PLAN_COLORS[a.plan]||"#94a3b8")+'">'+initials(a.company)+'</div><div><b>'+esc(a.company)+'</b><small>'+esc(a.ownerEmail)+'</small></div></div></td>'
+          +'<td style="text-transform:capitalize">'+esc(a.industry||"—")+'</td><td>'+esc(a.country||"—")+'</td>'
+          +'<td class="num">'+fmt(a.orders)+'</td><td class="num rev" style="text-align:right">'+moneyFull(a.revenue)+'</td>'
+          +'<td>'+sel+'</td><td style="text-align:right;color:var(--ink2)">'+timeAgo(a.createdAt)+'</td></tr>';
+      }).join("")||emptyRow(7);
+      byId("view-accounts").innerHTML=
+        '<div class="card"><div class="card-h" style="gap:12px"><h3>All accounts <span class="hint" style="font-weight:400">'+fmt(rows.length)+' of '+fmt(list.length)+'</span></h3>'
+        +'<input id="acctSearch" class="inp" style="max-width:230px" placeholder="Search company or owner…" value="'+esc(state.acctQ||"")+'"></div>'
+        +'<div class="filters" style="margin-bottom:16px">'+chips+'</div>'
+        +'<div style="overflow-x:auto"><table><thead><tr><th>Company</th><th>Industry</th><th>Country</th><th>Orders</th><th style="text-align:right">Revenue</th><th>Plan</th><th style="text-align:right">Joined</th></tr></thead><tbody>'+body+'</tbody></table></div></div>';
+      var s=byId("acctSearch"); if(s){ s.focus(); s.setSelectionRange(s.value.length,s.value.length); }
+    }
+    byId("view-accounts").addEventListener("click", function(e){ var f=e.target.closest(".fchip"); if(f){ state.acctFilter=f.dataset.plan; renderAccounts(); } });
+    byId("view-accounts").addEventListener("input", function(e){ if(e.target.id==="acctSearch"){ state.acctQ=e.target.value; renderAccounts(); } });
+    byId("view-accounts").addEventListener("change", function(e){ var sel=e.target.closest(".plan-sel"); if(sel){ setPlan(sel.dataset.ws, sel.value); } });
+
+    function setPlan(wsId, plan){
+      fetch("/api/admin/ws/"+encodeURIComponent(wsId)+"/plan",{method:"POST",headers:{"Content-Type":"application/json"},credentials:"same-origin",body:JSON.stringify({plan:plan})})
+        .then(function(r){ if(!r.ok) throw "err"; return r.json(); })
+        .then(function(){
+          if(state.accounts){ var a=state.accounts.find(function(x){return x.wsId===wsId;}); if(a) a.plan=plan; }
+          toast("Plan updated to “"+plan+"”");
+          // refresh totals, then re-render whichever tab is showing
+          apiGet("/api/admin/overview").then(function(r){return r.ok?r.json():null;}).then(function(d){
+            if(d) state.overview=d;
+            if(state.view==="overview" && d) render(d);
+            else if(state.view==="accounts") renderAccounts();
+            else if(state.view==="subscribers") renderSubscribers();
+            else if(state.view==="stores") renderStores();
+          });
+        }).catch(function(){ toast("Couldn't update plan"); });
+    }
+
+    function renderStores(){
+      ensureAccounts(function(list){
+        var sorted=list.slice().sort(function(a,b){return b.revenue-a.revenue;});
+        var maxRev=Math.max.apply(null, sorted.map(function(s){return s.revenue;}).concat([1]));
+        var body=sorted.map(function(s,i){ var col=STORE_COLORS[i%STORE_COLORS.length];
+          return '<tr><td class="rank">'+(i+1)+'</td><td><div class="store-cell"><div class="store-logo" style="background:'+col+'">'+initials(s.company)+'</div><div><b>'+esc(s.company)+'</b><small>'+esc(s.country||s.industry||"")+(s.customDomain?" · "+esc(s.customDomain):"")+'</small></div></div></td><td>'+planBadge(s.plan)+'</td><td class="num">'+fmt(s.orders)+'</td><td style="text-align:right;min-width:170px"><div class="rev num">'+moneyFull(s.revenue)+'</div><div class="revbar"><i style="width:'+Math.max(3,s.revenue/maxRev*100)+'%;background:linear-gradient(90deg,'+col+',#ffffff00)"></i></div></td></tr>';
+        }).join("")||emptyRow(5);
+        byId("view-stores").innerHTML='<div class="card"><div class="card-h"><h3>All stores by revenue</h3><span class="hint">'+fmt(sorted.length)+' stores · highest selling first</span></div><div style="overflow-x:auto"><table><thead><tr><th></th><th>Store</th><th>Plan</th><th>Orders</th><th style="text-align:right">Revenue</th></tr></thead><tbody>'+body+'</tbody></table></div></div>';
+      });
+    }
+
+    function renderSubscribers(){
+      ensureAccounts(function(list){
+        var prices=(state.overview&&state.overview.planPrices)||{free:0,pro:29,business:79,max:149,team:199,enterprise:499};
+        var paidPlans=((state.overview&&state.overview.plans)||Object.keys(prices)).filter(function(p){return p!=="free";});
+        var subs=list.filter(function(a){ return a.plan && a.plan!=="free"; }).sort(function(a,b){ return (prices[b.plan]||0)-(prices[a.plan]||0); });
+        var mrr=subs.reduce(function(s,a){ return s+(prices[a.plan]||0); },0);
+        var arr=mrr*12, avg=subs.length? mrr/subs.length : 0;
+
+        // Per-plan breakdown.
+        var maxCount=Math.max.apply(null, paidPlans.map(function(p){ return subs.filter(function(a){return a.plan===p;}).length; }).concat([1]));
+        var breakdown=paidPlans.map(function(p){
+          var c=subs.filter(function(a){return a.plan===p;}).length; var col=PLAN_COLORS[p]||"#94a3b8";
+          return '<div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">'
+            +'<div style="width:92px;text-transform:capitalize;font-weight:600;font-size:.86rem">'+p+'</div>'
+            +'<div style="flex:1;height:10px;border-radius:5px;background:#eef2f7;overflow:hidden"><i style="display:block;height:100%;width:'+Math.max(3,c/maxCount*100)+'%;background:'+col+'"></i></div>'
+            +'<div class="num" style="width:52px;text-align:right;font-weight:700">'+fmt(c)+'</div>'
+            +'<div class="num" style="width:110px;text-align:right;color:var(--ink2)">'+moneyFull(c*(prices[p]||0))+'/mo</div></div>';
+        }).join("");
+
+        var rows=subs.map(function(a){
+          var col=PLAN_COLORS[a.plan]||"#94a3b8";
+          var sel='<select class="plan-sel" data-ws="'+esc(a.wsId)+'">'+((state.overview&&state.overview.plans)||Object.keys(prices)).map(function(p){ return '<option value="'+p+'"'+(p===a.plan?" selected":"")+'>'+p+'</option>'; }).join("")+'</select>';
+          return '<tr><td><div class="store-cell"><div class="store-logo" style="background:'+col+'">'+initials(a.company)+'</div><div><b>'+esc(a.company)+'</b><small>'+esc(a.ownerEmail)+'</small></div></div></td>'
+            +'<td>'+sel+'</td><td class="num rev">'+moneyFull(prices[a.plan]||0)+'/mo</td>'
+            +'<td class="num" style="text-align:right">'+moneyFull(a.revenue)+'</td>'
+            +'<td style="text-align:right;color:var(--ink2)">'+timeAgo(a.createdAt)+'</td></tr>';
+        }).join("")||emptyRow(5);
+
+        byId("view-subscribers").innerHTML=
+          '<div class="kpis" style="margin-bottom:16px">'
+          + kpiCard("Subscribers", fmt(subs.length), pct(subs.length,list.length)+"% of "+fmt(list.length)+" accounts")
+          + kpiCard("MRR", moneyFull(mrr), "monthly recurring revenue")
+          + kpiCard("ARR", moneyFull(arr), "annual run-rate")
+          + kpiCard("Avg / subscriber", moneyFull(avg), "per month")
+          + '</div>'
+          + '<div class="grid g-2"><div class="card"><div class="card-h"><h3>Paying subscribers</h3><span class="hint">manage plans inline</span></div>'
+          + '<div style="overflow-x:auto"><table><thead><tr><th>Account</th><th>Plan</th><th>Price</th><th style="text-align:right">Store revenue</th><th style="text-align:right">Since</th></tr></thead><tbody>'+rows+'</tbody></table></div></div>'
+          + '<div class="card"><div class="card-h"><h3>MRR by plan</h3></div>'+(breakdown||'<div style="color:var(--mut);padding:14px">No subscribers yet</div>')+'</div></div>';
+      });
+    }
+    byId("view-subscribers").addEventListener("change", function(e){ var sel=e.target.closest(".plan-sel"); if(sel){ setPlan(sel.dataset.ws, sel.value); } });
+
+    function kpiCard(label,val,sub){ return '<div class="kpi"><div class="k-label">'+label+'</div><div class="k-val num">'+val+'</div><div class="k-sub">'+sub+'</div></div>'; }
+    function renderTraffic(){
+      var d=state.overview; if(!d) return; var t=d.totals, bt=d.byType||{marketing:0,portal:0};
+      var arr=d.visitsByDay.map(function(r){ return {label:(r.day||"").slice(5), v:r.visits}; });
+      byId("view-traffic").innerHTML=
+        '<div class="kpis" style="margin-bottom:16px">'
+        + kpiCard("Total visits", fmt(t.visits), fmt(t.uniqueVisitors)+" unique visitors")
+        + kpiCard("Marketing site", fmt(bt.marketing), "landing &amp; pricing")
+        + kpiCard("Storefronts", fmt(bt.portal), "customer stores")
+        + kpiCard("Unique visitors", fmt(t.uniqueVisitors), pct(t.uniqueVisitors,t.visits)+"% of visits")
+        + '</div><div class="card"><div class="card-h"><h3>Visits · last 14 days</h3></div><div id="trafficChart" class="chart"></div><div class="legend" id="trafficLegend"></div></div>';
+      lineChart(byId("trafficChart"), arr, "#1aa6df");
+      byId("trafficLegend").innerHTML='<div class="li"><span class="dot" style="background:#1aa6df"></span>Visits <b style="margin-left:5px">'+fmt(arr.reduce(function(s,x){return s+x.v;},0))+'</b></div>';
+    }
+
+    loadOverview();
+  })();
+  </script>
+</body>
+</html>

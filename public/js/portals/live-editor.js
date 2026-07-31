@@ -2147,7 +2147,7 @@
     const btn = document.querySelector(".le-cmd-pub");
     if (btn) btn.innerHTML = "⏳ Publishing…";
     try {
-      const et = urlParams.get("et");
+      const et = EDIT_TOKEN;
       if (et) {
         const r = await fetch("/api/storefront/config", {
           method: "POST",

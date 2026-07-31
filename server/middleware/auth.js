@@ -21,6 +21,20 @@ const { httpError } = require("../lib/errors");
 const rbac = require("../lib/rbac");
 const { decryptSecret } = require("../lib/crypto");
 
+// Read a single cookie value without pulling in cookie-parser.
+function readCookie(req, name) {
+  const header = req.headers && req.headers.cookie;
+  if (!header) return null;
+  const parts = header.split(";");
+  for (let i = 0; i < parts.length; i++) {
+    const idx = parts[i].indexOf("=");
+    if (idx === -1) continue;
+    const k = parts[i].slice(0, idx).trim();
+    if (k === name) return decodeURIComponent(parts[i].slice(idx + 1).trim());
+  }
+  return null;
+}
+
 /**
  * Resolve the server-owned DB context for a workspace id. Looks the
  * workspace up in the master DB; falls back to the platform's default
@@ -56,7 +70,11 @@ async function resolveWsContext(getMasterDb, wsId) {
 
 function makeAuth({ JWT_SECRET, getMasterDb }) {
   function requireSession(req, res, next) {
-    const token = (req.headers.authorization || "").replace(/^Bearer\s+/i, "").trim();
+    // Accept the token from the Authorization header OR the httpOnly session
+    // cookie. The cookie is SameSite=Lax, so it isn't sent on cross-site POST/
+    // PUT/DELETE — mutations remain CSRF-safe.
+    let token = (req.headers.authorization || "").replace(/^Bearer\s+/i, "").trim();
+    if (!token) token = readCookie(req, "sq_session") || "";
     if (!token) return next(httpError(401, "unauthorized", "authentication required"));
     try {
       req.session = jwt.verify(token, JWT_SECRET);
@@ -86,7 +104,19 @@ function makeAuth({ JWT_SECRET, getMasterDb }) {
     return next();
   }
 
-  return { requireSession, tenantScope, authorizeCrud, resolveWsContext: (wsId) => resolveWsContext(getMasterDb, wsId) };
+  // Platform super-admin gate: the authenticated identity's email must be in
+  // ADMIN_EMAILS. Use AFTER requireSession.
+  function requireAdmin(req, res, next) {
+    const admins = String(process.env.ADMIN_EMAILS || "")
+      .toLowerCase().split(",").map((s) => s.trim()).filter(Boolean);
+    const email = req.session && String(req.session.email || "").toLowerCase();
+    if (!email || admins.indexOf(email) === -1) {
+      return next(httpError(403, "forbidden", "platform admin access required"));
+    }
+    return next();
+  }
+
+  return { requireSession, tenantScope, authorizeCrud, requireAdmin, resolveWsContext: (wsId) => resolveWsContext(getMasterDb, wsId) };
 }
 
 module.exports = { makeAuth, resolveWsContext };

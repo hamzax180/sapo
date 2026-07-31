@@ -13,6 +13,12 @@
       "runtimeArgs": ["server/index.js"],
       "port": 4000,
       "autoPort": true
+    },
+    {
+      "name": "admin-verify",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["server/dev-admin-verify.js"],
+      "port": 4010
     }
   ]
 }

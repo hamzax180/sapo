@@ -706,13 +706,23 @@
     font-weight:800;font-size:.92rem;cursor:pointer;transition:background .2s}
   .sco-btn.paid{background:#1f9d6b;color:#fff}
 
-  @media (max-width:860px){
+  /* phones only: single column, full-bleed headline */
+  @media (max-width:600px){
     .chero-grid{grid-template-columns:1fr;gap:30px}
     .cdemo{transform:none}
     /* full-bleed hero on phones: tighten the side gutter and let the
        headline break out to the screen edges */
     .chero .wrap{padding-left:14px;padding-right:14px}
     .chero-h{font-size:clamp(2.5rem,11vw,3.6rem);margin-left:-8px;margin-right:-8px}
+  }
+  /* tablet / iPad: keep the login card and the demo side-by-side so both
+     fit on one screen instead of stacking awkwardly */
+  @media (min-width:601px) and (max-width:960px){
+    .chero-grid{grid-template-columns:1fr 1fr;gap:clamp(18px,2.8vw,30px);align-items:center}
+    .chero-h{font-size:clamp(2.05rem,4.4vw,3.05rem);line-height:1.02}
+    .chero-sub{font-size:.98rem;max-width:34ch}
+    .chero-auth{max-width:none;margin-top:18px}
+    .cdemo{transform:none}
   }
 
   /* ---------- NEW industries hero ---------- */
@@ -931,34 +941,152 @@
   .win-cursor.click .win-cursor-ring{animation:curClick .55s ease-out}
   @keyframes curClick{0%{opacity:.9;transform:scale(.35)}100%{opacity:0;transform:scale(1.9)}}
 
-  /* window shell */
-  .second-hero .win{background:#0a1a2b;border:1px solid rgba(120,190,240,.14);
-    box-shadow:0 0 0 1px rgba(0,0,0,.5)}
-  .second-hero .win:hover{box-shadow:0 0 0 1px rgba(76,196,251,.28)}
-  .second-hero .win-tb{background:linear-gradient(180deg,#102539,#0b1c2e);border-bottom:1px solid rgba(120,190,240,.12)}
-  .second-hero .win-tb b{color:#d3e6f6}
-  .second-hero .win-tb i{box-shadow:inset 0 1px 1px rgba(0,0,0,.35)}
-  .second-hero .win-b{background:#0a1a2b}
-  .second-hero .stage{background:radial-gradient(130% 100% at 50% -10%,#12324c 0%,#0b1d30 55%,#081522 100%)}
+  /* ============================================================
+     REAL CONSOLE REPLICA (light) — scoped to .second-hero
+     Mirrors the actual operations console: white surfaces, navy
+     dashboard banner, grouped sidebar, KPI stat cards, revenue chart.
+     ============================================================ */
+  .second-hero .win{background:#fff;border:1px solid #e2e8f0;box-shadow:0 0 0 1px rgba(11,30,51,.04)}
+  .second-hero .win-tb{background:linear-gradient(180deg,#ffffff,#f4f7fb);border-bottom:1px solid #e2e8f0}
+  .second-hero .win-tb b{color:#4a5c6e}
+  .second-hero .win-tb i{box-shadow:inset 0 1px 1px rgba(0,0,0,.15)}
+  .second-hero .ios-bar .ios-time{color:#14233a}
+  .second-hero .ios-bar svg{fill:#14233a}
+  .second-hero .ios-bar svg path,.second-hero .ios-bar svg rect[fill="none"]{stroke:#14233a}
+  .second-hero .win-b{background:#eef1f5;grid-template-columns:148px 1fr}
+  .second-hero .stage{background:#eef1f5}
 
-  /* pipeline rail — glowing stepper w/ connector line */
-  .second-hero .rail{background:linear-gradient(180deg,#0d2033,#0a1a2b);border-right:1px solid rgba(120,190,240,.1)}
-  .second-hero .rail h5{color:#5f7d97}
-  .second-hero .rail .step{color:#93b3cc}
-  .second-hero .rail .step:hover{color:#eaf6ff;background:rgba(76,196,251,.08)}
-  .second-hero .rail .step.on{color:#eaf6ff;background:rgba(76,196,251,.13);box-shadow:inset 0 0 0 1px rgba(76,196,251,.4),0 8px 20px rgba(0,0,0,.4)}
-  .second-hero .rail .step .dot{background:#153351;color:#83aac6}
-  .second-hero .rail .step.on .dot{background:linear-gradient(135deg,#4cc4fb,#2563eb);color:#fff;box-shadow:0 0 16px rgba(76,196,251,.65)}
-  .second-hero .rail .step.done{color:#c7ddef}
-  .second-hero .rail .step.done .dot{background:linear-gradient(135deg,#41e08a,#0f9d63);color:#04231a;box-shadow:0 0 12px rgba(65,224,138,.4)}
-  .second-hero .rail .step + .step::before{content:"";position:absolute;left:21px;top:-13px;width:2px;height:21px;background:rgba(120,190,240,.16);border-radius:2px}
-  .second-hero .rail .step.done + .step::before,.second-hero .rail .step.done + .step.done::before{background:linear-gradient(180deg,#41e08a,rgba(120,190,240,.16))}
-  .second-hero .rail .step.on .dot{animation:stepPulse 1.8s var(--ease) infinite}
+  /* ---- sidebar (real console) ---- */
+  .second-hero .rail{padding:0;background:#fff;border-right:1px solid #e2e8f0;font-size:.72rem;display:flex;flex-direction:column;overflow:hidden}
+  .second-hero .rail h5{display:none}
+  .rail-ws{background:linear-gradient(160deg,#0b1e33,#123a5c);padding:10px 11px;display:flex;align-items:center;gap:8px}
+  .rail-ws .ws-av{width:28px;height:28px;border-radius:50%;background:#fff;display:grid;place-items:center;flex:0 0 auto;color:#1aa6df}
+  .rail-ws .ws-av svg{width:15px;height:15px}
+  .rail-ws .ws-tx{min-width:0}
+  .rail-ws .ws-nm{font-family:var(--disp);font-weight:800;font-size:.68rem;color:#fff;line-height:1.05;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .rail-ws .ws-sub{font-size:.46rem;letter-spacing:.08em;text-transform:uppercase;color:#8fb0cf;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .rail-nav{padding:8px;flex:1;overflow:hidden}
+  .rail-grp{font-size:.48rem;letter-spacing:.11em;text-transform:uppercase;color:#93a1b3;font-weight:800;margin:8px 4px 4px}
+  .rail-grp:first-child{margin-top:0}
+  .second-hero .rail .step{position:relative;display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:8px;color:#3a4a60;margin-bottom:1px;font-weight:600;font-size:.66rem;cursor:pointer;transition:background .2s,color .2s}
+  .second-hero .rail .step:hover{background:#f1f5f9;color:#14233a}
+  .second-hero .rail .step.on{background:linear-gradient(135deg,#1aa6df,#0284c7);color:#fff;box-shadow:0 5px 13px rgba(26,166,223,.3)}
+  .second-hero .rail .step.done{color:#3a4a60}
+  .second-hero .rail .step .dot{width:18px;height:18px;border-radius:0;background:transparent;display:grid;place-items:center;color:#8492a6;box-shadow:none;flex:0 0 auto}
+  .second-hero .rail .step .dot svg{width:13px;height:13px}
+  .second-hero .rail .step.on .dot{background:transparent;color:#fff;box-shadow:none}
+  .second-hero .rail .step .st-badge{margin-left:auto;background:#e2e8f0;color:#3a4a60;font-size:.5rem;font-weight:800;border-radius:999px;padding:1px 6px;min-width:14px;text-align:center;line-height:1.5}
+  .second-hero .rail .step.on .st-badge{background:rgba(255,255,255,.28);color:#fff}
+  .second-hero .rail .step + .step::before{display:none}
+  .second-hero .rail .step.on{transform:none}
+  .rail-item{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:8px;color:#64748b;margin-bottom:1px;font-weight:600;font-size:.66rem}
+  .rail-item .ri-ic{width:18px;height:18px;display:grid;place-items:center;color:#93a1b3;flex:0 0 auto}
+  .rail-item .ri-ic svg{width:13px;height:13px}
 
-  /* scene headers */
-  .second-hero .sc-t{color:#eaf6ff}
-  .second-hero .sc-badge.blue{color:#8fd3ff;background:rgba(76,196,251,.14);border:1px solid rgba(76,196,251,.32);box-shadow:none}
-  .second-hero .sc-badge.green{color:#41e08a;background:rgba(65,224,138,.13);border:1px solid rgba(65,224,138,.34);box-shadow:none}
+  /* ---- scene headers (light) ---- */
+  .second-hero .sc-t{color:#14233a;font-family:var(--disp);font-weight:800}
+  .second-hero .sc-badge{color:#2f6fb0;background:#e7f0fb;border:1px solid #cfe0f5;box-shadow:none}
+  .second-hero .sc-badge.blue{color:#1488bd;background:#e7f5fc;border:1px solid #bfe6f7;box-shadow:none}
+  .second-hero .sc-badge.green{color:#1f9d6b;background:#e4f6ec;border:1px solid #b7e6cd;box-shadow:none}
+
+  /* ---- dashboard: navy hero banner ---- */
+  .dash-hero{background:linear-gradient(115deg,#0b1e33 0%,#123a5c 60%,#1d5a86 100%);border-radius:12px;padding:12px 14px;color:#fff;margin-bottom:10px}
+  .dash-hero .dh-date{font-size:.48rem;letter-spacing:.12em;text-transform:uppercase;color:#8fb4d6;font-weight:700}
+  .dash-hero .dh-greet{font-family:var(--disp);font-weight:800;font-size:1.18rem;margin-top:3px;line-height:1}
+  .dash-hero .dh-sub{font-size:.6rem;color:#b9cde0;margin-top:4px}
+  .dash-hero .dh-chip{display:inline-flex;align-items:center;gap:5px;margin-top:9px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:999px;padding:3px 9px;font-size:.55rem;color:#dfeaf5}
+  .dash-hero .dh-chip svg{width:10px;height:10px;color:#41e08a}
+
+  /* ---- KPI stat cards ---- */
+  .dash-kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:9px}
+  .dk{background:#fff;border:1px solid #e2e8f0;border-radius:11px;padding:9px 10px 0;position:relative;overflow:hidden;box-shadow:0 1px 2px rgba(16,42,69,.05)}
+  .dk-top{display:flex;align-items:center;justify-content:space-between}
+  .dk-ic{width:24px;height:24px;border-radius:7px;display:grid;place-items:center}
+  .dk-ic svg{width:13px;height:13px}
+  .dk-ic.purple{background:#efe7fb;color:#7a4fb0}.dk-ic.green{background:#e4f6ec;color:#1f9d6b}.dk-ic.gold{background:#f7efdc;color:#c08a1f}
+  .dk-delta{font-size:.52rem;font-weight:700;display:inline-flex;align-items:center;gap:3px;color:#1f9d6b;white-space:nowrap}
+  .dk-delta svg{width:9px;height:9px}
+  .dk-n{font-family:var(--disp);font-weight:800;font-size:1.02rem;color:#14233a;margin-top:7px;line-height:1}
+  .dk-l{font-size:.52rem;color:#6b7a90;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .dk-spark{display:block;width:calc(100% + 20px);height:20px;margin:5px -10px 0}
+  .second-hero .scene.active .dk{animation:conRow .5s var(--ease) both}
+  .second-hero .scene.active .dk:nth-child(2){animation-delay:.08s}
+  .second-hero .scene.active .dk:nth-child(3){animation-delay:.16s}
+
+  /* ---- revenue trend card ---- */
+  .dash-rev{background:#fff;border:1px solid #e2e8f0;border-radius:11px;padding:11px 12px;box-shadow:0 1px 2px rgba(16,42,69,.05)}
+  .dash-rev .dr-h{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}
+  .dash-rev .dr-t{font-family:var(--disp);font-weight:800;font-size:.76rem;color:#14233a}
+  .dash-rev .dr-t small{font-weight:500;color:#93a1b3;font-size:.54rem;margin-left:6px}
+  .dash-rev .dr-up{font-size:.62rem;font-weight:800;color:#1f9d6b;display:inline-flex;align-items:center;gap:3px}
+  .dash-rev .dr-up svg{width:11px;height:11px}
+  .dash-rev .dr-chart{display:block;width:100%;height:66px}
+  .dash-rev .dr-line{fill:none;stroke:#1aa6df;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+  .dash-rev .dr-dot{fill:#fff;stroke:#1aa6df;stroke-width:2}
+  .second-hero .scene.active .dash-rev .dr-line{stroke-dasharray:520;stroke-dashoffset:520;animation:drawRev 1.6s var(--ease) .1s forwards}
+  @keyframes drawRev{to{stroke-dashoffset:0}}
+
+  /* ---- white panel wrapping list views ---- */
+  .con-panel{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:11px 13px;box-shadow:0 1px 2px rgba(16,42,69,.05)}
+
+  /* ===== authentic operations-console scenes (tables, stat cards, pills) ===== */
+  .second-hero .con-tools{display:flex;align-items:center;gap:8px;margin-bottom:9px}
+  .second-hero .con-search{flex:1;display:flex;align-items:center;gap:7px;background:#f6f8fb;border:1px solid #e2e8f0;border-radius:8px;padding:6px 10px;color:#8492a6;font-size:.68rem}
+  .second-hero .con-search svg{width:12px;height:12px;flex:0 0 auto;opacity:.7}
+  .second-hero .con-btn{display:inline-flex;align-items:center;gap:4px;background:linear-gradient(135deg,#1aa6df,#0284c7);color:#fff;border-radius:8px;padding:6px 11px;font-size:.68rem;font-weight:700;white-space:nowrap;box-shadow:0 4px 11px rgba(26,166,223,.3)}
+  .second-hero .con-table{width:100%;border-collapse:collapse}
+  .second-hero .con-table th{text-align:left;font-size:.56rem;text-transform:uppercase;letter-spacing:.04em;color:#93a1b3;font-weight:800;padding:0 8px 7px}
+  .second-hero .con-table td{padding:7px 8px;border-top:1px solid #eef2f7;color:#3a4a60;font-size:.72rem;vertical-align:middle}
+  .second-hero .con-table tbody tr:first-child td{border-top:0}
+  .second-hero .con-table .t-main{font-weight:700;color:#14233a;white-space:nowrap}
+  .second-hero .con-table .t-sub{display:block;color:#93a1b3;font-size:.6rem;font-weight:500;margin-top:1px}
+  .second-hero .con-table .t-r{text-align:right}
+  .second-hero .con-table .num{font-family:var(--disp);font-weight:700;font-variant-numeric:tabular-nums;color:#14233a}
+  .second-hero .pill{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:999px;font-size:.56rem;font-weight:700;white-space:nowrap;line-height:1.6}
+  .second-hero .pill::before{content:"";width:5px;height:5px;border-radius:50%;background:currentColor;flex:0 0 auto}
+  .second-hero .pill.paid,.second-hero .pill.delivered,.second-hero .pill.instock,.second-hero .pill.active{color:#1f9d6b;background:#e4f6ec;border:1px solid #b7e6cd}
+  .second-hero .pill.processing,.second-hero .pill.low,.second-hero .pill.transit,.second-hero .pill.pending,.second-hero .pill.hold{color:#c08a1f;background:#fcf2dc;border:1px solid #ecd9a6}
+  .second-hero .pill.overdue,.second-hero .pill.out{color:#c0492f;background:#fbe9e7;border:1px solid #f2c9c1}
+  .second-hero .pill.shipped,.second-hero .pill.new{color:#2f6fb0;background:#e7f0fb;border:1px solid #cfe0f5}
+  .second-hero .con-sec-t{font-size:.6rem;color:#6b7a90;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin:2px 0 7px}
+  .second-hero .con-bars{display:flex;align-items:flex-end;gap:7px;height:56px;padding:2px 2px 0}
+  .second-hero .con-bars i{flex:1;background:linear-gradient(180deg,#4cc4fb,#2563eb);border-radius:3px 3px 0 0;opacity:.9;transform-origin:bottom}
+  .second-hero .con-bars i:last-child{background:linear-gradient(180deg,#41e08a,#0f9d63)}
+  .second-hero .scene.active .con-bars i{animation:conBar .6s var(--ease) both}
+  .second-hero .scene.active .con-bars i:nth-child(2){animation-delay:.05s}
+  .second-hero .scene.active .con-bars i:nth-child(3){animation-delay:.1s}
+  .second-hero .scene.active .con-bars i:nth-child(4){animation-delay:.15s}
+  .second-hero .scene.active .con-bars i:nth-child(5){animation-delay:.2s}
+  .second-hero .scene.active .con-bars i:nth-child(6){animation-delay:.25s}
+  .second-hero .scene.active .con-bars i:nth-child(7){animation-delay:.3s}
+  @keyframes conBar{from{transform:scaleY(.15);opacity:0}to{transform:scaleY(1);opacity:.9}}
+  .second-hero .scene.active .con-table tbody tr{animation:conRow .45s var(--ease) both}
+  .second-hero .scene.active .con-table tbody tr:nth-child(2){animation-delay:.06s}
+  .second-hero .scene.active .con-table tbody tr:nth-child(3){animation-delay:.12s}
+  .second-hero .scene.active .con-table tbody tr:nth-child(4){animation-delay:.18s}
+  .second-hero .scene.active .con-card{animation:conRow .5s var(--ease) both}
+  .second-hero .scene.active .con-card:nth-child(2){animation-delay:.08s}
+  .second-hero .scene.active .con-card:nth-child(3){animation-delay:.16s}
+  @keyframes conRow{from{opacity:0;transform:translateX(-8px)}to{opacity:1;transform:none}}
+  /* keep the console screens fitting the phone / tablet frames */
+  @media (max-width:600px){
+    .second-hero .con-table{table-layout:fixed;width:100%}
+    .second-hero .con-table th,.second-hero .con-table td{padding:6px 4px;font-size:.62rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .second-hero .con-table th{font-size:.5rem;padding-bottom:6px}
+    .second-hero .con-table .t-sub{display:none}
+    .second-hero .con-table .t-main{font-size:.64rem}
+    .second-hero .pill{font-size:.5rem;padding:2px 6px;gap:3px}
+    .second-hero .pill::before{width:4px;height:4px}
+    .second-hero .con-cards{gap:6px;margin-bottom:9px}
+    .second-hero .con-card{padding:8px 8px}
+    .second-hero .con-card .cl{font-size:.52rem}
+    .second-hero .con-card .cv{font-size:.92rem}
+    .second-hero .con-card .cd{font-size:.5rem}
+    .second-hero .con-tools{gap:6px;margin-bottom:7px}
+    .second-hero .con-search{font-size:.58rem;padding:5px 8px}
+    .second-hero .con-btn{font-size:.58rem;padding:5px 9px}
+    .second-hero .con-bars{height:44px}
+  }
 
   /* ---- scene 0 · invoice ---- */
   .second-hero .inv{background:linear-gradient(180deg,#102a3f,#0c1f31);border:1px solid rgba(120,190,240,.14);box-shadow:0 10px 28px rgba(0,0,0,.4);position:relative;overflow:hidden}
@@ -1163,6 +1291,29 @@
     .second-hero .qr-svg{width:48px;height:48px}
     .second-hero .sc-t{font-size:.9rem}
     .second-hero .sc-badge{font-size:.5rem;padding:3px 7px}
+    /* new light-console sidebar collapses to a clean icon bar on phones */
+    .second-hero .rail-ws,.second-hero .rail-grp,.second-hero .rail-item{display:none}
+    .second-hero .rail-nav{display:flex;align-items:center;justify-content:center;gap:8px;padding:0;flex:0 0 auto}
+    .second-hero .rail .step{border-radius:9px}
+    .second-hero .rail .step .st-badge{display:none}
+    .second-hero .rail .step .dot{background:#eef2f7;color:#64748b;border-radius:9px}
+    .second-hero .rail .step .dot svg{width:15px;height:15px}
+    .second-hero .rail .step.on .dot{background:linear-gradient(135deg,#1aa6df,#0284c7);color:#fff;box-shadow:0 3px 9px rgba(26,166,223,.4)}
+    /* dashboard components fitted to the phone screen */
+    .second-hero .dash-hero{padding:10px 11px;margin-bottom:8px}
+    .second-hero .dash-hero .dh-greet{font-size:.98rem}
+    .second-hero .dash-hero .dh-sub{font-size:.55rem}
+    .second-hero .dash-hero .dh-chip{font-size:.5rem}
+    .second-hero .dash-kpis{gap:5px;margin-bottom:8px}
+    .second-hero .dk{padding:7px 7px 0}
+    .second-hero .dk-ic{width:19px;height:19px;border-radius:6px}
+    .second-hero .dk-ic svg{width:11px;height:11px}
+    .second-hero .dk-n{font-size:.82rem}
+    .second-hero .dk-l{font-size:.46rem}
+    .second-hero .dk-delta{font-size:.44rem}
+    .second-hero .dk-spark{height:15px}
+    .second-hero .dash-rev .dr-chart{height:52px}
+    .second-hero .con-panel{padding:9px 10px}
 
     /* iPhone body */
     .device{width:min(300px,84vw);max-width:none;margin:12px auto 0;padding:11px;border-radius:56px;
@@ -1336,187 +1487,128 @@
         <div class="win-tb"><i class="r"></i><i class="y"></i><i class="g"></i><b>Souqi · admin console</b></div>
         <div class="win-b">
           <aside class="rail">
-            <h5>Menu</h5>
-            <div class="step" data-s="0"><span class="dot"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M16 13H8"/><path d="M16 17H8"/></svg></span>Invoice</div>
-            <div class="step" data-s="1"><span class="dot"><svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><path d="M12 2L14.4 8.6L21 11L14.4 13.4L12 20L9.6 13.4L3 11L9.6 8.6L12 2Z"/></svg></span>Finance check</div>
-            <div class="step" data-s="2"><span class="dot"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M7 8h10"/><path d="M7 12h5"/><path d="M7 16h8"/></svg></span>Ship label</div>
-            <div class="step" data-s="3"><span class="dot"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg></span>Inventory</div>
-            <div class="step" data-s="4"><span class="dot"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg></span>Database</div>
+            <div class="rail-ws">
+              <div class="ws-av"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg></div>
+              <div class="ws-tx"><div class="ws-nm">Demo Fashion</div><div class="ws-sub">Fashion &amp; Luxury</div></div>
+            </div>
+            <div class="rail-nav">
+              <div class="rail-grp">Main</div>
+              <div class="step" data-s="0"><span class="dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z"/></svg></span>Dashboard</div>
+              <div class="rail-item"><span class="ri-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.5 5.5 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.5-6.5A2 2 0 0 0 16.7 4H7.3a2 2 0 0 0-1.8 1.5z"/></svg></span>My Work</div>
+              <div class="rail-grp">Sales</div>
+              <div class="step" data-s="1"><span class="dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.7 13.4a2 2 0 0 0 2 1.6h9.7a2 2 0 0 0 2-1.6L23 6H6"/></svg></span>Orders<span class="st-badge">1</span></div>
+              <div class="step" data-s="2"><span class="dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/></svg></span>Clients</div>
+              <div class="rail-grp">Operations</div>
+              <div class="step" data-s="3"><span class="dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg></span>Catalog</div>
+              <div class="rail-grp">Finance</div>
+              <div class="step" data-s="4"><span class="dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M4 2v20l3-2 3 2 3-2 3 2 3-2V2l-3 2-3-2-3 2-3-2z"/><path d="M8 8h8M8 12h8"/></svg></span>Invoices</div>
+            </div>
           </aside>
           <div class="stage">
-            <!-- scene 0 · invoice -->
+            <!-- scene 0 · dashboard -->
             <div class="scene" data-s="0">
-              <div class="sc-head"><span class="sc-t">Fatura issued</span><span class="sc-badge blue">E-FATURA · SENT</span></div>
-              <div class="inv">
-                <div class="inv-top"><div class="b1">Souqi<small>Logistics &amp; Trade</small></div><div class="b2">FATURA<small>RCPT-8801</small></div></div>
-                <div class="inv-meta"><span>Walk-in Customer</span><span>26 Jun 2026 · <span class="paid">Paid</span></span></div>
-                <table><thead><tr><th>Item</th><th>Qty</th><th>Total</th></tr></thead>
-                  <tbody><tr><td>Cola 330ml can</td><td>2</td><td>$2</td></tr><tr><td>Milk Chocolate 80g</td><td>1</td><td>$2</td></tr></tbody></table>
-                <div class="tot"><span>Total (incl. KDV)</span><span>$4</span></div>
-                <div class="inv-stamp">Paid</div>
+              <div class="dash-hero">
+                <div class="dh-date">Friday, July 31, 2026</div>
+                <div class="dh-greet">Good evening, Demo</div>
+                <div class="dh-sub">1 open order · $0 receivable</div>
+                <div class="dh-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Apparel, luxury collections &amp; seasonal drops.</div>
+              </div>
+              <div class="dash-kpis">
+                <div class="dk">
+                  <div class="dk-top"><div class="dk-ic purple"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.7 13.4a2 2 0 0 0 2 1.6h9.7a2 2 0 0 0 2-1.6L23 6H6"/></svg></div><span class="dk-delta"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><path d="M12 19V5M5 12l7-7 7 7"/></svg>1 total</span></div>
+                  <div class="dk-n"><span class="qty" data-to="1">0</span></div>
+                  <div class="dk-l">Open orders</div>
+                  <svg class="dk-spark" viewBox="0 0 100 22" preserveAspectRatio="none"><path d="M0 16 L16 14 L32 15 L48 10 L64 12 L80 6 L100 4 L100 22 L0 22 Z" fill="#7a4fb0" opacity=".14"/><path d="M0 16 L16 14 L32 15 L48 10 L64 12 L80 6 L100 4" fill="none" stroke="#7a4fb0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </div>
+                <div class="dk">
+                  <div class="dk-top"><div class="dk-ic green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg></div><span class="dk-delta"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><path d="M20 6 9 17l-5-5"/></svg>0 low</span></div>
+                  <div class="dk-n">$<span class="qty" data-to="34400">30100</span></div>
+                  <div class="dk-l">Inventory value (est.)</div>
+                  <svg class="dk-spark" viewBox="0 0 100 22" preserveAspectRatio="none"><path d="M0 15 L16 16 L32 12 L48 13 L64 9 L80 10 L100 6 L100 22 L0 22 Z" fill="#1f9d6b" opacity=".14"/><path d="M0 15 L16 16 L32 12 L48 13 L64 9 L80 10 L100 6" fill="none" stroke="#1f9d6b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </div>
+                <div class="dk">
+                  <div class="dk-top"><div class="dk-ic gold"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div><span class="dk-delta"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h16.9a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg>0 overdue</span></div>
+                  <div class="dk-n">$<span class="qty" data-to="0">0</span></div>
+                  <div class="dk-l">Outstanding receivables</div>
+                  <svg class="dk-spark" viewBox="0 0 100 22" preserveAspectRatio="none"><path d="M0 14 L16 14 L32 15 L48 14 L64 15 L80 14 L100 15 L100 22 L0 22 Z" fill="#c08a1f" opacity=".12"/><path d="M0 14 L16 14 L32 15 L48 14 L64 15 L80 14 L100 15" fill="none" stroke="#c08a1f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </div>
+              </div>
+              <div class="dash-rev">
+                <div class="dr-h"><div class="dr-t">Revenue trend<small>Last 8 weeks · k USD</small></div><div class="dr-up"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><path d="M12 19V5M5 12l7-7 7 7"/></svg>69%</div></div>
+                <svg class="dr-chart" viewBox="0 0 300 66" preserveAspectRatio="none">
+                  <defs><linearGradient id="drG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1aa6df" stop-opacity=".2"/><stop offset="1" stop-color="#1aa6df" stop-opacity="0"/></linearGradient></defs>
+                  <path d="M0 52 L43 46 L86 48 L129 38 L172 31 L215 33 L258 18 L300 8 L300 66 L0 66 Z" fill="url(#drG)"/>
+                  <path class="dr-line" d="M0 52 L43 46 L86 48 L129 38 L172 31 L215 33 L258 18 L300 8"/>
+                  <circle class="dr-dot" cx="0" cy="52" r="2.6"/><circle class="dr-dot" cx="86" cy="48" r="2.6"/><circle class="dr-dot" cx="172" cy="31" r="2.6"/><circle class="dr-dot" cx="258" cy="18" r="2.6"/><circle class="dr-dot" cx="300" cy="8" r="2.6"/>
+                </svg>
               </div>
             </div>
-            <!-- scene 1 · AI finance -->
+            <!-- scene 1 · orders -->
             <div class="scene" data-s="1">
-              <div class="sc-head"><span class="sc-t">AI finance check</span><span class="sc-badge ai">✦ Souqi AI</span></div>
-              <div class="ai-msg"><span class="ai-ava">✦</span><div class="ai-bubble">Cash flow is healthy — revenue <b>+24%</b> this month. <b>₺12k</b> over 3 invoices is overdue.<span class="type-caret"></span></div></div>
-              <svg class="spark" viewBox="0 0 240 52" preserveAspectRatio="none" fill="none">
-                <defs>
-                  <linearGradient id="spkG" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stop-color="#1aa6df" stop-opacity="0.32"/>
-                    <stop offset="100%" stop-color="#1aa6df" stop-opacity="0"/>
-                  </linearGradient>
-                </defs>
-                <path d="M2 42 L40 32 L78 36 L116 18 L154 24 L192 10 L236 6 L236 52 L2 52 Z" fill="url(#spkG)"/>
-                <path id="spkPath" class="spk-line" d="M2 42 L40 32 L78 36 L116 18 L154 24 L192 10 L236 6" stroke="#1aa6df" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
-                <circle class="spk-dot" r="3.2"><animateMotion dur="2.6s" repeatCount="indefinite" keyPoints="0;1" keyTimes="0;1" calcMode="linear"><mpath href="#spkPath"/></animateMotion></circle>
-              </svg>
-              <div class="chips"><span class="chip up">▲ Revenue +24%</span><span class="chip warn">⚠ ₺12k overdue</span><span class="chip ok">✓ Margin 31%</span></div>
+              <div class="sc-head"><span class="sc-t">Orders</span><span class="sc-badge blue">34 TODAY</span></div>
+              <div class="con-panel">
+                <div class="con-tools">
+                  <div class="con-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>Search orders…</div>
+                  <span class="con-btn">+ New</span>
+                </div>
+                <table class="con-table"><thead><tr><th>Order</th><th>Customer</th><th class="t-r">Total</th><th>Status</th></tr></thead>
+                  <tbody>
+                    <tr><td class="t-main">#ORD-8801<span class="t-sub">2 items</span></td><td>Vogue Boutique</td><td class="t-r num">$420</td><td><span class="pill paid">Paid</span></td></tr>
+                    <tr><td class="t-main">#ORD-8802<span class="t-sub">14 items</span></td><td>Harvey Nichols</td><td class="t-r num">$1,240</td><td><span class="pill processing">Processing</span></td></tr>
+                    <tr><td class="t-main">#ORD-8803<span class="t-sub">6 items</span></td><td>Beymen Stores</td><td class="t-r num">$860</td><td><span class="pill shipped">Shipped</span></td></tr>
+                    <tr><td class="t-main">#ORD-8804<span class="t-sub">3 items</span></td><td>Walk-in Customer</td><td class="t-r num">$540</td><td><span class="pill pending">Pending</span></td></tr>
+                  </tbody></table>
+              </div>
             </div>
-            <!-- scene 2 · shipment label -->
+            <!-- scene 2 · clients -->
             <div class="scene" data-s="2">
-              <div class="sc-head"><span class="sc-t">Shipment label</span><span class="sc-badge green">READY TO PRINT</span></div>
-              <div class="lbl">
-                <div class="lbl-l">
-                  <div class="lbl-co">Souqi · Express Freight</div>
-                  <div class="lbl-route">Istanbul <span class="r-arrow">➔</span> London</div>
-                  <div class="lbl-meta">SH-7782 · 12kg · Parcel</div>
-                  <div class="lbl-num">TRK 7782 0431 9920</div>
+              <div class="sc-head"><span class="sc-t">Clients</span><span class="sc-badge blue">128 TOTAL</span></div>
+              <div class="con-panel">
+                <div class="con-tools">
+                  <div class="con-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>Search clients…</div>
+                  <span class="con-btn">+ Client</span>
                 </div>
-                <svg class="qr-svg" viewBox="0 0 44 44" fill="currentColor"><path d="M0 0h16v16H0V0zm4 4v8h8V4H4zm1.5 1.5h5v5h-5v-5zM28 0h16v16H28V0zm4 4v8h8V4h-8zm1.5 1.5h5v5h-5v-5zM0 28h16v16H0V28zm4 4v8h8v-8H4zm1.5 1.5h5v5h-5v-5zM20 0h4v8h-4V0zm0 12h4v4h-4v-4zm-8 8h8v4h-8v-4zm12 0h8v4h-8v-4zm8 0h4v4h-4v-4zm-20 8h4v4h-4v-4zm8 0h4v4h-4v-4zm12 0h4v8h-4v-8zm-8 4h4v4h-4v-4zm8 4h4v4h-4v-4zm-12 4h8v4h-8v-4zm12 0h4v4h-4v-4z"/></svg>
-              </div>
-              <div class="route">
-                <svg class="route-svg" viewBox="0 0 260 24" preserveAspectRatio="none" aria-hidden="true">
-                  <path id="routeP" class="route-line" d="M10 17 C 70 17 95 8 130 8 S 195 17 250 9"/>
-                  <path class="route-line-lit" d="M10 17 C 70 17 95 8 130 8 S 195 17 250 9"/>
-                  <circle class="route-node a" cx="10" cy="17" r="3.4"/>
-                  <circle class="route-node b" cx="250" cy="9" r="3.4"/>
-                  <circle class="route-truck" r="3.6"><animateMotion dur="2.6s" repeatCount="indefinite" keyPoints="0;1" keyTimes="0;1" calcMode="linear"><mpath href="#routeP"/></animateMotion></circle>
-                </svg>
-                <div class="route-cities"><b>Istanbul</b><span class="route-live"><i></i>Tracking live · ETA 2 days</span><b>London</b></div>
+                <table class="con-table"><thead><tr><th>Client</th><th>Location</th><th class="t-r">Orders</th><th>Status</th></tr></thead>
+                  <tbody>
+                    <tr><td class="t-main">Vogue Boutique<span class="t-sub">Wholesale</span></td><td>London, UK</td><td class="t-r num">24</td><td><span class="pill active">Active</span></td></tr>
+                    <tr><td class="t-main">Harvey Nichols<span class="t-sub">Retail chain</span></td><td>London, UK</td><td class="t-r num">18</td><td><span class="pill active">Active</span></td></tr>
+                    <tr><td class="t-main">Beymen Stores<span class="t-sub">Department</span></td><td>İstanbul, TR</td><td class="t-r num">31</td><td><span class="pill active">Active</span></td></tr>
+                    <tr><td class="t-main">Zara Wholesale<span class="t-sub">Wholesale</span></td><td>Madrid, ES</td><td class="t-r num">9</td><td><span class="pill hold">On hold</span></td></tr>
+                  </tbody></table>
               </div>
             </div>
-            <!-- scene 3 · inventory -->
+            <!-- scene 3 · catalog -->
             <div class="scene" data-s="3">
-              <div class="sc-head"><span class="sc-t">Inventory synced</span><span class="sc-badge blue">REAL-TIME STOCK</span></div>
-              <div class="inv-row">
-                <div class="inv-info"><span class="nm">Cotton Shirt<small>SKU-SHRT-01 · Main Store</small></span><div class="inv-pbar"><div class="ipb-fill" style="width:88%"></div></div></div>
-                <div class="inv-num"><span class="qty" data-to="348">320</span><span class="delta up">+28</span></div>
-              </div>
-              <div class="inv-row">
-                <div class="inv-info"><span class="nm">Slim-fit Pants<small>SKU-PNTS-02 · Warehouse A</small></span><div class="inv-pbar"><div class="ipb-fill blue" style="width:74%"></div></div></div>
-                <div class="inv-num"><span class="qty" data-to="512">540</span><span class="delta down">−28</span></div>
-              </div>
-              <div class="inv-row">
-                <div class="inv-info"><span class="nm">Smartphone 128GB<small>SKU-PHON-03 · Tech Depot</small></span><div class="inv-pbar"><div class="ipb-fill" style="width:45%"></div></div></div>
-                <div class="inv-num"><span class="qty" data-to="64">88</span><span class="delta down">−24</span></div>
+              <div class="sc-head"><span class="sc-t">Catalog</span><span class="sc-badge blue">312 PRODUCTS</span></div>
+              <div class="con-panel">
+                <div class="con-tools">
+                  <div class="con-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>Search products…</div>
+                  <span class="con-btn">+ Product</span>
+                </div>
+                <table class="con-table"><thead><tr><th>Product</th><th>SKU</th><th class="t-r">Price</th><th>Stock</th></tr></thead>
+                  <tbody>
+                    <tr><td class="t-main">Silk Slip Dress<span class="t-sub">Dresses</span></td><td>APP-DRS-01</td><td class="t-r num">$120</td><td><span class="pill instock">In stock</span></td></tr>
+                    <tr><td class="t-main">Wool Overcoat<span class="t-sub">Outerwear</span></td><td>APP-COT-04</td><td class="t-r num">$340</td><td><span class="pill instock">In stock</span></td></tr>
+                    <tr><td class="t-main">Leather Tote<span class="t-sub">Accessories</span></td><td>ACC-BAG-02</td><td class="t-r num">$210</td><td><span class="pill low">Low</span></td></tr>
+                    <tr><td class="t-main">Suede Boots<span class="t-sub">Footwear</span></td><td>FTW-BOT-03</td><td class="t-r num">$180</td><td><span class="pill instock">In stock</span></td></tr>
+                  </tbody></table>
               </div>
             </div>
-            <!-- scene 4 · databases (live data-flow engine) -->
+            <!-- scene 4 · finance & invoices -->
             <div class="scene" data-s="4">
-              <div class="sc-head"><span class="sc-t">Database engine</span><span class="sc-badge green">LIVE SYNC · ACTIVE</span></div>
-
-              <div class="db-cinema-stage">
-                <div class="db-cinema-grid"></div>
-                <div class="db-scan"></div>
-
-                <!-- flow field: wires + streaming data packets -->
-                <svg class="db-flow" viewBox="0 0 340 175" preserveAspectRatio="none" aria-hidden="true">
-                  <defs>
-                    <linearGradient id="gMongo" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#63d0ff"/><stop offset="1" stop-color="#00ed64"/></linearGradient>
-                    <linearGradient id="gPg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#63d0ff"/><stop offset="1" stop-color="#4f9fe0"/></linearGradient>
-                    <linearGradient id="gRedis" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#63d0ff"/><stop offset="1" stop-color="#ff5a4d"/></linearGradient>
-                    <filter id="pkGlow" x="-70%" y="-70%" width="240%" height="240%"><feGaussianBlur stdDeviation="2" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-                  </defs>
-
-                  <path id="wp0" class="db-wire" stroke="url(#gMongo)" d="M170 44 C 138 56 96 62 66 72"/>
-                  <path class="db-wire-dash" d="M170 44 C 138 56 96 62 66 72"/>
-                  <path id="wp1" class="db-wire" stroke="url(#gPg)" d="M170 44 C 170 56 170 62 170 72"/>
-                  <path class="db-wire-dash" d="M170 44 C 170 56 170 62 170 72"/>
-                  <path id="wp2" class="db-wire" stroke="url(#gRedis)" d="M170 44 C 202 56 244 62 274 72"/>
-                  <path class="db-wire-dash" d="M170 44 C 202 56 244 62 274 72"/>
-
-                  <circle class="db-pk" r="2.4" fill="#eafff4" filter="url(#pkGlow)"><animateMotion dur="1.6s" begin="0s" repeatCount="indefinite"><mpath href="#wp0"/></animateMotion></circle>
-                  <circle class="db-pk" r="2.4" fill="#eafff4" filter="url(#pkGlow)"><animateMotion dur="1.6s" begin="-0.8s" repeatCount="indefinite"><mpath href="#wp0"/></animateMotion></circle>
-                  <circle class="db-pk" r="2.4" fill="#eaf5ff" filter="url(#pkGlow)"><animateMotion dur="1.6s" begin="-0.35s" repeatCount="indefinite"><mpath href="#wp1"/></animateMotion></circle>
-                  <circle class="db-pk" r="2.4" fill="#eaf5ff" filter="url(#pkGlow)"><animateMotion dur="1.6s" begin="-1.15s" repeatCount="indefinite"><mpath href="#wp1"/></animateMotion></circle>
-                  <circle class="db-pk" r="2.4" fill="#ffece9" filter="url(#pkGlow)"><animateMotion dur="1.6s" begin="-0.2s" repeatCount="indefinite"><mpath href="#wp2"/></animateMotion></circle>
-                  <circle class="db-pk" r="2.4" fill="#ffece9" filter="url(#pkGlow)"><animateMotion dur="1.6s" begin="-1s" repeatCount="indefinite"><mpath href="#wp2"/></animateMotion></circle>
-                </svg>
-
-                <!-- central query router -->
-                <div class="db-hub">
-                  <div class="db-hub-core"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg></div>
+              <div class="sc-head"><span class="sc-t">Finance &amp; Invoices</span><span class="sc-badge blue">E-INVOICE</span></div>
+              <div class="con-panel">
+                <div class="con-tools">
+                  <div class="con-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>Search invoices…</div>
+                  <span class="con-btn">+ Invoice</span>
                 </div>
-
-                <div class="db-iso-group">
-                  <!-- MongoDB -->
-                  <div class="db-3d-node mongo">
-                    <div class="db-cylinder-stack">
-                      <span class="db-node-glow"></span>
-                      <div class="db-disc d3"></div>
-                      <div class="db-disc d2"></div>
-                      <div class="db-disc d1">
-                        <div class="db-disc-logo">
-                          <svg viewBox="0 0 24 24" width="13" height="16" fill="none"><path d="M12 1.5c2.7 4.3 4.3 7.6 4.3 11.6 0 4.3-2.1 7.4-4.3 9.4-2.2-2-4.3-5.1-4.3-9.4 0-4 1.6-7.3 4.3-11.6z" fill="#00ed64"/><path d="M12 1.5v21c.5-.4 4.3-4.8 4.3-9.4 0-4-1.6-7.3-4.3-11.6z" fill="#ffffff"/></svg>
-                        </div>
-                      </div>
-                    </div>
-                    <div class="db-hud-pill">
-                      <span class="db-hud-name">orders <small style="color:#00ed64">MongoDB</small></span>
-                      <div class="db-hud-stat"><span class="qty" data-to="12480">12360</span><b>+120</b></div>
-                    </div>
-                  </div>
-
-                  <!-- PostgreSQL -->
-                  <div class="db-3d-node postgres">
-                    <div class="db-cylinder-stack">
-                      <span class="db-node-glow"></span>
-                      <div class="db-disc d3"></div>
-                      <div class="db-disc d2"></div>
-                      <div class="db-disc d1">
-                        <div class="db-disc-logo">
-                          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5"/><path d="M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg>
-                        </div>
-                      </div>
-                    </div>
-                    <div class="db-hud-pill">
-                      <span class="db-hud-name">products <small style="color:#8fd3ff">PostgreSQL</small></span>
-                      <div class="db-hud-stat"><span class="qty" data-to="3204">3200</span><b>+4</b></div>
-                    </div>
-                  </div>
-
-                  <!-- Redis -->
-                  <div class="db-3d-node redis">
-                    <div class="db-cylinder-stack">
-                      <span class="db-node-glow"></span>
-                      <div class="db-disc d3"></div>
-                      <div class="db-disc d2"></div>
-                      <div class="db-disc d1">
-                        <div class="db-disc-logo">
-                          <svg viewBox="0 0 24 24" width="15" height="15" fill="none"><path d="M22 8.5L12 3.5L2 8.5L12 13.5L22 8.5Z" fill="#ffffff"/><path d="M22 15.5L12 20.5L2 15.5L12 10.5L22 15.5Z" fill="#ffd2cd"/></svg>
-                        </div>
-                      </div>
-                    </div>
-                    <div class="db-hud-pill">
-                      <span class="db-hud-name">invoices <small style="color:#ff8a80">Redis</small></span>
-                      <div class="db-hud-stat"><span class="qty" data-to="8801">8799</span><b>+2</b></div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <!-- live query log -->
-              <div class="db-cinema-foot">
-                <div class="db-log"><ul class="db-log-track">
-                  <li><i class="mongo"></i>INSERT orders → <b>MongoDB</b><em>2.1ms</em><s>✓</s></li>
-                  <li><i class="pg"></i>UPDATE products → <b>PostgreSQL</b><em>1.4ms</em><s>✓</s></li>
-                  <li><i class="redis"></i>SET invoices → <b>Redis</b><em>0.3ms</em><s>✓</s></li>
-                  <li><i class="mongo"></i>QUERY orders → <b>MongoDB</b><em>1.8ms</em><s>✓</s></li>
-                  <li><i class="pg"></i>COMMIT ledger → <b>PostgreSQL</b><em>0.9ms</em><s>✓</s></li>
-                  <li><i class="redis"></i>CACHE session → <b>Redis</b><em>0.2ms</em><s>✓</s></li>
-                </ul></div>
-                <span class="db-sync-live"><i></i>99.999%</span>
+                <table class="con-table"><thead><tr><th>Invoice</th><th>Client</th><th class="t-r">Amount</th><th>Status</th></tr></thead>
+                  <tbody>
+                    <tr><td class="t-main">INV-8801</td><td>Vogue Boutique</td><td class="t-r num">$420</td><td><span class="pill paid">Paid</span></td></tr>
+                    <tr><td class="t-main">INV-8795</td><td>Beymen Stores</td><td class="t-r num">$8,900</td><td><span class="pill paid">Paid</span></td></tr>
+                    <tr><td class="t-main">INV-8790</td><td>Zara Wholesale</td><td class="t-r num">$12,400</td><td><span class="pill overdue">Overdue</span></td></tr>
+                    <tr><td class="t-main">INV-8788</td><td>Harvey Nichols</td><td class="t-r num">$3,150</td><td><span class="pill paid">Paid</span></td></tr>
+                  </tbody></table>
               </div>
             </div>
           </div>
@@ -1991,8 +2083,9 @@
 /* Real wiring: sign-in, language, and redirect — layered on the ported design. */
 (function () {
   function boot() {
-    // If already signed in, go straight to the console.
-    try { if (window.Auth && Auth.current && Auth.current()) { location.href = "/"; return; } } catch (e) {}
+    // If already signed in, go straight to the console. (Use /index — the
+    // marketing page lives at "/", so redirecting there would loop.)
+    try { if (window.Auth && Auth.current && Auth.current()) { location.href = "/index"; return; } } catch (e) {}
     if (location.hash && location.hash.indexOf("#/track") === 0) { location.href = "/" + location.hash; return; }
 
     // Build the Solutions menu from the real industry registry (falls back to the static list).
@@ -2045,7 +2138,7 @@
         var pass = document.getElementById("password").value;
         try {
           var session = await Auth.loginAny(email, pass);
-          if (session) { location.href = "/"; return; }
+          if (session) { location.href = "/index"; return; }
         } catch (e) {}
         var noCompanies = !window.Workspace || Workspace.all().length === 0;
         if (err) {
@@ -2070,6 +2163,14 @@
     boot();
   }
 })();
+</script>
+
+<!-- privacy-preserving visit beacon (platform analytics) -->
+<script>
+(function(){ try{
+  fetch("/api/track/visit",{method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({path:location.pathname,type:"marketing",ref:document.referrer||null}),keepalive:true}).catch(function(){});
+}catch(e){} })();
 </script>
 
 </body>

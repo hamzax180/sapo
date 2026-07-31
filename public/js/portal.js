@@ -2108,6 +2108,18 @@
       const effectiveWsId = wsId || localStorage.getItem("sap_active_ws");
       S.wsId = effectiveWsId;
 
+      // Privacy-preserving visit beacon (storefront traffic). Skipped in the
+      // live editor so owner edits don't inflate visit counts.
+      if (effectiveWsId && new URLSearchParams(location.search).get("edit") !== "true") {
+        try {
+          fetch(apiBase() + "/api/track/visit", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ path: location.pathname, type: "portal", wsId: effectiveWsId, ref: document.referrer || null }),
+            keepalive: true
+          }).catch(function () {});
+        } catch (e) {}
+      }
+
       if (!effectiveWsId) {
         showUnavail("Configuration Error", "Portal URL is missing the workspace ID.");
         return;

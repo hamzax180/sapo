@@ -114,6 +114,12 @@ const bcrypt = require("bcryptjs");
     const tokenB = res.data.token;
     pass("login ws_B -> token bound to ws_B");
 
+    // Login-by-email (no workspace header) resolves the workspace from the master registry.
+    res = await req("/auth/login", { method: "POST", body: { email: "a@alpha.com", password: "passA" } });
+    assert.strictEqual(res.status, 200);
+    assert.strictEqual(res.data.user.wsId, "ws_A");
+    pass("login-by-email resolves workspace from master registry");
+
     // A sees only A's client.
     res = await req("/clients", { method: "GET", headers: { Authorization: "Bearer " + tokenA } });
     assert.strictEqual(res.status, 200);
@@ -181,6 +187,48 @@ const bcrypt = require("bcryptjs");
     assert.strictEqual(auditRows[0].source, "server");
     pass("audit: server-side row for guest order");
 
+    // Platform admin API — gated by session + ADMIN_EMAILS.
+    res = await req("/api/admin/overview", { method: "GET" });
+    assert.strictEqual(res.status, 401);
+    res = await req("/api/admin/overview", { method: "GET", headers: { Authorization: "Bearer " + tokenB } });
+    assert.strictEqual(res.status, 403); // valid session but not a platform admin
+    process.env.ADMIN_EMAILS = "a@alpha.com";
+    res = await req("/api/admin/overview", { method: "GET", headers: { Authorization: "Bearer " + tokenA } });
+    assert.strictEqual(res.status, 200);
+    assert.ok(res.data.totals.accounts >= 2, "overview counts workspaces");
+    assert.ok(res.data.byPlan && Array.isArray(res.data.topStores), "overview has plans + stores");
+    assert.strictEqual(res.data.signupsByDay.length, 14);
+    assert.strictEqual(res.data.visitsByDay.length, 14);
+    assert.ok(typeof res.data.totals.mrr === "number" && res.data.planPrices, "overview has MRR + plan prices");
+    assert.ok(res.data.totals.subscribers === res.data.totals.premium, "subscribers = paying accounts");
+    pass("admin: overview gated (401 no token / 403 non-admin) + real aggregates + MRR");
+
+    // Accounts endpoint (full list).
+    res = await req("/api/admin/accounts", { method: "GET", headers: { Authorization: "Bearer " + tokenA } });
+    assert.strictEqual(res.status, 200);
+    assert.ok(Array.isArray(res.data.accounts) && res.data.accounts.length >= 2, "accounts endpoint lists workspaces");
+    pass("admin: accounts endpoint lists all workspaces");
+
+    // httpOnly cookie session — the cookie alone authenticates (no Bearer header).
+    const rawLogin = await fetch(base + "/auth/login", { method: "POST", headers: { "Content-Type": "application/json", "x-workspace-id": "ws_A" }, body: JSON.stringify({ email: "a@alpha.com", password: "passA" }) });
+    const setCookie = rawLogin.headers.get("set-cookie") || "";
+    assert.ok(/sq_session=/.test(setCookie) && /HttpOnly/i.test(setCookie) && /SameSite=Lax/i.test(setCookie), "login sets httpOnly SameSite cookie");
+    const cookie = setCookie.split(";")[0];
+    const viaCookie = await fetch(base + "/api/admin/overview", { headers: { Cookie: cookie } });
+    assert.strictEqual(viaCookie.status, 200);
+    const logoutRes = await fetch(base + "/auth/logout", { method: "POST", headers: { Cookie: cookie } });
+    assert.strictEqual(logoutRes.status, 200);
+    pass("admin: httpOnly cookie authenticates + logout clears it");
+
+    // Admin sets a plan → premium reflects it.
+    res = await req("/api/admin/ws/ws_B/plan", { method: "POST", headers: { Authorization: "Bearer " + tokenA }, body: { plan: "pro" } });
+    assert.strictEqual(res.status, 200);
+    res = await req("/api/admin/ws/ws_B/plan", { method: "POST", headers: { Authorization: "Bearer " + tokenA }, body: { plan: "bogus" } });
+    assert.strictEqual(res.status, 400);
+    res = await req("/api/admin/overview", { method: "GET", headers: { Authorization: "Bearer " + tokenA } });
+    assert.ok(res.data.totals.premium >= 1, "premium reflects plan change");
+    pass("admin: set plan (validated) updates premium count");
+
     // GDPR export (owner-only).
     res = await req("/api/ws/ws_A/export", { method: "GET" });
     assert.strictEqual(res.status, 401);
@@ -190,6 +238,26 @@ const bcrypt = require("bcryptjs");
     assert.strictEqual(res.status, 200);
     assert.strictEqual(res.data.collections.clients.length, 1);
     pass("gdpr: owner-only export returns tenant data");
+
+    // Edit token: minted by owner, verified via HEADER (never the query string).
+    res = await req("/api/storefront/edit-token", { method: "POST", headers: { Authorization: "Bearer " + tokenA }, body: { wsId: "ws_A" } });
+    assert.strictEqual(res.status, 200);
+    const editToken = res.data.editToken;
+    assert.ok(editToken, "edit token minted");
+    let vr = await fetch(base + "/api/storefront/edit-token/verify?wsId=ws_A", { headers: { "x-edit-token": editToken } });
+    assert.strictEqual(vr.status, 200);
+    assert.strictEqual((await vr.json()).ok, true);
+    vr = await fetch(base + "/api/storefront/edit-token/verify?wsId=ws_A"); // no token
+    assert.strictEqual(vr.status, 400);
+    pass("edit-token: minted by owner, verified via header (off the query string)");
+
+    // CAPTCHA gate: when a secret is configured, a token is required.
+    process.env.CAPTCHA_SECRET = "test-captcha-secret";
+    res = await req("/api/portal/ws_A/orders", { method: "POST", body: { customer: { name: "Bot", email: "bot@x.com" }, items: [{ name: "Y", price: 1, qty: 1 }] } });
+    assert.strictEqual(res.status, 400);
+    assert.strictEqual(res.data.error.code, "captcha_required");
+    delete process.env.CAPTCHA_SECRET;
+    pass("captcha: required when CAPTCHA_SECRET is set, no-op otherwise");
 
     // GDPR erasure (owner-only) — B can't delete A; B deletes its own.
     res = await req("/api/ws/ws_A", { method: "DELETE", headers: { Authorization: "Bearer " + tokenB } });

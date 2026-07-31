@@ -53,7 +53,11 @@ function withIdempotency(scopeFn) {
         await coll.insertOne({ _id: id, state: "pending", createdAt: new Date() });
         coll.createIndex({ createdAt: 1 }, { expireAfterSeconds: TTL_S }).catch(() => {});
       } catch (e) {
-        // Reservation exists — replay if done, else it's still processing.
+        // Only a DUPLICATE-KEY error means the key is already reserved. Any
+        // other error (timeout, transient DB issue) must NOT masquerade as a
+        // reservation — proceed without idempotency rather than wrongly 409ing.
+        const isDup = e && (e.code === 11000 || e.code === 11001 || /duplicate key/i.test(e.message || ""));
+        if (!isDup) return next();
         const existing = await coll.findOne({ _id: id }).catch(() => null);
         if (existing && existing.state === "done") {
           res.setHeader("Idempotency-Replayed", "true");

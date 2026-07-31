@@ -2721,7 +2721,9 @@ window.Views = (function () {
       // Demo-only workspaces (no backend) skip this — the editor allows
       // itself to open without a token when there's no live workspace record.
       const editToken = Store.getEditToken ? await Store.getEditToken(ws.id) : null;
-      const url = base + "?edit=true" + (editToken ? "&et=" + encodeURIComponent(editToken) : "");
+      // The token goes in the URL fragment (#), never the query string, so it
+      // never reaches server access logs or the Referer header.
+      const url = base + "?edit=true" + (editToken ? "#et=" + encodeURIComponent(editToken) : "");
       window.open(url, "_blank", "noopener");
     });
 

@@ -10,6 +10,7 @@
    ================================================================= */
 require("dotenv").config();
 const path = require("path");
+const crypto = require("crypto");
 const express = require("express");
 const cors = require("cors");
 const bcrypt = require("bcryptjs");
@@ -29,6 +30,7 @@ const { encryptSecret } = require("./lib/crypto");
 const requestLog = require("./middleware/requestLog");
 const metrics = require("./lib/metrics");
 const { writeAudit, writeMasterAudit } = require("./lib/audit");
+const { verifyCaptcha } = require("./middleware/captcha");
 
 const app = express();
 app.disable("x-powered-by");
@@ -58,6 +60,7 @@ const loginLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 30, key: (req) =
 const orderLimiter = rateLimit({ windowMs: 60 * 1000, max: 60, key: (req) => (req.ip || "") + ":" + req.params.wsId });
 const inquiryLimiter = rateLimit({ windowMs: 60 * 1000, max: 30, key: (req) => (req.ip || "") + ":" + req.params.wsId });
 const aiLimiter = rateLimit({ windowMs: 60 * 1000, max: 30 });
+const visitLimiter = rateLimit({ windowMs: 60 * 1000, max: 120, key: (req) => req.ip || "" });
 
 // The marketing/login page is the public entry point; the app console
 // shell (index.html) is reached only after signing in.
@@ -76,8 +79,15 @@ if (JWT_SECRET === "dev-insecure-secret") {
 }
 
 // Server-authoritative auth / tenancy / RBAC middleware.
-const { requireSession, tenantScope, authorizeCrud, resolveWsContext } = makeAuth({ JWT_SECRET, getMasterDb });
+const { requireSession, tenantScope, authorizeCrud, requireAdmin, resolveWsContext } = makeAuth({ JWT_SECRET, getMasterDb });
 initIdempotency({ getMasterDb });
+
+// Canonical subscription plans; anything other than "free" is a paying
+// "subscriber". Monthly prices drive the MRR estimate (override via env
+// PLAN_PRICES as JSON if your pricing differs).
+const PLANS = ["free", "pro", "business", "max", "team", "enterprise"];
+let PLAN_PRICES = { free: 0, pro: 29, business: 79, max: 149, team: 199, enterprise: 499 };
+try { if (process.env.PLAN_PRICES) PLAN_PRICES = Object.assign(PLAN_PRICES, JSON.parse(process.env.PLAN_PRICES)); } catch (e) { /* keep defaults */ }
 
 const GEMINI_KEY = (process.env.GEMINI_API_KEY || "").trim();
 const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.0-flash";
@@ -123,6 +133,7 @@ app.get("/signup", (req, res) => res.sendFile(path.join(__dirname, "..", "public
 app.get("/pricing", (req, res) => res.sendFile(path.join(__dirname, "..", "public", "pricing.html")));
 app.get("/checkout", (req, res) => res.sendFile(path.join(__dirname, "..", "public", "checkout.html")));
 app.get("/index", (req, res) => res.sendFile(path.join(__dirname, "..", "public", "index.html")));
+app.get("/admin", (req, res) => res.sendFile(path.join(__dirname, "..", "public", "admin.html")));
 app.get("/portal/:wsId", (req, res) => res.sendFile(path.join(__dirname, "..", "public", "portal.html")));
 
 app.get("/public/login", (req, res) => res.sendFile(path.join(__dirname, "..", "public", "login.html")));
@@ -145,6 +156,178 @@ app.get("/metrics", (req, res, next) => {
   const supplied = (req.headers.authorization || "").replace(/^Bearer\s+/i, "").trim();
   if (supplied !== tok) return next(httpError(401, "unauthorized", "metrics token required"));
   res.json(metrics.snapshot());
+});
+
+/* =================================================================
+   VISIT TRACKING  (public, privacy-preserving)
+   Stores a per-visit row with a DAILY-ROTATING hashed visitor id
+   (no raw IP/UA persisted), so unique visitors can be counted without
+   retaining PII.
+   ================================================================= */
+app.post("/api/track/visit", visitLimiter, async (req, res) => {
+  try {
+    const masterDb = getMasterDb();
+    if (!masterDb) return res.json({ ok: true });
+    const b = req.body || {};
+    const day = new Date().toISOString().slice(0, 10);
+    const seed = (req.ip || "") + "|" + (req.headers["user-agent"] || "") + "|" + day + "|" + (process.env.VISIT_SALT || "souqi");
+    const vid = crypto.createHash("sha256").update(seed).digest("hex").slice(0, 16);
+    const coll = masterDb.collection("visits");
+    await coll.insertOne({
+      id: idForCollection("audit").replace(/^aud_/, "vis_"),
+      ts: new Date().toISOString(),
+      createdAt: new Date(),
+      day,
+      path: String(b.path || "/").slice(0, 200),
+      type: b.type === "portal" ? "portal" : "marketing",
+      wsId: b.wsId ? String(b.wsId).slice(0, 60) : null,
+      ref: b.ref ? String(b.ref).slice(0, 200) : null,
+      vid
+    });
+    // Retain raw visit rows for 180 days (aggregates can be rolled up before
+    // expiry); keeps the collection bounded.
+    coll.createIndex({ createdAt: 1 }, { expireAfterSeconds: 180 * 24 * 3600 }).catch(() => {});
+    res.json({ ok: true });
+  } catch (e) {
+    res.json({ ok: true }); // tracking must never break the page
+  }
+});
+
+/* =================================================================
+   PLATFORM SUPER-ADMIN API  (requireSession + requireAdmin)
+   Aggregates the master registry (accounts, plans, visits) and each
+   tenant's orders (revenue) into a single overview for the console.
+   ================================================================= */
+const adminGuard = [requireSession, requireAdmin];
+
+function lastNDays(n) {
+  const days = [];
+  for (let i = n - 1; i >= 0; i--) {
+    const d = new Date(); d.setUTCDate(d.getUTCDate() - i);
+    days.push(d.toISOString().slice(0, 10));
+  }
+  return days;
+}
+
+app.get("/api/admin/overview", adminGuard, async (req, res, next) => {
+  try {
+    const masterDb = getMasterDb();
+    if (!masterDb) return res.json({ empty: true });
+
+    const workspaces = await masterDb.collection("workspaces").find({}).toArray();
+
+    // Plan distribution + premium count.
+    const byPlan = {};
+    PLANS.forEach((p) => { byPlan[p] = 0; });
+    let premium = 0, mrr = 0;
+    workspaces.forEach((w) => {
+      const pl = PLANS.includes(w.plan) ? w.plan : "free";
+      byPlan[pl] = (byPlan[pl] || 0) + 1;
+      if (pl !== "free") premium++;
+      mrr += PLAN_PRICES[pl] || 0;
+    });
+
+    // Visits.
+    const visitsColl = masterDb.collection("visits");
+    const totalVisits = await visitsColl.countDocuments().catch(() => 0);
+    const uniqueVisitors = (await visitsColl.distinct("vid").catch(() => [])).length;
+
+    // Per-store revenue (sum each tenant's orders).
+    const stores = [];
+    for (const w of workspaces) {
+      let orders = [];
+      try { orders = await dbAdapter.findAll(await resolveWsContext(w.id), "orders"); } catch (e) { orders = []; }
+      const revenue = orders.reduce((s, o) => s + (Number(o.total) || 0), 0);
+      stores.push({
+        wsId: w.id, company: w.company || "Untitled", ownerEmail: w.ownerEmail || "",
+        plan: PLANS.includes(w.plan) ? w.plan : "free", industry: w.industry || "",
+        country: w.country || "", orders: orders.length, revenue: Math.round(revenue * 100) / 100,
+        createdAt: w.createdAt || null, customDomain: w.customDomain || null
+      });
+    }
+    stores.sort((a, b) => b.revenue - a.revenue);
+
+    const totalRevenue = Math.round(stores.reduce((s, x) => s + x.revenue, 0) * 100) / 100;
+    const totalOrders = stores.reduce((s, x) => s + x.orders, 0);
+
+    // 14-day time series for signups and visits.
+    const days = lastNDays(14);
+    const signupsByDay = days.map((d) => ({ day: d, count: workspaces.filter((w) => String(w.createdAt || "").slice(0, 10) === d).length }));
+    let visitDayRows = [];
+    try {
+      visitDayRows = await visitsColl.aggregate([
+        { $group: { _id: "$day", visits: { $sum: 1 }, uniques: { $addToSet: "$vid" } } }
+      ]).toArray();
+    } catch (e) { visitDayRows = []; }
+    const visitMap = {}; visitDayRows.forEach((r) => { visitMap[r._id] = { visits: r.visits, uniques: (r.uniques || []).length }; });
+    const visitsByDay = days.map((d) => ({ day: d, visits: (visitMap[d] || {}).visits || 0, uniques: (visitMap[d] || {}).uniques || 0 }));
+
+    const recentSignups = workspaces
+      .slice().sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")))
+      .slice(0, 12)
+      .map((w) => ({ wsId: w.id, company: w.company, ownerEmail: w.ownerEmail, plan: PLANS.includes(w.plan) ? w.plan : "free", industry: w.industry, country: w.country, createdAt: w.createdAt }));
+
+    // Visit split by surface (marketing vs storefront).
+    let byType = { marketing: 0, portal: 0 };
+    try {
+      const typeRows = await visitsColl.aggregate([{ $group: { _id: "$type", n: { $sum: 1 } } }]).toArray();
+      typeRows.forEach((r) => { if (r._id === "portal") byType.portal = r.n; else byType.marketing += r.n; });
+    } catch (e) { /* empty */ }
+
+    res.json({
+      generatedAt: new Date().toISOString(),
+      admin: { name: req.session.name || null, email: req.session.email || null },
+      totals: { accounts: workspaces.length, premium, subscribers: premium, mrr, arr: mrr * 12, freeAccounts: workspaces.length - premium, visits: totalVisits, uniqueVisitors, revenue: totalRevenue, orders: totalOrders },
+      byPlan,
+      byType,
+      plans: PLANS,
+      planPrices: PLAN_PRICES,
+      topStores: stores.slice(0, 10),
+      recentSignups,
+      signupsByDay,
+      visitsByDay
+    });
+  } catch (e) { next(e); }
+});
+
+// Full account list (every workspace with plan + revenue) for the drill-down.
+app.get("/api/admin/accounts", adminGuard, async (req, res, next) => {
+  try {
+    const masterDb = getMasterDb();
+    if (!masterDb) return res.json({ accounts: [] });
+    const workspaces = await masterDb.collection("workspaces").find({}).toArray();
+    const accounts = [];
+    for (const w of workspaces) {
+      let orders = [];
+      try { orders = await dbAdapter.findAll(await resolveWsContext(w.id), "orders"); } catch (e) { orders = []; }
+      accounts.push({
+        wsId: w.id, company: w.company || "Untitled", ownerEmail: w.ownerEmail || "",
+        plan: PLANS.includes(w.plan) ? w.plan : "free", industry: w.industry || "",
+        country: w.country || "", customDomain: w.customDomain || null,
+        orders: orders.length, revenue: Math.round(orders.reduce((s, o) => s + (Number(o.total) || 0), 0) * 100) / 100,
+        createdAt: w.createdAt || null
+      });
+    }
+    accounts.sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")));
+    res.json({ plans: PLANS, accounts });
+  } catch (e) { next(e); }
+});
+
+// Set a workspace's plan (billing/admin action).
+app.post("/api/admin/ws/:id/plan", adminGuard, async (req, res, next) => {
+  try {
+    const masterDb = getMasterDb();
+    if (!masterDb) return res.status(503).json({ error: "Master DB not available" });
+    const plan = String((req.body && req.body.plan) || "").toLowerCase();
+    if (!PLANS.includes(plan)) return next(httpError(400, "validation_error", "plan must be one of: " + PLANS.join(", ")));
+    const r = await masterDb.collection("workspaces").updateOne({ id: req.params.id }, { $set: { plan } });
+    if (!r.matchedCount) return next(httpError(404, "not_found", "workspace not found"));
+    await writeMasterAudit(masterDb, {
+      requestId: req.id, actor: req.session.email, wsId: req.params.id,
+      action: "admin.plan.update", entityId: req.params.id, summary: "Plan set to " + plan
+    });
+    res.json({ ok: true, plan });
+  } catch (e) { next(e); }
 });
 
 /* ---- dynamic db connection testing ---- */
@@ -280,6 +463,7 @@ app.post("/api/ws", async (req, res, next) => {
       logo: logo || null,
       tagline: tagline || "",
       storefrontEnabled: true,
+      plan: PLANS.includes(String(req.body && req.body.plan)) ? req.body.plan : "free",
       createdAt: new Date().toISOString()
     });
     res.status(201).json({ ok: true, created: true });
@@ -426,7 +610,10 @@ app.post("/api/storefront/edit-token", async (req, res) => {
  */
 app.get("/api/storefront/edit-token/verify", async (req, res) => {
   try {
-    const { wsId, et } = req.query || {};
+    const wsId = req.query && req.query.wsId;
+    // Prefer the token from a header (not logged in the request line); fall
+    // back to the query param for older edit links.
+    const et = req.headers["x-edit-token"] || (req.query && req.query.et);
     if (!wsId || !et) return res.status(400).json({ ok: false, error: "wsId and et are required" });
     const decoded = jwt.verify(String(et), JWT_SECRET);
     if (decoded.scope !== "portal-edit" || decoded.wsId !== wsId) {
@@ -500,6 +687,7 @@ app.get("/api/portal/:wsId/products", async (req, res) => {
 app.post("/api/portal/:wsId/orders",
   orderLimiter,
   withIdempotency((req) => req.params.wsId),
+  verifyCaptcha(),
   validateBody(orderSchema),
   async (req, res, next) => {
   try {
@@ -577,6 +765,7 @@ app.get("/api/portal/:wsId/track/:ref", async (req, res) => {
 app.post("/api/portal/:wsId/inquiry",
   inquiryLimiter,
   withIdempotency((req) => req.params.wsId),
+  verifyCaptcha(),
   validateBody(inquirySchema),
   async (req, res, next) => {
   try {
@@ -619,7 +808,17 @@ app.post("/auth/login", loginLimiter, validateBody(loginSchema), async (req, res
 
     // The workspace being signed into is named by the client; the DB context
     // for it is resolved SERVER-SIDE (never from a client-supplied dbUri).
-    const wsId = String(req.headers["x-workspace-id"] || "default");
+    // When no workspace is named (e.g. the admin panel's email+password
+    // login), resolve it from the master registry by owner email.
+    let wsId = String(req.headers["x-workspace-id"] || "");
+    if (!wsId || wsId === "default") {
+      const masterDb = getMasterDb();
+      if (masterDb) {
+        const owned = await masterDb.collection("workspaces").findOne({ ownerEmail: email });
+        if (owned) wsId = owned.id;
+      }
+    }
+    if (!wsId) wsId = "default";
     const ws = await resolveWsContext(wsId);
     const users = await dbAdapter.findAll(ws, "users");
     const u = users.find(usr => String(usr.email).toLowerCase() === String(email).toLowerCase());
@@ -636,11 +835,24 @@ app.post("/auth/login", loginLimiter, validateBody(loginSchema), async (req, res
     // request is scoped by, so tenancy can't be spoofed via a header.
     const session = { id: u.id, name: u.name, email: u.email, role: u.role, dept: u.dept, wsId: ws.workspaceId };
     const token = jwt.sign(session, JWT_SECRET, { expiresIn: "12h" });
+    // Also set an httpOnly session cookie so browser clients (e.g. the admin
+    // panel) never keep the token in JS-readable storage. httpOnly = not
+    // reachable by XSS; SameSite=Lax = not sent on cross-site mutations.
+    res.cookie("sq_session", token, {
+      httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production",
+      maxAge: 12 * 3600 * 1000, path: "/"
+    });
     res.json({ token, user: session });
   } catch (e) {
     console.error("login error:", e.message);
     res.status(500).json({ error: "login failed" });
   }
+});
+
+/* ---- logout: clear the httpOnly session cookie ---- */
+app.post("/auth/logout", (req, res) => {
+  res.clearCookie("sq_session", { path: "/" });
+  res.json({ ok: true });
 });
 
 /* ---- AI proxy: keep the Gemini key on the server ---- */

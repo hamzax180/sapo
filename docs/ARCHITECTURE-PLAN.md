@@ -46,8 +46,8 @@ Phases 0–5 are implemented and covered by tests (`cd server && npm test && npm
 | 3 — Validation & idempotency | ✅ done | `server/lib/validate.js` + schemas; `Idempotency-Key` dedupes orders/inquiries |
 | 4 — Edge & secrets | ✅ done | security headers + CSP; rate limiters; per-route body limits; `dbUri` AES-256-GCM at rest |
 | 5 — Data isolation | ✅ done | allowlist public projection; `findAll` scan cap + `findPage` cursor; **tenant-isolation test proves A can't read B** |
-| 6 — Observability/compliance | ⏳ next | structured logs, append-only server audit, backups, GDPR flows |
-| 7 — Live-editor & portal polish | ⏳ next | edit-token off query-string, CAPTCHA, PSP integration, CSP nonces |
+| 6 — Observability/compliance | ✅ done | structured request logs + `/metrics`; server-side append-only audit (guest + admin actions) with integrity hash; GDPR export + owner-only erasure |
+| 7 — Live-editor & portal polish | ◑ partial | edit-token moved off query-string → URL fragment + `X-Edit-Token` header (with scrub); pluggable CAPTCHA hook (no-op until `CAPTCHA_SECRET` set). **Deferred (need keys/decisions):** real PSP integration, CSP nonce tightening, portal script cache-busting |
 
 Bonus fix found while testing: `db-adapters.js` used `DB_NAME` as the per-tenant DB fallback, which would have collapsed all tenants into one database — corrected to always use `webo_<wsId>`.
 
