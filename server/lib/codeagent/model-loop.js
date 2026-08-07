@@ -171,12 +171,31 @@ const MAX_USER_PROMPT_CHARS = 30000;
  * the required tool-role responses can follow it (see the protocol note
  * below), and a caller can't reconstruct that from parsed args alone.
  */
+// Found live: "malformed tool call twice in a row" on a real request (a
+// team-tasks dashboard) that failed identically both times, at almost
+// exactly MAX_TOKENS worth of output (an "unterminated string" a few
+// characters short of 8000 tokens' worth of JSON). The model wasn't
+// writing bad syntax — the completion was being CUT OFF mid-string by the
+// token cap, which JSON.parse then reports as malformed. The retry was
+// reusing the exact same maxTokens that had just proven insufficient, so
+// a genuinely large single-file app failed the same way every time,
+// permanently, with no path to success. finishReason distinguishes the
+// two cases (client.js surfaces the provider's own finish_reason): a
+// truncated completion gets a bigger budget on retry instead of an
+// identical doomed one; an actually-malformed completion (finishReason
+// "stop"/"tool_calls") still just retries once at the normal size, since
+// more tokens wouldn't fix a real syntax mistake.
+const RETRY_MAX_TOKENS = 16000;
+
 async function attemptOnce(messages) {
   const res = await client.chat({ route: "json", messages, tools: TOOLS_SCHEMA, maxTokens: MAX_TOKENS, temperature: TEMPERATURE, timeoutMs: CALL_TIMEOUT_MS });
   if (!res.ok) return { ok: false, reason: res.reason || "model call failed", disabled: res.disabled, breakerOpen: res.breakerOpen, budgetExceeded: res.budgetExceeded };
 
   const parsed = parseToolCalls(res.message);
   if (parsed.ok) return { ok: true, calls: parsed.calls, message: res.message, retried: false, usage: res.usage, costUsd: res.costUsd };
+
+  const truncated = res.finishReason === "length";
+  const retryMaxTokens = truncated ? RETRY_MAX_TOKENS : MAX_TOKENS;
 
   // Protocol requirement, found live against the real API (a stub never
   // catches this — nothing enforces it client-side): an assistant message
@@ -187,13 +206,20 @@ async function attemptOnce(messages) {
   const toolResponses = (res.message.tool_calls || []).map((c) => ({
     role: "tool", tool_call_id: c.id, content: "Error: " + parsed.reason
   }));
-  const retryMessages = messages.concat([res.message], toolResponses, [
-    { role: "user", content: "Your last response was not usable: " + parsed.reason + ". Call write_file again with valid arguments." }
-  ]);
-  const retryRes = await client.chat({ route: "json", messages: retryMessages, tools: TOOLS_SCHEMA, maxTokens: MAX_TOKENS, temperature: TEMPERATURE, timeoutMs: CALL_TIMEOUT_MS });
+  const retryAsk = truncated
+    ? "Your last response was cut off before it finished (" + parsed.reason + "). Call write_file again — write a SHORTER, simpler version of the same file if needed so the full write_file call fits."
+    : "Your last response was not usable: " + parsed.reason + ". Call write_file again with valid arguments.";
+  const retryMessages = messages.concat([res.message], toolResponses, [{ role: "user", content: retryAsk }]);
+  const retryRes = await client.chat({ route: "json", messages: retryMessages, tools: TOOLS_SCHEMA, maxTokens: retryMaxTokens, temperature: TEMPERATURE, timeoutMs: CALL_TIMEOUT_MS });
   if (!retryRes.ok) return { ok: false, reason: retryRes.reason || "retry call failed" };
   const retryParsed = parseToolCalls(retryRes.message);
-  if (!retryParsed.ok) return { ok: false, reason: "malformed tool call twice in a row: " + retryParsed.reason };
+  if (!retryParsed.ok) {
+    const retryTruncated = retryRes.finishReason === "length";
+    const reason = retryTruncated
+      ? "the file was still too large to finish writing even with a larger budget: " + retryParsed.reason
+      : "malformed tool call twice in a row: " + retryParsed.reason;
+    return { ok: false, reason: reason };
+  }
   return {
     ok: true, calls: retryParsed.calls, message: retryRes.message, retried: true,
     usage: retryRes.usage, costUsd: (res.costUsd || 0) + (retryRes.costUsd || 0)

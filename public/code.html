@@ -323,7 +323,17 @@
 
   .ag-tabs{display:none}
   @media (max-width:900px){
-    .ag-split{grid-template-columns:1fr;min-height:auto;flex:none}
+    /* .ag-split is display:flex (see the "Grid before Flexbox" comment
+       above) with NO flex-direction override at this width, so it kept
+       its desktop default of row — .ag-tabs, .ag and .ag-preview ended
+       up as three side-by-side flex items with the default
+       align-items:stretch, which is exactly the bug: .ag-tabs (meant to
+       be a two-button ROW at the top) stretched to the full height of
+       its tall siblings and rendered as a narrow column instead. This
+       used to be grid-template-columns:1fr, dead now that .ag-split is
+       flex, not grid — flex-direction:column is what that rule was
+       actually trying to say. */
+    .ag-split{flex-direction:column;min-height:auto}
     .ag{border-right:0}
     .ag-log{overflow-y:visible} /* one page scroll on mobile, not a nested one */
     .ag-tabs{display:flex;gap:6px;padding:10px clamp(14px,4vw,24px) 0}

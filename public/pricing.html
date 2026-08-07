@@ -13,16 +13,21 @@
   <link href="https://fonts.googleapis.com/css2?family=Jost:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="css/sap.css?v=28" />
   <style>
-    /* ---- marketing top navigation — EXACT copy of login.html's .nav so
-       Home and Pricing share one navbar (same positions, same options). ---- */
+    /* ---- marketing top navigation — was an exact copy of login.html's
+       DARK .nav; overridden here to the same warm cream as the body
+       (#faf7f2, matching home.html/code.html) since a dark bar over a
+       cream page was the one thing on this page that didn't match.
+       Every text/icon color below is flipped from "light-on-dark" to
+       "dark-on-light" to stay legible — the layout/positions are
+       untouched, only the palette. */
     .nav{position:static;z-index:40;display:flex;align-items:center;gap:20px;padding:14px clamp(18px,4vw,40px);
-      background:#0d2338}
-    .brand{display:flex;align-items:center;gap:10px;font-family:var(--font-head);font-weight:800;font-size:1.1rem;color:#fff;text-decoration:none}
+      background:#faf7f2}
+    .brand{display:flex;align-items:center;gap:10px;font-family:var(--font-head);font-weight:800;font-size:1.1rem;color:var(--navy-800);text-decoration:none}
     .nav .lnk{margin-left:auto;display:flex;gap:2px}
     .ndrop{position:relative}
-    .ntop{display:inline-flex;align-items:center;gap:5px;background:none;border:0;cursor:pointer;font:inherit;font-size:.88rem;font-weight:500;color:#b9cde0;padding:9px 12px;border-radius:9px;transition:.16s}
+    .ntop{display:inline-flex;align-items:center;gap:5px;background:none;border:0;cursor:pointer;font:inherit;font-size:.88rem;font-weight:500;color:var(--navy-700);padding:9px 12px;border-radius:9px;transition:.16s}
     .ntop svg{width:12px;height:12px;opacity:.6;transition:transform .18s}
-    .ndrop:hover .ntop,.ntop.active{background:rgba(255,255,255,.09);color:#fff}
+    .ndrop:hover .ntop,.ntop.active{background:rgba(11,30,51,.06);color:var(--navy-800)}
     .ndrop:hover .ntop svg{transform:rotate(180deg)}
     .npanel{position:absolute;top:calc(100% + 8px);left:0;min-width:252px;background:#fff;border:1px solid var(--line);border-radius:14px;
       box-shadow:0 18px 46px rgba(11,30,51,.16);padding:9px;opacity:0;visibility:hidden;transform:translateY(8px);
@@ -34,8 +39,8 @@
     .npanel a small{display:block;font-size:.76rem;color:var(--muted);margin-top:1px;font-weight:400}
     .npanel.cols{display:grid;grid-template-columns:1fr 1fr;min-width:380px;gap:0 6px}
     .npanel.cols h5{font-size:.64rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);font-weight:800;padding:8px 11px 4px;margin:0}
-    .btn-g{padding:9px 15px;border:1px solid rgba(255,255,255,.22);border-radius:10px;color:#e7f0f8;font-size:.86rem;font-weight:600;transition:.16s;text-decoration:none}
-    .btn-g:hover{border-color:rgba(255,255,255,.4);background:rgba(255,255,255,.08)}
+    .btn-g{padding:9px 15px;border:1px solid #e7e1d7;border-radius:10px;color:var(--navy-800);font-size:.86rem;font-weight:600;transition:.16s;text-decoration:none}
+    .btn-g:hover{border-color:#c6dbe7;background:rgba(11,30,51,.04)}
     .btn-d{padding:9px 17px;border-radius:10px;background:var(--accent);color:#04121d;font-size:.86rem;font-weight:700;transition:.16s;text-decoration:none}
     .btn-d:hover{background:#3bb8ea;transform:translateY(-1px)}
     /* language switcher — matches the app's own dropdown */

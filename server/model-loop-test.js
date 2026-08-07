@@ -188,6 +188,49 @@ const ROUTES = { prose: { baseUrl: "https://x.invalid", model: "m", key: "k" }, 
     assert.strictEqual(calls, 2, "expected exactly 2 attempts (1 + 1 retry), got " + calls);
   });
 
+  await check("a truncated completion (finish_reason:length) retries with a BIGGER token budget, not the same one that just failed", async () => {
+    // Found live: a real request failed "malformed tool call twice in a
+    // row" because the completion was cut off mid-JSON-string by
+    // MAX_TOKENS both times — the retry was reusing the exact same
+    // budget that had just proven insufficient, so a genuinely large
+    // file failed identically forever. finish_reason "length" (not
+    // "tool_calls") is what distinguishes an honest truncation from the
+    // model actually writing bad syntax, and that's what should widen
+    // the retry's budget instead of just repeating the first attempt.
+    const truncated = { tool_calls: [{ function: { name: "write_file", arguments: '{"path":"src/App.tsx","content":"unterminated' } }] };
+    const good = toolCallMsg([{ path: "src/App.tsx", content: "fits this time" }]);
+    const finishReasons = ["length", "tool_calls"];
+    const requestBodies = [];
+    let i = 0;
+    client.init({
+      enabled: true, routes: ROUTES,
+      fetchImpl: async (url, opts) => {
+        requestBodies.push(JSON.parse(opts.body));
+        const message = i === 0 ? truncated : good;
+        const finish_reason = finishReasons[Math.min(i, finishReasons.length - 1)];
+        i++;
+        return { ok: true, json: async () => ({ choices: [{ message, finish_reason }], usage: { prompt_tokens: 200, completion_tokens: 150 } }) };
+      }
+    });
+    const res = await proposeChanges("build a big dashboard");
+    assert.strictEqual(res.ok, true, "setup failed: " + JSON.stringify(res));
+    assert.strictEqual(res.retried, true);
+    assert.strictEqual(requestBodies.length, 2, "expected exactly 2 attempts");
+    assert.ok(requestBodies[1].max_tokens > requestBodies[0].max_tokens,
+      "the retry after a truncation should ask for MORE tokens than the attempt that got cut off — got " + requestBodies[0].max_tokens + " then " + requestBodies[1].max_tokens);
+  });
+
+  await check("truncated twice in a row -> a clean failure that says so, not a generic 'malformed' message", async () => {
+    const truncated = { tool_calls: [{ function: { name: "write_file", arguments: '{"path":"src/App.tsx","content":"still unterminated' } }] };
+    client.init({
+      enabled: true, routes: ROUTES,
+      fetchImpl: async () => ({ ok: true, json: async () => ({ choices: [{ message: truncated, finish_reason: "length" }], usage: { prompt_tokens: 200, completion_tokens: 150 } }) })
+    });
+    const res = await proposeChanges("build a big dashboard");
+    assert.strictEqual(res.ok, false);
+    assert.ok(/too large to finish writing/.test(res.reason), "expected a truncation-specific message, got: " + res.reason);
+  });
+
   await check("a path-safety violation is treated the same as malformed JSON — one retry, then fail clean", async () => {
     const unsafe = toolCallMsg([{ path: "../outside.txt", content: "x" }]);
     let calls = 0;
