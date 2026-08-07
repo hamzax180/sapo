@@ -1,0 +1,68 @@
+{
+  "_note": "Layout skeletons. An archetype is an ordered list of block types from server/lib/block-schema.json. Three per industry means two prompts in the same trade can still produce structurally different sites — the selector below picks by the features and tone the NLU found, not at random. `inject` adds a block when a feature is present. See docs/NO-API-BUILDER-PLAN.md §4.",
+
+  "archetypes": {
+    "catalogue-led": {
+      "label": "Catalogue first",
+      "blocks": ["topbar", "hero", "product-grid", "stats", "steps", "quote-banner", "footer-rich"]
+    },
+    "story-led": {
+      "label": "Story first",
+      "blocks": ["hero", "richtext", "stats", "card-grid", "quote-banner", "product-grid", "footer-rich"]
+    },
+    "conversion-led": {
+      "label": "Conversion first",
+      "blocks": ["topbar", "hero", "card-grid", "steps", "stats", "rfq-form", "footer-rich"]
+    },
+    "proof-led": {
+      "label": "Proof first",
+      "blocks": ["hero", "stats", "case-studies", "card-grid", "steps", "quote-banner", "footer-rich"]
+    },
+    "service-led": {
+      "label": "Services first",
+      "blocks": ["topbar", "hero", "card-grid", "steps", "quote-banner", "richtext", "footer-rich"]
+    }
+  },
+
+  "byIndustry": {
+    "restaurant":    ["catalogue-led", "story-led", "service-led"],
+    "fashion":       ["catalogue-led", "story-led", "proof-led"],
+    "retail":        ["catalogue-led", "service-led", "story-led"],
+    "wholesale":     ["catalogue-led", "conversion-led", "proof-led"],
+    "logistics":     ["conversion-led", "service-led", "proof-led"],
+    "manufacturing": ["conversion-led", "proof-led", "story-led"],
+    "construction":  ["proof-led", "conversion-led", "service-led"],
+    "services":      ["service-led", "conversion-led", "story-led"]
+  },
+
+  "prefer": {
+    "_note": "A found feature or tone nudges the choice, so the structure reflects what the visitor actually asked for.",
+    "quotes":    "conversion-led",
+    "booking":   "service-led",
+    "gallery":   "proof-led",
+    "reviews":   "proof-led",
+    "catalogue": "catalogue-led",
+    "menu":      "catalogue-led",
+    "accounts":  "conversion-led"
+  },
+
+  "inject": {
+    "_note": "type = the block to add, after = the block it should follow.",
+    "tracking": { "type": "tracker",     "after": "hero" },
+    "reviews":  { "type": "case-studies", "after": "stats" },
+    "branches": { "type": "link-grid",   "after": "steps" },
+    "gallery":  { "type": "editorial-grid", "after": "hero" }
+  },
+
+  "pages": {
+    "_note": "Which secondary pages an industry gets, and what the catalogue page is called.",
+    "restaurant":    { "catalogue": "menu",      "contact": true },
+    "fashion":       { "catalogue": "collection", "contact": true },
+    "retail":        { "catalogue": "shop",      "contact": true },
+    "wholesale":     { "catalogue": "catalogue", "contact": true },
+    "logistics":     { "services": "services",   "contact": true },
+    "manufacturing": { "services": "capabilities", "contact": true },
+    "construction":  { "services": "projects",   "contact": true },
+    "services":      { "services": "services",   "contact": true }
+  }
+}

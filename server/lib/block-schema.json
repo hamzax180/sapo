@@ -1,0 +1,1161 @@
+{
+  "generatedBy": "scripts/gen-block-schema.js",
+  "note": "GENERATED FILE — do not hand-edit. Run `npm run gen:schema` after changing blocks.js.",
+  "blockCount": 20,
+  "blocks": {
+    "brand-wall": {
+      "type": "brand-wall",
+      "label": "Brand / Trust Wall",
+      "category": "Content",
+      "schema": [
+        {
+          "key": "items",
+          "label": "Names",
+          "type": "list",
+          "itemSchema": [
+            {
+              "key": "value",
+              "label": "Name",
+              "type": "text"
+            }
+          ]
+        }
+      ],
+      "defaultProps": {
+        "items": [
+          "Partner One",
+          "Partner Two",
+          "Partner Three"
+        ]
+      }
+    },
+    "calculator": {
+      "type": "calculator",
+      "label": "Interactive Estimator",
+      "category": "Interactive",
+      "schema": [
+        {
+          "key": "title",
+          "label": "Title",
+          "type": "text"
+        },
+        {
+          "key": "subtitle",
+          "label": "Eyebrow",
+          "type": "text"
+        }
+      ],
+      "defaultProps": {
+        "title": "Estimate Your Project",
+        "subtitle": ""
+      }
+    },
+    "canvas": {
+      "type": "canvas",
+      "label": "Freeform Canvas",
+      "category": "Freeform",
+      "schema": [],
+      "defaultProps": {
+        "minHeight": 400,
+        "background": {
+          "color": "#ffffff",
+          "image": ""
+        },
+        "elements": []
+      }
+    },
+    "card-grid": {
+      "type": "card-grid",
+      "label": "Card Grid (capabilities / departments)",
+      "category": "Content",
+      "schema": [
+        {
+          "key": "title",
+          "label": "Section title",
+          "type": "text"
+        },
+        {
+          "key": "subtitle",
+          "label": "Eyebrow / subtitle",
+          "type": "text"
+        },
+        {
+          "key": "columns",
+          "label": "Columns",
+          "type": "number",
+          "min": 2,
+          "max": 5
+        },
+        {
+          "key": "items",
+          "label": "Cards",
+          "type": "list",
+          "itemSchema": [
+            {
+              "key": "icon",
+              "label": "Icon / emoji",
+              "type": "text"
+            },
+            {
+              "key": "title",
+              "label": "Title",
+              "type": "text"
+            },
+            {
+              "key": "tag",
+              "label": "Tag",
+              "type": "text"
+            },
+            {
+              "key": "desc",
+              "label": "Description",
+              "type": "textarea"
+            },
+            {
+              "key": "color",
+              "label": "Accent Color",
+              "type": "color"
+            }
+          ]
+        }
+      ],
+      "defaultProps": {
+        "title": "Section Title",
+        "subtitle": "",
+        "columns": 3,
+        "items": [
+          {
+            "icon": "⭐",
+            "title": "Card title",
+            "tag": "",
+            "desc": "Card description"
+          }
+        ]
+      }
+    },
+    "case-studies": {
+      "type": "case-studies",
+      "label": "Case Studies",
+      "category": "Social proof",
+      "schema": [
+        {
+          "key": "title",
+          "label": "Section title",
+          "type": "text"
+        },
+        {
+          "key": "subtitle",
+          "label": "Eyebrow",
+          "type": "text"
+        },
+        {
+          "key": "accentColor",
+          "label": "Metric Color",
+          "type": "color"
+        },
+        {
+          "key": "items",
+          "label": "Case studies",
+          "type": "list",
+          "itemSchema": [
+            {
+              "key": "metric",
+              "label": "Headline metric",
+              "type": "text"
+            },
+            {
+              "key": "client",
+              "label": "Client",
+              "type": "text"
+            },
+            {
+              "key": "tags",
+              "label": "Location / tags",
+              "type": "text"
+            },
+            {
+              "key": "title",
+              "label": "Title",
+              "type": "text"
+            },
+            {
+              "key": "desc",
+              "label": "Description",
+              "type": "textarea"
+            }
+          ]
+        }
+      ],
+      "defaultProps": {
+        "title": "Case Studies",
+        "subtitle": "",
+        "accentColor": "",
+        "items": [
+          {
+            "metric": "+30% growth",
+            "client": "Client name",
+            "tags": "",
+            "title": "Project title",
+            "desc": "Short outcome description."
+          }
+        ]
+      }
+    },
+    "editorial-grid": {
+      "type": "editorial-grid",
+      "label": "Editorial / Lookbook Grid",
+      "category": "Content",
+      "schema": [
+        {
+          "key": "title",
+          "label": "Section title",
+          "type": "text"
+        },
+        {
+          "key": "subtitle",
+          "label": "Subtitle",
+          "type": "text"
+        },
+        {
+          "key": "items",
+          "label": "Cards",
+          "type": "list",
+          "itemSchema": [
+            {
+              "key": "image",
+              "label": "Image",
+              "type": "image"
+            },
+            {
+              "key": "tag",
+              "label": "Tag",
+              "type": "text"
+            },
+            {
+              "key": "title",
+              "label": "Title",
+              "type": "text"
+            },
+            {
+              "key": "linkLabel",
+              "label": "Link label",
+              "type": "text"
+            }
+          ]
+        }
+      ],
+      "defaultProps": {
+        "title": "Editorial",
+        "subtitle": "",
+        "items": [
+          {
+            "tag": "CAPSULE 01",
+            "title": "Collection name",
+            "linkLabel": "Explore",
+            "image": ""
+          }
+        ]
+      }
+    },
+    "footer-rich": {
+      "type": "footer-rich",
+      "label": "Footer",
+      "category": "Footer",
+      "schema": [
+        {
+          "key": "tagline",
+          "label": "Big closing line",
+          "type": "text"
+        },
+        {
+          "key": "desc",
+          "label": "Brand description",
+          "type": "textarea"
+        },
+        {
+          "key": "accentColor",
+          "label": "Accent color",
+          "type": "color"
+        },
+        {
+          "key": "bgColor",
+          "label": "Background color",
+          "type": "color"
+        },
+        {
+          "key": "newsletter",
+          "label": "Show email signup",
+          "type": "boolean"
+        },
+        {
+          "key": "newsletterTitle",
+          "label": "Signup heading",
+          "type": "text"
+        },
+        {
+          "key": "newsletterSub",
+          "label": "Signup subtext",
+          "type": "text"
+        },
+        {
+          "key": "contactAddress",
+          "label": "Address",
+          "type": "text"
+        },
+        {
+          "key": "contactPhone",
+          "label": "Phone",
+          "type": "text"
+        },
+        {
+          "key": "contactEmail",
+          "label": "Email",
+          "type": "text"
+        },
+        {
+          "key": "socials",
+          "label": "Social links",
+          "type": "list",
+          "itemSchema": [
+            {
+              "key": "label",
+              "label": "Name",
+              "type": "text"
+            },
+            {
+              "key": "href",
+              "label": "URL",
+              "type": "text"
+            }
+          ]
+        },
+        {
+          "key": "legal",
+          "label": "Legal line",
+          "type": "text"
+        },
+        {
+          "key": "columns",
+          "label": "Link columns",
+          "type": "list",
+          "itemSchema": [
+            {
+              "key": "title",
+              "label": "Column title",
+              "type": "text"
+            },
+            {
+              "key": "links",
+              "label": "Links",
+              "type": "list",
+              "itemSchema": [
+                {
+                  "key": "label",
+                  "label": "Label",
+                  "type": "text"
+                },
+                {
+                  "key": "href",
+                  "label": "URL",
+                  "type": "text"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "defaultProps": {
+        "desc": "",
+        "tagline": "",
+        "accentColor": "",
+        "bgColor": "",
+        "newsletter": true,
+        "newsletterTitle": "Stay in the loop",
+        "newsletterSub": "News, offers and updates — no spam.",
+        "contactAddress": "",
+        "contactPhone": "",
+        "contactEmail": "",
+        "socials": [],
+        "legal": "All rights reserved.",
+        "columns": [
+          {
+            "title": "Company",
+            "links": [
+              {
+                "label": "About",
+                "href": "#"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "hero": {
+      "type": "hero",
+      "label": "Hero Banner",
+      "category": "Header",
+      "schema": [
+        {
+          "key": "eyebrow",
+          "label": "Eyebrow tag",
+          "type": "text"
+        },
+        {
+          "key": "eyebrowStyle",
+          "label": "Eyebrow style",
+          "type": "select",
+          "options": [
+            "text",
+            "badge"
+          ]
+        },
+        {
+          "key": "title",
+          "label": "Title (use *word* for accent)",
+          "type": "text"
+        },
+        {
+          "key": "subtitle",
+          "label": "Subtitle",
+          "type": "textarea"
+        },
+        {
+          "key": "bgImage",
+          "label": "Background image",
+          "type": "image"
+        },
+        {
+          "key": "align",
+          "label": "Alignment",
+          "type": "select",
+          "options": [
+            "left",
+            "center"
+          ]
+        },
+        {
+          "key": "accentColor",
+          "label": "Accent Color (*word* highlight)",
+          "type": "color"
+        },
+        {
+          "key": "titleGradient",
+          "label": "Accent Gradient End (optional 2nd color)",
+          "type": "color"
+        },
+        {
+          "key": "buttons",
+          "label": "Buttons",
+          "type": "list",
+          "itemSchema": [
+            {
+              "key": "label",
+              "label": "Label",
+              "type": "text"
+            },
+            {
+              "key": "action",
+              "label": "Action",
+              "type": "action-select"
+            },
+            {
+              "key": "target",
+              "label": "Action target",
+              "type": "action-target"
+            }
+          ]
+        }
+      ],
+      "defaultProps": {
+        "eyebrow": "",
+        "eyebrowStyle": "text",
+        "title": "Welcome to *Our Store*",
+        "subtitle": "",
+        "bgImage": "",
+        "align": "center",
+        "accentColor": "",
+        "titleGradient": "",
+        "buttons": []
+      }
+    },
+    "image-banner": {
+      "type": "image-banner",
+      "label": "Image + Text Banner",
+      "category": "Content",
+      "schema": [
+        {
+          "key": "title",
+          "label": "Title",
+          "type": "text"
+        },
+        {
+          "key": "subtitle",
+          "label": "Subtitle",
+          "type": "textarea"
+        },
+        {
+          "key": "buttonLabel",
+          "label": "Button label",
+          "type": "text"
+        },
+        {
+          "key": "action",
+          "label": "Button action",
+          "type": "action-select"
+        },
+        {
+          "key": "target",
+          "label": "Action target",
+          "type": "action-target"
+        },
+        {
+          "key": "image",
+          "label": "Image",
+          "type": "image"
+        }
+      ],
+      "defaultProps": {
+        "title": "Streamline the Way You Do Business",
+        "subtitle": "Track, ship, and connect your global logistics operations all on one unified platform.",
+        "buttonLabel": "Get Started",
+        "action": "none",
+        "target": "",
+        "image": "https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=800&q=80"
+      }
+    },
+    "link-grid": {
+      "type": "link-grid",
+      "label": "Quick Links Grid",
+      "category": "Logistics",
+      "schema": [
+        {
+          "key": "title",
+          "label": "Section title",
+          "type": "text"
+        },
+        {
+          "key": "subtitle",
+          "label": "Subtitle",
+          "type": "text"
+        },
+        {
+          "key": "items",
+          "label": "Links",
+          "type": "list",
+          "itemSchema": [
+            {
+              "key": "title",
+              "label": "Title",
+              "type": "text"
+            },
+            {
+              "key": "linkLabel",
+              "label": "Link label",
+              "type": "text"
+            }
+          ]
+        }
+      ],
+      "defaultProps": {
+        "title": "Find What You Need, Fast",
+        "subtitle": "Looking for enterprise shipping services? We have you covered.",
+        "items": [
+          {
+            "title": "Calculate Warehousing & Freight",
+            "linkLabel": "Calculate Cost"
+          },
+          {
+            "title": "Request Freight Pickup",
+            "linkLabel": "Start a Pickup"
+          },
+          {
+            "title": "Automated SMS & Email Alerts",
+            "linkLabel": "Sign Up for Updates"
+          },
+          {
+            "title": "Find Package By Shipment Details",
+            "linkLabel": "Start Search"
+          },
+          {
+            "title": "Customs eFiling & Compliance",
+            "linkLabel": "Check Status"
+          },
+          {
+            "title": "Customer Support & Inquiries",
+            "linkLabel": "Contact Support"
+          }
+        ]
+      }
+    },
+    "partner-grid": {
+      "type": "partner-grid",
+      "label": "Team / Partner Showcase",
+      "category": "Social proof",
+      "schema": [
+        {
+          "key": "title",
+          "label": "Section title",
+          "type": "text"
+        },
+        {
+          "key": "subtitle",
+          "label": "Eyebrow",
+          "type": "text"
+        },
+        {
+          "key": "accentColor",
+          "label": "Role Text Color",
+          "type": "color"
+        },
+        {
+          "key": "items",
+          "label": "People",
+          "type": "list",
+          "itemSchema": [
+            {
+              "key": "name",
+              "label": "Name",
+              "type": "text"
+            },
+            {
+              "key": "role",
+              "label": "Role",
+              "type": "text"
+            },
+            {
+              "key": "img",
+              "label": "Photo",
+              "type": "image"
+            },
+            {
+              "key": "bio",
+              "label": "Bio",
+              "type": "textarea"
+            }
+          ]
+        }
+      ],
+      "defaultProps": {
+        "title": "Our Team",
+        "subtitle": "",
+        "accentColor": "",
+        "items": [
+          {
+            "name": "Name",
+            "role": "Role",
+            "img": "",
+            "bio": "Short bio."
+          }
+        ]
+      }
+    },
+    "product-grid": {
+      "type": "product-grid",
+      "label": "Product / Service Grid",
+      "category": "Commerce",
+      "schema": [
+        {
+          "key": "title",
+          "label": "Section title",
+          "type": "text"
+        },
+        {
+          "key": "subtitle",
+          "label": "Subtitle",
+          "type": "text"
+        },
+        {
+          "key": "showCatBar",
+          "label": "Show category filter bar",
+          "type": "boolean"
+        },
+        {
+          "key": "limit",
+          "label": "Max items to show (0 = all)",
+          "type": "number",
+          "min": 0,
+          "max": 60
+        },
+        {
+          "key": "ctaLabel",
+          "label": "Button under grid (optional)",
+          "type": "text"
+        },
+        {
+          "key": "ctaAction",
+          "label": "Button action",
+          "type": "action-select"
+        },
+        {
+          "key": "ctaTarget",
+          "label": "Action target",
+          "type": "action-target"
+        }
+      ],
+      "defaultProps": {
+        "title": "Our Products",
+        "subtitle": "",
+        "showCatBar": true,
+        "limit": 0,
+        "ctaLabel": "",
+        "ctaAction": "none",
+        "ctaTarget": ""
+      }
+    },
+    "quote-banner": {
+      "type": "quote-banner",
+      "label": "Quote / Slogan Banner",
+      "category": "Content",
+      "schema": [
+        {
+          "key": "quote",
+          "label": "Quote / slogan",
+          "type": "text"
+        },
+        {
+          "key": "textColor",
+          "label": "Text Color",
+          "type": "color"
+        },
+        {
+          "key": "bgColor",
+          "label": "Background Color",
+          "type": "color"
+        },
+        {
+          "key": "ctaLabel",
+          "label": "Button label (optional)",
+          "type": "text"
+        },
+        {
+          "key": "ctaAction",
+          "label": "Button action",
+          "type": "action-select"
+        },
+        {
+          "key": "ctaTarget",
+          "label": "Action target",
+          "type": "action-target"
+        }
+      ],
+      "defaultProps": {
+        "quote": "Your slogan goes here.",
+        "textColor": "",
+        "bgColor": "",
+        "ctaLabel": "",
+        "ctaAction": "none",
+        "ctaTarget": ""
+      }
+    },
+    "rfq-form": {
+      "type": "rfq-form",
+      "label": "Quote / Proposal Request Form",
+      "category": "Forms",
+      "schema": [
+        {
+          "key": "title",
+          "label": "Title",
+          "type": "text"
+        },
+        {
+          "key": "subtitle",
+          "label": "Eyebrow",
+          "type": "text"
+        },
+        {
+          "key": "perks",
+          "label": "Bullet points",
+          "type": "list",
+          "itemSchema": [
+            {
+              "key": "value",
+              "label": "Point",
+              "type": "text"
+            }
+          ]
+        },
+        {
+          "key": "submitLabel",
+          "label": "Submit button label",
+          "type": "text"
+        }
+      ],
+      "defaultProps": {
+        "title": "Request a Quote",
+        "subtitle": "",
+        "perks": [],
+        "submitLabel": "Send Request"
+      }
+    },
+    "richtext": {
+      "type": "richtext",
+      "label": "Text Block",
+      "category": "Content",
+      "schema": [
+        {
+          "key": "heading",
+          "label": "Heading",
+          "type": "text"
+        },
+        {
+          "key": "body",
+          "label": "Body text",
+          "type": "textarea"
+        }
+      ],
+      "defaultProps": {
+        "heading": "Section heading",
+        "body": "Write your content here."
+      }
+    },
+    "slideshow": {
+      "type": "slideshow",
+      "label": "Image Slideshow",
+      "category": "Media",
+      "schema": [
+        {
+          "key": "title",
+          "label": "Section title (optional)",
+          "type": "text"
+        },
+        {
+          "key": "subtitle",
+          "label": "Section subtitle",
+          "type": "text"
+        },
+        {
+          "key": "height",
+          "label": "Height",
+          "type": "select",
+          "options": [
+            "short",
+            "medium",
+            "tall",
+            "full"
+          ]
+        },
+        {
+          "key": "autoplay",
+          "label": "Auto-advance slides",
+          "type": "boolean"
+        },
+        {
+          "key": "interval",
+          "label": "Seconds per slide",
+          "type": "number",
+          "min": 2,
+          "max": 20
+        },
+        {
+          "key": "showArrows",
+          "label": "Show arrows",
+          "type": "boolean"
+        },
+        {
+          "key": "showDots",
+          "label": "Show dots",
+          "type": "boolean"
+        },
+        {
+          "key": "showCaptions",
+          "label": "Show slide captions",
+          "type": "boolean"
+        },
+        {
+          "key": "overlay",
+          "label": "Image darkening (0–80)",
+          "type": "number",
+          "min": 0,
+          "max": 80
+        },
+        {
+          "key": "slides",
+          "label": "Slides",
+          "type": "list",
+          "itemSchema": [
+            {
+              "key": "image",
+              "label": "Slide image",
+              "type": "image"
+            },
+            {
+              "key": "eyebrow",
+              "label": "Eyebrow tag",
+              "type": "text"
+            },
+            {
+              "key": "title",
+              "label": "Title",
+              "type": "text"
+            },
+            {
+              "key": "desc",
+              "label": "Description",
+              "type": "textarea"
+            },
+            {
+              "key": "ctaLabel",
+              "label": "Button label",
+              "type": "text"
+            },
+            {
+              "key": "ctaAction",
+              "label": "Button action",
+              "type": "action-select"
+            },
+            {
+              "key": "ctaTarget",
+              "label": "Action target",
+              "type": "action-target"
+            }
+          ]
+        }
+      ],
+      "defaultProps": {
+        "title": "",
+        "subtitle": "",
+        "height": "medium",
+        "autoplay": true,
+        "interval": 5,
+        "showArrows": true,
+        "showDots": true,
+        "showCaptions": true,
+        "overlay": 45,
+        "slides": [
+          {
+            "image": "",
+            "eyebrow": "",
+            "title": "Your first slide",
+            "desc": "Upload a photo and write a short caption.",
+            "ctaLabel": "",
+            "ctaAction": "none",
+            "ctaTarget": ""
+          }
+        ]
+      }
+    },
+    "stats": {
+      "type": "stats",
+      "label": "Stats Strip",
+      "category": "Content",
+      "schema": [
+        {
+          "key": "items",
+          "label": "Stats",
+          "type": "list",
+          "itemSchema": [
+            {
+              "key": "value",
+              "label": "Value",
+              "type": "text"
+            },
+            {
+              "key": "label",
+              "label": "Label",
+              "type": "text"
+            }
+          ]
+        },
+        {
+          "key": "accentColor",
+          "label": "Number Color",
+          "type": "color"
+        }
+      ],
+      "defaultProps": {
+        "items": [
+          {
+            "value": "100+",
+            "label": "Happy clients"
+          }
+        ],
+        "accentColor": ""
+      }
+    },
+    "steps": {
+      "type": "steps",
+      "label": "Numbered Steps",
+      "category": "Logistics",
+      "schema": [
+        {
+          "key": "title",
+          "label": "Section title",
+          "type": "text"
+        },
+        {
+          "key": "items",
+          "label": "Steps",
+          "type": "list",
+          "itemSchema": [
+            {
+              "key": "icon",
+              "label": "Icon / emoji",
+              "type": "text"
+            },
+            {
+              "key": "title",
+              "label": "Title",
+              "type": "text"
+            },
+            {
+              "key": "desc",
+              "label": "Description",
+              "type": "textarea"
+            },
+            {
+              "key": "buttonLabel",
+              "label": "Button label",
+              "type": "text"
+            }
+          ]
+        }
+      ],
+      "defaultProps": {
+        "title": "Ready to Ship Now?",
+        "items": [
+          {
+            "icon": "📜📦",
+            "title": "Create a Shipment",
+            "desc": "Get started by creating your shipment online or over the phone.",
+            "buttonLabel": "Create a New Shipment"
+          },
+          {
+            "icon": "📦🏷️",
+            "title": "Pack Your Shipment",
+            "desc": "Pack your items securely and ensure that it follows our guidelines.",
+            "buttonLabel": "View Guidelines"
+          },
+          {
+            "icon": "🚚🏢",
+            "title": "Drop Off / Courier Pickup",
+            "desc": "Drop off your shipment at a Service Point or schedule a courier pickup.",
+            "buttonLabel": "Find a Service Point"
+          }
+        ]
+      }
+    },
+    "topbar": {
+      "type": "topbar",
+      "label": "Top Announcement Bar",
+      "category": "Header",
+      "schema": [
+        {
+          "key": "message",
+          "label": "Message",
+          "type": "text"
+        },
+        {
+          "key": "ctaLabel",
+          "label": "Button label (optional)",
+          "type": "text"
+        },
+        {
+          "key": "ctaAction",
+          "label": "Button action",
+          "type": "action-select"
+        },
+        {
+          "key": "ctaTarget",
+          "label": "Action target",
+          "type": "action-target"
+        }
+      ],
+      "defaultProps": {
+        "message": "Free shipping on orders over $50",
+        "ctaLabel": "",
+        "ctaAction": "none",
+        "ctaTarget": ""
+      }
+    },
+    "tracker": {
+      "type": "tracker",
+      "label": "Shipment Tracker",
+      "category": "Logistics",
+      "schema": [
+        {
+          "key": "title",
+          "label": "Title",
+          "type": "text"
+        },
+        {
+          "key": "subtitle",
+          "label": "Subtitle",
+          "type": "textarea"
+        },
+        {
+          "key": "inputPlaceholder",
+          "label": "Input placeholder",
+          "type": "text"
+        },
+        {
+          "key": "submitLabel",
+          "label": "Submit button label",
+          "type": "text"
+        },
+        {
+          "key": "sampleRefs",
+          "label": "Example tracking numbers",
+          "type": "list",
+          "itemSchema": [
+            {
+              "key": "value",
+              "label": "Reference",
+              "type": "text"
+            }
+          ]
+        },
+        {
+          "key": "sideCards",
+          "label": "Quick-action cards",
+          "type": "list",
+          "itemSchema": [
+            {
+              "key": "icon",
+              "label": "Icon / emoji",
+              "type": "text"
+            },
+            {
+              "key": "title",
+              "label": "Title",
+              "type": "text"
+            },
+            {
+              "key": "desc",
+              "label": "Description",
+              "type": "textarea"
+            }
+          ]
+        },
+        {
+          "key": "quoteTitle",
+          "label": "Quote widget title",
+          "type": "text"
+        }
+      ],
+      "defaultProps": {
+        "title": "Track Your Shipment",
+        "subtitle": "Enter your shipment tracking number or bill of lading for real-time updates.",
+        "inputPlaceholder": "Tracking Number or Delivery Notice (e.g. MRV-RW-24-001)",
+        "submitLabel": "Track",
+        "sampleRefs": [
+          "MRV-RW-24-001",
+          "MRV-RW-24-002",
+          "DLV-1002"
+        ],
+        "sideCards": [
+          {
+            "icon": "🚚",
+            "title": "Calculate Freight Rate",
+            "desc": "Instant shipping estimates for domestic & global cargo"
+          },
+          {
+            "icon": "📦",
+            "title": "Schedule Cargo Pickup",
+            "desc": "Book warehouse dispatch or door-to-door pickup"
+          }
+        ],
+        "quoteTitle": "Get a Quick Quote"
+      }
+    }
+  }
+}

@@ -1,0 +1,91 @@
+{
+  "_note": "Seed products, so a generated storefront shows plausible stock instead of 'Product 1 — $99'. Prices are unit-less numbers; the composer prefixes the currency the NLU worked out from the city. On claim these become editable demo products the owner renames, and they are replaced entirely once real inventory is connected. See docs/NO-API-BUILDER-PLAN.md §5.3.",
+
+  "restaurant": [
+    { "name": "Türk kahvesi · 250g", "price": 165, "desc": "Single origin, roasted weekly." },
+    { "name": "Filtre · 1kg", "price": 420, "desc": "Bright, citrus notes. Ships next day." },
+    { "name": "Espresso blend · 500g", "price": 260, "desc": "Chocolate and toasted nut." },
+    { "name": "Breakfast plate", "price": 180, "desc": "Eggs, cheeses, olives, fresh bread." },
+    { "name": "Soup of the day", "price": 90, "desc": "Made this morning, served hot." },
+    { "name": "Mixed grill", "price": 340, "desc": "Charcoal grilled, served with rice." },
+    { "name": "Baklava · 6 pieces", "price": 150, "desc": "Pistachio, made in-house." },
+    { "name": "Fresh lemonade", "price": 65, "desc": "Squeezed to order." }
+  ],
+
+  "fashion": [
+    { "name": "Linen blazer", "price": 890, "desc": "Unstructured, half-lined. Sizes 36–46." },
+    { "name": "Silk shirt dress", "price": 1200, "desc": "Cut on the bias. Limited run." },
+    { "name": "Suede boots", "price": 1400, "desc": "Goodyear welted, resoleable." },
+    { "name": "Wool overcoat", "price": 2200, "desc": "Italian wool, made in small batches." },
+    { "name": "Cotton tee · 3-pack", "price": 320, "desc": "Heavyweight, pre-shrunk." },
+    { "name": "Leather belt", "price": 380, "desc": "Full grain, solid brass buckle." },
+    { "name": "Cashmere scarf", "price": 640, "desc": "Two-ply, woven not knitted." },
+    { "name": "Denim, straight", "price": 720, "desc": "14oz selvedge. Raw." }
+  ],
+
+  "retail": [
+    { "name": "Cordless drill 18V", "price": 1450, "desc": "Two batteries, hard case." },
+    { "name": "Olive oil 1L", "price": 180, "desc": "Cold pressed, this season's harvest." },
+    { "name": "Storage box · 40L", "price": 120, "desc": "Stackable, clip lid." },
+    { "name": "LED bulb · 4-pack", "price": 95, "desc": "Warm white, 9W." },
+    { "name": "Kitchen knife 20cm", "price": 460, "desc": "Full tang, holds an edge." },
+    { "name": "Cast iron pan 26cm", "price": 690, "desc": "Pre-seasoned, oven safe." },
+    { "name": "Extension lead 5m", "price": 140, "desc": "Four sockets, surge protected." },
+    { "name": "Wall clock", "price": 210, "desc": "Silent sweep movement." }
+  ],
+
+  "wholesale": [
+    { "name": "Rice · 25kg sack", "price": 620, "desc": "Long grain. Pallet pricing available." },
+    { "name": "Sugar · 50kg", "price": 840, "desc": "Refined white. Trade only." },
+    { "name": "Flour · pallet", "price": 5900, "desc": "Type 550. 40 sacks per pallet." },
+    { "name": "Sunflower oil · 12×1L", "price": 1080, "desc": "Case price. Min 5 cases." },
+    { "name": "Detergent · 20L", "price": 740, "desc": "Industrial concentrate." },
+    { "name": "Paper towel · 24 rolls", "price": 390, "desc": "Two ply. Case of 24." },
+    { "name": "Tinned tomatoes · 12×800g", "price": 460, "desc": "Case price." },
+    { "name": "Disposable gloves · 1000", "price": 520, "desc": "Nitrile, powder free." }
+  ],
+
+  "manufacturing": [
+    { "name": "Bearing set · 6204", "price": 320, "desc": "Sealed, ±0.05mm. Batch tested." },
+    { "name": "Alloy sheet 2mm", "price": 540, "desc": "5083 marine grade. Cut to size." },
+    { "name": "Motor unit 1.5kW", "price": 1800, "desc": "IE3 efficiency, 400V." },
+    { "name": "Machined bracket", "price": 260, "desc": "To drawing. MOQ 50." },
+    { "name": "Steel tube 40mm", "price": 175, "desc": "Seamless, per metre." },
+    { "name": "Gasket set", "price": 140, "desc": "Die cut, material to spec." },
+    { "name": "Injection moulded housing", "price": 95, "desc": "ABS. Tooling quoted separately." },
+    { "name": "Laser cut panel", "price": 380, "desc": "1.5mm mild steel, deburred." }
+  ],
+
+  "construction": [
+    { "name": "Cement · 50kg", "price": 140, "desc": "CEM II 42.5. Pallet of 40." },
+    { "name": "Steel rebar 12mm", "price": 210, "desc": "Per 12m length. B500C." },
+    { "name": "Site survey", "price": 0, "desc": "Free, and no obligation." },
+    { "name": "Insulation board 50mm", "price": 320, "desc": "Per m². PIR." },
+    { "name": "Scaffold hire · week", "price": 2400, "desc": "Erected and inspected." },
+    { "name": "Concrete pour · m³", "price": 1850, "desc": "Pumped, C30/37." },
+    { "name": "Roof tile · m²", "price": 480, "desc": "Clay, supplied and fitted." },
+    { "name": "Plaster & skim · m²", "price": 260, "desc": "Two coat, ready to paint." }
+  ],
+
+  "services": [
+    { "name": "Consultation · 30 min", "price": 0, "desc": "Free, no obligation." },
+    { "name": "Standard appointment", "price": 450, "desc": "45 minutes. Book online." },
+    { "name": "Extended session", "price": 780, "desc": "90 minutes for bigger jobs." },
+    { "name": "Follow-up visit", "price": 300, "desc": "Within 30 days of your first." },
+    { "name": "Home visit", "price": 950, "desc": "We come to you. City limits." },
+    { "name": "Monthly retainer", "price": 4800, "desc": "Priority booking, fixed hours." },
+    { "name": "Emergency call-out", "price": 1200, "desc": "Same day where we can." },
+    { "name": "Annual check", "price": 620, "desc": "Once a year, reminder sent." }
+  ],
+
+  "logistics": [
+    { "name": "Container 20ft · FCL", "price": 24000, "desc": "Port to port. Customs extra." },
+    { "name": "Pallet · groupage", "price": 1700, "desc": "Per pallet, weekly departure." },
+    { "name": "Express air · per kg", "price": 480, "desc": "3–5 days, door to door." },
+    { "name": "Customs clearance", "price": 2200, "desc": "Per entry. Documents handled." },
+    { "name": "Warehousing · pallet/week", "price": 190, "desc": "Racked, insured storage." },
+    { "name": "Last mile · city", "price": 340, "desc": "Same-day within city limits." },
+    { "name": "Full truck load", "price": 18500, "desc": "Domestic, tracked end to end." },
+    { "name": "Cold chain · pallet", "price": 2600, "desc": "2–8°C, monitored in transit." }
+  ]
+}

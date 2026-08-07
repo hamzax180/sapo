@@ -56,4 +56,14 @@ const inquirySchema = {
   }
 };
 
-module.exports = { loginSchema, orderSchema, inquirySchema };
+const microClaimSchema = {
+  fields: {
+    email: { type: "email", required: true },
+    password: { type: "string", required: true, min: 4, max: 200 },
+    company: { type: "string", max: 120 },
+    industry: { type: "string", max: 40 },
+    country: { type: "string", max: 5 }
+  }
+};
+
+module.exports = { loginSchema, orderSchema, inquirySchema, microClaimSchema };

@@ -251,6 +251,17 @@ const bcrypt = require("bcryptjs");
     assert.strictEqual(vr.status, 400);
     pass("edit-token: minted by owner, verified via header (off the query string)");
 
+    // Edit-token refresh: a valid token rotates into a fresh, working one.
+    let rr = await fetch(base + "/api/storefront/edit-token/refresh", { method: "POST", headers: { "x-edit-token": editToken } });
+    assert.strictEqual(rr.status, 200);
+    const rolled = (await rr.json()).editToken;
+    assert.ok(rolled, "refresh returns a new token");
+    vr = await fetch(base + "/api/storefront/edit-token/verify?wsId=ws_A", { headers: { "x-edit-token": rolled } });
+    assert.strictEqual(vr.status, 200);
+    rr = await fetch(base + "/api/storefront/edit-token/refresh", { method: "POST", headers: { "x-edit-token": "garbage" } });
+    assert.strictEqual(rr.status, 401);
+    pass("edit-token: refresh rotates a valid token, rejects an invalid one");
+
     // CAPTCHA gate: when a secret is configured, a token is required.
     process.env.CAPTCHA_SECRET = "test-captcha-secret";
     res = await req("/api/portal/ws_A/orders", { method: "POST", body: { customer: { name: "Bot", email: "bot@x.com" }, items: [{ name: "Y", price: 1, qty: 1 }] } });

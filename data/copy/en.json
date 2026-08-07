@@ -1,0 +1,309 @@
+{
+  "_note": "Human-written copy. Each role holds many variants; the engine picks one by hashing the prompt, so a given prompt is stable but two prompts diverge. A variant may be a plain string, or {t, needs:[slots], tone:[registers]} — a guarded variant is only eligible when every slot it names has a value, which is why {city} never renders empty. Hero titles use *word* for the accent colour. Add variants freely; more variants is more variety.",
+
+  "_shared": {
+    "topbar": [
+      "Free delivery on orders over 500",
+      "Same-day replies, six days a week",
+      { "t": "Now serving {city} and nearby", "needs": ["city"] },
+      "Questions? We answer within the hour",
+      "New here? Say hello — we don't bite"
+    ],
+    "steps.title": ["How it works", "Three steps, start to finish", "What happens next", "From first click to done"],
+    "footer.desc": [
+      { "t": "{company} — built on Souqi.", "needs": ["company"] },
+      "Straight answers, kept promises, and no small print."
+    ]
+  },
+
+  "restaurant": {
+    "hero.eyebrow": ["Kitchen", "Fresh daily", "Open now", "Made here", "Today's table"],
+    "hero.title": [
+      { "t": "Roasted in *{city}*", "needs": ["city"] },
+      { "t": "*{city}* eats here", "needs": ["city"] },
+      { "t": "*{company}*, since the first cup", "needs": ["company"] },
+      "Made fresh, *every day*",
+      "Cooked properly, *served fast*",
+      "Small batches, *big flavour*",
+      "The good stuff, *nothing else*",
+      { "t": "Your table at *{company}*", "needs": ["company"] },
+      "Warm plates, *honest prices*",
+      { "t": "Handmade, *the old way*", "tone": ["warm"] },
+      { "t": "*Quietly* excellent", "tone": ["premium"] }
+    ],
+    "hero.sub": [
+      "Order online for pickup or delivery — straight from our kitchen to your table.",
+      "Everything is made the morning you order it. Nothing sits, nothing waits.",
+      { "t": "Cooking in {city} six days a week. Order ahead and skip the queue.", "needs": ["city"] },
+      "A short menu we actually cook well, rather than a long one we don't.",
+      "Browse the menu, order in a minute, and eat while it's hot."
+    ],
+    "hero.cta": ["See the full menu", "Order now", "Browse the menu", "Start your order"],
+    "grid.title": ["Our Menu", "What we're cooking", "Today's menu", "Everything we serve"],
+    "grid.sub": ["Available for delivery and pickup", "Made to order, every time", "Fresh this morning"],
+    "story.heading": ["About the kitchen", "How we cook", "Why it tastes like that", "Behind the counter"],
+    "story.body": [
+      "We cook in small batches with ingredients we buy ourselves. Nothing sits, nothing waits — what you order is made that morning.",
+      "The menu is short on purpose. Fewer dishes means we can get every one of them right, and it means nothing has been sitting in a fridge since Tuesday.",
+      { "t": "We've been feeding {city} long enough to know what people come back for. It's on the menu, and it hasn't changed.", "needs": ["city"] },
+      "No shortcuts we'd be embarrassed to explain. If we wouldn't serve it to our own family, it doesn't leave the pass."
+    ],
+    "steps.item": ["Browse the menu", "Place your order", "Pick up or get it delivered", "Pay online or at the door", "Eat while it's hot"],
+    "quote": [
+      "Good food, made properly, served fast.",
+      "Cooked this morning. Eaten today.",
+      { "t": "{city}'s kitchen, open six days a week.", "needs": ["city"] },
+      "A short menu, cooked well."
+    ]
+  },
+
+  "fashion": {
+    "hero.eyebrow": ["New season", "Just landed", "The collection", "Limited run", "In stock now"],
+    "hero.title": [
+      "Pieces that *last*",
+      "Made in *small runs*",
+      { "t": "*{company}*, made to keep", "needs": ["company"] },
+      "Fewer things, *made better*",
+      "Wear it *for years*",
+      { "t": "Designed in *{city}*", "needs": ["city"] },
+      "The *quiet* kind of good",
+      { "t": "*Considered*, not collected", "tone": ["premium"] },
+      "Cut well. *Finished properly*.",
+      { "t": "Handmade, *one at a time*", "tone": ["warm"] }
+    ],
+    "hero.sub": [
+      "A small, considered collection — made in limited runs and restocked rarely.",
+      "We make fewer pieces than we could sell, because that's the only way to make them properly.",
+      "Sizes run true, returns are free for fourteen days, and nothing here was made in a hurry.",
+      { "t": "Made and shipped from {city}. Ships the next working day.", "needs": ["city"] }
+    ],
+    "hero.cta": ["View the collection", "Shop the range", "See what's in stock", "Browse pieces"],
+    "grid.title": ["The Collection", "In stock now", "This season", "Every piece"],
+    "grid.sub": ["Every piece from the current season", "Limited runs, restocked rarely", "Free returns within 14 days"],
+    "story.heading": ["How we make things", "About the label", "Our workshops", "Made properly"],
+    "story.body": [
+      "We work with a handful of workshops we know by name, in fabrics we can stand behind. Fewer pieces, made better.",
+      "Every run is small enough that we see each piece before it ships. That's slower and more expensive, and it's the whole point.",
+      "We'd rather sell out than discount. If something is gone, it's because we only made a few."
+    ],
+    "steps.item": ["Find your size", "Order online", "Free returns within 14 days", "Ships the next working day"],
+    "quote": [
+      "Buy less. Choose well. Make it last.",
+      "Made in small runs, on purpose.",
+      "Fewer pieces. Better ones.",
+      "Cut well, finished properly, worn for years."
+    ]
+  },
+
+  "logistics": {
+    "hero.eyebrow": ["Freight & forwarding", "Road · sea · air", "Tracked end to end", "Since day one"],
+    "hero.title": [
+      "Your cargo, *tracked end to end*",
+      "One reference. *Every leg*.",
+      { "t": "Moving freight out of *{city}*", "needs": ["city"] },
+      "Know where it is, *always*",
+      "Freight that *arrives*",
+      { "t": "*{company}* moves it", "needs": ["company"] },
+      "Customs handled. *Questions answered*.",
+      "No chasing. *No guessing*."
+    ],
+    "hero.sub": [
+      "Road, sea and air freight with customs handled and a live tracking reference on every shipment.",
+      "One reference number, one contact, and a status you can check yourself at any hour.",
+      { "t": "Clearing and forwarding from {city} to wherever it needs to be.", "needs": ["city"] },
+      "We quote in writing, book it properly, and tell you before you have to ask."
+    ],
+    "hero.cta": ["Request a quote", "Track a shipment", "Get a price", "Talk to us"],
+    "grid.title": ["What we move", "Our services", "Every leg of the route"],
+    "grid.sub": ["Services across the whole route", "Door to door, or port to port", "Quoted in writing"],
+    "story.heading": ["Why shippers stay with us", "How we work", "What you get"],
+    "story.body": [
+      "One reference number, one contact, and a status you can check yourself at any hour — instead of chasing an inbox for an update.",
+      "Most freight problems are really communication problems. We tell you about a delay before you notice it, which is the whole job.",
+      "Quotes in writing, paperwork done properly, and a person who answers the phone."
+    ],
+    "steps.item": ["Send us the shipment details", "We quote and book", "Track it to the door", "Customs handled for you"],
+    "quote": [
+      "One reference. Every leg of the journey.",
+      "Freight you don't have to chase.",
+      "Booked properly. Tracked honestly.",
+      "You'll hear about the delay from us first."
+    ]
+  },
+
+  "manufacturing": {
+    "hero.eyebrow": ["Production", "Made to spec", "On the floor", "Capacity now"],
+    "hero.title": [
+      "Built to spec, *on schedule*",
+      "Made to *your drawing*",
+      "Parts that *fit*",
+      { "t": "Producing in *{city}*", "needs": ["city"] },
+      "The date we said, *the date it ships*",
+      { "t": "*{company}* — built to order", "needs": ["company"] },
+      "Tolerance held. *Every batch*.",
+      { "t": "*Precision*, documented", "tone": ["technical"] }
+    ],
+    "hero.sub": [
+      "Components and finished goods produced to your drawing, with capacity you can plan around.",
+      "Send the spec and get tooling cost, lead time and a delivery week back in writing.",
+      "Every batch inspected and documented before it leaves the floor.",
+      { "t": "Producing in {city} and shipping on a published schedule.", "needs": ["city"] }
+    ],
+    "hero.cta": ["Request a quote", "Send your drawings", "Check our capacity", "Get lead times"],
+    "grid.title": ["Products & capabilities", "What we make", "On the floor"],
+    "grid.sub": ["Finished goods and materials ready for dispatch", "Made to drawing, inspected before dispatch"],
+    "story.heading": ["Inside the workshop", "How we schedule", "Why the dates hold"],
+    "story.body": [
+      "Our floor runs to a published schedule, so when we commit to a delivery week, that is the week it ships.",
+      "We quote the tooling honestly up front rather than discovering it halfway through. It makes the first quote higher and the final invoice the same.",
+      "Every batch is measured and the results are kept. If a part is ever wrong, we can tell you exactly which run it came from."
+    ],
+    "steps.item": ["Send your drawings", "We quote tooling and lead time", "Production and dispatch", "Inspection report with every batch"],
+    "quote": [
+      "Made to the drawing. Delivered to the date.",
+      "The tolerance you asked for, every batch.",
+      "Quoted honestly. Shipped on time.",
+      "A schedule you can plan around."
+    ]
+  },
+
+  "construction": {
+    "hero.eyebrow": ["Contracting", "On site", "Since day one", "Fixed quotes"],
+    "hero.title": [
+      "Projects that *finish*",
+      "Priced honestly. *Built properly*.",
+      { "t": "Building in *{city}*", "needs": ["city"] },
+      "The programme, *and we keep it*",
+      { "t": "*{company}* on site", "needs": ["company"] },
+      "No surprises *at the end*",
+      "One site manager. *One number*."
+    ],
+    "hero.sub": [
+      "Site work planned properly, priced honestly, and handed over when we said it would be.",
+      "You get one site manager, a written programme, and a cost breakdown you can actually read.",
+      { "t": "Working across {city} — survey first, fixed price second, build third.", "needs": ["city"] },
+      "The quote you sign is the invoice you pay, unless you change the scope."
+    ],
+    "hero.cta": ["Book a site visit", "Get a fixed quote", "See our projects", "Arrange a survey"],
+    "grid.title": ["What we build", "Our services", "Recent projects"],
+    "grid.sub": ["Services across the whole project", "Survey, quote, build, hand over"],
+    "story.heading": ["How we work", "What you get", "Why the price holds"],
+    "story.body": [
+      "You get one site manager, a written programme, and a cost breakdown you can actually read. No surprises at the end.",
+      "We survey before we price. It takes an extra day and it's the reason our final invoice matches our quote.",
+      "Sites are kept tidy and neighbours are told what's happening. It costs us nothing and it's why we get recommended."
+    ],
+    "steps.item": ["Site visit and survey", "Fixed written quote", "Build and hand over", "Snagging and sign-off"],
+    "quote": [
+      "Priced honestly. Finished on time.",
+      "The quote you signed is the invoice you pay.",
+      "One site manager, start to finish.",
+      "Surveyed first. Priced once."
+    ]
+  },
+
+  "wholesale": {
+    "hero.eyebrow": ["Trade supply", "Trade only", "Account customers", "Bulk pricing"],
+    "hero.title": [
+      "Trade pricing, *reliable stock*",
+      "Real stock. *Real dates*.",
+      { "t": "Supplying *{city}* since day one", "needs": ["city"] },
+      "Order by the *pallet*",
+      { "t": "*{company}* supplies the trade", "needs": ["company"] },
+      "Your price list, *your terms*",
+      "In stock, *not on order*"
+    ],
+    "hero.sub": [
+      "Volume supply with real stock figures and delivery windows you can plan a business around.",
+      "Open an account and get your pricing tier, credit terms and a reorder list built from what you actually buy.",
+      "We publish what we hold. If it says in stock, it's on the shelf.",
+      { "t": "Delivering across {city} on a fixed weekly schedule.", "needs": ["city"] }
+    ],
+    "hero.cta": ["Browse the catalogue", "Open a trade account", "See the price list", "Request terms"],
+    "grid.title": ["Wholesale Catalogue", "Trade range", "In stock now"],
+    "grid.sub": ["Browse the full trade product range", "Trade prices shown once you're logged in"],
+    "story.heading": ["Trade accounts", "How supply works", "Why the stock figures hold"],
+    "story.body": [
+      "Open an account and get your pricing tier, credit terms and a reorder list built from what you actually buy.",
+      "Our stock figures come off the shelf, not off a forecast. That's why we sometimes say no, and why the yes means something.",
+      "Fixed delivery days so you can plan your own orders around ours."
+    ],
+    "steps.item": ["Open a trade account", "Order from your price list", "Scheduled delivery", "Invoiced on your terms"],
+    "quote": [
+      "Real stock figures. Real delivery dates.",
+      "Trade prices, kept promises.",
+      "If it says in stock, it's on the shelf.",
+      "Ordered Monday. Delivered Wednesday."
+    ]
+  },
+
+  "services": {
+    "hero.eyebrow": ["Appointments", "Booking open", "By appointment", "Same week"],
+    "hero.title": [
+      "Book in *seconds*",
+      "Pick a time. *We'll be ready*.",
+      { "t": "*{company}*, by appointment", "needs": ["company"] },
+      { "t": "Now booking in *{city}*", "needs": ["city"] },
+      "Clear prices. *Kept appointments*.",
+      "The same *familiar face*",
+      { "t": "Looked after *properly*", "tone": ["warm"] }
+    ],
+    "hero.sub": [
+      "Pick a time that works, get a confirmation, and turn up. That is the whole process.",
+      "Clear pricing before you book, a reminder before your slot, and the same person looking after you each time.",
+      { "t": "Booking now across {city}. Most slots available the same week.", "needs": ["city"] },
+      "No phone tag, no waiting on hold. Choose a time and it's yours."
+    ],
+    "hero.cta": ["Book an appointment", "Choose a time", "See availability", "Book now"],
+    "grid.title": ["What we offer", "Services and prices", "Book a service"],
+    "grid.sub": ["Every service and what it includes", "Prices shown before you book"],
+    "story.heading": ["What to expect", "How booking works", "Looking after you"],
+    "story.body": [
+      "Clear pricing before you book, a reminder before your slot, and the same person looking after you each time.",
+      "We keep to time. If we're running late you'll get a message, because your afternoon matters as much as ours.",
+      "Prices are on the page, not quoted awkwardly at the end."
+    ],
+    "steps.item": ["Choose a service", "Pick your time", "Get a confirmation", "Reminder the day before"],
+    "quote": [
+      "Clear prices. Kept appointments.",
+      "Booked in seconds. Remembered properly.",
+      "The same familiar face, every time.",
+      "We keep to time."
+    ]
+  },
+
+  "retail": {
+    "hero.eyebrow": ["Storefront", "In stock", "Ships today", "The shop"],
+    "hero.title": [
+      "Everything we sell, *in one place*",
+      "In stock. *Shipped today*.",
+      { "t": "*{company}*, now online", "needs": ["company"] },
+      { "t": "Shipping from *{city}*", "needs": ["city"] },
+      "A shop we'd *buy from*",
+      "Real stock. *Same-day dispatch*.",
+      "Fewer things, *chosen well*"
+    ],
+    "hero.sub": [
+      "Browse the range, order online, and track it from checkout to your door.",
+      "We keep a tight range of things we'd buy ourselves, hold real stock, and ship the same day wherever we can.",
+      { "t": "Order by 2pm and it leaves {city} the same day.", "needs": ["city"] },
+      "Everything on the site is on the shelf. No backorders dressed up as stock."
+    ],
+    "hero.cta": ["Shop all products", "Browse the range", "See what's in stock", "Start shopping"],
+    "grid.title": ["All Products", "In stock now", "The full range"],
+    "grid.sub": ["Every item currently in stock, ready to ship", "Same-day dispatch on orders before 2pm"],
+    "story.heading": ["About the shop", "How we choose stock", "Why it ships fast"],
+    "story.body": [
+      "We keep a tight range of things we would buy ourselves, hold real stock, and ship the same day wherever we can.",
+      "We'd rather carry two good versions of something than eight mediocre ones. It makes choosing easier for everyone.",
+      "Everything listed is physically here. That's why the dispatch times are real."
+    ],
+    "steps.item": ["Browse the range", "Order online", "Same-day dispatch", "Track it to your door"],
+    "quote": [
+      "Real stock. Same-day dispatch.",
+      "Everything listed is on the shelf.",
+      "Chosen carefully. Shipped quickly.",
+      "A shop we'd buy from ourselves."
+    ]
+  }
+}

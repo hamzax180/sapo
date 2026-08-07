@@ -1,0 +1,45 @@
+{
+  "note": "High-precision domain terms, injected into the Naive Bayes model as pseudo-counts (see scripts/train-classifier.js LEX_WEIGHT). Hand-curated, not learned: with only ~12 labelled prompts per class the corpus alone cannot cover the vocabulary, so this carries the domain knowledge and the corpus supplies the phrasing around it. Terms are normalised through server/lib/nlu/normalise.js before use, so write them in their natural form.",
+  "industries": {
+    "restaurant": {
+      "en": ["restaurant", "cafe", "coffee", "roastery", "roaster", "bakery", "bistro", "kitchen", "menu", "pizzeria", "kebab", "dining", "brunch", "catering", "food truck", "dessert", "pastry", "juice", "diner", "takeaway", "delivery menu", "dishes", "recipes", "chef", "table", "reservation", "baklava", "breakfast", "espresso", "beans", "brewing", "cake"],
+      "tr": ["restoran", "lokanta", "kafe", "kahve", "kahveci", "kahvaltı", "pastane", "fırın", "pideci", "lahmacun", "kebapçı", "menü", "tatlıcı", "baklava", "künefe", "yemek", "mutfak", "şef", "rezervasyon", "paket servis", "çay bahçesi", "büfe"],
+      "ar": ["مطعم", "مقهى", "كافيه", "قهوة", "محمصة", "مخبز", "حلويات", "مشاوي", "منيو", "قائمة الطعام", "بقلاوة", "كنافة", "طبخ", "شيف", "حجز طاولة", "فطور", "بن"]
+    },
+    "fashion": {
+      "en": ["fashion", "clothing", "clothes", "boutique", "apparel", "wear", "dress", "dresses", "shoes", "sneaker", "jewellery", "jewelry", "necklace", "ring", "bags", "leather", "collection", "season", "streetwear", "womenswear", "menswear", "tailor", "suit", "fabric", "scarf", "abaya", "hijab", "modest wear", "vintage", "garment", "size", "wardrobe"],
+      "tr": ["giyim", "moda", "butik", "elbise", "ayakkabı", "çanta", "kemer", "takı", "yüzük", "kolye", "koleksiyon", "tesettür", "abiye", "ferace", "terzi", "kumaş", "beden", "eşarp", "mağaza giyim", "deri"],
+      "ar": ["ملابس", "أزياء", "بوتيك", "فساتين", "أحذية", "حقائب", "مجوهرات", "خواتم", "قلائد", "تشكيلة", "محتشمة", "عبايات", "حجاب", "خياطة", "أقمشة", "مقاسات", "جلدية"]
+    },
+    "logistics": {
+      "en": ["logistics", "freight", "shipping", "forwarder", "cargo", "haulage", "courier", "customs", "container", "shipment", "tracking", "consignment", "warehouse", "last mile", "trucking", "fleet", "port", "air cargo", "sea freight", "parcel", "delivery company", "dispatch", "bill of lading", "cold chain", "moving company", "transport"],
+      "tr": ["nakliye", "lojistik", "kargo", "taşımacılık", "gümrük", "konteyner", "sevkiyat", "takip", "depo", "tır", "filo", "liman", "hava kargo", "deniz yolu", "parsiyel", "evden eve", "gönderi", "dağıtım"],
+      "ar": ["شحن", "لوجستيات", "نقل", "تخليص", "جمركي", "حاويات", "شحنات", "تتبع", "مستودع", "شاحنات", "أسطول", "ميناء", "شحن جوي", "طرود", "توصيل", "بضائع"]
+    },
+    "manufacturing": {
+      "en": ["manufacturing", "manufacture", "factory", "production", "produce", "industrial", "machining", "cnc", "fabrication", "tooling", "moulding", "molding", "assembly", "plant", "mill", "batch", "components", "raw material", "drawings", "spec", "tolerance", "laser cutting", "sheet metal", "injection", "workshop", "pallet"],
+      "tr": ["üretim", "imalat", "fabrika", "atölye", "torna", "cnc", "enjeksiyon", "montaj", "tezgah", "döküm", "kalıp", "parça üretimi", "çelik konstrüksiyon", "lazer kesim", "sac", "tekstil fabrikası", "ambalaj üretimi", "vardiya"],
+      "ar": ["مصنع", "تصنيع", "إنتاج", "ورشة", "خراطة", "حقن", "تجميع", "قوالب", "قطع معدنية", "بلاستيكية", "نسيج", "تغليف", "هياكل", "مواصفات", "رسومات"]
+    },
+    "construction": {
+      "en": ["construction", "contractor", "builder", "building", "renovation", "refurbishment", "roofing", "concrete", "foundation", "site", "civil works", "scaffolding", "fit-out", "plumbing", "electrical installation", "landscaping", "survey", "permit", "handover", "demolition", "masonry", "project portfolio"],
+      "tr": ["inşaat", "müteahhit", "tadilat", "dekorasyon", "çatı", "yalıtım", "beton", "temel", "şantiye", "altyapı", "iskele", "iç mimari", "tesisat", "peyzaj", "keşif", "ruhsat", "yıkım", "usta"],
+      "ar": ["مقاولات", "بناء", "ترميم", "تشطيب", "أسقف", "عزل", "خرسانة", "أساسات", "موقع بناء", "بنية تحتية", "سقالات", "تمديدات", "معاينة", "هدم", "مشاريع منجزة"]
+    },
+    "services": {
+      "en": ["salon", "barber", "booking", "appointment", "clinic", "studio", "agency", "consultancy", "consulting", "practice", "session", "grooming", "dental", "physiotherapy", "tutoring", "accounting firm", "law office", "repair garage", "cleaning company", "therapist", "slot", "book a time", "hourly", "retainer"],
+      "tr": ["berber", "kuaför", "randevu", "salon", "klinik", "stüdyo", "danışmanlık", "muayene", "seans", "diş", "fizik tedavi", "mali müşavir", "avukat", "oto servis", "temizlik şirketi", "kurs", "güzellik"],
+      "ar": ["صالون", "حلاقة", "حجز", "موعد", "عيادة", "استوديو", "استشارات", "جلسات", "أسنان", "علاج طبيعي", "محاسبة", "محاماة", "صيانة سيارات", "تنظيف", "تجميل"]
+    },
+    "wholesale": {
+      "en": ["wholesale", "wholesaler", "distributor", "distribution", "supplier", "supply", "bulk", "trade only", "b2b", "reseller", "minimum order", "price list", "price tier", "account terms", "importer", "pallet order", "case", "crate", "sacks", "trade account"],
+      "tr": ["toptan", "toptancı", "distribütör", "tedarik", "tedarikçi", "dağıtım", "ithalat", "cari hesap", "fiyat listesi", "koli", "çuval", "bayilik", "minimum sipariş"],
+      "ar": ["جملة", "بالجملة", "موزع", "توريد", "مورد", "كميات", "تاجر جملة", "قائمة أسعار", "حساب", "استيراد", "أكياس", "صناديق"]
+    },
+    "retail": {
+      "en": ["shop", "store", "storefront", "retail", "market", "supermarket", "grocery", "hardware store", "bookshop", "pet supplies", "toy shop", "stationery", "cosmetics", "garden centre", "product range", "in stock", "click and collect", "same day dispatch", "aisles", "shelf", "checkout", "catalogue", "corner shop"],
+      "tr": ["mağaza", "dükkan", "market", "bakkal", "perakende", "hırdavat", "kırtasiye", "kitapçı", "oyuncakçı", "kozmetik", "ürün yelpazesi", "stok", "kargo", "vitrin", "raf", "aynı gün"],
+      "ar": ["محل", "متجر", "بقالة", "سوبرماركت", "تجزئة", "مكتبة", "أدوات", "مستلزمات", "مستحضرات", "تشكيلة", "مخزون", "شحن", "عرض المنتجات", "رفوف"]
+    }
+  }
+}
