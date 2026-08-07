@@ -201,8 +201,13 @@
   .ag-pv-gate p{font-size:.94rem;color:var(--ink-2);margin:0;max-width:34ch;line-height:1.5}
   #agPvGateForm{display:none;flex-direction:column;gap:9px;width:100%;max-width:280px}
   #agPvGateForm.on{display:flex}
-  #agPvGateForm input{border:1px solid var(--line);border-radius:10px;padding:11px 13px;font:inherit;font-size:.9rem;background:var(--card)}
-  #agPvGateForm input:focus{outline:none;border-color:var(--accent)}
+  #agPvGateForm input,#agPvGateForm select{border:1px solid var(--line);border-radius:10px;padding:11px 13px;font:inherit;font-size:.9rem;background:var(--card);color:var(--ink);width:100%}
+  #agPvGateForm input:focus,#agPvGateForm select:focus{outline:none;border-color:var(--accent)}
+  #agPvGateForm select:invalid{color:var(--mut)} /* placeholder-ish until a real country is picked */
+  .ag-pv-gate-terms{display:flex;align-items:flex-start;gap:8px;text-align:left;font-size:.82rem;
+    color:var(--ink-2);line-height:1.45;margin-top:2px;cursor:pointer}
+  .ag-pv-gate-terms input{width:15px;height:15px;flex:none;margin-top:2px;accent-color:var(--accent);cursor:pointer}
+  .ag-pv-gate-terms a{color:var(--accent);text-decoration:underline}
   .ag-pv-gate-btn{border:0;border-radius:11px;padding:12px 26px;background:var(--accent);
     color:#fff;font-weight:700;font-size:.92rem;cursor:pointer;transition:.16s;box-shadow:0 6px 18px -6px rgba(26,166,223,.7)}
   .ag-pv-gate-btn:hover{background:var(--accent-2);transform:translateY(-1px)}
@@ -370,13 +375,21 @@
   .ag-set-cta{margin:14px 16px;text-align:center;padding:11px;border-radius:11px;background:linear-gradient(135deg,var(--accent),var(--accent-2));color:#fff;font-weight:700;font-size:.88rem;text-decoration:none;display:block;transition:.16s;box-shadow:0 4px 14px -5px rgba(26,166,223,.65)}
   .ag-set-cta:hover{transform:translateY(-1px)}
 
-  /* Settings overlay (see the markup note at the top of <body>) */
-  .ag-set-overlay{position:fixed;inset:0;z-index:120;background:rgba(11,22,38,.45);
-    display:flex;align-items:center;justify-content:center;padding:clamp(8px,3vh,30px);
-    -webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px)}
+  /* Settings overlay (see the markup note at the top of <body>).
+     Anchored to the LEFT rather than centred over everything, and with no
+     full-screen scrim, so the live preview on the right stays visible and
+     usable while settings are open — the point of opening it in place
+     instead of navigating to /settings. */
+  .ag-set-overlay{position:fixed;top:0;bottom:0;left:0;z-index:120;
+    width:min(760px,64vw);padding:clamp(8px,2.5vh,22px);display:flex}
   .ag-set-overlay[hidden]{display:none}
-  .ag-set-overlay iframe{width:min(1180px,100%);height:100%;max-height:820px;border:0;
-    border-radius:14px;background:var(--card);box-shadow:0 30px 80px -30px rgba(0,0,0,.5)}
+  .ag-set-overlay iframe{width:100%;height:100%;border:0;border-radius:14px;background:var(--card);
+    box-shadow:0 30px 80px -26px rgba(0,0,0,.42),0 0 0 1px var(--line)}
+  @media (max-width:900px){
+    /* No side-by-side preview to protect at this width — use the room. */
+    .ag-set-overlay{width:100%;padding:0}
+    .ag-set-overlay iframe{border-radius:0}
+  }
 </style>
 </head>
 <body>
@@ -518,6 +531,35 @@
         <form id="agPvGateForm" autocomplete="on">
           <input type="email" id="agPvGateEmail" placeholder="Email" autocomplete="email" required>
           <input type="password" id="agPvGatePass" placeholder="Password (min 4 characters)" autocomplete="new-password" minlength="4" required>
+          <input type="password" id="agPvGatePass2" placeholder="Repeat password" autocomplete="new-password" minlength="4" required>
+          <select id="agPvGateCountry" required>
+            <option value="" disabled selected>Country</option>
+            <option value="TR">Türkiye</option>
+            <option value="SA">Saudi Arabia</option>
+            <option value="AE">United Arab Emirates</option>
+            <option value="EG">Egypt</option>
+            <option value="JO">Jordan</option>
+            <option value="IQ">Iraq</option>
+            <option value="MA">Morocco</option>
+            <option value="DZ">Algeria</option>
+            <option value="TN">Tunisia</option>
+            <option value="QA">Qatar</option>
+            <option value="KW">Kuwait</option>
+            <option value="BH">Bahrain</option>
+            <option value="OM">Oman</option>
+            <option value="LB">Lebanon</option>
+            <option value="DE">Germany</option>
+            <option value="FR">France</option>
+            <option value="GB">United Kingdom</option>
+            <option value="NL">Netherlands</option>
+            <option value="US">United States</option>
+            <option value="CA">Canada</option>
+            <option value="OT">Other</option>
+          </select>
+          <label class="ag-pv-gate-terms">
+            <input type="checkbox" id="agPvGateTerms" required>
+            <span>I agree to the <a href="/terms" target="_blank" rel="noopener">Terms</a> and <a href="/privacy" target="_blank" rel="noopener">Privacy Policy</a>.</span>
+          </label>
           <button type="submit" class="ag-pv-gate-btn" id="agPvGateSubmit">Create account</button>
         </form>
         <div class="ag-pv-gate-err" id="agPvGateErr" hidden></div>
@@ -536,7 +578,7 @@
   const agPvFrame = $("agPvFrame"), agPvIframe = $("agPvIframe"), agPvEmpty = $("agPvEmpty"), agPvOpen = $("agPvOpen"), agPvPublish = $("agPvPublish"), agPvLabel = $("agPvLabel"), agPvDevices = $("agPvDevices");
   const agPvGate = $("agPvGate"), agPvGateForm = $("agPvGateForm"), agPvGateEmail = $("agPvGateEmail"),
     agPvGatePass = $("agPvGatePass"), agPvGateSubmit = $("agPvGateSubmit"), agPvGateErr = $("agPvGateErr"),
-    agPvGateStart = $("agPvGateStart");
+    agPvGateStart = $("agPvGateStart"), agPvGatePass2 = $("agPvGatePass2"), agPvGateCountry = $("agPvGateCountry");
   const agTabs = $("agTabs"), agTabChat = $("agTabChat"), agTabPreview = $("agTabPreview"), agPreview = $("agPreview"), agSection = document.querySelector(".ag");
   const agTypeRow = $("agTypeRow");
   const agHistOpen = $("agHistOpen"), agHistClose = $("agHistClose"), agHistBackdrop = $("agHistBackdrop"),
@@ -846,12 +888,22 @@
     e.preventDefault();
     if (!projectSlug) return;
     agPvGateErr.hidden = true;
+    // Checked here as well as by the server: catching a typo'd repeat
+    // before a round-trip is the whole point of asking for it twice.
+    if (agPvGatePass.value !== agPvGatePass2.value) {
+      agPvGateErr.textContent = "Those passwords don't match.";
+      agPvGateErr.hidden = false;
+      return;
+    }
     agPvGateSubmit.disabled = true;
     agPvGateSubmit.textContent = "Creating account…";
     try {
       const res = await fetch("/api/codeagent/" + encodeURIComponent(projectSlug) + "/micro-claim", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: agPvGateEmail.value.trim(), password: agPvGatePass.value })
+        body: JSON.stringify({
+          email: agPvGateEmail.value.trim(), password: agPvGatePass.value,
+          country: agPvGateCountry.value
+        })
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || "Couldn't create your account");

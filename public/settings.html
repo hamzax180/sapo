@@ -168,6 +168,15 @@
   .signedout{text-align:center;padding:44px 16px}
   .signedout p{color:var(--ink-2);margin:0 0 18px}
 
+  /* Embedded as the builder's overlay: the builder already has a header
+     and a way back, so this page's own nav would be a second one. Set by
+     the script below rather than a media query — it depends on being in
+     an iframe, not on width. */
+  body.embedded .nav{display:none}
+  body.embedded .wrap{margin:0;border:0;border-radius:0;height:100vh;display:flex;flex-direction:column}
+  body.embedded .mbody{flex:1;min-height:0}
+  body.embedded .content{max-height:none}
+
   @media (max-width:860px){
     .wrap{margin:0;border:0;border-radius:0}
     .mbody{grid-template-columns:1fr;min-height:0}
@@ -355,6 +364,7 @@
      leave the builder rendered inside its own iframe). Falls through to
      the plain href when opened as a standalone page. */
   var embedded = window.parent !== window;
+  if (embedded) document.body.classList.add("embedded");
   $("mclose").addEventListener("click", function (e) {
     if (!embedded) return;
     e.preventDefault();

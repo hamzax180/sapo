@@ -2171,7 +2171,7 @@ async function finalizeCodeClaim({ project, wsId, userId, email, requestId }) {
  */
 app.post("/api/codeagent/:key/micro-claim", microClaimLimiter, validateBody(microClaimSchema), async (req, res, next) => {
   try {
-    const { email, password } = req.valid;
+    const { email, password, country } = req.valid;
     const emailLower = email.toLowerCase();
 
     const owner = anon.ownerOf(req, res);
@@ -2193,7 +2193,10 @@ app.post("/api/codeagent/:key/micro-claim", microClaimLimiter, validateBody(micr
       id: wsId,
       company: String(project.title || "My Apps").slice(0, 120),
       industry: "software",
-      country: "TR",
+      // Collected at signup and surfaced by GET /api/admin/accounts, which
+      // has always read this field — it just never had a real value to read
+      // while this was hardcoded.
+      country: String(country || "").toUpperCase().slice(0, 5) || "OT",
       ownerEmail: emailLower,
       dbType: "local",
       dbUri: "",
