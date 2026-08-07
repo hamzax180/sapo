@@ -263,43 +263,86 @@
     width:36px;height:36px;display:grid;place-items:center;cursor:pointer;transition:.15s;margin-inline-end:2px}
   .ag-hist-btn:hover{border-color:#c6dbe7;color:var(--ink)}
   .ag-hist-btn svg{width:17px;height:17px}
-  .ag-hist-backdrop{display:none}
+  .ag-hist-backdrop{position:fixed;inset:0;background:rgba(11,22,38,.4);opacity:0;pointer-events:none;
+    transition:opacity .2s;z-index:70}
+  .ag-hist-backdrop.on{opacity:1;pointer-events:auto}
   .ag-history{position:sticky;top:0;align-self:flex-start;height:100vh;flex:0 0 auto;
-    width:0;max-width:88vw;overflow:hidden;background:linear-gradient(180deg,#faf7f1,#f6f1e8);
-    border-right:0 solid var(--line);box-shadow:0 0 0 rgba(11,22,38,0);
-    transition:width .26s var(--ease),border-color .26s var(--ease),box-shadow .26s var(--ease);
+    width:0;max-width:88vw;overflow:hidden;background:var(--paper);
+    border-right:0 solid var(--line);
+    transition:width .26s var(--ease),border-color .26s var(--ease);
     display:flex;flex-direction:column;z-index:5}
-  .ag-history.on{width:340px;border-right-color:var(--line);border-right-width:1px;box-shadow:10px 0 28px -18px rgba(11,22,38,.28)}
-  .ag-hist-head,.ag-hist-tabs,.ag-hist-view{width:340px}
+  .ag-history.on{width:290px;border-right-color:var(--line);border-right-width:1px}
+  .ag-hist-head,.ag-hist-tabs,.ag-hist-view,.ag-hist-foot{width:290px}
 
-  .ag-hist-head{display:flex;align-items:center;gap:10px;padding:18px 16px 16px;position:relative}
-  .ag-hist-head::after{content:"";position:absolute;left:16px;right:16px;bottom:0;height:1px;
-    background:linear-gradient(90deg,transparent,var(--line) 15%,var(--line) 85%,transparent)}
-  .ag-hist-mark{width:30px;height:30px;border-radius:9px;background:linear-gradient(135deg,var(--accent),var(--accent-2));
-    display:grid;place-items:center;flex:none;box-shadow:0 3px 10px -3px rgba(26,166,223,.55)}
-  .ag-hist-mark svg{width:16px;height:16px;color:#fff}
-  .ag-hist-head b{font-family:var(--disp);font-weight:700;font-size:1.03rem;letter-spacing:-.01em}
-  .ag-hist-head .sub{display:block;font-size:.72rem;color:var(--mut);font-weight:500;margin-top:1px}
+  @media (max-width:900px){
+    .ag-history{position:fixed;top:0;left:0;bottom:0;z-index:71}
+  }
+
+  .ag-hist-head{display:flex;align-items:center;gap:10px;padding:14px 14px 10px}
+  .ag-hist-mark{width:28px;height:28px;border-radius:8px;background:var(--accent);
+    display:grid;place-items:center;flex:none}
+  .ag-hist-mark svg{width:15px;height:15px;color:#fff}
+  .ag-hist-head b{font-weight:600;font-size:.98rem;letter-spacing:-.01em}
   .ag-hist-close{margin-inline-start:auto;border:0;background:none;color:var(--ink-2);cursor:pointer;width:30px;height:30px;border-radius:8px;display:grid;place-items:center;transition:.15s}
-  .ag-hist-close:hover{background:rgba(18,32,46,.07);color:var(--ink);transform:rotate(90deg)}
+  .ag-hist-close:hover{background:var(--paper-2);color:var(--ink)}
   .ag-hist-close svg{width:16px;height:16px}
+
+  /* Workspace pill + the two action buttons above the nav — Replit's
+     "Create something new" / "Import" pair. */
+  .ag-ws{display:flex;align-items:center;gap:9px;width:100%;border:1px solid var(--line);background:var(--card);
+    border-radius:999px;padding:6px 11px 6px 6px;margin:4px 12px 12px;width:calc(100% - 24px);cursor:pointer;text-align:left}
+  .ag-ws .av{width:26px;height:26px;border-radius:50%;flex:none;display:grid;place-items:center;color:#fff;
+    background:linear-gradient(135deg,var(--accent),var(--accent-2));font-weight:600;font-size:.78rem}
+  .ag-ws .nm{flex:1;min-width:0;font-size:.88rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ag-ws svg{width:15px;height:15px;flex:none;color:var(--ink-2)}
+  .ag-act{display:flex;align-items:center;justify-content:center;gap:8px;margin:0 12px 8px;padding:10px;
+    border:1px solid var(--line);background:var(--card);border-radius:10px;color:var(--ink);
+    font-size:.9rem;font-weight:500;cursor:pointer;transition:.15s;width:calc(100% - 24px)}
+  .ag-act:hover{background:var(--paper-2)}
+  .ag-act svg{width:16px;height:16px}
+
+  /* Plan block pinned to the bottom, Replit-style */
+  .ag-hist-foot{margin-top:auto;padding:14px 12px 12px;border-top:1px solid var(--line)}
+  .ag-hist-foot .ttl{font-size:.88rem;font-weight:600;padding:0 4px;margin-bottom:10px}
+  .ag-meter-row{display:flex;align-items:center;gap:10px;padding:5px 4px}
+  .ag-meter-row svg{width:17px;height:17px;flex:none;color:var(--ink-2)}
+  .ag-meter-row .lab{flex:1;min-width:0;font-size:.82rem}
+  .ag-meter-row .lab i{display:block;font-style:normal;color:var(--mut);font-size:.76rem;margin-top:1px}
+  .ag-meter{width:64px;height:5px;border-radius:3px;background:var(--paper-2);overflow:hidden;flex:none}
+  .ag-meter i{display:block;height:100%;background:var(--accent)}
+  .ag-upgrade{display:flex;align-items:center;justify-content:center;gap:8px;margin-top:12px;padding:11px;
+    border:0;border-radius:10px;background:var(--accent);color:#fff;font-size:.92rem;font-weight:600;
+    cursor:pointer;width:100%;text-decoration:none;transition:.15s}
+  .ag-upgrade:hover{background:var(--accent-2)}
+  .ag-upgrade svg{width:15px;height:15px}
+  .ag-hist-links{display:flex;gap:10px;justify-content:center;margin-top:11px;font-size:.76rem;color:var(--mut)}
+  .ag-hist-links a:hover{color:var(--ink)}
+
+  /* Permanent rail from 901px up — Replit's sidebar has no close control
+     and never collapses on desktop. The drawer behaviour (and the
+     hamburger and X that drive it) only exist below that width, where
+     there isn't room for three columns.
+     Placed AFTER the rules it overrides: these selectors are no more
+     specific than the base ones, so source order is what decides, and
+     sitting above them meant .ag-hist-close's own display:grid won. */
+  @media (min-width:901px){
+    .ag-history{width:290px;border-right:1px solid var(--line)}
+    .ag-hist-btn,.ag-hist-close,.ag-hist-backdrop{display:none}
+  }
 
   /* Vertical nav list, Replit-style — not a horizontal tab row: with 5
      items a horizontal row either overflows (found live: two items were
      hidden behind a native scrollbar) or gets cramped. Full-width rows
      stacked vertically has no such ceiling. */
-  .ag-hist-tabs{display:flex;flex-direction:column;gap:2px;padding:10px}
-  .ag-hist-tab{width:100%;display:flex;align-items:center;gap:10px;border:0;background:none;color:var(--ink-2);cursor:pointer;
-    padding:8px 10px;border-radius:10px;font-size:.87rem;font-weight:600;text-align:left;transition:.16s;position:relative}
-  .ag-hist-tab .ic{width:26px;height:26px;border-radius:8px;display:grid;place-items:center;flex:none;
-    background:rgba(18,32,46,.05);color:var(--ink-2);transition:.16s}
-  .ag-hist-tab svg{width:14px;height:14px}
-  .ag-hist-tab:hover{color:var(--ink)}
-  .ag-hist-tab:hover .ic{background:rgba(18,32,46,.09)}
-  .ag-hist-tab.on{color:var(--ink)}
-  .ag-hist-tab.on .ic{background:var(--accent);color:#fff;box-shadow:0 3px 8px -2px rgba(26,166,223,.6)}
-  .ag-hist-tab.on::before{content:"";position:absolute;left:-10px;top:50%;transform:translateY(-50%);
-    width:3px;height:18px;border-radius:3px;background:var(--accent)}
+  /* Plain icon + label rows, no chips or indicator bars — Replit's nav is
+     quiet, with a light fill on the active row and nothing else. */
+  .ag-hist-tabs{display:flex;flex-direction:column;gap:1px;padding:2px 12px 10px}
+  .ag-hist-tab{width:100%;display:flex;align-items:center;gap:11px;border:0;background:none;color:var(--ink);cursor:pointer;
+    padding:9px 10px;border-radius:8px;font-size:.92rem;font-weight:400;text-align:left;transition:.14s}
+  .ag-hist-tab svg{width:18px;height:18px;flex:none;color:var(--ink-2)}
+  .ag-hist-tab:hover{background:var(--paper-2)}
+  .ag-hist-tab.on{background:var(--paper-2);font-weight:500}
+  .ag-hist-tab.on svg{color:var(--ink)}
 
   .ag-hist-view{flex:1;overflow-y:auto;display:none}
   .ag-hist-view.on{display:block}
@@ -405,22 +448,32 @@
 <aside class="ag-history" id="agHistory" aria-label="Your account">
   <div class="ag-hist-head">
     <span class="ag-hist-mark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 16 4-4-4-4M6 8l-4 4 4 4M14.5 4l-5 16"/></svg></span>
-    <span><b>Souqi Code</b><span class="sub">Your workspace</span></span>
+    <b>Souqi Code</b>
     <button type="button" class="ag-hist-close" id="agHistClose" aria-label="Close">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
     </button>
   </div>
+
+  <button type="button" class="ag-ws" id="agWs">
+    <span class="av" id="agWsAv">S</span>
+    <span class="nm" id="agWsNm">Your Workspace</span>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg>
+  </button>
+
+  <button type="button" class="ag-act" id="agActNew">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Create something new</button>
+
   <div class="ag-hist-tabs" id="agHistTabs" role="tablist">
     <button type="button" class="ag-hist-tab on" data-view="home">
-      <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg></span>Home</button>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg>Home</button>
     <button type="button" class="ag-hist-tab" data-view="favorites">
-      <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01z"/></svg></span>Favorites</button>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01z"/></svg>Favorites</button>
     <button type="button" class="ag-hist-tab" data-view="domains">
-      <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 0 1 0 18 15 15 0 0 1 0-18z"/></svg></span>Domains</button>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 0 1 0 18 15 15 0 0 1 0-18z"/></svg>Domains</button>
     <button type="button" class="ag-hist-tab" data-view="stats">
-      <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/></svg></span>Stats</button>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/></svg>Stats</button>
     <button type="button" class="ag-hist-tab" data-view="settings">
-      <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>Settings</button>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Settings</button>
   </div>
 
   <div class="ag-hist-view on" id="viewHome">
@@ -451,6 +504,27 @@
     <div class="ag-set-row"><span class="l">This month's usage</span><span class="v" id="setUsage">—</span></div>
     <a class="ag-set-cta" href="/pricing">See plans</a>
     <div class="ag-set-row"><span class="l">Account</span><span class="v"><a class="btn-g" style="padding:6px 12px" href="/login">Sign in</a></span></div>
+  </div>
+
+  <div class="ag-hist-foot">
+    <div class="ttl" id="agPlanTtl">Your Free Plan</div>
+    <div class="ag-meter-row">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+      <span class="lab">Free edits<i id="agEditsUsed">3 per build</i></span>
+      <span class="ag-meter"><i id="agEditsBar" style="width:0%"></i></span>
+    </div>
+    <div class="ag-meter-row">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 10a4 4 0 0 0-7.8-1.2A3.5 3.5 0 1 0 7 16h10.5a3.5 3.5 0 0 0 .5-6z"/></svg>
+      <span class="lab">Build budget<i id="agSpendUsed">0% used</i></span>
+      <span class="ag-meter"><i id="agSpendBar" style="width:0%"></i></span>
+    </div>
+    <a class="ag-upgrade" href="/pricing">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.4 6.4L21 10l-5.2 4.2L17.2 21 12 17.3 6.8 21l1.4-6.8L3 10l6.6-1.6z"/></svg>Upgrade</a>
+    <div class="ag-hist-links">
+      <a href="/terms" target="_blank" rel="noopener">Terms</a><span>·</span>
+      <a href="/privacy" target="_blank" rel="noopener">Privacy</a><span>·</span>
+      <a href="/pricing">Plans</a>
+    </div>
   </div>
 </aside>
 
@@ -1201,6 +1275,32 @@
   agHistOpen.addEventListener("click", openHistory);
   agHistClose.addEventListener("click", closeHistory);
   agHistBackdrop.addEventListener("click", closeHistory);
+
+  // The rail is permanent above 900px (CSS), so its contents must be
+  // populated on load there rather than waiting for an open that never
+  // happens. Below that it stays a drawer and openHistory() does it.
+  if (window.matchMedia("(min-width:901px)").matches) loadHistory();
+  $("agActNew").addEventListener("click", () => { location.href = "/agent"; });
+
+  // Plan block in the sidebar footer.
+  fetch("/api/account/me").then((r) => r.json()).then((d) => {
+    if (d.signedIn) {
+      const name = d.name || (d.email || "").split("@")[0] || "You";
+      $("agWsNm").textContent = d.company || (name + "'s Workspace");
+      $("agWsAv").textContent = (name.charAt(0) || "S").toUpperCase();
+      const plan = (d.plan || "free");
+      $("agPlanTtl").textContent = "Your " + plan.charAt(0).toUpperCase() + plan.slice(1) + " Plan";
+    }
+    $("agEditsUsed").textContent = (d.freeEdits != null ? d.freeEdits : 3) + " per build";
+    const spent = Number(d.spentUsd || 0), budget = Number(d.budgetUsd || 0);
+    if (budget > 0) {
+      const pct = Math.min(100, spent / budget * 100);
+      $("agSpendBar").style.width = pct + "%";
+      $("agSpendUsed").textContent = Math.round(pct) + "% used";
+    } else {
+      $("agSpendUsed").textContent = "$" + spent.toFixed(2) + " this month";
+    }
+  }).catch(() => { /* the rail still works without it */ });
   document.addEventListener("keydown", (e) => {
     if (e.key !== "Escape") return;
     if (!agSetOverlay.hidden) { closeSettings(); return; } // topmost layer first
