@@ -42,7 +42,11 @@ app.disable("x-powered-by");
 const jsonBig = express.json({ limit: "12mb" });
 const jsonDefault = express.json({ limit: "4mb" });
 app.use((req, res, next) => {
-  const big = req.path === "/api/storefront/config" || /^\/api\/ws\/[^/]+\/domain$/.test(req.path);
+  // /api/codeagent/build: a base64-encoded logo upload (see attachLogoIfPresent)
+  // can legitimately run to ~4MB even after the client's own 2MB cap on the
+  // decoded image — base64 adds ~33%, and this is JSON, not multipart.
+  const big = req.path === "/api/storefront/config" || req.path === "/api/codeagent/build"
+    || /^\/api\/ws\/[^/]+\/domain$/.test(req.path);
   return (big ? jsonBig : jsonDefault)(req, res, next);
 });
 
@@ -151,6 +155,7 @@ app.get("/pricing", (req, res) => res.sendFile(path.join(__dirname, "..", "publi
 app.get("/terms", (req, res) => res.sendFile(path.join(__dirname, "..", "public", "terms.html")));
 app.get("/privacy", (req, res) => res.sendFile(path.join(__dirname, "..", "public", "privacy.html")));
 app.get("/settings", (req, res) => res.sendFile(path.join(__dirname, "..", "public", "settings.html")));
+app.get("/projects", (req, res) => res.sendFile(path.join(__dirname, "..", "public", "projects.html")));
 app.get("/checkout", (req, res) => res.sendFile(path.join(__dirname, "..", "public", "checkout.html")));
 app.get("/admin", (req, res) => res.sendFile(path.join(__dirname, "..", "public", "admin.html")));
 app.get("/portal/:wsId", (req, res) => res.sendFile(path.join(__dirname, "..", "public", "portal.html")));
@@ -2025,6 +2030,50 @@ const CODEAGENT_TYPE_HINT = {
 // Checked once, at fresh-build time, so it costs nothing to enforce.
 const CODEAGENT_PLAN_APP_LIMITS = { pro: 1, max: 5 };
 
+// data:image/<type>;base64,<data> -> ["png","jpeg","svg+xml","webp"] plus
+// the actual payload. Anything else (a non-image mime, no base64 marker,
+// malformed) is rejected rather than guessed at.
+const LOGO_MIME_RE = /^data:image\/(png|jpeg|jpg|svg\+xml|webp);base64,([a-z0-9+/=]+)$/i;
+const LOGO_EXT = { png: "png", jpeg: "jpg", jpg: "jpg", "svg+xml": "svg", webp: "webp" };
+
+/**
+ * Writes an uploaded logo into a FRESH sandbox before the model's first
+ * turn, and returns the sentence to append to its prompt — or "" if there
+ * was nothing valid to attach. Called only for !project (a follow-up has
+ * no fresh sandbox to seed and no reason to re-attach an asset that's
+ * already sitting in the project's files from the first build).
+ *
+ * The write goes through runtime.writeBinaryFile DIRECTLY, not through
+ * tools.write_file — that one asserts a string and treats it as utf8,
+ * which would corrupt binary image bytes. Same "server writes raw bytes,
+ * the model's own tool surface never does" boundary as readDist.
+ */
+async function attachLogoIfPresent(req, tools, runtime, ws) {
+  const logo = req.body && req.body.logo;
+  if (!logo || typeof logo.dataUrl !== "string") return "";
+
+  const m = LOGO_MIME_RE.exec(logo.dataUrl);
+  if (!m) return "";
+
+  const base64 = m[2];
+  // Decoded size, not the base64 string's length (~33% larger) — matches
+  // what actually lands on disk and what the client-side 2MB check means.
+  if (Buffer.byteLength(base64, "base64") > 3 * 1024 * 1024) return "";
+
+  const ext = LOGO_EXT[m[1].toLowerCase()] || "png";
+  const relPath = "src/assets/logo." + ext;
+  if (typeof runtime.writeBinaryFile !== "function") return "";
+
+  try {
+    await runtime.writeBinaryFile(ws, relPath, base64);
+  } catch (e) {
+    return ""; // a failed upload isn't worth failing the whole build over
+  }
+
+  return " An image has already been uploaded and saved at " + relPath +
+    " — import and use it as the site's logo/brand mark (e.g. in the header) instead of inventing a placeholder.";
+}
+
 /* -----------------------------------------------------------------
    Account endpoints backing public/settings.html.
    Every one of these is session-gated via codeAgentSessionUser(): a
@@ -2442,6 +2491,7 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
     if (!project) {
       const buildType = String((req.body && req.body.buildType) || "");
       effectivePrompt = prompt + (CODEAGENT_TYPE_HINT[buildType] || "");
+      effectivePrompt += await attachLogoIfPresent(req, tools, runtime, ws);
     }
     if (project) {
       let currentApp = "";

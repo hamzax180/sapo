@@ -55,9 +55,15 @@
 
     /* ---- marketing top navigation (shared with login) ---- */
     :root { --wcnav-h:64px; }
-    body { background:linear-gradient(180deg, #f9fbfd, var(--surface-2)); min-height:100vh; }
+    /* pricing.html still links the legacy sap.css corporate-navy design
+       system (--bg/--surface-2 resolve to cool grays there) — home.html
+       and code.html moved to a warm cream palette and pricing never
+       followed, so this was the one page that visually didn't match the
+       product it's selling. Overridden here rather than in sap.css
+       itself, which admin.html/checkout.html still rely on as-is. */
+    body { background:#faf7f2; min-height:100vh; }
     .wc-nav { position:sticky; top:0; z-index:30; height:var(--wcnav-h); display:flex; align-items:center; gap:20px;
-      padding:0 clamp(16px,3vw,40px); background:rgba(255,255,255,.92); backdrop-filter:saturate(160%) blur(8px); border-bottom:1px solid var(--line); }
+      padding:0 clamp(16px,3vw,40px); background:rgba(250,247,242,.92); backdrop-filter:saturate(160%) blur(8px); border-bottom:1px solid var(--line); }
     .wc-brand { display:flex; align-items:center; gap:10px; text-decoration:none; flex:0 0 auto; }
     .wc-brand .wc-mark { width:30px; height:30px; display:grid; place-items:center; }
     .wc-brand .wc-name { font-family:var(--font-head); font-weight:800; letter-spacing:.02em; color:var(--navy-800); font-size:1.06rem; }
@@ -110,8 +116,8 @@
     .c-name { font-family:var(--font-head); font-weight:800; font-size:1.5rem; color:var(--navy-800); margin-top:14px; letter-spacing:-.01em; }
     .c-tag { color:var(--muted); font-size:.9rem; margin-top:3px; line-height:1.4; min-height:38px; }
 
-    .c-cycle { display:inline-flex; background:#eef2f7; border:1px solid var(--line); border-radius:999px; padding:3px; margin-top:14px; gap:2px; }
-    .c-cycle button { border:0; background:none; cursor:pointer; font:inherit; font-size:.74rem; font-weight:700; color:var(--muted); padding:5px 11px; border-radius:999px; transition:all .16s; white-space:nowrap; }
+    .c-cycle { display:inline-flex; background:#eef2f7; border:1px solid var(--line); border-radius:10px; padding:3px; margin-top:14px; gap:2px; }
+    .c-cycle button { border:0; background:none; cursor:pointer; font:inherit; font-size:.74rem; font-weight:700; color:var(--muted); padding:5px 11px; border-radius:7px; transition:all .16s; white-space:nowrap; }
     .c-cycle button.on { background:#fff; color:var(--navy-800); box-shadow:0 1px 5px rgba(13,42,69,.12); }
     .c-cycle .save { color:var(--accent); }
 

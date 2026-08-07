@@ -14,6 +14,7 @@
     { "source": "/agent/:slug", "destination": "/code.html" },
     { "source": "/build", "destination": "/home.html" },
     { "source": "/settings", "destination": "/settings.html" },
+    { "source": "/projects", "destination": "/projects.html" },
     { "source": "/portal/:path*", "destination": "/portal.html" },
 
     { "source": "/api/:path*", "destination": "/api/index.js" },

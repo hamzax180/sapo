@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#faf7f2">
+<meta name="robots" content="noindex">
+<link rel="icon" type="image/png" href="/assets/logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Jost:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<title>Projects — Souqi</title>
+<style>
+  /* Same warm-cream system as code.html/home.html — this is a builder
+     page (a wider view of the sidebar's own Home list), not a settings
+     surface, so it keeps the product's real palette rather than
+     settings.html's neutral Replit-clone gray. */
+  *,*::before,*::after{box-sizing:border-box}
+  :root{
+    --paper:#faf7f2; --paper-2:#f3eee6; --card:#ffffff;
+    --ink:#12202e; --ink-2:#5d6f80; --mut:#8b98a5;
+    --accent:#1aa6df; --accent-2:#0f8ec4;
+    --tint-2:#e7f5fd; --line:#e7e1d7;
+    --disp:'Jost','Century Gothic',system-ui,sans-serif;
+    --body:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+    --ease:cubic-bezier(.16,1,.3,1);
+  }
+  html{background:var(--paper)}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--body);-webkit-font-smoothing:antialiased}
+  a{color:inherit;text-decoration:none}
+  button{font:inherit}
+  h1,h2{font-family:var(--disp);font-weight:700;letter-spacing:-.02em;margin:0}
+
+  .nav{display:flex;align-items:center;gap:20px;padding:14px clamp(18px,4vw,40px);border-bottom:1px solid var(--line)}
+  .brand{display:flex;align-items:center;gap:10px;font-family:var(--disp);font-weight:800;font-size:1.1rem}
+  .brand img{width:26px;height:26px;object-fit:contain;border-radius:4px}
+  .nav .sp{margin-left:auto}
+  .btn-g{padding:9px 15px;border:1px solid var(--line);border-radius:10px;font-size:.86rem;font-weight:600;transition:.16s;background:var(--card)}
+  .btn-g:hover{border-color:#c6dbe7}
+  .btn-d{padding:9px 17px;border-radius:10px;background:var(--accent);color:#fff;font-size:.86rem;font-weight:600;transition:.16s}
+  .btn-d:hover{background:var(--accent-2)}
+
+  .wrap{max-width:1180px;margin:0 auto;padding:clamp(26px,5vw,46px) clamp(18px,4vw,40px) 80px}
+  .phead{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:28px}
+  .phead h1{font-size:clamp(1.7rem,3.5vw,2.2rem)}
+  .search{margin-left:auto;position:relative;width:min(280px,100%)}
+  .search svg{position:absolute;left:12px;top:50%;transform:translateY(-50%);width:16px;height:16px;color:var(--mut)}
+  .search input{width:100%;border:1px solid var(--line);border-radius:10px;padding:9px 12px 9px 34px;
+    font:inherit;font-size:.9rem;background:var(--card);color:var(--ink)}
+  .search input:focus{outline:none;border-color:var(--accent)}
+
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px}
+  .card{display:block;text-align:left;border:1px solid var(--line);background:var(--card);border-radius:16px;
+    overflow:hidden;cursor:pointer;transition:.15s}
+  .card:hover{border-color:#c6dbe7;box-shadow:0 8px 22px -12px rgba(11,22,38,.28);transform:translateY(-1px)}
+  .thumb{height:120px;display:flex;align-items:center;justify-content:space-between;padding:14px;font-family:var(--disp);font-weight:700;font-size:1.9rem;color:#fff}
+  .thumb .star{border:0;background:rgba(255,255,255,.22);color:#fff;width:28px;height:28px;border-radius:8px;
+    display:grid;place-items:center;cursor:pointer;opacity:.85;transition:.15s}
+  .thumb .star:hover{background:rgba(255,255,255,.34);opacity:1}
+  .thumb .star.on{color:#ffd25a}
+  .thumb .star svg{width:15px;height:15px}
+  .thumb .star.on svg{fill:currentColor}
+  .body{padding:12px 14px 14px}
+  .body .t{font-size:.94rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .body .m{display:flex;align-items:center;gap:5px;font-size:.79rem;color:var(--mut);margin-top:4px}
+  .body .m svg{width:12px;height:12px;flex:none}
+
+  .empty{text-align:center;padding:80px 20px;color:var(--ink-2)}
+  .empty h2{font-size:1.3rem;margin-bottom:8px;color:var(--ink)}
+  .empty p{font-size:.92rem;max-width:40ch;margin:0 auto 20px;line-height:1.5}
+  .loading{text-align:center;padding:60px 20px;color:var(--mut);font-size:.9rem}
+</style>
+</head>
+<body>
+
+<header class="nav">
+  <a class="brand" href="/agent"><img src="/assets/logo.png" alt="Souqi"><span>Souqi</span></a>
+  <span class="sp"></span>
+  <a class="btn-g" href="/agent">Back to builder</a>
+  <a class="btn-d" href="/pricing">See plans</a>
+</header>
+
+<div class="wrap">
+  <div class="phead">
+    <h1>Projects</h1>
+    <div class="search">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+      <input type="search" id="q" placeholder="Search by name…" aria-label="Search projects">
+    </div>
+  </div>
+  <div id="body"><div class="loading">Loading…</div></div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+  var $ = function (id) { return document.getElementById(id); };
+  function esc(t) { var d = document.createElement("span"); d.textContent = t == null ? "" : t; return d.innerHTML; }
+  var TYPE_COLOR = { website: "#1aa6df", webapp: "#7c5cff", dashboard: "#f59e0b", portfolio: "#ec4899", mobile: "#10b981" };
+  function timeAgo(iso) {
+    var s = (Date.now() - new Date(iso)) / 1000;
+    if (s < 3600) return Math.max(1, Math.round(s / 60)) + "m ago";
+    if (s < 86400) return Math.round(s / 3600) + "h ago";
+    if (s < 86400 * 30) return Math.round(s / 86400) + "d ago";
+    return new Date(iso).toLocaleDateString();
+  }
+
+  var all = [];
+  function render(list) {
+    var body = $("body");
+    if (!all.length) {
+      body.innerHTML = '<div class="empty"><h2>Nothing built yet</h2>'
+        + '<p>Everything you build with Souqi Code will show up here.</p>'
+        + '<a class="btn-d" href="/agent">Start building</a></div>';
+      return;
+    }
+    if (!list.length) {
+      body.innerHTML = '<div class="empty"><h2>No matches</h2><p>Try a different search.</p></div>';
+      return;
+    }
+    body.innerHTML = '<div class="grid">' + list.map(function (p) {
+      var title = p.title || "Untitled app";
+      var color = TYPE_COLOR[p.buildType] || "#8b98a5";
+      var star = p.favorite ? "on" : "";
+      var meta = p.published
+        ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 0 1 0 18 15 15 0 0 1 0-18z"/></svg>Published'
+        : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>Private';
+      return '<a class="card" href="/agent/' + esc(p.slug) + '">'
+        + '<span class="thumb" style="background:' + color + '">' + esc(title.charAt(0).toUpperCase() || "A")
+        + '<button type="button" class="star ' + star + '" data-slug="' + esc(p.slug) + '" data-fav="' + (p.favorite ? "1" : "0") + '" aria-label="Favorite" onclick="event.preventDefault()">'
+        + '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01z"/></svg></button></span>'
+        + '<span class="body"><span class="t">' + esc(title) + '</span>'
+        + '<span class="m">' + meta + ' · ' + esc(timeAgo(p.updatedAt)) + '</span></span></a>';
+    }).join("") + '</div>';
+  }
+
+  fetch("/api/projects?kind=code&limit=200").then(function (r) { return r.json(); }).then(function (d) {
+    all = d.projects || [];
+    render(all);
+  }).catch(function () {
+    $("body").innerHTML = '<div class="empty"><h2>Couldn\'t load your projects</h2><p>Try reloading the page.</p></div>';
+  });
+
+  $("q").addEventListener("input", function () {
+    var q = $("q").value.trim().toLowerCase();
+    render(!q ? all : all.filter(function (p) { return (p.title || "").toLowerCase().indexOf(q) >= 0; }));
+  });
+
+  document.addEventListener("click", function (e) {
+    var star = e.target.closest(".star"); if (!star) return;
+    var next = star.dataset.fav !== "1";
+    star.classList.toggle("on", next); star.dataset.fav = next ? "1" : "0";
+    var p = all.find(function (x) { return x.slug === star.dataset.slug; });
+    if (p) p.favorite = next;
+    fetch("/api/codeagent/" + encodeURIComponent(star.dataset.slug) + "/favorite", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ favorite: next })
+    }).catch(function () {});
+  });
+})();
+</script>
+</body>
+</html>

@@ -45,10 +45,24 @@
   .btn-d:hover{background:var(--accent-2);transform:translateY(-1px)}
   @media (max-width:640px){ .nav{gap:6px;padding:11px 12px} .brand{font-size:1rem;gap:6px} }
 
-  .ag-split{max-width:1440px;margin:0 auto;width:100%;display:grid;grid-template-columns:minmax(340px,460px) 1fr;
-    flex:1;min-height:0}
+  /* Grid before Flexbox: grid-template-columns doesn't interpolate
+     between a minmax() track and a fixed one in every browser, and this
+     needed to actually animate (Replit-style: a centered new-chat screen
+     that resizes into the split editor+preview layout once something's
+     been built, not a snap). Flex-basis on plain pixel/percent values
+     transitions everywhere. */
+  .ag-split{max-width:1440px;margin:0 auto;width:100%;display:flex;flex:1;min-height:0}
   .ag{text-align:left;display:flex;flex-direction:column;min-width:0;min-height:0;
-    padding:0 clamp(14px,2.4vw,28px);border-right:1px solid var(--line)}
+    padding:0 clamp(14px,2.4vw,28px);border-right:1px solid var(--line);
+    flex:1 1 100%;transition:flex-basis .4s var(--ease)}
+  /* No build yet: .ag is the only visible column (.ag-preview collapses to
+     0 below), so its own content is centred to a comfortable reading
+     width instead of stretching edge-to-edge — the "new chat" screen.
+     align-self:center on the column's cross axis does this without a
+     second wrapper; harmless once .ag narrows to 460px too, since a
+     460px column is already under the 720px cap. */
+  .ag-head,.ag-log,.ag-composer{width:100%;max-width:720px;align-self:center}
+  .ag-split.has-preview .ag{flex:0 0 clamp(340px,34vw,460px)}
   .ag-head{display:flex;align-items:center;gap:10px;padding:4px 2px 18px;border-bottom:1px solid var(--line);margin-bottom:22px}
   .ag-head .mark{width:26px;height:26px;border-radius:7px;background:var(--accent);display:grid;place-items:center}
   .ag-head .mark svg{width:15px;height:15px;color:#fff}
@@ -81,6 +95,14 @@
   @keyframes spin{to{transform:rotate(360deg)}}
 
   .ag-say{padding:6px 2px 14px 35px;font-size:1rem;line-height:1.62;color:var(--ink);opacity:0;animation:agIn .35s var(--ease) forwards}
+  /* Per-word reveal for the agent's own text (see revealWords()) — .ag-say
+     itself still fades in as a block via agIn above; this staggers the
+     WORDS inside it a beat apart on top of that, which is what actually
+     reads as the response "arriving" rather than just appearing. Kept to
+     text nodes only (revealWords walks around real <a>/<span> children),
+     so a "See plans" link inside a gate message is never split mid-word. */
+  .rv-w{display:inline-block;opacity:0;transform:translateY(5px);animation:agWordIn .38s var(--ease) forwards}
+  @keyframes agWordIn{to{opacity:1;transform:none}}
   .ag-say b{font-weight:600}
   .ag-say .muted{color:var(--ink-2)}
   .ag-say.err{color:#b3261e}
@@ -120,29 +142,93 @@
   .ag-box textarea{width:100%;border:0;outline:0;resize:none;background:none;font-family:var(--body);font-size:1rem;line-height:1.5;color:var(--ink);min-height:26px;max-height:180px;overflow-y:auto}
   .ag-box textarea::placeholder{color:var(--mut)}
   .ag-brow{display:flex;align-items:center;gap:8px;padding-top:8px}
+  .ag-brow-sp{flex:1}
 
-  /* type-of-build picker — a small toolbar row above the textarea, Replit-
-     style. "Mobile" is deliberately labelled/titled as a responsive web
-     output, not a native app — the backend only ever builds one stack
-     (React/Vite, docs/CODE-AGENT-PLAN.md §1), so promising native mobile
-     generation here would be a UI that lies about what actually happens. */
-  .ag-type-row{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:11px;padding-bottom:11px;border-bottom:1px solid var(--line)}
-  .ag-type-row[hidden]{display:none} /* the class's own display:flex otherwise
-    outranks the UA [hidden]{display:none} rule by specificity, so setting
-    .hidden = true in JS silently did nothing — found live, the row stayed
-    visible after the first build despite the JS correctly setting it */
-  .ag-type{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--paper-2);color:var(--ink-2);
-    border-radius:999px;padding:6px 13px 6px 10px;font-size:.8rem;font-weight:600;cursor:pointer;transition:.15s}
-  .ag-type svg{width:14px;height:14px;flex:none}
-  .ag-type:hover{border-color:#c6dbe7;color:var(--ink)}
-  .ag-type.on{background:var(--ink);color:#fff;border-color:var(--ink)}
-  .ag-send{margin-inline-start:auto;flex:none;width:34px;height:34px;border:0;border-radius:50%;cursor:pointer;background:#e9e4db;color:#fff;display:grid;place-items:center;transition:background .2s,transform .16s}
+  /* Attach button + the chip that replaces it once a file's picked —
+     Replit's "+" in the composer row, repurposed here specifically for a
+     logo/image the agent should build from rather than invent. Rectangular
+     like every other control here (see the sitewide button pass), not the
+     old circular .ag-send. */
+  .ag-attach{flex:none;width:32px;height:32px;border:1px solid var(--line);background:var(--paper-2);color:var(--ink-2);
+    border-radius:8px;display:grid;place-items:center;cursor:pointer;transition:.15s}
+  .ag-attach:hover{border-color:#c6dbe7;color:var(--ink)}
+  .ag-attach svg{width:16px;height:16px}
+  .ag-attach-chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--paper-2);
+    border-radius:999px;padding:3px 4px 3px 3px;font-size:.78rem;font-weight:600;color:var(--ink-2);max-width:160px}
+  .ag-attach-chip img{width:20px;height:20px;border-radius:5px;object-fit:cover;flex:none;background:#fff}
+  .ag-attach-chip .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .ag-attach-chip button{flex:none;border:0;background:none;color:var(--mut);cursor:pointer;width:16px;height:16px;display:grid;place-items:center}
+  .ag-attach-chip button:hover{color:var(--ink)}
+  .ag-attach-chip button svg{width:12px;height:12px}
+
+  /* Rounded square, not the old full circle — matches the attach button
+     and every other control's radius (see the sitewide rectangle-button
+     pass) rather than being the one round thing in the row. */
+  .ag-send{flex:none;width:34px;height:34px;border:0;border-radius:9px;cursor:pointer;background:#e9e4db;color:#fff;display:grid;place-items:center;transition:background .2s,transform .16s}
   .ag-send svg{width:16px;height:16px}
   .ag-send.live{background:var(--accent)}
   .ag-send.live:hover{background:var(--accent-2);transform:translateY(-1px)}
   .ag-send:disabled{cursor:not-allowed}
 
-  .ag-empty{padding:40px 2px;color:var(--ink-2)}
+  .ag-empty{padding:8px 2px 28px;color:var(--ink-2);text-align:center}
+  .ag-empty h2{font-family:var(--disp);font-weight:600;font-size:clamp(1.5rem,3.2vw,1.9rem);color:var(--ink);letter-spacing:-.02em}
+
+  /* New-chat-only extras: type tiles + example prompts, both hidden the
+     moment a first turn lands (see isFirstBuild in runTurn()) — the same
+     [hidden]-vs-class-display trap as everywhere else in this file, so the
+     override is repeated here rather than assumed. */
+  .ag-newchat-extras[hidden]{display:none}
+
+  .ag-type-tiles{display:flex;align-items:center;gap:4px;margin:22px 0 20px}
+  .ag-tiles-arrow{flex:none;width:26px;height:26px;border:0;background:none;color:var(--ink-2);border-radius:7px;
+    display:grid;place-items:center;cursor:pointer;transition:.15s}
+  .ag-tiles-arrow:hover{background:var(--paper-2);color:var(--ink)}
+  .ag-tiles-arrow svg{width:16px;height:16px}
+  /* justify-content:safe center, not plain center — with overflow-x:auto,
+     plain center clips the START of the row off-screen with no way to
+     scroll back to it once content is wider than the track (a real
+     flexbox footgun). "safe" falls back to flex-start only when it would
+     otherwise overflow, so five tiles centre normally and a sixth added
+     later doesn't hide "Website" behind the left edge. */
+  .ag-tiles-track{flex:1;display:flex;justify-content:safe center;gap:10px;overflow-x:auto;scrollbar-width:none;scroll-behavior:smooth}
+  .ag-tiles-track::-webkit-scrollbar{display:none}
+  .ag-tile{flex:none;display:flex;flex-direction:column;align-items:center;gap:8px;border:0;background:none;
+    color:var(--ink-2);font-size:.82rem;font-weight:500;cursor:pointer;width:74px}
+  .ag-tile .ic{width:52px;height:52px;border-radius:14px;background:var(--paper-2);border:1px solid var(--line);
+    display:grid;place-items:center;color:var(--ink-2);transition:.15s}
+  .ag-tile .ic svg{width:21px;height:21px}
+  .ag-tile:hover .ic{border-color:#c6dbe7;color:var(--ink)}
+  .ag-tile.on .ic{background:var(--ink);border-color:var(--ink);color:#fff}
+  .ag-tile.on{color:var(--ink);font-weight:600}
+
+  .ag-examples{text-align:center}
+  .ag-examples .lbl{display:inline-flex;align-items:center;gap:7px;font-size:.86rem;color:var(--ink-2);margin-bottom:12px}
+  .ag-examples .lbl button{border:0;background:none;color:var(--ink-2);cursor:pointer;width:20px;height:20px;
+    border-radius:6px;display:grid;place-items:center;transition:.15s}
+  .ag-examples .lbl button:hover{background:var(--paper-2);color:var(--ink);transform:rotate(60deg)}
+  .ag-examples .lbl button svg{width:14px;height:14px}
+  .ag-ex-row{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
+  .ag-ex-chip{border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:10px;
+    padding:9px 14px;font-size:.85rem;font-weight:500;cursor:pointer;transition:.15s}
+  .ag-ex-chip:hover{border-color:#c6dbe7;background:var(--paper-2)}
+
+  .ag-recent{margin-top:44px;padding-top:24px;border-top:1px solid var(--line)}
+  .ag-recent-head{display:flex;align-items:center;margin-bottom:16px}
+  .ag-recent-head h3{font-size:1.05rem;font-weight:600}
+  .ag-recent-head button{margin-inline-start:auto;display:flex;align-items:center;gap:3px;border:0;background:none;
+    color:var(--ink-2);font-size:.85rem;font-weight:500;cursor:pointer;padding:4px 2px;transition:.15s}
+  .ag-recent-head button:hover{color:var(--ink)}
+  .ag-recent-head button svg{width:15px;height:15px}
+  .ag-recent-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px}
+  .ag-recent-card{display:block;text-align:left;border:1px solid var(--line);background:var(--card);border-radius:14px;
+    overflow:hidden;cursor:pointer;transition:.15s}
+  .ag-recent-card:hover{border-color:#c6dbe7;box-shadow:0 6px 18px -10px rgba(11,22,38,.25);transform:translateY(-1px)}
+  .ag-recent-thumb{height:110px;display:grid;place-items:center;font-family:var(--disp);font-weight:700;
+    font-size:1.6rem;color:#fff}
+  .ag-recent-body{padding:11px 13px}
+  .ag-recent-body .t{font-size:.9rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ag-recent-body .m{display:flex;align-items:center;gap:5px;font-size:.78rem;color:var(--mut);margin-top:3px}
+  .ag-recent-body .m svg{width:12px;height:12px;flex:none}
 
   /* No own height/sticky — the app shell (html/body/.ag-main, below) is
      fixed to the viewport and this just fills its grid cell. It used to be
@@ -150,6 +236,17 @@
      made the document 64px taller than the screen: the whole page scrolled
      and the header slid away, which reads as a bug rather than a layout. */
   .ag-preview{display:flex;flex-direction:column;min-width:0;min-height:0;background:var(--paper-2)}
+  @media (min-width:901px){
+    /* Collapsed until something's been built, so the new-chat screen is
+       .ag alone rather than a wide empty pane beside a narrow chat — then
+       expands in step with .ag narrowing (both flex-basis transitions
+       fire together). Scoped to desktop: below 901px the Chat/Preview
+       tabs already own showing and hiding this panel via .tab-hidden. */
+    .ag-preview{flex:0 0 0;width:0;overflow:hidden;opacity:0;
+      transition:flex-basis .4s var(--ease),opacity .25s var(--ease)}
+    .ag-split.has-preview .ag-preview{flex:1 1 auto;width:auto;opacity:1;
+      transition:flex-basis .4s var(--ease),opacity .3s var(--ease) .1s}
+  }
   .ag-pv-bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:12px clamp(14px,2.4vw,24px);border-bottom:1px solid var(--line)}
   .ag-pv-bar .label{font-size:.84rem;color:var(--ink-2);font-weight:500}
   .ag-pv-devices{display:flex;gap:4px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:3px}
@@ -282,11 +379,15 @@
     .ag-history{position:fixed;top:0;left:0;bottom:0;z-index:71}
   }
 
-  .ag-hist-head{display:flex;align-items:center;gap:10px;padding:14px 14px 10px}
-  .ag-hist-mark{width:28px;height:28px;border-radius:8px;background:var(--accent);
+  /* Small icon strip, not a repeated wordmark — the workspace pill right
+     below is the actual first thing Replit's own sidebar shows; a bold
+     "Souqi Code" row above it just pushed that pill down and duplicated
+     identity the pill already carries. */
+  .ag-hist-head{display:flex;align-items:center;gap:10px;padding:12px 14px 4px}
+  .ag-hist-mark{width:22px;height:22px;border-radius:6px;background:var(--accent);
     display:grid;place-items:center;flex:none}
-  .ag-hist-mark svg{width:15px;height:15px;color:#fff}
-  .ag-hist-head b{font-weight:600;font-size:.98rem;letter-spacing:-.01em}
+  .ag-hist-mark svg{width:12px;height:12px;color:#fff}
+  .ag-hist-head b{display:none}
   .ag-hist-close{margin-inline-start:auto;border:0;background:none;color:var(--ink-2);cursor:pointer;width:30px;height:30px;border-radius:8px;display:grid;place-items:center;transition:.15s}
   .ag-hist-close:hover{background:var(--paper-2);color:var(--ink)}
   .ag-hist-close svg{width:16px;height:16px}
@@ -299,9 +400,9 @@
     background:linear-gradient(135deg,var(--accent),var(--accent-2));font-weight:600;font-size:.78rem}
   .ag-ws .nm{flex:1;min-width:0;font-size:.88rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .ag-ws svg{width:15px;height:15px;flex:none;color:var(--ink-2)}
-  .ag-act{display:flex;align-items:center;justify-content:center;gap:8px;margin:0 12px 8px;padding:10px;
+  .ag-act{display:flex;align-items:center;justify-content:flex-start;gap:8px;margin:0 12px 8px;padding:10px 12px;
     border:1px solid var(--line);background:var(--card);border-radius:10px;color:var(--ink);
-    font-size:.9rem;font-weight:500;cursor:pointer;transition:.15s;width:calc(100% - 24px)}
+    font-size:.9rem;font-weight:500;cursor:pointer;transition:.15s;width:calc(100% - 24px);text-align:left}
   .ag-act:hover{background:var(--paper-2)}
   .ag-act svg{width:16px;height:16px}
 
@@ -533,15 +634,16 @@
 </aside>
 
 <div class="ag-main" id="agMain">
+<!-- Near-empty, Replit-style: workspace identity, plan and account access
+     all live in the sidebar now (the workspace pill, plan block, Settings)
+     — repeating brand/Sign in/See plans up here was redundant with it.
+     The toggle is the one thing that has to stay: below 900px it's the
+     only way to open the sidebar at all (the permanent-rail CSS hides it
+     above that width, same as it always did). -->
 <header class="nav">
   <button type="button" class="ag-hist-btn" id="agHistOpen" aria-label="Your builds" title="Your builds">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h10M4 18h16"/></svg>
   </button>
-  <span class="brand"><img src="/assets/logo.png" alt="Souqi Logo" style="width:26px;height:26px;object-fit:contain;border-radius:4px"><span>Souqi</span></span>
-  <nav class="lnk">
-    <span class="nav-tag">Code · beta</span>
-  </nav>
-  <a class="btn-g" href="/login">Sign in</a><a class="btn-d" href="/pricing">See plans</a>
 </header>
 
 <div class="ag-split" id="agentView">
@@ -557,30 +659,76 @@
       <button type="button" class="ag-new" id="agNew">New build</button>
     </div>
     <div class="ag-log" id="agLog" aria-live="polite">
-      <div class="ag-empty" id="agEmptyState">Describe an app and I'll write it, build it, and show you the running result — real React, real TypeScript, running in an isolated sandbox.</div>
+      <div class="ag-empty" id="agEmptyState">
+        <h2 id="agGreeting">What do you want to make?</h2>
+      </div>
     </div>
     <form class="ag-composer" id="agForm" autocomplete="off">
       <div class="ag-box">
-        <div class="ag-type-row" id="agTypeRow" role="radiogroup" aria-label="What kind of build">
-          <button type="button" class="ag-type on" data-type="website" role="radio" aria-checked="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 0 1 0 18 15 15 0 0 1 0-18z"/></svg>Website</button>
-          <button type="button" class="ag-type" data-type="webapp" role="radio" aria-checked="false">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18"/></svg>Web App</button>
-          <button type="button" class="ag-type" data-type="dashboard" role="radio" aria-checked="false">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>Dashboard</button>
-          <button type="button" class="ag-type" data-type="portfolio" role="radio" aria-checked="false">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1.3"/><rect x="14" y="3" width="7" height="7" rx="1.3"/><rect x="3" y="14" width="7" height="7" rx="1.3"/><rect x="14" y="14" width="7" height="7" rx="1.3"/></svg>Portfolio</button>
-          <button type="button" class="ag-type" data-type="mobile" role="radio" aria-checked="false" title="A mobile-first layout. Every build is installable to a home screen and works offline — this option just biases the design for a phone screen, it's not a native app.">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></svg>Mobile</button>
-        </div>
         <textarea id="agInput" rows="1" aria-label="Message the agent" placeholder="Build a landing page for…"></textarea>
         <div class="ag-brow">
+          <button type="button" class="ag-attach" id="agAttach" aria-label="Attach a logo or image" title="Attach a logo or image">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+          </button>
+          <input type="file" id="agAttachInput" accept="image/png,image/jpeg,image/svg+xml,image/webp" hidden>
+          <span class="ag-attach-chip" id="agAttachChip" hidden>
+            <img id="agAttachThumb" alt="">
+            <span class="nm" id="agAttachName"></span>
+            <button type="button" id="agAttachRemove" aria-label="Remove attachment">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+            </button>
+          </span>
+          <span class="ag-brow-sp"></span>
           <button type="submit" class="ag-send" id="agSend" disabled aria-label="Send">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M6 11l6-6 6 6"/></svg>
           </button>
         </div>
       </div>
     </form>
+
+    <!-- New-chat-only: type tiles + example prompts. Hidden together with
+         #agEmptyState once the first turn lands — see isFirstBuild in
+         runTurn(), which is also the only place any of this is read. -->
+    <div class="ag-newchat-extras" id="agNewExtras">
+      <div class="ag-type-tiles" id="agTypeRow" role="radiogroup" aria-label="What kind of build">
+        <button type="button" class="ag-tiles-arrow" id="agTilesPrev" aria-label="Scroll left">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+        </button>
+        <div class="ag-tiles-track" id="agTilesTrack">
+          <button type="button" class="ag-tile on" data-type="website" role="radio" aria-checked="true">
+            <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 0 1 0 18 15 15 0 0 1 0-18z"/></svg></span>Website</button>
+          <button type="button" class="ag-tile" data-type="webapp" role="radio" aria-checked="false">
+            <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18"/></svg></span>Web App</button>
+          <button type="button" class="ag-tile" data-type="dashboard" role="radio" aria-checked="false">
+            <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg></span>Dashboard</button>
+          <button type="button" class="ag-tile" data-type="portfolio" role="radio" aria-checked="false">
+            <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1.3"/><rect x="14" y="3" width="7" height="7" rx="1.3"/><rect x="3" y="14" width="7" height="7" rx="1.3"/><rect x="14" y="14" width="7" height="7" rx="1.3"/></svg></span>Portfolio</button>
+          <button type="button" class="ag-tile" data-type="mobile" role="radio" aria-checked="false" title="A mobile-first layout. Every build is installable to a home screen and works offline — this option just biases the design for a phone screen, it's not a native app.">
+            <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></svg></span>Mobile</button>
+        </div>
+        <button type="button" class="ag-tiles-arrow" id="agTilesNext" aria-label="Scroll right">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+        </button>
+      </div>
+
+      <div class="ag-examples">
+        <span class="lbl">Try an example prompt<button type="button" id="agExShuffle" aria-label="Shuffle examples">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/><path d="M3 21v-5h5"/></svg>
+        </button></span>
+        <div class="ag-ex-row" id="agExRow"></div>
+      </div>
+
+      <!-- Populated from the SAME /api/projects the sidebar's Home view
+           already fetches — hidden entirely when there's nothing to
+           show, rather than an empty grid with nothing in it. -->
+      <div class="ag-recent" id="agRecent" hidden>
+        <div class="ag-recent-head">
+          <h3>Your recent Projects</h3>
+          <button type="button" id="agRecentViewAll">View All<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></button>
+        </div>
+        <div class="ag-recent-grid" id="agRecentGrid"></div>
+      </div>
+    </div>
   </section>
 
   <section class="ag-preview tab-hidden" id="agPreview">
@@ -601,8 +749,8 @@
       <div class="ag-pv-empty" id="agPvEmpty">Your app will show up here once it's built.</div>
       <div class="ag-pv-frame" id="agPvFrame" hidden><iframe id="agPvIframe" title="Live preview"></iframe></div>
       <div class="ag-pv-gate" id="agPvGate" hidden>
-        <h3>Your app is ready</h3>
-        <p>Sign up free to view it and keep editing.</p>
+        <h3 id="agPvGateTitle">Your app is ready</h3>
+        <p id="agPvGateSub">Sign up free to view it and keep editing.</p>
         <button type="button" class="ag-pv-gate-btn" id="agPvGateStart">Sign up to view</button>
         <form id="agPvGateForm" autocomplete="on">
           <input type="email" id="agPvGateEmail" placeholder="Email" autocomplete="email" required>
@@ -654,7 +802,8 @@
   const agPvFrame = $("agPvFrame"), agPvIframe = $("agPvIframe"), agPvEmpty = $("agPvEmpty"), agPvOpen = $("agPvOpen"), agPvPublish = $("agPvPublish"), agPvLabel = $("agPvLabel"), agPvDevices = $("agPvDevices");
   const agPvGate = $("agPvGate"), agPvGateForm = $("agPvGateForm"), agPvGateEmail = $("agPvGateEmail"),
     agPvGatePass = $("agPvGatePass"), agPvGateSubmit = $("agPvGateSubmit"), agPvGateErr = $("agPvGateErr"),
-    agPvGateStart = $("agPvGateStart"), agPvGatePass2 = $("agPvGatePass2"), agPvGateCountry = $("agPvGateCountry");
+    agPvGateStart = $("agPvGateStart"), agPvGatePass2 = $("agPvGatePass2"), agPvGateCountry = $("agPvGateCountry"),
+    agPvGateTitle = $("agPvGateTitle"), agPvGateSub = $("agPvGateSub");
   const agTabs = $("agTabs"), agTabChat = $("agTabChat"), agTabPreview = $("agTabPreview"), agPreview = $("agPreview"), agSection = document.querySelector(".ag");
   const agTypeRow = $("agTypeRow");
   const agHistOpen = $("agHistOpen"), agHistClose = $("agHistClose"), agHistBackdrop = $("agHistBackdrop"),
@@ -673,7 +822,7 @@
   // safe default: never briefly flash an unblurred preview to a visitor
   // who turns out not to be signed in).
   let signedIn = false;
-  fetch("/api/codeagent/usage").then((r) => r.json()).then((d) => { signedIn = !!d.signedIn; applyPreviewGate(); }).catch(() => {});
+  fetch("/api/codeagent/usage").then((r) => r.json()).then((d) => { signedIn = !!d.signedIn; }).catch(() => {});
 
   // Only ever changes what gets ASKED FOR, never what gets built — every
   // option still produces the same one stack (React/Vite), just steered
@@ -687,18 +836,94 @@
   // server's prompt.slice(0,60) title/slug logic, ahead of anything the
   // user actually typed).
   agTypeRow.addEventListener("click", (e) => {
-    const btn = e.target.closest(".ag-type"); if (!btn) return;
+    const btn = e.target.closest(".ag-tile"); if (!btn) return;
     selectedType = btn.dataset.type;
-    agTypeRow.querySelectorAll(".ag-type").forEach((b) => {
+    agTypeRow.querySelectorAll(".ag-tile").forEach((b) => {
       const on = b === btn; b.classList.toggle("on", on); b.setAttribute("aria-checked", on ? "true" : "false");
     });
   });
+
+  const agTilesTrack = $("agTilesTrack");
+  $("agTilesPrev").addEventListener("click", () => agTilesTrack.scrollBy({ left: -180, behavior: "smooth" }));
+  $("agTilesNext").addEventListener("click", () => agTilesTrack.scrollBy({ left: 180, behavior: "smooth" }));
+
+  // Example prompts — a small pool, three shown at a time, "shuffle" swaps
+  // in a fresh three rather than cycling a fixed set in order.
+  const EXAMPLE_PROMPTS = [
+    "A budgeting app that tracks spending by category",
+    "A recipe finder with a saved favorites list",
+    "A habit tracker with a weekly streak view",
+    "A booking app for a hair salon",
+    "A portfolio site for a photographer",
+    "A dashboard tracking my team's tasks",
+    "A landing page for a coffee roastery",
+    "A pomodoro timer with session stats",
+    "An expense splitter for roommates",
+    "A markdown notes app with tags"
+  ];
+  const agExRow = $("agExRow");
+  function renderExamples() {
+    const pool = EXAMPLE_PROMPTS.slice();
+    const picks = [];
+    for (let i = 0; i < 3 && pool.length; i++) picks.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
+    agExRow.innerHTML = picks.map((p) => '<button type="button" class="ag-ex-chip">' + esc(p) + "</button>").join("");
+  }
+  renderExamples();
+  $("agExShuffle").addEventListener("click", renderExamples);
+  agExRow.addEventListener("click", (e) => {
+    const btn = e.target.closest(".ag-ex-chip"); if (!btn) return;
+    agInput.value = btn.textContent;
+    agInput.dispatchEvent(new Event("input"));
+    agInput.focus();
+  });
+
+  // Attach a logo/image for the agent to actually build from — read
+  // client-side as a data URL and sent alongside the FIRST build only
+  // (see runTurn(); a follow-up edits an app that already exists, an
+  // attachment at that point wouldn't mean anything server-side).
+  let attachedImage = null; // { name, dataUrl }
+  const agAttachInput = $("agAttachInput"), agAttachChip = $("agAttachChip"),
+    agAttachName = $("agAttachName"), agAttachThumb = $("agAttachThumb");
+  $("agAttach").addEventListener("click", () => agAttachInput.click());
+  agAttachInput.addEventListener("change", () => {
+    const file = agAttachInput.files && agAttachInput.files[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) { say("That image is too large — please attach one under 2MB.", "err"); agAttachInput.value = ""; return; }
+    const reader = new FileReader();
+    reader.onload = () => {
+      attachedImage = { name: file.name, dataUrl: reader.result };
+      agAttachThumb.src = reader.result;
+      agAttachName.textContent = file.name;
+      agAttachChip.hidden = false;
+      $("agAttach").hidden = true;
+    };
+    reader.readAsDataURL(file);
+  });
+  $("agAttachRemove").addEventListener("click", () => {
+    attachedImage = null;
+    agAttachInput.value = "";
+    agAttachChip.hidden = true;
+    $("agAttach").hidden = false;
+  });
+
+  // Personalized greeting for the new-chat screen — falls back to a
+  // generic one for anonymous visitors (fetched below, alongside the
+  // sidebar's plan block, so this is one request doing both jobs).
+  function setGreeting(name) {
+    $("agGreeting").textContent = name ? "Hi " + name + ", what do you want to make?" : "What do you want to make?";
+  }
 
   function clearEmpty() {
     if (!emptyShown) return;
     emptyShown = false;
     const el = $("agEmptyState");
     if (el) el.remove();
+    // Tiles/examples belong to the new-chat screen, not the empty log per
+    // se — hidden the moment a first message actually goes out, rather
+    // than waiting the full build round-trip for isFirstBuild to hide
+    // them, which left them sitting under an in-progress conversation.
+    const extras = $("agNewExtras");
+    if (extras) extras.hidden = true;
   }
 
   function el(cls, html) { const d = document.createElement("div"); d.className = cls; if (html != null) d.innerHTML = html; return d; }
@@ -724,9 +949,39 @@
     agLog.appendChild(row); toBottom();
     return { done(next) { row.classList.remove("busy"); row.querySelector(".ic").innerHTML = ICON.check; if (next) row.lastChild.textContent = next; } };
   }
+  // Wraps each word of TEXT NODES (never element children — an <a> stays
+  // one intact link, never split mid-word) in a staggered fade+rise span.
+  // Delay is capped so a long paragraph finishes revealing in well under a
+  // second rather than making the reader wait through 40 words at 16ms
+  // each — everything past the cap arrives together on the last beat.
+  function revealWords(container) {
+    let i = 0;
+    function walk(node) {
+      if (node.nodeType === 3) {
+        const parts = node.textContent.split(/(\s+)/);
+        const frag = document.createDocumentFragment();
+        parts.forEach((part) => {
+          if (!part) return;
+          if (/^\s+$/.test(part)) { frag.appendChild(document.createTextNode(part)); return; }
+          const span = document.createElement("span");
+          span.className = "rv-w";
+          span.style.animationDelay = Math.min(i * 16, 480) + "ms";
+          span.textContent = part;
+          i++;
+          frag.appendChild(span);
+        });
+        node.parentNode.replaceChild(frag, node);
+      } else if (node.nodeType === 1) {
+        Array.from(node.childNodes).forEach(walk);
+      }
+    }
+    Array.from(container.childNodes).forEach(walk);
+  }
+
   function say(html, cls) {
     clearEmpty();
     const row = el("ag-say" + (cls ? " " + cls : ""), html);
+    revealWords(row);
     agLog.appendChild(row); toBottom();
   }
   // Claude-style live "thinking" block for the propose stage specifically —
@@ -849,11 +1104,15 @@
       const h = think(detail); h.done(detail);
     }
 
+    // Only meaningful on the first build — a follow-up edits an app that
+    // already exists, so there is nothing for a fresh logo to attach to.
+    const logo = (!projectId && attachedImage) ? attachedImage : undefined;
+
     try {
       const res = await fetch("/api/codeagent/build", {
         method: "POST",
         headers: { "Content-Type": "application/json", "Accept": "text/event-stream" },
-        body: JSON.stringify({ prompt: effectivePrompt, projectId: projectId || undefined, buildType: buildType })
+        body: JSON.stringify({ prompt: effectivePrompt, projectId: projectId || undefined, buildType: buildType, logo: logo })
       });
       if (!res.ok || !res.body) throw new Error("That didn't work");
 
@@ -916,7 +1175,8 @@
         // Phase 7: the moment a build survives a reload is the moment
         // this became worth bookmarking.
         try { history.replaceState(null, "", "/agent/" + projectSlug); } catch (e) { /* non-fatal */ }
-        agTypeRow.hidden = true; // only meaningful before there's a project to edit
+        $("agNewExtras").hidden = true; // the whole new-chat screen — only meaningful before there's a project to edit
+        attachedImage = null; agAttachInput.value = ""; agAttachChip.hidden = true; $("agAttach").hidden = false;
       }
       renderCard(result.files, result.costUsd);
       say('<span class="muted">Tell me what to change and I\'ll update it.</span>');
@@ -932,6 +1192,10 @@
   }
 
   function showPreview(url) {
+    // Flips the split from the centred "new chat" screen (.ag alone,
+    // capped at 720px) into the editor+preview layout — the one CSS
+    // transition (flex-basis) drives both panels resizing at once.
+    $("agentView").classList.add("has-preview");
     agPvIframe.src = url;
     agPvFrame.hidden = false;
     agPvEmpty.style.display = "none";
@@ -940,18 +1204,24 @@
     agPvLabel.textContent = "Live preview";
     agPvDevices.removeAttribute("aria-disabled");
     agPvPublish.disabled = false;
-    applyPreviewGate();
   }
 
-  // Blurs the live iframe and shows the "create an account" card when the
-  // visitor isn't signed in yet — called after every fresh build/follow-up
-  // AND once signIn state comes back from the initial /usage fetch, since
-  // whichever finishes second is what actually needs to apply it.
-  function applyPreviewGate() {
-    const hasPreview = !agPvFrame.hidden;
-    const locked = hasPreview && !signedIn;
-    agPvFrame.classList.toggle("locked", locked);
-    agPvGate.hidden = !locked;
+  // The first build is always shown unblurred — same rule the backend's
+  // own edit gate already enforces (POST /build: "the first build stays
+  // free and anonymous"). Only a FOLLOW-UP (an edit) blurs the preview
+  // when the visitor isn't signed in, triggered client-side the moment
+  // they try to send one — see the agForm submit handler below, which
+  // intercepts before the request ever goes out (a signed-out edit would
+  // just get the same authRequired rejection from the server anyway; this
+  // is instant and costs nothing rather than a wasted round-trip).
+  function lockForEdit() {
+    agPvGateTitle.textContent = "Sign up to keep editing";
+    agPvGateSub.textContent = "It's free — no card needed.";
+    agPvFrame.classList.add("locked");
+    agPvGate.hidden = false;
+    // On mobile the gate lives in the Preview tab — switch to it so the
+    // ask is actually visible instead of silently blocking Chat.
+    if (agTabPreview.offsetParent) agTabPreview.click();
   }
 
   agPvGateStart.addEventListener("click", () => {
@@ -984,7 +1254,13 @@
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || "Couldn't create your account");
       signedIn = true;
-      applyPreviewGate();
+      agPvFrame.classList.remove("locked");
+      agPvGate.hidden = true;
+      // The edit that triggered this gate is still sitting in the
+      // composer (submit deliberately left it there) — now that signing
+      // up succeeded, send it, rather than making them retype it.
+      const pending = agInput.value.trim();
+      if (pending) { agInput.value = ""; agInput.style.height = "auto"; runTurn(pending); }
     } catch (err) {
       agPvGateErr.textContent = err.message;
       agPvGateErr.hidden = false;
@@ -1036,6 +1312,10 @@
     e.preventDefault();
     const v = agInput.value.trim();
     if (!v || building) return;
+    // Editing an existing build while signed out never reaches the server
+    // — intercepted here, before the input even clears, so a typo'd draft
+    // isn't lost and the ask (blur + "sign up to keep editing") is instant.
+    if (projectId && !signedIn) { lockForEdit(); return; }
     agInput.value = ""; agInput.style.height = "auto"; agSend.disabled = true;
     runTurn(v);
   });
@@ -1095,6 +1375,32 @@
       + '<button type="button" class="ag-hist-star' + (p.favorite ? " on" : "") + '" data-fav-slug="' + esc(p.slug) + '" data-fav="' + (p.favorite ? "1" : "0") + '" aria-label="Favorite" title="Favorite">' + STAR + '</button>'
       + '</div>';
   }
+  // "Your recent Projects" grid on the new-chat screen — same data
+  // loadHistory() already fetches for the sidebar's Home view, rendered
+  // as cards instead of list rows. Fetched unconditionally on load (not
+  // gated behind signedIn) since anonymous visitors own projects too via
+  // the sq_anon cookie, same as everywhere else in this file.
+  function loadRecentProjects() {
+    fetch("/api/projects?kind=code&limit=6").then((r) => r.json()).then((d) => {
+      const rows = d.projects || [];
+      if (!rows.length) return;
+      $("agRecentGrid").innerHTML = rows.map((p) => {
+        const title = p.title || "Untitled app";
+        const color = TYPE_COLOR[p.buildType] || "#8b98a5";
+        const meta = p.published
+          ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 0 1 0 18 15 15 0 0 1 0-18z"/></svg>Published'
+          : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>Private';
+        return '<a class="ag-recent-card" href="/agent/' + esc(p.slug) + '">'
+          + '<span class="ag-recent-thumb" style="background:' + color + '">' + esc(title.charAt(0).toUpperCase() || "A") + '</span>'
+          + '<span class="ag-recent-body"><span class="t">' + esc(title) + '</span>'
+          + '<span class="m">' + meta + ' · ' + esc(timeAgo(p.updatedAt)) + '</span></span></a>';
+      }).join("");
+      $("agRecent").hidden = false;
+    }).catch(() => { /* the rest of the new-chat screen still works without it */ });
+  }
+  loadRecentProjects();
+  $("agRecentViewAll").addEventListener("click", () => { location.href = "/projects"; });
+
   function wireProjectList(container) {
     container.addEventListener("click", (e) => {
       const star = e.target.closest(".ag-hist-star");
@@ -1294,6 +1600,7 @@
       $("agWsAv").textContent = (name.charAt(0) || "S").toUpperCase();
       const plan = (d.plan || "free");
       $("agPlanTtl").textContent = "Your " + plan.charAt(0).toUpperCase() + plan.slice(1) + " Plan";
+      setGreeting(name);
     }
     $("agEditsUsed").textContent = (d.freeEdits != null ? d.freeEdits : 3) + " per build";
     const spent = Number(d.spentUsd || 0), budget = Number(d.budgetUsd || 0);
@@ -1332,7 +1639,7 @@
       if (!res.ok) throw new Error("gone");
       const data = await res.json();
       projectId = data.project.id; projectSlug = data.project.slug;
-      agTypeRow.hidden = true; // an existing project — the type picker only applies before a first build
+      $("agNewExtras").hidden = true; // an existing project — the new-chat screen only applies before a first build
 
       (data.turns || []).forEach((t) => {
         if (t.role === "user") { sayUser(t.body); return; }

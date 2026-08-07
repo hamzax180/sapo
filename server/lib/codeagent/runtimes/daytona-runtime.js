@@ -126,6 +126,16 @@ async function writeFile(ws, relPath, content) {
   await ws.sandbox.fs.uploadFile(Buffer.from(content, "utf8"), PROJECT_DIR + "/" + relPath);
 }
 
+/** Binary sibling of writeFile — decodes base64 instead of treating
+    content as utf8 text, which would corrupt anything that isn't. Not
+    exposed through tools.js/makeTools: this is for the ONE orchestrator-
+    side write of an uploaded logo before the model's own turn starts
+    (see POST /api/codeagent/build), the same "server writes, model never
+    gets a raw-bytes tool" boundary readDist already draws for publish. */
+async function writeBinaryFile(ws, relPath, base64) {
+  await ws.sandbox.fs.uploadFile(Buffer.from(base64, "base64"), PROJECT_DIR + "/" + relPath);
+}
+
 async function readFile(ws, relPath, fromLine, toLine) {
   const buf = await ws.sandbox.fs.downloadFile(PROJECT_DIR + "/" + relPath);
   const text = buf.toString("utf8");
@@ -321,6 +331,6 @@ async function domSnapshot(ws, url, timeoutMs) {
   return { ok: true, degraded: false, text, empty: text.length === 0 };
 }
 
-registerRuntime("daytona", { create, attach, writeFile, readFile, listFiles, run, snapshot, destroy, startPreview, domSnapshot, getPublicPreviewUrl, readDist });
+registerRuntime("daytona", { create, attach, writeFile, writeBinaryFile, readFile, listFiles, run, snapshot, destroy, startPreview, domSnapshot, getPublicPreviewUrl, readDist });
 
-module.exports = { create, attach, writeFile, readFile, listFiles, run, snapshot, destroy, startPreview, domSnapshot, extractBodyText, getPublicPreviewUrl, readDist, PREVIEW_PORT };
+module.exports = { create, attach, writeFile, writeBinaryFile, readFile, listFiles, run, snapshot, destroy, startPreview, domSnapshot, extractBodyText, getPublicPreviewUrl, readDist, PREVIEW_PORT };
