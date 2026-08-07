@@ -375,20 +375,18 @@
   .ag-set-cta{margin:14px 16px;text-align:center;padding:11px;border-radius:11px;background:linear-gradient(135deg,var(--accent),var(--accent-2));color:#fff;font-weight:700;font-size:.88rem;text-decoration:none;display:block;transition:.16s;box-shadow:0 4px 14px -5px rgba(26,166,223,.65)}
   .ag-set-cta:hover{transform:translateY(-1px)}
 
-  /* Settings overlay (see the markup note at the top of <body>).
-     Anchored to the LEFT rather than centred over everything, and with no
-     full-screen scrim, so the live preview on the right stays visible and
-     usable while settings are open — the point of opening it in place
-     instead of navigating to /settings. */
-  .ag-set-overlay{position:fixed;top:0;bottom:0;left:0;z-index:120;
-    width:min(760px,64vw);padding:clamp(8px,2.5vh,22px);display:flex}
+  /* Settings overlay (see the markup note at the top of <body>) —
+     Replit's shape: a large centred modal over a dimmed scrim that
+     covers the whole workspace, not a side panel. */
+  .ag-set-overlay{position:fixed;inset:0;z-index:120;background:rgba(11,22,38,.5);
+    display:flex;align-items:center;justify-content:center;padding:clamp(8px,3.5vh,40px);
+    -webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px)}
   .ag-set-overlay[hidden]{display:none}
-  .ag-set-overlay iframe{width:100%;height:100%;border:0;border-radius:14px;background:var(--card);
-    box-shadow:0 30px 80px -26px rgba(0,0,0,.42),0 0 0 1px var(--line)}
+  .ag-set-overlay iframe{width:min(1180px,96vw);height:min(820px,92vh);border:0;border-radius:14px;
+    background:var(--card);box-shadow:0 30px 90px -28px rgba(0,0,0,.55)}
   @media (max-width:900px){
-    /* No side-by-side preview to protect at this width — use the room. */
-    .ag-set-overlay{width:100%;padding:0}
-    .ag-set-overlay iframe{border-radius:0}
+    .ag-set-overlay{padding:0}
+    .ag-set-overlay iframe{width:100%;height:100%;border-radius:0}
   }
 </style>
 </head>
