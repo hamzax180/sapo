@@ -201,7 +201,7 @@
         <div class="err" id="loginErr"></div>
         <button class="btn btn-primary" id="loginBtn" type="submit" style="width:100%;justify-content:center">Sign in</button>
       </form>
-      <a class="btn" id="gateBtn" href="index" style="display:none">Back to console</a>
+      <a class="btn" id="gateBtn" href="/" style="display:none">Back to home</a>
       <button class="btn" id="retryBtn" style="display:none">Retry</button>
     </div>
   </div>
@@ -360,7 +360,7 @@
     function loadOverview(){
       apiGet("/api/admin/overview").then(function(r){
         if(r.status===401){ gateLogin(); throw "gated"; }
-        if(r.status===403){ gateMsg("Not a platform admin","This account isn't authorized. Add your email to ADMIN_EMAILS on the server, then sign in again.","Back to console","index",false); throw "gated"; }
+        if(r.status===403){ gateMsg("Not a platform admin","This account isn't authorized. Add your email to ADMIN_EMAILS on the server, then sign in again.","Back to home","/",false); throw "gated"; }
         if(!r.ok) throw "http"; return r.json();
       }).then(function(d){
         if(d&&d.empty){ gateMsg("Master database not connected","The API is running but its master database isn't reachable yet.","",null,true); return; }

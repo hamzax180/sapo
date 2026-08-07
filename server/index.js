@@ -63,8 +63,7 @@ const inquiryLimiter = rateLimit({ windowMs: 60 * 1000, max: 30, key: (req) => (
 const aiLimiter = rateLimit({ windowMs: 60 * 1000, max: 30 });
 const visitLimiter = rateLimit({ windowMs: 60 * 1000, max: 120, key: (req) => req.ip || "" });
 
-// The marketing/login page is the public entry point; the app console
-// shell (index.html) is reached only after signing in.
+// The marketing/login page is the public entry point.
 app.get("/", (req, res) => res.sendFile(path.join(__dirname, "..", "public", "login.html")));
 
 app.use(express.static(path.join(__dirname, "..", "public")));
@@ -136,31 +135,26 @@ app.use(async (req, res, next) => {
   next();
 });
 
-/* ---- Serve specific frontend pages ---- */
+/* ---- Serve specific frontend pages ----
+   The old deterministic site builder (agent.html), the workspace/signup
+   flow (signup.html), and the Operations Console (index.html) are gone —
+   deleted, not just unrouted. Souqi Code (code.html, at /agent) is the
+   only way to build now. Anything that isn't a real product surface
+   anymore (/signup, /index, /public/signup, /public/index) is removed
+   below rather than left pointing at a 404 sendFile. */
 app.get("/home", (req, res) => res.sendFile(path.join(__dirname, "..", "public", "home.html")));
-// /agent now serves Souqi CODE (docs/CODE-AGENT-PLAN.md), not the old
-// deterministic site builder — a deliberate, explicit swap, not an
-// accident: agent.html (site builder: prompt -> storefront config,
-// no AI, /api/projects) still exists on disk, untouched and fully
-// working, it's just no longer reachable via this route. code.html
-// (this one) drives /api/codeagent/build — real files, a real model,
-// a real sandbox. The two share no backend and no renderer.
 app.get("/agent", (req, res) => res.sendFile(path.join(__dirname, "..", "public", "code.html")));
 app.get("/agent/:slug", (req, res) => res.sendFile(path.join(__dirname, "..", "public", "code.html")));
 app.get("/build", (req, res) => res.sendFile(path.join(__dirname, "..", "public", "home.html")));
 app.get("/login", (req, res) => res.sendFile(path.join(__dirname, "..", "public", "login.html")));
-app.get("/signup", (req, res) => res.sendFile(path.join(__dirname, "..", "public", "signup.html")));
 app.get("/pricing", (req, res) => res.sendFile(path.join(__dirname, "..", "public", "pricing.html")));
 app.get("/terms", (req, res) => res.sendFile(path.join(__dirname, "..", "public", "terms.html")));
 app.get("/privacy", (req, res) => res.sendFile(path.join(__dirname, "..", "public", "privacy.html")));
 app.get("/checkout", (req, res) => res.sendFile(path.join(__dirname, "..", "public", "checkout.html")));
-app.get("/index", (req, res) => res.sendFile(path.join(__dirname, "..", "public", "index.html")));
 app.get("/admin", (req, res) => res.sendFile(path.join(__dirname, "..", "public", "admin.html")));
 app.get("/portal/:wsId", (req, res) => res.sendFile(path.join(__dirname, "..", "public", "portal.html")));
 
 app.get("/public/login", (req, res) => res.sendFile(path.join(__dirname, "..", "public", "login.html")));
-app.get("/public/signup", (req, res) => res.sendFile(path.join(__dirname, "..", "public", "signup.html")));
-app.get("/public/index", (req, res) => res.sendFile(path.join(__dirname, "..", "public", "index.html")));
 
 /* NOTE: workspace/DB context is no longer derived from client headers.
    Authenticated requests get it from the signed session via the
@@ -1330,7 +1324,7 @@ app.get("/api/codeagent/usage", async (req, res, next) => {
   try {
     const owner = anon.ownerOf(req, res);
     const spentUsd = await codeAgentUsage.monthSpend(owner);
-    res.json({ spentUsd, budgetUsd: CODEAGENT_OWNER_MONTHLY_BUDGET_USD, freeEdits: CODEAGENT_FREE_EDITS });
+    res.json({ spentUsd, budgetUsd: CODEAGENT_OWNER_MONTHLY_BUDGET_USD, freeEdits: CODEAGENT_FREE_EDITS, signedIn: !!codeAgentSessionUser(req) });
   } catch (e) { next(e); }
 });
 
@@ -1849,7 +1843,59 @@ const { proposeWithRepair, assessPrompt } = require("./lib/codeagent/model-loop"
 const codeAgentUsage = require("./lib/codeagent/usage");
 codeAgentUsage.init({ getMasterDb });
 
+// A per-instance CACHE of live sandbox handles, not the source of truth.
+// It used to be the source of truth, which made every follow-up edit and
+// every preview request depend on landing back on the same Node process
+// that ran the original build — fine for one long-lived server, fatal on
+// serverless (Vercel), where instances are created and discarded freely.
+// The durable record is `sandboxId` on each revision (persisted since the
+// first build); codeAgentLive() below rebuilds a handle from that when
+// this instance has never seen the project. Keeping the cache avoids a
+// Daytona API round-trip on the warm path.
 const codeBuilds = new Map(); // projectId -> { ws, runtime, tools, createdAt }
+
+/**
+ * Resolves a project's LIVE sandbox on any instance, in three steps:
+ *   1. this instance's cache (warm path, no network),
+ *   2. otherwise re-attach by the sandboxId persisted on the head revision,
+ *   3. and in both cases prove it's actually reachable before returning it.
+ *
+ * Returns null when there is no reachable sandbox — callers already handle
+ * that (build resumes from persisted files, preview reports "not running").
+ * Health-checking matters as much as the lookup: Daytona's autoStopInterval
+ * can reap a sandbox with nothing notifying this process, and a stale handle
+ * fails later and less clearly than a null does here.
+ */
+async function codeAgentLive(project) {
+  if (!project) return null;
+
+  const cached = codeBuilds.get(project.id);
+  if (cached) {
+    try {
+      const health = await cached.runtime.run(cached.ws, ["echo", "ok"], 5000);
+      if (health.code === 0) return cached;
+    } catch (e) { /* fall through to re-attach */ }
+    codeBuilds.delete(project.id);
+  }
+
+  const head = await projects.head(project.id);
+  const sandboxId = head && head.config && head.config.sandboxId;
+  if (!sandboxId) return null;
+
+  const runtime = codeAgentRuntimeReg.createRuntime("daytona");
+  if (typeof runtime.attach !== "function") return null;
+  const ws = await runtime.attach(sandboxId);
+  if (!ws) return null;
+
+  try {
+    const health = await runtime.run(ws, ["echo", "ok"], 5000);
+    if (health.code !== 0) return null;
+  } catch (e) { return null; }
+
+  const live = { ws, runtime, tools: makeCodeAgentTools(runtime, ws), createdAt: Date.now() };
+  codeBuilds.set(project.id, live);
+  return live;
+}
 const codeAgentLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 10, key: (req) => req.ip || "" });
 
 // The platform-wide AI_MONTHLY_BUDGET_USD (lib/ai/client.js) stops total
@@ -1942,6 +1988,104 @@ const CODEAGENT_TYPE_HINT = {
   portfolio: " Build it as a personal portfolio site with a projects/work grid, short case-study blurbs, and an about section.",
   mobile: " Build it as a mobile-optimized, single-column, touch-friendly layout that feels great on a phone screen."
 };
+
+// docs/pricing.html: Free has no total-app cap (each app gets its own
+// CODEAGENT_FREE_EDITS before hitting the subscribe gate, unbounded in
+// count) — only Pro and Max cap how many apps you can have at once.
+// Checked once, at fresh-build time, so it costs nothing to enforce.
+const CODEAGENT_PLAN_APP_LIMITS = { pro: 1, max: 5 };
+
+/** Code's version of finalizeClaim (line ~1620) — re-points project
+    ownership from the anonymous cookie to a real account, same idea as
+    Sites' claim, but skips the Sites-only "publish this as the
+    workspace's live storefront" step: a Code project has no
+    storefrontConfig, it's a sandboxed app with its own preview/publish
+    path, so claiming it just means it stops being anonymous. */
+async function finalizeCodeClaim({ project, wsId, userId, email, requestId }) {
+  await projects.patch(project.id, { wsId: wsId, ownerUserId: userId, ownerAnonId: project.ownerAnonId });
+  const ws = await resolveWsContext(wsId);
+  await writeAudit(dbAdapter, ws, {
+    requestId: requestId, actor: email, action: "workspace.codeagent.claim",
+    entity: "workspace", entityId: wsId,
+    summary: "Code project " + project.id + " (" + project.slug + ") claimed"
+  });
+}
+
+/**
+ * POST /api/codeagent/:key/micro-claim
+ * Body: { email, password }
+ *
+ * The account-creation step behind code.html's "sign up to see your app"
+ * preview gate: two fields, because a Code visitor has already SEEN their
+ * build work — they just need an account to keep it, not a full signup
+ * form. Mirrors /api/projects/:key/micro-claim (the Sites equivalent, same
+ * schema and rate limiter) but claims through finalizeCodeClaim instead of
+ * finalizeClaim, and — unlike Sites, which only mints a short-lived
+ * portal-edit token — sets the same httpOnly sq_session cookie /auth/login
+ * does, since code.html's own gates (POST /build's edit gate above,
+ * codeAgentSessionUser) read sign-in state from that cookie, not a Bearer
+ * token.
+ */
+app.post("/api/codeagent/:key/micro-claim", microClaimLimiter, validateBody(microClaimSchema), async (req, res, next) => {
+  try {
+    const { email, password } = req.valid;
+    const emailLower = email.toLowerCase();
+
+    const owner = anon.ownerOf(req, res);
+    const project = await resolveProject(req.params.key, owner);
+    if (!project) return res.status(404).json({ error: "project not found" });
+    if (!projects.owns(project, owner)) return res.status(403).json({ error: "not your project" });
+    if (project.wsId) return res.status(409).json({ error: "this project is already claimed" });
+
+    const masterDb = getMasterDb();
+    if (!masterDb) return res.status(503).json({ error: "Master DB not available" });
+
+    const existingWs = await masterDb.collection("workspaces").findOne({ ownerEmail: emailLower });
+    if (existingWs) {
+      return res.status(409).json({ error: "an account with this email already exists — sign in instead" });
+    }
+
+    const wsId = "ws_" + Date.now().toString(36) + crypto.randomBytes(4).toString("hex");
+    await masterDb.collection("workspaces").insertOne({
+      id: wsId,
+      company: String(project.title || "My Apps").slice(0, 120),
+      industry: "software",
+      country: "TR",
+      ownerEmail: emailLower,
+      dbType: "local",
+      dbUri: "",
+      logo: null,
+      tagline: "",
+      storefrontEnabled: false,
+      plan: "free",
+      createdAt: new Date().toISOString()
+    });
+
+    const ownerUser = {
+      id: "usr_" + crypto.randomBytes(8).toString("base64url"),
+      name: emailLower.split("@")[0],
+      email: emailLower,
+      password: password,              // insertOne() bcrypt-hashes "users" passwords automatically
+      role: "Owner", dept: "Management", active: true,
+      joined: new Date().toISOString().slice(0, 10)
+    };
+    const ws = await resolveWsContext(wsId);
+    await dbAdapter.insertOne(ws, "users", ownerUser);
+
+    await finalizeCodeClaim({ project, wsId, userId: ownerUser.id, email: emailLower, requestId: req.id });
+
+    const session = { id: ownerUser.id, name: ownerUser.name, email: ownerUser.email, role: "Owner", dept: "Management", wsId: wsId };
+    const token = jwt.sign(session, JWT_SECRET, { expiresIn: "12h" });
+    res.cookie("sq_session", token, {
+      httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production",
+      maxAge: 12 * 3600 * 1000, path: "/"
+    });
+    res.json({ ok: true, wsId: wsId, token: token, user: session });
+  } catch (e) {
+    if (e.status) return res.status(e.status).json({ error: e.message });
+    next(e);
+  }
+});
 
 /**
  * POST /api/codeagent/build
@@ -2057,6 +2201,32 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
     }
   }
 
+  // App-count cap (Pro/Max only, see CODEAGENT_PLAN_APP_LIMITS) — a FRESH
+  // build only, and cheaper than assessPrompt (no model call), so it's
+  // checked first. Anonymous/free visitors have no session to look a plan
+  // up for, so this only ever applies to a signed-in paid owner.
+  if (!isFollowUp) {
+    const sessionUserForLimit = codeAgentSessionUser(req);
+    if (sessionUserForLimit && sessionUserForLimit.wsId) {
+      const masterDbForLimit = getMasterDb();
+      if (masterDbForLimit) {
+        const wsForLimit = await masterDbForLimit.collection("workspaces").findOne({ id: sessionUserForLimit.wsId }, { projection: { plan: 1 } });
+        const planForLimit = (wsForLimit && wsForLimit.plan) || "free";
+        const appLimit = CODEAGENT_PLAN_APP_LIMITS[planForLimit];
+        if (appLimit) {
+          const existing = (await projects.list(owner, 200)).filter((p) => (p.meta || {}).kind === "code");
+          if (existing.length >= appLimit) {
+            sseFrame(res, "error", {
+              error: "Your " + planForLimit + " plan is limited to " + appLimit + (appLimit === 1 ? " app" : " apps") + ". Delete one, or upgrade for more at /pricing."
+            });
+            sseFrame(res, "done", {});
+            return res.end();
+          }
+        }
+      }
+    }
+  }
+
   // Ask, don't guess — only for a FRESH build. A follow-up already has an
   // established project; re-litigating "is this clear enough" on every
   // small change would be an annoying tax on someone already mid-build,
@@ -2074,19 +2244,12 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
 
   // A registry entry existing is NOT the same claim as the sandbox being
   // alive — Daytona's own autoStopInterval can kill it out from under this
-  // process at any time, and nothing notifies `codeBuilds` when that
-  // happens (found live: it silently killed a real follow-up with "not
-  // found: sandbox ... has been deleted" instead of resuming). A cheap
-  // health check here is what makes "resume" trigger for the case that
-  // actually matters — the ordinary auto-stop, not just a server restart.
-  let live = project ? codeBuilds.get(project.id) : null;
-  if (live) {
-    try {
-      const health = await live.runtime.run(live.ws, ["echo", "ok"], 5000);
-      if (health.code !== 0) live = null;
-    } catch (e) { live = null; }
-    if (!live) codeBuilds.delete(project.id);
-  }
+  // process at any time, and nothing notifies us when that happens (found
+  // live: it silently killed a real follow-up with "not found: sandbox ...
+  // has been deleted" instead of resuming). codeAgentLive() health-checks
+  // for exactly that case, and also re-attaches by persisted sandboxId when
+  // this instance never ran the original build.
+  const live = await codeAgentLive(project);
 
   const runtime = codeAgentRuntimeReg.createRuntime("daytona");
   let ws = null, tools = null;
@@ -2247,7 +2410,7 @@ app.get("/api/codeagent/:key", async (req, res, next) => {
     if (!projects.owns(project, owner)) return res.status(403).json({ error: "not your project" });
 
     const [turns, revision] = await Promise.all([projects.listTurns(project.id), projects.head(project.id)]);
-    const live = codeBuilds.get(project.id);
+    const live = await codeAgentLive(project);
     let sandboxAlive = false;
     if (live) {
       try {
@@ -2291,7 +2454,7 @@ async function serveCodeAgentPreview(req, res, subPath) {
     if (!project) return res.status(404).send("Not found");
     if (!projects.owns(project, owner)) return res.status(403).send("Forbidden");
 
-    const live = codeBuilds.get(project.id);
+    const live = await codeAgentLive(project);
     if (!live) return res.status(503).send("This preview isn't running right now — send a message to the agent and I'll pick up where this left off.");
 
     let baseUrl;
@@ -2363,14 +2526,7 @@ app.post("/api/codeagent/:key/publish", codeAgentLimiter, async (req, res, next)
     if (!project) return res.status(404).json({ error: "project not found" });
     if (!projects.owns(project, owner)) return res.status(403).json({ error: "not your project" });
 
-    let live = codeBuilds.get(project.id);
-    if (live) {
-      try {
-        const health = await live.runtime.run(live.ws, ["echo", "ok"], 5000);
-        if (health.code !== 0) live = null;
-      } catch (e) { live = null; }
-      if (!live) codeBuilds.delete(project.id);
-    }
+    const live = await codeAgentLive(project);
 
     runtime = codeAgentRuntimeReg.createRuntime("daytona");
     let tools;
@@ -2616,10 +2772,39 @@ app.delete("/:c/:id", crud, async (req, res, next) => {
 // { error: { code, message, requestId } } and keeps 5xx details server-side.
 app.use(errorHandler);
 
-const PORT = process.env.PORT || 4000;
-connect()
-  .then(() => app.listen(PORT, () => console.log("✓ Souqi API listening on http://localhost:" + PORT)))
-  .catch((e) => { 
-    console.warn("✗ Failed to connect to default master MongoDB, starting API server anyway..."); 
+/* -----------------------------------------------------------------
+   Two ways this file runs, one app.
+   - Locally / on any long-lived host: listen on a port, as always.
+   - On Vercel: api/index.js require()s this module and hands each
+     request to the exported `app`. There is no port to listen on there,
+     and calling listen() would both fail and leak a handle per cold
+     start — so the listen path is gated on NOT being in a serverless
+     runtime rather than being the unconditional default it used to be.
+   Mongo is connected lazily either way: on Vercel a cold start must not
+   block on a DB round-trip before the first response, and the app
+   already tolerates getMasterDb() returning null (it did so every time
+   the local Mongo was down this session).
+   ----------------------------------------------------------------- */
+const IS_SERVERLESS = !!process.env.VERCEL;
+
+let connectOnce = null;
+function ensureDb() {
+  if (!connectOnce) {
+    connectOnce = connect().catch((e) => {
+      console.warn("✗ Failed to connect to master MongoDB:", e.message);
+      connectOnce = null; // let a later request retry rather than caching the failure forever
+    });
+  }
+  return connectOnce;
+}
+
+if (IS_SERVERLESS) {
+  ensureDb();
+} else {
+  const PORT = process.env.PORT || 4000;
+  ensureDb().finally(() => {
     app.listen(PORT, () => console.log("✓ Souqi API listening on http://localhost:" + PORT));
   });
+}
+
+module.exports = app;

@@ -13,7 +13,7 @@
 <style>
   *,*::before,*::after{box-sizing:border-box}
   :root{
-    --paper:#ffffff; --card:#ffffff; --ink:#12202e; --ink-2:#5d6f80; --mut:#8b98a5;
+    --paper:#faf7f2; --card:#ffffff; --ink:#12202e; --ink-2:#5d6f80; --mut:#8b98a5;
     --accent:#1aa6df; --accent-2:#0f8ec4; --line:#e7e1d7; --navy-800:#0b1e33;
     --disp:'Jost','Century Gothic',system-ui,sans-serif;
     --body:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
@@ -47,15 +47,16 @@
      not a full page dark-mode flip. */
   .doc-grid{display:grid;grid-template-columns:230px 1fr;gap:36px;align-items:start}
   @media (max-width:860px){ .doc-grid{grid-template-columns:1fr} }
-  .toc{position:sticky;top:20px;background:#0a0d10;border-radius:18px;padding:20px 14px;max-height:calc(100svh - 40px);overflow-y:auto}
+  .toc{position:sticky;top:20px;background:#faf7f2;border:1px solid var(--line);border-radius:18px;padding:20px 14px;
+    max-height:calc(100svh - 40px);overflow-y:auto;box-shadow:0 2px 10px rgba(18,32,46,.05)}
   @media (max-width:860px){ .toc{position:static;max-height:none} }
-  .toc h2{font-size:.68rem;text-transform:uppercase;letter-spacing:.14em;color:#6b7686;margin-bottom:10px;padding:0 12px}
+  .toc h2{font-size:.68rem;text-transform:uppercase;letter-spacing:.14em;color:var(--mut);margin-bottom:10px;padding:0 12px}
   .toc ol{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:2px}
-  .toc a{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:11px;color:#98a2b0;text-decoration:none;font-size:.87rem;transition:background .15s,color .15s}
-  .toc a .dot{width:6px;height:6px;border-radius:50%;background:#4b5563;flex:none;transition:background .15s}
-  .toc a:hover{color:#e2e8f0}
-  .toc a.active{background:rgba(34,197,148,.14);color:#5eead4;font-weight:600}
-  .toc a.active .dot{background:#22c58f;box-shadow:0 0 0 3px rgba(34,197,148,.22)}
+  .toc a{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:11px;color:var(--ink-2);text-decoration:none;font-size:.87rem;transition:background .15s,color .15s}
+  .toc a .dot{width:6px;height:6px;border-radius:50%;background:#cbd2d9;flex:none;transition:background .15s}
+  .toc a:hover{color:var(--ink);background:rgba(18,32,46,.05)}
+  .toc a.active{background:#e5f9f1;color:#0f8a5f;font-weight:600}
+  .toc a.active .dot{background:#22c58f;box-shadow:0 0 0 3px rgba(34,197,148,.18)}
 
   section.sec{margin-bottom:38px;scroll-margin-top:24px}
   .sec-num{font-family:var(--disp);font-size:.78rem;font-weight:700;letter-spacing:.08em;color:var(--accent-2)}
@@ -85,7 +86,7 @@
   <a class="brand" href="/"><img src="assets/logo.png" alt="Souqi Logo" onerror="this.style.display='none'"><span>Souqi</span></a>
   <nav class="lnk">
     <a class="btn-g" href="/login">Sign in</a>
-    <a class="btn-d" href="/signup">Create workspace</a>
+    <a class="btn-d" href="/agent">Start building</a>
   </nav>
 </header>
 

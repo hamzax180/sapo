@@ -1,5 +1,6 @@
-# Backend (runs separately on Render/Railway, not Vercel static hosting)
-server/
+# server/ is NO LONGER excluded — api/index.js require()s it, so the
+# Express app now ships as a Vercel serverless function. Excluding it
+# would build a frontend whose every /api call 404s.
 
 # Dev/build scratch
 scratch/
@@ -8,3 +9,7 @@ scratch/
 # Local tooling
 .claude/
 node_modules/
+
+# Tests and docs never need to reach a deployment
+server/tests/
+docs/

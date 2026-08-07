@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Jost:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<title>Souqi — One console for your whole business</title>
+<title>Souqi — Build your website. Edit it live.</title>
 <style>
   *,*::before,*::after{box-sizing:border-box}
   :root{
@@ -1388,17 +1388,15 @@
     <div class="ndrop">
       <button type="button" class="ntop"><span data-t="Platform">Platform</span> <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></button>
       <div class="npanel">
-        <a href="signup"><b data-t="Operations console">Operations console</b><small data-t="Dashboard, orders, stock &amp; finance">Dashboard, orders, stock &amp; finance</small></a>
-        <a href="signup"><b data-t="Website builder">Website builder</b><small data-t="A branded storefront in minutes">A branded storefront in minutes</small></a>
-        <a href="signup"><b data-t="AI Accountant">AI Accountant</b><small data-t="Finance insights, on tap">Finance insights, on tap</small></a>
-        <a href="signup"><b data-t="Audit history">Audit history</b><small data-t="Every action, logged">Every action, logged</small></a>
+        <a href="/agent"><b data-t="AI Website Builder">AI Website Builder</b><small data-t="Describe it, watch it build">Describe it, watch it build</small></a>
+        <a href="/agent"><b data-t="AI App Builder">AI App Builder</b><small data-t="Real React, real TypeScript, running live">Real React, real TypeScript, running live</small></a>
+        <a href="/pricing"><b data-t="Publishing &amp; domains">Publishing &amp; domains</b><small data-t="Your app, on your own domain">Your app, on your own domain</small></a>
       </div>
     </div>
     <div class="ndrop">
       <button type="button" class="ntop"><span data-t="Solutions">Solutions</span> <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></button>
       <div class="npanel cols">
-        <div><h5 data-t="By industry">By industry</h5><a href="signup" data-t="Logistics &amp; Trade">Logistics &amp; Trade</a><a href="signup" data-t="Fashion &amp; Apparel">Fashion &amp; Apparel</a><a href="signup" data-t="Retail Superstore">Retail Superstore</a><a href="signup" data-t="Restaurant">Restaurant</a></div>
-        <div><h5>&nbsp;</h5><a href="signup" data-t="Manufacturing">Manufacturing</a><a href="signup" data-t="Wholesale">Wholesale</a><a href="signup" data-t="Construction">Construction</a><a href="signup" data-t="Professional Services">Professional Services</a></div>
+        <div><h5 data-t="By type">By type</h5><a href="/agent" data-t="Website">Website</a><a href="/agent" data-t="Web App">Web App</a><a href="/agent" data-t="Dashboard">Dashboard</a><a href="/agent" data-t="Portfolio">Portfolio</a></div>
       </div>
     </div>
     <div class="ndrop">
@@ -1427,7 +1425,7 @@
       <li data-value="ar" class="lang-item">العربية</li>
     </ul>
   </div>
-  <a class="btn-g" id="navSignin" href="#cheroAuth" data-t="Sign in to console">Sign in</a><a class="btn-d" href="signup" data-t="Create workspace">Create workspace</a>
+  <a class="btn-g" id="navSignin" href="#cheroAuth" data-t="Sign in">Sign in</a><a class="btn-d" href="/agent" data-t="Start building">Start building</a>
 </header>
 
 <!-- ============ TOP HERO · exact Claude-style, website-builder demo ============ -->
@@ -1452,7 +1450,7 @@
           </form>
           <p class="cauth-note" data-t="By continuing, you acknowledge Souqi's Privacy Policy.">By continuing, you acknowledge Souqi's <a href="#">Privacy Policy</a>.</p>
         </div>
-        <p class="cauth-alt"><span data-t="New company?">New company?</span> <a href="signup" data-t="Create your workspace">Create your workspace</a></p>
+        <p class="cauth-alt"><span data-t="New here?">New here?</span> <a href="/agent" data-t="Start building">Start building</a></p>
       </div>
     </div>
     <div class="chero-demo" dir="ltr">
@@ -1605,7 +1603,7 @@
   function goSignup(e){ if(e){e.preventDefault();} var c=document.querySelector(".close"); if(c){c.scrollIntoView({behavior:reduce?"auto":"smooth"}); setTimeout(function(){var inp=document.querySelector(".capture input"); if(inp) inp.focus();}, reduce?0:450);} }
   document.querySelectorAll(".cta .big,.cta .ghost").forEach(function(b){ b.style.cursor="pointer"; b.addEventListener("click",goSignup); });
   var cap=document.querySelector(".capture");
-  if(cap){ cap.addEventListener("submit",function(e){ e.preventDefault(); var v=(cap.querySelector("input")||{}).value||""; location.href="signup"+(v?"?email="+encodeURIComponent(v):""); }); }
+  if(cap){ cap.addEventListener("submit",function(e){ e.preventDefault(); location.href="/agent"; }); }
 
   // (language switcher wired by the real app script below)
 
@@ -1836,21 +1834,9 @@
 /* Real wiring: sign-in, language, and redirect — layered on the ported design. */
 (function () {
   function boot() {
-    // If already signed in, go straight to the console. (Use /index — the
-    // marketing page lives at "/", so redirecting there would loop.)
-    try { if (window.Auth && Auth.current && Auth.current()) { location.href = "/index"; return; } } catch (e) {}
+    // If already signed in, go straight to Souqi Code.
+    try { if (window.Auth && Auth.current && Auth.current()) { location.href = "/agent"; return; } } catch (e) {}
     if (location.hash && location.hash.indexOf("#/track") === 0) { location.href = "/" + location.hash; return; }
-
-    // Build the Solutions menu from the real industry registry (falls back to the static list).
-    try {
-      var m = document.getElementById("solMenu");
-      if (m && window.INDUSTRIES && window.UI) {
-        m.innerHTML = Object.keys(INDUSTRIES).map(function (k) {
-          var ind = INDUSTRIES[k];
-          return '<a href="signup"><b>' + ind.name + '</b><small>' + (ind.blurb || "") + '</small></a>';
-        }).join("");
-      }
-    } catch (e) {}
 
     // Claude-style flow: enter email, then reveal the password step.
     var emailInput = document.getElementById("email");
@@ -1881,7 +1867,10 @@
     if (g) g.addEventListener("click", toEmail);           // no OAuth backend yet → fall back to email sign-in
     if (s) s.addEventListener("click", function (ev) { ev.preventDefault(); toEmail(); });
 
-    // Real login submit.
+    // Real login submit — the actual server session (httpOnly cookie),
+    // the same one admin.html and Souqi Code's own sign-in gate use. Not
+    // the client-side demo Auth: that one only ever matches a workspace
+    // created through the old signup flow, which no longer exists.
     var form = document.getElementById("loginForm"), err = document.getElementById("err");
     if (form) {
       form.addEventListener("submit", async function (ev) {
@@ -1890,13 +1879,15 @@
         var email = document.getElementById("email").value.trim();
         var pass = document.getElementById("password").value;
         try {
-          var session = await Auth.loginAny(email, pass);
-          if (session) { location.href = "/index"; return; }
-        } catch (e) {}
-        var noCompanies = !window.Workspace || Workspace.all().length === 0;
-        if (err) {
-          err.textContent = noCompanies ? "No companies yet — create your workspace first." : "Invalid email or password.";
-          err.classList.add("show");
+          var r = await fetch("/auth/login", {
+            method: "POST", headers: { "Content-Type": "application/json" }, credentials: "same-origin",
+            body: JSON.stringify({ email: email, password: pass })
+          });
+          if (r.status === 200) { location.href = "/agent"; return; }
+          var j = await r.json().catch(function () { return {}; });
+          if (err) { err.textContent = (j.error && (j.error.message || j.error)) || "Invalid email or password."; err.classList.add("show"); }
+        } catch (e) {
+          if (err) { err.textContent = "Cannot reach the server."; err.classList.add("show"); }
         }
       });
     }

@@ -208,17 +208,15 @@
       <div class="ndrop">
         <button type="button" class="ntop"><span data-t="Platform">Platform</span> <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></button>
         <div class="npanel">
-          <a href="signup"><b data-t="Operations console">Operations console</b><small data-t="Dashboard, orders, stock &amp; finance">Dashboard, orders, stock &amp; finance</small></a>
-          <a href="signup"><b data-t="Website builder">Website builder</b><small data-t="A branded storefront in minutes">A branded storefront in minutes</small></a>
-          <a href="signup"><b data-t="AI Accountant">AI Accountant</b><small data-t="Finance insights, on tap">Finance insights, on tap</small></a>
-          <a href="signup"><b data-t="Audit history">Audit history</b><small data-t="Every action, logged">Every action, logged</small></a>
+          <a href="/agent"><b data-t="AI Website Builder">AI Website Builder</b><small data-t="Describe it, watch it build">Describe it, watch it build</small></a>
+          <a href="/agent"><b data-t="AI App Builder">AI App Builder</b><small data-t="Real React, real TypeScript, running live">Real React, real TypeScript, running live</small></a>
+          <a href="/pricing"><b data-t="Publishing &amp; domains">Publishing &amp; domains</b><small data-t="Your app, on your own domain">Your app, on your own domain</small></a>
         </div>
       </div>
       <div class="ndrop">
         <button type="button" class="ntop"><span data-t="Solutions">Solutions</span> <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></button>
         <div class="npanel cols">
-          <div><h5 data-t="By industry">By industry</h5><a href="signup" data-t="Logistics &amp; Trade">Logistics &amp; Trade</a><a href="signup" data-t="Fashion &amp; Apparel">Fashion &amp; Apparel</a><a href="signup" data-t="Retail Superstore">Retail Superstore</a><a href="signup" data-t="Restaurant">Restaurant</a></div>
-          <div><h5>&nbsp;</h5><a href="signup" data-t="Manufacturing">Manufacturing</a><a href="signup" data-t="Wholesale">Wholesale</a><a href="signup" data-t="Construction">Construction</a><a href="signup" data-t="Professional Services">Professional Services</a></div>
+          <div><h5 data-t="By type">By type</h5><a href="/agent" data-t="Website">Website</a><a href="/agent" data-t="Web App">Web App</a><a href="/agent" data-t="Dashboard">Dashboard</a><a href="/agent" data-t="Portfolio">Portfolio</a></div>
         </div>
       </div>
       <div class="ndrop">
@@ -247,7 +245,7 @@
         <li data-value="ar" class="lang-item">العربية</li>
       </ul>
     </div>
-    <a class="btn-g" href="login" data-t="Sign in to console">Sign in</a><a class="btn-d" href="signup" data-t="Create workspace">Create workspace</a>
+    <a class="btn-g" href="/login" data-t="Sign in">Sign in</a><a class="btn-d" href="/agent" data-t="Start building">Start building</a>
   </header>
 
   <div class="wrap">
@@ -351,29 +349,24 @@
     <div class="cta">
       <div>
         <h2 data-t="Ready to get started?">Ready to get started?</h2>
-        <p data-t="Everything you need to run your business — orders, inventory, team and finance in one place.">Everything you need to run your business — orders, inventory, team and finance in one place.</p>
+        <p data-t="Describe what you want to build — Souqi Code writes it, builds it, and shows you the running result.">Describe what you want to build — Souqi Code writes it, builds it, and shows you the running result.</p>
       </div>
       <div class="cta-btns">
-        <a href="signup" class="cta-w" data-t="Start free">Start free</a>
-        <a href="login" class="cta-g" data-t="Console Sign In">Sign in</a>
+        <a href="/agent" class="cta-w" data-t="Start free">Start free</a>
+        <a href="/login" class="cta-g" data-t="Sign in">Sign in</a>
       </div>
     </div>
   </div>
 
   <footer class="wc-foot">
-    <span>© <span id="yr"></span> Souqi · Cloud Operations Platform</span>
+    <span>© <span id="yr"></span> Souqi</span>
     <div class="ft-links">
-      <a href="signup" data-t="Create workspace">Create workspace</a>
-      <a href="login">Sign in</a>
+      <a href="/agent" data-t="Start building">Start building</a>
+      <a href="/login">Sign in</a>
       <a href="mailto:sales@souqi.site">Contact sales</a>
     </div>
   </footer>
 
-  <script src="js/config.js?v=28"></script>
-  <script src="js/seed.js?v=28"></script>
-  <script src="js/sample-data.js?v=28"></script>
-  <script src="js/industries.js?v=28"></script>
-  <script src="js/store.js?v=28"></script>
   <script src="js/ui.js?v=28"></script>
   <script>
     (function () {
@@ -392,21 +385,21 @@
       // ---- plan data ----
       var PLANS = {
         individual: [
-          { name:"Free", icon:"cloud", tag:"Get your business online",
+          { name:"Free", icon:"cloud", tag:"Try it, no card needed",
             price:{ type:"fixed", amt:"$0", unit:"free forever" },
-            cta:{ label:"Use Souqi Cloud free", href:"signup", style:"btn-ghost" }, sub:"No card needed",
+            cta:{ label:"Start building free", href:"/agent", style:"btn-ghost" }, sub:"No card needed",
             head:"What you get",
-            feats:["<b>1 user</b> — full owner access","Orders, inventory &amp; finance","Dashboard &amp; reports","10&nbsp;GB storage","Community support"] },
-          { name:"Pro", icon:"spark", tag:"Run your whole business", rec:true,
-            price:{ type:"cycle", monthly:{ amt:"$0", unit:"USD / 6 mo. free<br><s style='color:#ef4444'>$20/mo originally</s>" }, yearly:{ amt:"$0", unit:"USD / 6 mo. free<br><s style='color:#ef4444'>$20/mo originally</s>" } },
-            cta:{ label:"Claim 6 Months Free", href:"checkout?plan=pro", style:"btn-dark" }, sub:"Cancel anytime",
+            feats:["<b>1 free build</b> to start","<b>3 free edits</b> after you sign in","Publish to a souqi.site URL","Community support"] },
+          { name:"Pro", icon:"spark", tag:"Host and keep building, 1 app", rec:true,
+            price:{ type:"cycle", monthly:{ amt:"$20", unit:"USD / month<br>billed monthly" }, yearly:{ amt:"$17", unit:"USD / month<br>billed annually ($200/yr)" } },
+            cta:{ label:"Get Pro", href:"checkout?plan=pro", style:"btn-dark" }, sub:"Cancel anytime",
             head:"Everything in Free, and:",
-            feats:["Unlimited orders &amp; invoices","<b>AI Accountant</b> — finance insights","E-fatura &amp; receipts","Shipment labels + QR printing","Full audit history","Email &amp; chat support"] },
-          { name:"Max", icon:"bolt", tag:"Higher limits, priority access",
-            price:{ type:"from", amt:"From $100", unit:"USD / month<br>billed monthly" },
+            feats:["<b>1 active app</b>, unlimited edits","Hosting included","Custom domain support","Priority builds","Email support"] },
+          { name:"Max", icon:"bolt", tag:"Up to 5 apps, unlimited editing",
+            price:{ type:"fixed", amt:"$100", unit:"USD / month<br>billed monthly" },
             cta:{ label:"Get Max plan", href:"checkout?plan=max", style:"btn-dark" }, sub:"No commitment · Cancel anytime",
             head:"Everything in Pro, plus:",
-            feats:["Up to <b>20× higher</b> limits","Priority processing","Advanced P&amp;L &amp; exports","Custom branding","Priority support"] }
+            feats:["<b>Up to 5 active apps</b>, unlimited edits","Hosting + custom domains on all of them","Priority processing","Priority support"] }
         ],
         team: [
           { name:"Team", icon:"users", tag:"For small teams",

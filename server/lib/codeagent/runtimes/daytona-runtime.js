@@ -96,6 +96,32 @@ async function create() {
   return { id: sandbox.id, kind: "daytona", sandbox };
 }
 
+/**
+ * Rebuilds a workspace handle from a sandbox id alone, with no reliance on
+ * this process having created it. `create()` returns a live SDK object that
+ * index.js used to have to keep in an in-memory Map for the life of the
+ * process — which works on one long-lived server and breaks completely on
+ * serverless, where a follow-up edit or a preview request can land on a
+ * different instance than the build did.
+ *
+ * The id is already persisted on every revision (`sandboxId`), so nothing
+ * new has to be stored — this is purely "look it back up instead of
+ * remembering it". Returns null when the sandbox is gone (Daytona's
+ * autoStopInterval reaped it, or it was destroyed), which callers treat
+ * exactly like the old "not in the Map" case: resume from the last
+ * persisted files onto a fresh sandbox.
+ */
+async function attach(sandboxId) {
+  if (!sandboxId) return null;
+  try {
+    const sandbox = await client().get(sandboxId);
+    if (!sandbox) return null;
+    return { id: sandbox.id, kind: "daytona", sandbox };
+  } catch (e) {
+    return null; // deleted/expired/unknown id — indistinguishable and handled the same way
+  }
+}
+
 async function writeFile(ws, relPath, content) {
   await ws.sandbox.fs.uploadFile(Buffer.from(content, "utf8"), PROJECT_DIR + "/" + relPath);
 }
@@ -295,6 +321,6 @@ async function domSnapshot(ws, url, timeoutMs) {
   return { ok: true, degraded: false, text, empty: text.length === 0 };
 }
 
-registerRuntime("daytona", { create, writeFile, readFile, listFiles, run, snapshot, destroy, startPreview, domSnapshot, getPublicPreviewUrl, readDist });
+registerRuntime("daytona", { create, attach, writeFile, readFile, listFiles, run, snapshot, destroy, startPreview, domSnapshot, getPublicPreviewUrl, readDist });
 
-module.exports = { create, writeFile, readFile, listFiles, run, snapshot, destroy, startPreview, domSnapshot, extractBodyText, getPublicPreviewUrl, readDist, PREVIEW_PORT };
+module.exports = { create, attach, writeFile, readFile, listFiles, run, snapshot, destroy, startPreview, domSnapshot, extractBodyText, getPublicPreviewUrl, readDist, PREVIEW_PORT };

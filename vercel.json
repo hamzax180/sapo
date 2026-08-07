@@ -1,10 +1,21 @@
 {
   "cleanUrls": true,
   "trailingSlash": false,
-  "rewrites": [
-    {
-      "source": "/portal/:path*",
-      "destination": "/portal"
+  "functions": {
+    "api/index.js": {
+      "maxDuration": 300,
+      "memory": 1024
     }
+  },
+  "rewrites": [
+    { "source": "/", "destination": "/login.html" },
+    { "source": "/agent", "destination": "/code.html" },
+    { "source": "/agent/:slug", "destination": "/code.html" },
+    { "source": "/build", "destination": "/home.html" },
+    { "source": "/portal/:path*", "destination": "/portal.html" },
+
+    { "source": "/api/:path*", "destination": "/api/index.js" },
+    { "source": "/auth/:path*", "destination": "/api/index.js" },
+    { "source": "/s/:path*", "destination": "/api/index.js" }
   ]
 }
