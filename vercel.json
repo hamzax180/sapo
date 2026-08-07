@@ -9,7 +9,7 @@
     }
   },
   "rewrites": [
-    { "source": "/", "destination": "/login.html" },
+    { "source": "/", "destination": "/home.html" },
     { "source": "/agent", "destination": "/code.html" },
     { "source": "/agent/:slug", "destination": "/code.html" },
     { "source": "/build", "destination": "/home.html" },

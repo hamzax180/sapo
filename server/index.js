@@ -67,8 +67,8 @@ const inquiryLimiter = rateLimit({ windowMs: 60 * 1000, max: 30, key: (req) => (
 const aiLimiter = rateLimit({ windowMs: 60 * 1000, max: 30 });
 const visitLimiter = rateLimit({ windowMs: 60 * 1000, max: 120, key: (req) => req.ip || "" });
 
-// The marketing/login page is the public entry point.
-app.get("/", (req, res) => res.sendFile(path.join(__dirname, "..", "public", "login.html")));
+// home.html is the public entry point — the marketing page, not login.
+app.get("/", (req, res) => res.sendFile(path.join(__dirname, "..", "public", "home.html")));
 
 app.use(express.static(path.join(__dirname, "..", "public")));
 

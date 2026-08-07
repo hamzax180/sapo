@@ -54,14 +54,18 @@
   .ag-split{max-width:1440px;margin:0 auto;width:100%;display:flex;flex:1;min-height:0}
   .ag{text-align:left;display:flex;flex-direction:column;min-width:0;min-height:0;
     padding:0 clamp(14px,2.4vw,28px);border-right:1px solid var(--line);
-    flex:1 1 100%;transition:flex-basis .4s var(--ease)}
+    flex:1 1 100%;transition:flex-basis .4s var(--ease);
+    overflow-y:auto}
+  .ag::-webkit-scrollbar{width:8px}
+  .ag::-webkit-scrollbar-thumb{background:rgba(18,32,46,.14);border-radius:8px}
+  .ag::-webkit-scrollbar-thumb:hover{background:rgba(18,32,46,.24)}
   /* No build yet: .ag is the only visible column (.ag-preview collapses to
      0 below), so its own content is centred to a comfortable reading
      width instead of stretching edge-to-edge — the "new chat" screen.
      align-self:center on the column's cross axis does this without a
      second wrapper; harmless once .ag narrows to 460px too, since a
      460px column is already under the 720px cap. */
-  .ag-head,.ag-log,.ag-composer{width:100%;max-width:720px;align-self:center}
+  .ag-head,.ag-log,.ag-composer,.ag-newchat-extras{width:100%;max-width:720px;align-self:center}
   .ag-split.has-preview .ag{flex:0 0 clamp(340px,34vw,460px)}
   .ag-head{display:flex;align-items:center;gap:10px;padding:4px 2px 18px;border-bottom:1px solid var(--line);margin-bottom:22px}
   .ag-head .mark{width:26px;height:26px;border-radius:7px;background:var(--accent);display:grid;place-items:center}
@@ -571,6 +575,8 @@
   <div class="ag-hist-tabs" id="agHistTabs" role="tablist">
     <button type="button" class="ag-hist-tab on" data-view="home">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg>Home</button>
+    <a class="ag-hist-tab" href="/projects">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>Projects</a>
     <button type="button" class="ag-hist-tab" data-view="favorites">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01z"/></svg>Favorites</button>
     <button type="button" class="ag-hist-tab" data-view="domains">
@@ -1574,6 +1580,7 @@
   $("agHistTabs").addEventListener("click", (e) => {
     const tab = e.target.closest(".ag-hist-tab"); if (!tab) return;
     const view = tab.dataset.view;
+    if (!view) return; // a real link (Projects) — let it navigate, nothing to toggle
     if (view === "settings") { openSettings(); return; }
     $("agHistTabs").querySelectorAll(".ag-hist-tab").forEach((t) => t.classList.toggle("on", t === tab));
     document.querySelectorAll(".ag-hist-view").forEach((v) => v.classList.toggle("on", v.id === "view" + view.charAt(0).toUpperCase() + view.slice(1)));
