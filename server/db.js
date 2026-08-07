@@ -1,23 +1,71 @@
 /* =================================================================
-   MERVEKS SAP backend — MongoDB connection
-   A single shared client/db, lazily connected on first use.
+   Souqi backend — MongoDB connection
+
+   A single shared client/db, lazily connected on first use, and safe to
+   call concurrently from a serverless runtime (Vercel), where this
+   module is re-evaluated per cold start and many requests can race the
+   very first connect().
    ================================================================= */
 const { MongoClient } = require("mongodb");
 
 let client = null;
 let db = null;
+// The in-flight connect(), cached so concurrent callers await ONE
+// handshake instead of each opening their own client. Without this, a
+// burst of requests against a cold instance opens a burst of clients —
+// which is how a hosted Atlas cluster's connection limit gets exhausted
+// by a site with barely any traffic.
+let connecting = null;
+
+/** The database name, resolved from DB_NAME, else the URI's own path,
+    else a default. Atlas connection strings frequently carry no path
+    (…mongodb.net/?retryWrites=true), and client.db(undefined) silently
+    binds to "test" rather than failing — a wrong-database bug that
+    looks exactly like an empty database. */
+function resolveDbName(uri) {
+  if (process.env.DB_NAME) return process.env.DB_NAME;
+  try {
+    const afterHost = uri.split("://")[1] || "";
+    const path = afterHost.split("/")[1] || "";
+    const name = path.split("?")[0];
+    if (name) return decodeURIComponent(name);
+  } catch (e) { /* fall through to the default */ }
+  // Deliberately still the legacy name: changing a default database name
+  // doesn't move any data, it just points at a different (empty) one —
+  // which presents as "everything disappeared", not as a rename.
+  return "merveks_sap";
+}
 
 async function connect() {
   if (db) return db;
+  if (connecting) return connecting;
+
   const uri = process.env.MONGODB_URI || "mongodb://127.0.0.1:27017";
-  const name = process.env.DB_NAME || "merveks_sap";
-  client = new MongoClient(uri, { serverSelectionTimeoutMS: 5000 });
-  await client.connect();
-  db = client.db(name);
-  // confirm the connection is actually live
-  await db.command({ ping: 1 });
-  console.log("✓ MongoDB connected →", name);
-  return db;
+  const name = resolveDbName(uri);
+
+  connecting = (async () => {
+    const c = new MongoClient(uri, {
+      serverSelectionTimeoutMS: 5000,
+      // A serverless instance handles very few concurrent requests, so a
+      // large pool is wasted sockets multiplied by every warm instance.
+      maxPoolSize: Number(process.env.MONGO_MAX_POOL || 10),
+      minPoolSize: 0
+    });
+    await c.connect();
+    const d = c.db(name);
+    await d.command({ ping: 1 }); // confirm the connection is actually live
+    client = c;
+    db = d;
+    console.log("✓ MongoDB connected →", name);
+    return d;
+  })().catch((e) => {
+    // Don't cache a failed attempt — a later request should be free to
+    // retry (the cluster may simply have been waking up).
+    connecting = null;
+    throw e;
+  });
+
+  return connecting;
 }
 
 function getDb() {
@@ -34,6 +82,7 @@ async function close() {
   if (client) await client.close();
   client = null;
   db = null;
+  connecting = null;
 }
 
 module.exports = { connect, getDb, getMasterDb, close };
