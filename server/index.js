@@ -150,6 +150,7 @@ app.get("/login", (req, res) => res.sendFile(path.join(__dirname, "..", "public"
 app.get("/pricing", (req, res) => res.sendFile(path.join(__dirname, "..", "public", "pricing.html")));
 app.get("/terms", (req, res) => res.sendFile(path.join(__dirname, "..", "public", "terms.html")));
 app.get("/privacy", (req, res) => res.sendFile(path.join(__dirname, "..", "public", "privacy.html")));
+app.get("/settings", (req, res) => res.sendFile(path.join(__dirname, "..", "public", "settings.html")));
 app.get("/checkout", (req, res) => res.sendFile(path.join(__dirname, "..", "public", "checkout.html")));
 app.get("/admin", (req, res) => res.sendFile(path.join(__dirname, "..", "public", "admin.html")));
 app.get("/portal/:wsId", (req, res) => res.sendFile(path.join(__dirname, "..", "public", "portal.html")));
@@ -1932,6 +1933,35 @@ function codeAgentSessionUser(req) {
   } catch (e) { return null; }
 }
 
+/**
+ * The async half of session verification: everything codeAgentSessionUser
+ * can decide from the token alone, PLUS the one thing it can't — whether
+ * the token has been revoked since it was signed.
+ *
+ * POST /api/account/sessions/revoke bumps a per-user `sessionEpoch`; a
+ * token minted before that bump carries a stale value and must stop
+ * working, which is the entire mechanism by which "sign out other
+ * sessions" means anything for stateless JWTs. Kept separate from the
+ * sync version deliberately: this costs a DB read, so only the routes
+ * where revocation actually matters (settings, account deletion) pay for
+ * it, while the hot build path keeps its cheap synchronous check.
+ */
+async function codeAgentSessionUserVerified(req) {
+  const decoded = codeAgentSessionUser(req);
+  if (!decoded) return null;
+  try {
+    const ws = await resolveWsContext(decoded.wsId);
+    const users = await dbAdapter.findAll(ws, "users");
+    const user = users.find((u) => u.id === decoded.id);
+    if (!user || user.active === false) return null;
+    // Absent on both sides = never revoked; that's a match, not a mismatch.
+    if ((user.sessionEpoch || 0) !== (decoded.sessionEpoch || 0)) return null;
+    return decoded;
+  } catch (e) {
+    return null; // can't prove the token is still valid -> treat as signed out
+  }
+}
+
 /** Only the truly-degenerate case (empty, or a couple of stray characters)
     is worth rejecting for free — genuine vagueness ("hello", "build me
     something cool") now gets a REAL clarifying question from
@@ -1994,6 +2024,119 @@ const CODEAGENT_TYPE_HINT = {
 // count) — only Pro and Max cap how many apps you can have at once.
 // Checked once, at fresh-build time, so it costs nothing to enforce.
 const CODEAGENT_PLAN_APP_LIMITS = { pro: 1, max: 5 };
+
+/* -----------------------------------------------------------------
+   Account endpoints backing public/settings.html.
+   Every one of these is session-gated via codeAgentSessionUser(): a
+   settings page that let an anonymous cookie read a plan or delete an
+   account would be a much worse bug than the pages it configures.
+   ----------------------------------------------------------------- */
+
+/** GET /api/account/me — who is signed in, and on what plan. */
+app.get("/api/account/me", async (req, res, next) => {
+  try {
+    const sessionUser = await codeAgentSessionUserVerified(req);
+    if (!sessionUser) return res.json({ signedIn: false });
+
+    let plan = "free", company = "";
+    const masterDb = getMasterDb();
+    if (masterDb && sessionUser.wsId) {
+      const ws = await masterDb.collection("workspaces").findOne({ id: sessionUser.wsId }, { projection: { plan: 1, company: 1 } });
+      if (ws) { plan = ws.plan || "free"; company = ws.company || ""; }
+    }
+
+    const owner = anon.ownerOf(req, res);
+    const spentUsd = await codeAgentUsage.monthSpend(owner);
+    res.json({
+      signedIn: true, email: sessionUser.email, name: sessionUser.name,
+      wsId: sessionUser.wsId, accountId: sessionUser.id, company: company,
+      plan: plan, spentUsd: spentUsd, budgetUsd: CODEAGENT_OWNER_MONTHLY_BUDGET_USD,
+      freeEdits: CODEAGENT_FREE_EDITS
+    });
+  } catch (e) { next(e); }
+});
+
+/**
+ * POST /api/account/sessions/revoke — "sign out other sessions".
+ *
+ * Sessions here are stateless JWTs, so there is no session table to delete
+ * rows from; the only honest way to invalidate tokens already issued is to
+ * make them fail verification. Bumping a per-user `sessionEpoch` and
+ * checking it at verify time does that: every token minted before the bump
+ * carries a stale epoch and is rejected, while THIS request gets a freshly
+ * minted cookie so the caller stays signed in — which is exactly the
+ * "other sessions" semantics.
+ */
+app.post("/api/account/sessions/revoke", async (req, res, next) => {
+  try {
+    const sessionUser = await codeAgentSessionUserVerified(req);
+    if (!sessionUser) return res.status(401).json({ error: "not signed in" });
+
+    const ws = await resolveWsContext(sessionUser.wsId);
+    const epoch = Date.now();
+    const updated = await dbAdapter.updateOne(ws, "users", sessionUser.id, { sessionEpoch: epoch });
+    if (!updated) return res.status(404).json({ error: "account not found" });
+
+    const session = {
+      id: sessionUser.id, name: sessionUser.name, email: sessionUser.email,
+      role: sessionUser.role, dept: sessionUser.dept, wsId: sessionUser.wsId, sessionEpoch: epoch
+    };
+    const token = jwt.sign(session, JWT_SECRET, { expiresIn: "12h" });
+    res.cookie("sq_session", token, {
+      httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production",
+      maxAge: 12 * 3600 * 1000, path: "/"
+    });
+    res.json({ ok: true });
+  } catch (e) { next(e); }
+});
+
+/**
+ * DELETE /api/account — the Danger Zone.
+ * Deletes the user's projects (with their turns and revisions), the user
+ * record, and the workspace, then clears the cookie. Requires the account's
+ * own password in the body: a destructive, irreversible action gated only
+ * by an existing cookie is one stolen laptop away from being permanent.
+ */
+app.delete("/api/account", async (req, res, next) => {
+  try {
+    const sessionUser = await codeAgentSessionUserVerified(req);
+    if (!sessionUser) return res.status(401).json({ error: "not signed in" });
+    const password = String((req.body && req.body.password) || "");
+    if (!password) return res.status(400).json({ error: "your password is required to delete this account" });
+
+    const ws = await resolveWsContext(sessionUser.wsId);
+    const users = await dbAdapter.findAll(ws, "users");
+    const user = users.find((u) => u.id === sessionUser.id);
+    if (!user) return res.status(404).json({ error: "account not found" });
+
+    const stored = String(user.password || "");
+    const ok = stored.startsWith("$2") ? await bcrypt.compare(password, stored) : false;
+    if (!ok) return res.status(401).json({ error: "that password doesn't match" });
+
+    const owner = anon.ownerOf(req, res);
+    for (const p of await projects.list(owner, 500)) await projects.remove(p.id);
+
+    await dbAdapter.deleteOne(ws, "users", sessionUser.id);
+    const masterDb = getMasterDb();
+    if (masterDb && sessionUser.wsId) await masterDb.collection("workspaces").deleteOne({ id: sessionUser.wsId });
+
+    res.clearCookie("sq_session", { path: "/" });
+    res.json({ ok: true });
+  } catch (e) { next(e); }
+});
+
+/** DELETE /api/codeagent/history — clears this owner's builds. Scoped by
+    projects.list(owner), so it can only ever reach the caller's own rows. */
+app.delete("/api/codeagent/history", async (req, res, next) => {
+  try {
+    const sessionUser = await codeAgentSessionUserVerified(req);
+    if (!sessionUser) return res.status(401).json({ error: "not signed in" });
+    const owner = anon.ownerOf(req, res);
+    const mine = (await projects.list(owner, 500)).filter((p) => (p.meta || {}).kind === "code");
+    for (const p of mine) await projects.remove(p.id);
+    res.json({ ok: true, deleted: mine.length });
+  } catch (e) { next(e); }
+});
 
 /** Code's version of finalizeClaim (line ~1620) — re-points project
     ownership from the anonymous cookie to a real account, same idea as

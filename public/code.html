@@ -369,9 +369,26 @@
   .ag-set-row .bar i{display:block;height:100%;background:var(--accent)}
   .ag-set-cta{margin:14px 16px;text-align:center;padding:11px;border-radius:11px;background:linear-gradient(135deg,var(--accent),var(--accent-2));color:#fff;font-weight:700;font-size:.88rem;text-decoration:none;display:block;transition:.16s;box-shadow:0 4px 14px -5px rgba(26,166,223,.65)}
   .ag-set-cta:hover{transform:translateY(-1px)}
+
+  /* Settings overlay (see the markup note at the top of <body>) */
+  .ag-set-overlay{position:fixed;inset:0;z-index:120;background:rgba(11,22,38,.45);
+    display:flex;align-items:center;justify-content:center;padding:clamp(8px,3vh,30px);
+    -webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px)}
+  .ag-set-overlay[hidden]{display:none}
+  .ag-set-overlay iframe{width:min(1180px,100%);height:100%;max-height:820px;border:0;
+    border-radius:14px;background:var(--card);box-shadow:0 30px 80px -30px rgba(0,0,0,.5)}
 </style>
 </head>
 <body>
+
+<!-- Settings opens as an overlay over the builder, Replit-style, rather
+     than navigating to /settings — the preview on the right stays exactly
+     where it is, and closing returns to the same build without a reload.
+     /settings still exists as a real page for direct links; this iframes
+     it so there is one implementation of the settings UI, not two. -->
+<div class="ag-set-overlay" id="agSetOverlay" hidden>
+  <iframe id="agSetFrame" title="Settings" src="about:blank"></iframe>
+</div>
 
 <div class="ag-hist-backdrop" id="agHistBackdrop"></div>
 <aside class="ag-history" id="agHistory" aria-label="Your account">
@@ -1101,9 +1118,29 @@
   }
 
   const HIST_LOADERS = { home: loadHistory, favorites: loadFavorites, domains: loadDomains, stats: loadStats, settings: loadSettings };
+  /* Settings is the one tab that opens the full overlay instead of a
+     drawer view — it's a whole page's worth of UI (profile, theme,
+     history, security) that never fit in 340px. Everything else stays
+     in the drawer. */
+  const agSetOverlay = $("agSetOverlay"), agSetFrame = $("agSetFrame");
+  function openSettings() {
+    // Assigned on open, not in the markup, so the settings page isn't
+    // fetched for every visitor who never opens it.
+    if (agSetFrame.getAttribute("src") !== "/settings") agSetFrame.setAttribute("src", "/settings");
+    agSetOverlay.hidden = false;
+  }
+  function closeSettings() { agSetOverlay.hidden = true; }
+  agSetOverlay.addEventListener("click", (e) => { if (e.target === agSetOverlay) closeSettings(); });
+  // The settings page's own X is inside the iframe, so it can't reach this
+  // handler directly — it posts up instead (see settings.html).
+  window.addEventListener("message", (e) => {
+    if (e.origin === location.origin && e.data === "souqi:settings:close") closeSettings();
+  });
+
   $("agHistTabs").addEventListener("click", (e) => {
     const tab = e.target.closest(".ag-hist-tab"); if (!tab) return;
     const view = tab.dataset.view;
+    if (view === "settings") { openSettings(); return; }
     $("agHistTabs").querySelectorAll(".ag-hist-tab").forEach((t) => t.classList.toggle("on", t === tab));
     document.querySelectorAll(".ag-hist-view").forEach((v) => v.classList.toggle("on", v.id === "view" + view.charAt(0).toUpperCase() + view.slice(1)));
     HIST_LOADERS[view] && HIST_LOADERS[view]();
@@ -1114,7 +1151,11 @@
   agHistOpen.addEventListener("click", openHistory);
   agHistClose.addEventListener("click", closeHistory);
   agHistBackdrop.addEventListener("click", closeHistory);
-  document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeHistory(); });
+  document.addEventListener("keydown", (e) => {
+    if (e.key !== "Escape") return;
+    if (!agSetOverlay.hidden) { closeSettings(); return; } // topmost layer first
+    closeHistory();
+  });
 
   agTabChat.addEventListener("click", () => {
     agTabChat.classList.add("on"); agTabPreview.classList.remove("on");

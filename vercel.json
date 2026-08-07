@@ -1,6 +1,7 @@
 {
   "cleanUrls": true,
   "trailingSlash": false,
+  "outputDirectory": "public",
   "functions": {
     "api/index.js": {
       "maxDuration": 300,
@@ -12,6 +13,7 @@
     { "source": "/agent", "destination": "/code.html" },
     { "source": "/agent/:slug", "destination": "/code.html" },
     { "source": "/build", "destination": "/home.html" },
+    { "source": "/settings", "destination": "/settings.html" },
     { "source": "/portal/:path*", "destination": "/portal.html" },
 
     { "source": "/api/:path*", "destination": "/api/index.js" },
