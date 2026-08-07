@@ -201,8 +201,12 @@
   .ag-pv-gate p{font-size:.94rem;color:var(--ink-2);margin:0;max-width:34ch;line-height:1.5}
   #agPvGateForm{display:none;flex-direction:column;gap:9px;width:100%;max-width:280px}
   #agPvGateForm.on{display:flex}
-  #agPvGateForm input,#agPvGateForm select{border:1px solid var(--line);border-radius:10px;padding:11px 13px;font:inherit;font-size:.9rem;background:var(--card);color:var(--ink);width:100%}
-  #agPvGateForm input:focus,#agPvGateForm select:focus{outline:none;border-color:var(--accent)}
+  /* :not([type=checkbox]) matters — this is an ID selector, so without it
+     the terms checkbox also gets width:100% and pushes its own label into
+     a one-word-wide column. The .ag-pv-gate-terms input rule below is only
+     a class and loses the specificity fight. */
+  #agPvGateForm input:not([type=checkbox]),#agPvGateForm select{border:1px solid var(--line);border-radius:10px;padding:11px 13px;font:inherit;font-size:.9rem;background:var(--card);color:var(--ink);width:100%}
+  #agPvGateForm input:not([type=checkbox]):focus,#agPvGateForm select:focus{outline:none;border-color:var(--accent)}
   #agPvGateForm select:invalid{color:var(--mut)} /* placeholder-ish until a real country is picked */
   .ag-pv-gate-terms{display:flex;align-items:flex-start;gap:8px;text-align:left;font-size:.82rem;
     color:var(--ink-2);line-height:1.45;margin-top:2px;cursor:pointer}
