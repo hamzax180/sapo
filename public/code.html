@@ -1,0 +1,993 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#faf7f2">
+<meta name="robots" content="noindex">
+<link rel="icon" type="image/png" href="assets/logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Jost:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<title>Souqi Code</title>
+<style>
+  /* Same visual system as agent.html (docs/CODE-AGENT-PLAN.md Phase 6:
+     "reuse agent.html" — done as a NEW file with the same look, not an
+     edit to that file, so the site-builder's own tested claim/publish/
+     history flows stay completely untouched by this product line. */
+  *,*::before,*::after{box-sizing:border-box}
+  :root{
+    --paper:#faf7f2; --paper-2:#f3eee6; --card:#ffffff;
+    --ink:#12202e; --ink-2:#5d6f80; --mut:#8b98a5;
+    --accent:#1aa6df; --accent-2:#0f8ec4; --accent-ink:#04202e;
+    --tint:#c7e8fa; --tint-2:#e7f5fd;
+    --stone:#dedad2; --dark:#0d2338; --line:#e7e1d7; --navy-800:#0b1e33;
+    --disp:'Jost','Century Gothic',system-ui,sans-serif;
+    --body:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+    --ease:cubic-bezier(.16,1,.3,1);
+  }
+  html{background:var(--paper);overscroll-behavior-x:none}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--body);-webkit-font-smoothing:antialiased;
+    padding:0 env(safe-area-inset-right) 0 env(safe-area-inset-left)}
+  *{-webkit-tap-highlight-color:transparent}
+  a{color:inherit;text-decoration:none}
+  h1,h2,h3,h4{font-family:var(--disp);font-weight:600;letter-spacing:-.03em;line-height:1.04;margin:0}
+  button{font:inherit}
+
+  .nav{position:static;z-index:40;display:flex;align-items:center;gap:20px;padding:14px clamp(18px,4vw,40px);background:var(--paper)}
+  .brand{display:flex;align-items:center;gap:10px;font-family:var(--disp);font-weight:800;font-size:1.1rem;color:var(--ink)}
+  .nav .lnk{margin-left:auto;display:flex;gap:2px;align-items:center}
+  .nav-tag{display:inline-flex;align-items:center;background:var(--accent);color:#fff;border-radius:999px;
+    padding:0 12px;font-weight:700;font-size:.8rem;height:28px;margin-inline-end:8px}
+  .btn-g{padding:9px 15px;border:1px solid var(--line);border-radius:10px;color:var(--ink);font-size:.86rem;font-weight:600;transition:.16s}
+  .btn-g:hover{border-color:#c6dbe7;background:rgba(18,32,46,.05)}
+  .btn-d{padding:9px 17px;border-radius:10px;background:var(--accent);color:#fff;font-size:.86rem;font-weight:700;transition:.16s}
+  .btn-d:hover{background:var(--accent-2);transform:translateY(-1px)}
+  @media (max-width:640px){ .nav{gap:6px;padding:11px 12px} .brand{font-size:1rem;gap:6px} }
+
+  .ag-split{max-width:1440px;margin:0 auto;display:grid;grid-template-columns:minmax(340px,460px) 1fr;
+    min-height:calc(100svh - 64px)}
+  .ag{text-align:left;display:flex;flex-direction:column;min-width:0;
+    padding:0 clamp(14px,2.4vw,28px);border-right:1px solid var(--line)}
+  .ag-head{display:flex;align-items:center;gap:10px;padding:4px 2px 18px;border-bottom:1px solid var(--line);margin-bottom:22px}
+  .ag-head .mark{width:26px;height:26px;border-radius:7px;background:var(--accent);display:grid;place-items:center}
+  .ag-head .mark svg{width:15px;height:15px;color:#fff}
+  .ag-head b{font-family:var(--disp);font-weight:600;font-size:1.05rem;letter-spacing:-.02em}
+  .ag-head .ag-new{margin-inline-start:auto;border:1px solid var(--line);background:var(--card);border-radius:999px;
+    padding:7px 15px;font-size:.84rem;font-weight:500;color:var(--ink-2);cursor:pointer;transition:.16s}
+  .ag-head .ag-new:hover{border-color:#c6dbe7;color:var(--ink)}
+
+  .ag-log{flex:1;display:flex;flex-direction:column;gap:4px;padding-bottom:20px}
+
+  .ag-user{align-self:flex-end;max-width:min(86%,560px);margin:18px 0 2px;text-align:right}
+  .ag-user .bubble{display:inline-block;background:var(--tint-2);border:1px solid #cbe7f6;color:var(--ink);
+    border-radius:16px;padding:12px 16px;font-size:.98rem;line-height:1.5;text-align:left;white-space:pre-wrap}
+  .ag-user .when{display:block;font-size:.76rem;color:var(--mut);margin-top:6px}
+
+  .ag-think{display:flex;align-items:center;gap:11px;padding:11px 2px;font-size:.96rem;color:var(--ink-2);
+    opacity:0;animation:agIn .35s var(--ease) forwards}
+  .ag-think .ic{width:22px;height:22px;flex:none;border-radius:50%;border:1px solid var(--line);
+    display:grid;place-items:center;color:var(--ink-2);background:var(--card)}
+  .ag-think .ic svg{width:13px;height:13px}
+  .ag-think.busy .ic{border-color:var(--accent);border-top-color:transparent;animation:spin .8s linear infinite}
+  .ag-think.busy .ic svg{display:none}
+  @keyframes agIn{to{opacity:1}}
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  .ag-say{padding:6px 2px 14px 35px;font-size:1rem;line-height:1.62;color:var(--ink);opacity:0;animation:agIn .35s var(--ease) forwards}
+  .ag-say b{font-weight:600}
+  .ag-say .muted{color:var(--ink-2)}
+  .ag-say.err{color:#b3261e}
+
+  .ag-thinking{margin:2px 0 8px;opacity:0;animation:agIn .35s var(--ease) forwards}
+  .ag-th-head{display:flex;align-items:center;gap:9px;width:100%;border:0;background:none;cursor:pointer;padding:9px 2px;font:inherit;text-align:left;color:var(--ink-2);border-radius:8px;transition:background .15s}
+  .ag-th-head:hover{background:rgba(18,32,46,.04)}
+  .ag-th-dot{width:8px;height:8px;border-radius:50%;background:var(--accent);flex:none;animation:thPulse 1.3s ease-in-out infinite}
+  .ag-thinking.done .ag-th-dot{animation:none;background:var(--mut);width:6px;height:6px}
+  .ag-th-label{font-size:.94rem;font-weight:500;font-style:italic;color:var(--ink-2)}
+  .ag-th-time{font-size:.82rem;color:var(--mut);font-style:normal}
+  .ag-th-chev{width:14px;height:14px;color:var(--mut);margin-inline-start:auto;flex:none;transition:transform .2s var(--ease)}
+  .ag-thinking.collapsed .ag-th-chev{transform:rotate(-90deg)}
+  .ag-th-body{padding:0 2px 6px 25px;max-height:60px;overflow:hidden;transition:max-height .25s var(--ease),opacity .2s,padding .2s}
+  .ag-thinking.collapsed .ag-th-body{max-height:0;opacity:0;padding-top:0;padding-bottom:0}
+  .ag-th-line{font-size:.89rem;font-style:italic;color:var(--mut);line-height:1.5;opacity:0;transform:translateY(3px);transition:opacity .4s var(--ease),transform .4s var(--ease)}
+  .ag-th-line.in{opacity:1;transform:none}
+  @keyframes thPulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.35;transform:scale(.7)}}
+
+  .ag-worked{display:flex;align-items:center;gap:11px;padding:4px 2px 18px;font-size:.92rem;color:var(--mut);
+    opacity:0;animation:agIn .35s var(--ease) forwards}
+  .ag-worked .ic{width:22px;height:22px;flex:none;border-radius:50%;border:1px solid var(--line);display:grid;place-items:center;background:var(--card)}
+  .ag-worked .ic svg{width:12px;height:12px}
+
+  .ag-card{margin:0 0 20px 35px;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px}
+  .ag-card .files{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:14px}
+  .ag-card .files span{background:var(--paper-2);border-radius:999px;padding:5px 12px;font-size:.8rem;font-weight:500;color:var(--ink-2);font-family:ui-monospace,monospace;
+    max-width:100%;overflow-wrap:anywhere} /* a long generated filename (e.g. a component
+      name with no spaces) has no natural break point — flex-wrap on the parent only
+      decides which ROW an item goes on, it can't shrink one item narrower than its own
+      unbroken text, so a long pill silently overflowed the card on narrow screens */
+  .ag-card .cost{font-size:.78rem;color:var(--mut)}
+
+  .ag-composer{position:sticky;bottom:0;background:linear-gradient(180deg,transparent,var(--paper) 22%);padding:18px 0 calc(18px + env(safe-area-inset-bottom))}
+  .ag-box{background:var(--card);border:1.5px solid var(--line);border-radius:20px;padding:14px 16px 12px;box-shadow:0 2px 8px rgba(18,32,46,.04);transition:border-color .2s,box-shadow .2s}
+  .ag-box:focus-within{border-color:var(--accent);box-shadow:0 16px 40px rgba(26,166,223,.14),0 0 0 4px rgba(26,166,223,.07)}
+  .ag-box textarea{width:100%;border:0;outline:0;resize:none;background:none;font-family:var(--body);font-size:1rem;line-height:1.5;color:var(--ink);min-height:26px;max-height:180px;overflow-y:auto}
+  .ag-box textarea::placeholder{color:var(--mut)}
+  .ag-brow{display:flex;align-items:center;gap:8px;padding-top:8px}
+
+  /* type-of-build picker — a small toolbar row above the textarea, Replit-
+     style. "Mobile" is deliberately labelled/titled as a responsive web
+     output, not a native app — the backend only ever builds one stack
+     (React/Vite, docs/CODE-AGENT-PLAN.md §1), so promising native mobile
+     generation here would be a UI that lies about what actually happens. */
+  .ag-type-row{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:11px;padding-bottom:11px;border-bottom:1px solid var(--line)}
+  .ag-type-row[hidden]{display:none} /* the class's own display:flex otherwise
+    outranks the UA [hidden]{display:none} rule by specificity, so setting
+    .hidden = true in JS silently did nothing — found live, the row stayed
+    visible after the first build despite the JS correctly setting it */
+  .ag-type{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--paper-2);color:var(--ink-2);
+    border-radius:999px;padding:6px 13px 6px 10px;font-size:.8rem;font-weight:600;cursor:pointer;transition:.15s}
+  .ag-type svg{width:14px;height:14px;flex:none}
+  .ag-type:hover{border-color:#c6dbe7;color:var(--ink)}
+  .ag-type.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+  .ag-send{margin-inline-start:auto;flex:none;width:34px;height:34px;border:0;border-radius:50%;cursor:pointer;background:#e9e4db;color:#fff;display:grid;place-items:center;transition:background .2s,transform .16s}
+  .ag-send svg{width:16px;height:16px}
+  .ag-send.live{background:var(--accent)}
+  .ag-send.live:hover{background:var(--accent-2);transform:translateY(-1px)}
+  .ag-send:disabled{cursor:not-allowed}
+
+  .ag-empty{padding:40px 2px;color:var(--ink-2)}
+
+  .ag-preview{display:flex;flex-direction:column;min-width:0;background:var(--paper-2);
+    position:sticky;top:0;align-self:start;height:100svh}
+  .ag-pv-bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:12px clamp(14px,2.4vw,24px);border-bottom:1px solid var(--line)}
+  .ag-pv-bar .label{font-size:.84rem;color:var(--ink-2);font-weight:500}
+  .ag-pv-devices{display:flex;gap:4px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:3px}
+  .ag-pv-devices button{border:0;background:none;width:32px;height:28px;border-radius:7px;display:grid;place-items:center;
+    color:var(--ink-2);cursor:pointer;transition:.15s}
+  .ag-pv-devices button svg{width:15px;height:15px}
+  .ag-pv-devices button:hover{color:var(--ink)}
+  .ag-pv-devices button.on{background:var(--ink);color:#fff}
+  .ag-pv-devices:disabled,.ag-pv-devices[aria-disabled="true"] button{opacity:.5;cursor:default;pointer-events:none}
+  .ag-pv-open{margin-inline-start:auto;border:1px solid var(--line);background:var(--card);color:var(--ink-2);border-radius:8px;
+    padding:0 12px;height:30px;font-size:.82rem;font-weight:500;cursor:pointer;transition:.15s;white-space:nowrap}
+  .ag-pv-open:hover{color:var(--ink);border-color:#c6dbe7}
+  .ag-pv-open:disabled{opacity:.5;cursor:default}
+  .ag-pv-stage{flex:1;display:flex;align-items:flex-start;justify-content:center;padding:clamp(16px,3vw,32px);overflow:auto}
+  .ag-pv-frame{background:#fff;border:1px solid var(--line);border-radius:14px;overflow:hidden;box-shadow:0 10px 34px rgba(18,32,46,.08);
+    width:100%;height:calc(100svh - 180px);min-height:420px;transition:width .2s var(--ease);
+    flex:none} /* the box's OWN width governs sizing — with flex-basis:auto (the
+      default) a flex child with a replaced-element (iframe) descendant can fall
+      back to content-based sizing and ignore an explicit width entirely; found
+      live when neither the .tablet/.mobile classes NOR a forced inline style
+      NOR a manual reflow changed the rendered width at all. flex:none removes
+      the flex sizing algorithm from the equation, so width simply wins. */
+  .ag-pv-frame.tablet{width:834px;max-width:100%}
+  .ag-pv-frame.mobile{width:390px;max-width:100%}
+  .ag-pv-frame iframe{width:100%;height:100%;border:0;display:block}
+  .ag-pv-empty{margin:auto;text-align:center;color:var(--mut);font-size:.94rem;max-width:26ch}
+
+  .ag-tabs{display:none}
+  @media (max-width:900px){
+    .ag-split{grid-template-columns:1fr;min-height:auto}
+    .ag{border-right:0}
+    .ag-tabs{display:flex;gap:6px;padding:10px clamp(14px,4vw,24px) 0}
+    .ag-tabs button{flex:1;border:1px solid var(--line);background:var(--card);color:var(--ink-2);border-radius:10px;padding:9px;font-size:.88rem;font-weight:500;cursor:pointer}
+    .ag-tabs button.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+    .ag.tab-hidden,.ag-preview.tab-hidden{display:none}
+    .ag-pv-frame{height:calc(100svh - 240px)}
+    .ag-preview{position:static;height:auto}
+  }
+  @media (max-width:640px){
+    .ag-say,.ag-card{padding-inline-start:0;margin-inline-start:0}
+    .ag{min-height:calc(100svh - 90px)}
+    /* label + device toggle + Publish + Open-in-new-tab all in one row
+       don't fit at phone widths — found live, the last one was landing
+       flush against the screen edge with zero padding. flex-wrap on the
+       bar (base rule) is the safety net; this is what keeps it to one
+       line in the common case instead of relying on the wrap. */
+    .ag-pv-bar{gap:6px;padding:10px 12px}
+    .ag-pv-bar .label{display:none}
+    .ag-pv-open{padding:0 10px;font-size:.78rem}
+  }
+
+  /* Account sidebar — a Replit-style slide-in drawer rather than a
+     permanent rail, so it doesn't need a separate mobile layout: same
+     markup, same behavior, every width. Home/Favorites/Domains/Stats/
+     Settings are views within ONE drawer (a tab row), not separate pages —
+     there's nothing else in this single-page app for them to navigate to. */
+  .ag-hist-btn{border:1px solid var(--line);background:var(--card);color:var(--ink-2);border-radius:9px;
+    width:36px;height:36px;display:grid;place-items:center;cursor:pointer;transition:.15s;margin-inline-end:2px}
+  .ag-hist-btn:hover{border-color:#c6dbe7;color:var(--ink)}
+  .ag-hist-btn svg{width:17px;height:17px}
+  .ag-hist-backdrop{position:fixed;inset:0;background:rgba(11,22,38,.4);opacity:0;pointer-events:none;transition:opacity .2s;z-index:70}
+  .ag-hist-backdrop.on{opacity:1;pointer-events:auto}
+  .ag-history{position:fixed;top:0;left:0;bottom:0;width:340px;max-width:88vw;background:var(--paper);
+    border-right:1px solid var(--line);z-index:71;transform:translateX(-100%);transition:transform .24s var(--ease);
+    display:flex;flex-direction:column}
+  .ag-history.on{transform:none}
+  .ag-hist-head{display:flex;align-items:center;gap:10px;padding:16px 16px 12px;border-bottom:1px solid var(--line)}
+  .ag-hist-head b{font-family:var(--disp);font-weight:700;font-size:1.02rem}
+  .ag-hist-close{margin-inline-start:auto;border:0;background:none;color:var(--ink-2);cursor:pointer;width:30px;height:30px;border-radius:8px;display:grid;place-items:center}
+  .ag-hist-close:hover{background:rgba(18,32,46,.06);color:var(--ink)}
+  .ag-hist-close svg{width:16px;height:16px}
+
+  /* Vertical nav list, Replit-style — not a horizontal tab row: with 5
+     items a horizontal row either overflows (found live: two items were
+     hidden behind a native scrollbar) or gets cramped. Full-width rows
+     stacked vertically has no such ceiling. */
+  .ag-hist-tabs{display:flex;flex-direction:column;gap:1px;padding:8px;border-bottom:1px solid var(--line)}
+  .ag-hist-tab{width:100%;display:flex;align-items:center;gap:10px;border:0;background:none;color:var(--ink-2);cursor:pointer;
+    padding:9px 11px;border-radius:9px;font-size:.87rem;font-weight:600;text-align:left;transition:.15s}
+  .ag-hist-tab svg{width:15px;height:15px;flex:none}
+  .ag-hist-tab:hover{color:var(--ink);background:rgba(18,32,46,.05)}
+  .ag-hist-tab.on{color:var(--accent-2);background:var(--tint-2)}
+
+  .ag-hist-view{flex:1;overflow-y:auto;display:none}
+  .ag-hist-view.on{display:block}
+
+  .ag-hist-list{padding:8px}
+  .ag-hist-item{display:flex;align-items:center;gap:6px;width:100%;text-align:left;border:0;background:none;border-radius:11px;
+    color:var(--ink);transition:background .15s}
+  .ag-hist-item:hover{background:rgba(18,32,46,.05)}
+  .ag-hist-item.current{background:var(--tint-2)}
+  .ag-hist-item .hi-main{flex:1;min-width:0;padding:11px 4px 11px 12px;cursor:pointer;background:none;border:0;text-align:left;font:inherit;color:inherit}
+  .ag-hist-item .t{font-size:.9rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ag-hist-item .w{font-size:.76rem;color:var(--mut);margin-top:2px}
+  .ag-hist-star{flex:none;border:0;background:none;cursor:pointer;color:var(--mut);width:32px;height:32px;border-radius:8px;display:grid;place-items:center;margin-inline-end:4px}
+  .ag-hist-star:hover{background:rgba(18,32,46,.06);color:var(--ink)}
+  .ag-hist-star svg{width:16px;height:16px}
+  .ag-hist-star.on{color:#e0a11a}
+  .ag-hist-star.on svg{fill:currentColor}
+  .ag-hist-empty,.ag-hist-loading{padding:24px 16px;color:var(--mut);font-size:.88rem;text-align:center}
+  .ag-hist-new{margin:8px;border:1px dashed var(--line);background:none;color:var(--ink-2);border-radius:11px;
+    padding:11px 12px;font-size:.88rem;font-weight:600;cursor:pointer;text-align:left;transition:.15s}
+  .ag-hist-new:hover{border-color:#c6dbe7;color:var(--ink)}
+
+  /* Stats view */
+  .ag-stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:14px}
+  .ag-stat{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px}
+  .ag-stat .n{font-family:var(--disp);font-size:1.6rem;font-weight:700;letter-spacing:-.02em}
+  .ag-stat .l{font-size:.76rem;color:var(--mut);margin-top:2px}
+  .ag-stat-types{padding:0 14px 14px}
+  .ag-stat-types h4{font-size:.72rem;text-transform:uppercase;letter-spacing:.08em;color:var(--mut);margin:0 0 8px}
+  .ag-stat-row{display:flex;align-items:center;gap:9px;font-size:.85rem;padding:6px 0}
+  .ag-stat-row .bar{flex:1;height:7px;border-radius:4px;background:var(--paper-2);overflow:hidden}
+  .ag-stat-row .bar i{display:block;height:100%;background:var(--accent);border-radius:4px}
+  .ag-stat-row .n{font-weight:700;width:22px;text-align:right}
+
+  /* Domains view */
+  .ag-dom-list{padding:8px}
+  .ag-dom-card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:13px 14px;margin:6px}
+  .ag-dom-card .t{font-size:.88rem;font-weight:600}
+  .ag-dom-row{display:flex;gap:6px;margin-top:8px}
+  .ag-dom-row input{flex:1;min-width:0;border:1px solid var(--line);border-radius:9px;padding:7px 10px;font:inherit;font-size:.84rem;background:var(--paper)}
+  .ag-dom-row button{border:1px solid var(--line);background:var(--paper-2);color:var(--ink);border-radius:9px;padding:0 12px;font-size:.82rem;font-weight:600;cursor:pointer}
+  .ag-dom-status{margin-top:8px;font-size:.78rem;display:flex;align-items:center;gap:6px}
+  .ag-dom-status .d{width:7px;height:7px;border-radius:50%;background:var(--mut)}
+  .ag-dom-status.live .d{background:#22c58f}
+  .ag-dom-status.live{color:#0f8a5f}
+
+  /* Settings view */
+  .ag-set-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:13px 16px;border-bottom:1px solid var(--line)}
+  .ag-set-row .l{font-size:.86rem;color:var(--ink-2)}
+  .ag-set-row .v{font-size:.86rem;font-weight:600}
+  .ag-set-row .bar{width:90px;height:6px;border-radius:4px;background:var(--paper-2);overflow:hidden}
+  .ag-set-row .bar i{display:block;height:100%;background:var(--accent)}
+  .ag-set-cta{margin:14px 16px;text-align:center;padding:11px;border-radius:11px;background:var(--accent);color:#fff;font-weight:700;font-size:.88rem;text-decoration:none;display:block}
+</style>
+</head>
+<body>
+
+<div class="ag-hist-backdrop" id="agHistBackdrop"></div>
+<aside class="ag-history" id="agHistory" aria-label="Your account">
+  <div class="ag-hist-head">
+    <b>Souqi Code</b>
+    <button type="button" class="ag-hist-close" id="agHistClose" aria-label="Close">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+    </button>
+  </div>
+  <div class="ag-hist-tabs" id="agHistTabs" role="tablist">
+    <button type="button" class="ag-hist-tab on" data-view="home">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg>Home</button>
+    <button type="button" class="ag-hist-tab" data-view="favorites">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01z"/></svg>Favorites</button>
+    <button type="button" class="ag-hist-tab" data-view="domains">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 0 1 0 18 15 15 0 0 1 0-18z"/></svg>Domains</button>
+    <button type="button" class="ag-hist-tab" data-view="stats">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/></svg>Stats</button>
+    <button type="button" class="ag-hist-tab" data-view="settings">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Settings</button>
+  </div>
+
+  <div class="ag-hist-view on" id="viewHome">
+    <button type="button" class="ag-hist-new" id="agHistNew">+ New build</button>
+    <div class="ag-hist-list" id="agHistList"><div class="ag-hist-loading">Loading…</div></div>
+  </div>
+
+  <div class="ag-hist-view" id="viewFavorites">
+    <div class="ag-hist-list" id="agFavList"><div class="ag-hist-loading">Loading…</div></div>
+  </div>
+
+  <div class="ag-hist-view" id="viewDomains">
+    <div class="ag-dom-list" id="agDomList"><div class="ag-hist-loading">Loading…</div></div>
+  </div>
+
+  <div class="ag-hist-view" id="viewStats">
+    <div class="ag-stat-grid" id="agStatGrid"><div class="ag-hist-loading">Loading…</div></div>
+    <div class="ag-stat-types" id="agStatTypes"></div>
+  </div>
+
+  <div class="ag-hist-view" id="viewSettings">
+    <div class="ag-set-row"><span class="l">Free edits per build</span><span class="v" id="setFreeEdits">3</span></div>
+    <div class="ag-set-row"><span class="l">This month's usage</span><span class="v" id="setUsage">—</span></div>
+    <a class="ag-set-cta" href="/pricing">See plans</a>
+    <div class="ag-set-row"><span class="l">Account</span><span class="v"><a class="btn-g" style="padding:6px 12px" href="/login">Sign in</a></span></div>
+  </div>
+</aside>
+
+<header class="nav">
+  <button type="button" class="ag-hist-btn" id="agHistOpen" aria-label="Your builds" title="Your builds">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h10M4 18h16"/></svg>
+  </button>
+  <span class="brand"><img src="assets/logo.png" alt="Souqi Logo" style="width:26px;height:26px;object-fit:contain;border-radius:4px"><span>Souqi</span></span>
+  <nav class="lnk">
+    <span class="nav-tag">Code · beta</span>
+  </nav>
+  <a class="btn-g" href="login">Sign in</a><a class="btn-d" href="signup">Create workspace</a>
+</header>
+
+<div class="ag-split" id="agentView">
+  <div class="ag-tabs" id="agTabs">
+    <button type="button" class="on" id="agTabChat">Chat</button>
+    <button type="button" id="agTabPreview">Preview</button>
+  </div>
+
+  <section class="ag">
+    <div class="ag-head">
+      <span class="mark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 16 4-4-4-4M6 8l-4 4 4 4M14.5 4l-5 16"/></svg></span>
+      <b>Souqi Code</b>
+      <button type="button" class="ag-new" id="agNew">New build</button>
+    </div>
+    <div class="ag-log" id="agLog" aria-live="polite">
+      <div class="ag-empty" id="agEmptyState">Describe an app and I'll write it, build it, and show you the running result — real React, real TypeScript, running in an isolated sandbox.</div>
+    </div>
+    <form class="ag-composer" id="agForm" autocomplete="off">
+      <div class="ag-box">
+        <div class="ag-type-row" id="agTypeRow" role="radiogroup" aria-label="What kind of build">
+          <button type="button" class="ag-type on" data-type="website" role="radio" aria-checked="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 0 1 0 18 15 15 0 0 1 0-18z"/></svg>Website</button>
+          <button type="button" class="ag-type" data-type="webapp" role="radio" aria-checked="false">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18"/></svg>Web App</button>
+          <button type="button" class="ag-type" data-type="dashboard" role="radio" aria-checked="false">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>Dashboard</button>
+          <button type="button" class="ag-type" data-type="portfolio" role="radio" aria-checked="false">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1.3"/><rect x="14" y="3" width="7" height="7" rx="1.3"/><rect x="3" y="14" width="7" height="7" rx="1.3"/><rect x="14" y="14" width="7" height="7" rx="1.3"/></svg>Portfolio</button>
+          <button type="button" class="ag-type" data-type="mobile" role="radio" aria-checked="false" title="A mobile-first layout. Every build is installable to a home screen and works offline — this option just biases the design for a phone screen, it's not a native app.">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></svg>Mobile</button>
+        </div>
+        <textarea id="agInput" rows="1" aria-label="Message the agent" placeholder="Build a landing page for…"></textarea>
+        <div class="ag-brow">
+          <button type="submit" class="ag-send" id="agSend" disabled aria-label="Send">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M6 11l6-6 6 6"/></svg>
+          </button>
+        </div>
+      </div>
+    </form>
+  </section>
+
+  <section class="ag-preview tab-hidden" id="agPreview">
+    <div class="ag-pv-bar">
+      <span class="label" id="agPvLabel">Preview</span>
+      <div class="ag-pv-devices" id="agPvDevices" role="group" aria-label="Preview device size" aria-disabled="true">
+        <button type="button" class="on" data-size="desktop" aria-label="Desktop">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="13" rx="1.5"/><path d="M8 21h8M12 17v4"/></svg></button>
+        <button type="button" data-size="tablet" aria-label="Tablet">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M11 18h2"/></svg></button>
+        <button type="button" data-size="mobile" aria-label="Mobile">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></svg></button>
+      </div>
+      <button type="button" class="ag-pv-open" id="agPvPublish" disabled>Publish</button>
+      <button type="button" class="ag-pv-open" id="agPvOpen" disabled>Open in new tab</button>
+    </div>
+    <div class="ag-pv-stage">
+      <div class="ag-pv-empty" id="agPvEmpty">Your app will show up here once it's built.</div>
+      <div class="ag-pv-frame" id="agPvFrame" hidden><iframe id="agPvIframe" title="Live preview"></iframe></div>
+    </div>
+  </section>
+</div>
+
+<script>
+(function () {
+  "use strict";
+  const $ = (id) => document.getElementById(id);
+  const agLog = $("agLog"), agForm = $("agForm"), agInput = $("agInput"), agSend = $("agSend");
+  const agPvFrame = $("agPvFrame"), agPvIframe = $("agPvIframe"), agPvEmpty = $("agPvEmpty"), agPvOpen = $("agPvOpen"), agPvPublish = $("agPvPublish"), agPvLabel = $("agPvLabel"), agPvDevices = $("agPvDevices");
+  const agTabs = $("agTabs"), agTabChat = $("agTabChat"), agTabPreview = $("agTabPreview"), agPreview = $("agPreview"), agSection = document.querySelector(".ag");
+  const agTypeRow = $("agTypeRow");
+  const agHistOpen = $("agHistOpen"), agHistClose = $("agHistClose"), agHistBackdrop = $("agHistBackdrop"),
+    agHistory = $("agHistory"), agHistList = $("agHistList"), agHistNew = $("agHistNew");
+
+  let building = false;
+  let projectId = "";
+  let projectSlug = "";
+  let emptyShown = true;
+  let pendingPrompt = ""; // the original ask, kept until a clarifying question is answered
+  let selectedType = "website";
+
+  // Only ever changes what gets ASKED FOR, never what gets built — every
+  // option still produces the same one stack (React/Vite), just steered
+  // differently. "mobile" is explicitly a responsive layout instruction,
+  // not a native-app promise; see the button's title attribute in the
+  // markup for the same disclosure surfaced to the user. The actual hint
+  // TEXT lives server-side now (CODEAGENT_TYPE_HINT in index.js) — sending
+  // just the selected type id, not a client-composed prefix, is what keeps
+  // the project's stored title/slug based on the user's own words instead
+  // of the hint text (found live: a prefix baked in here landed inside the
+  // server's prompt.slice(0,60) title/slug logic, ahead of anything the
+  // user actually typed).
+  agTypeRow.addEventListener("click", (e) => {
+    const btn = e.target.closest(".ag-type"); if (!btn) return;
+    selectedType = btn.dataset.type;
+    agTypeRow.querySelectorAll(".ag-type").forEach((b) => {
+      const on = b === btn; b.classList.toggle("on", on); b.setAttribute("aria-checked", on ? "true" : "false");
+    });
+  });
+
+  function clearEmpty() {
+    if (!emptyShown) return;
+    emptyShown = false;
+    const el = $("agEmptyState");
+    if (el) el.remove();
+  }
+
+  function el(cls, html) { const d = document.createElement("div"); d.className = cls; if (html != null) d.innerHTML = html; return d; }
+  function esc(t) { const d = document.createElement("span"); d.textContent = t == null ? "" : t; return d.innerHTML; }
+  function toBottom() { agLog.scrollTop = agLog.scrollHeight; }
+
+  const ICON = {
+    dot: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/></svg>',
+    check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>',
+    clock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>'
+  };
+
+  function sayUser(text) {
+    clearEmpty();
+    const row = el("ag-user");
+    row.innerHTML = '<div class="bubble">' + esc(text) + '</div><span class="when">Just now</span>';
+    agLog.appendChild(row); toBottom();
+  }
+  function think(label) {
+    clearEmpty();
+    const row = el("ag-think busy", '<span class="ic">' + ICON.dot + "</span><span></span>");
+    row.lastChild.textContent = label;
+    agLog.appendChild(row); toBottom();
+    return { done(next) { row.classList.remove("busy"); row.querySelector(".ic").innerHTML = ICON.check; if (next) row.lastChild.textContent = next; } };
+  }
+  function say(html, cls) {
+    clearEmpty();
+    const row = el("ag-say" + (cls ? " " + cls : ""), html);
+    agLog.appendChild(row); toBottom();
+  }
+  // Claude-style live "thinking" block for the propose stage specifically —
+  // the one stage that's actually the model generating, not infra setup, so
+  // it's the only one worth this treatment. The lines are NOT the model's
+  // real chain-of-thought — DeepSeek's tool-calling response here is just
+  // write_file calls with no narration, and the reasoning-model variant
+  // that WOULD stream real thinking is deliberately not used (docs/
+  // CODE-AGENT-PLAN.md §8: R1 bills for chain-of-thought on every tool call
+  // in a loop like this). What's real is the TIMING — each line's dwell and
+  // the running clock track the actual in-flight request, so it never
+  // claims to be done before the model actually responds.
+  const THINK_LINES = [
+    "Planning the page structure", "Choosing a layout that fits", "Picking colors and typography",
+    "Structuring the main component", "Writing the UI", "Adding the details that make it feel finished",
+    "Wiring up interactions", "Reviewing before handing it off"
+  ];
+  function promptGist(text) {
+    const t = String(text || "").trim();
+    return t.length > 46 ? t.slice(0, 46).replace(/\s+\S*$/, "") + "…" : t;
+  }
+  function thinkingBlock(promptText) {
+    clearEmpty();
+    const wrap = el("ag-thinking");
+    wrap.innerHTML =
+      '<button class="ag-th-head" type="button">' +
+        '<span class="ag-th-dot"></span><span class="ag-th-label">Thinking</span>' +
+        '<span class="ag-th-time">0s</span>' +
+        '<svg class="ag-th-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>' +
+      '</button><div class="ag-th-body"><div class="ag-th-line"></div></div>';
+    agLog.appendChild(wrap); toBottom();
+
+    const head = wrap.querySelector(".ag-th-head"), timeEl = wrap.querySelector(".ag-th-time"),
+      lineEl = wrap.querySelector(".ag-th-line"), labelEl = wrap.querySelector(".ag-th-label");
+    let userToggled = false;
+    head.addEventListener("click", () => { userToggled = true; wrap.classList.toggle("collapsed"); });
+
+    const lines = ["Understanding “" + promptGist(promptText) + "”"].concat(THINK_LINES);
+    let li = 0;
+    const t0 = Date.now();
+    function showLine() {
+      lineEl.classList.remove("in"); void lineEl.offsetWidth;
+      lineEl.textContent = lines[li % lines.length]; li++;
+      lineEl.classList.add("in");
+      toBottom();
+    }
+    showLine();
+    const lineTimer = setInterval(showLine, 1700);
+    const clockTimer = setInterval(() => { timeEl.textContent = Math.round((Date.now() - t0) / 1000) + "s"; }, 500);
+
+    return {
+      done(detail) {
+        clearInterval(lineTimer); clearInterval(clockTimer);
+        const secs = Math.max(1, Math.round((Date.now() - t0) / 1000));
+        wrap.classList.add("done");
+        labelEl.textContent = "Thought for " + secs + (secs === 1 ? " second" : " seconds");
+        timeEl.remove();
+        if (!userToggled) wrap.classList.add("collapsed");
+        if (detail) { const h = think(detail); h.done(detail); }
+      }
+    };
+  }
+
+  function worked(seconds) {
+    const row = el("ag-worked", '<span class="ic">' + ICON.clock + "</span><span></span>");
+    row.lastChild.textContent = "Worked for " + seconds + (seconds === 1 ? " second" : " seconds");
+    agLog.appendChild(row); toBottom();
+  }
+  function renderCard(files, costUsd) {
+    const card = el("ag-card");
+    const list = el("files");
+    files.forEach((f) => { const s = document.createElement("span"); s.textContent = f; list.appendChild(s); });
+    card.appendChild(list);
+    if (costUsd) { const c = el("cost"); c.textContent = "~$" + costUsd.toFixed(5); card.appendChild(c); }
+    agLog.appendChild(card); toBottom();
+  }
+
+  const STAGE_LABEL = { sandbox: "Creating a sandbox", install: "Installing dependencies", propose: "Writing your app", preview: "Starting your preview" };
+
+  function showQuestions(reply) {
+    // The model's own words, rendered plainly — same as any other agent
+    // line (say()), not a form. No hardcoded "Quick question:" label; a
+    // greeting deserves a greeting back, not a support ticket.
+    say(esc(reply));
+  }
+
+  async function runTurn(prompt) {
+    if (building) return;
+    building = true;
+    agSend.disabled = true;
+    sayUser(prompt);
+    const startedAt = Date.now();
+    const handles = {};
+
+    // A clarifying answer isn't a fresh request — it's the missing piece of
+    // the ORIGINAL one. Combine them so the build call sees the whole
+    // picture, same as the site builder's own answer-a-question flow.
+    const effectivePrompt = pendingPrompt ? pendingPrompt + ". " + prompt : prompt;
+    // The type only applies to a FRESH build (a follow-up is editing the
+    // existing app, not starting a new kind of one) — sent separately
+    // rather than prefixed client-side, so the server can apply it to the
+    // MODEL's instructions without it also becoming the project's stored
+    // title/slug (see CODEAGENT_TYPE_HINT's own comment in index.js).
+    const buildType = !projectId ? selectedType : undefined;
+
+    function onStage(id, state, detail) {
+      // "propose" is the one stage that's actually the model generating —
+      // give it the rich thinking treatment. Everything else (sandbox,
+      // install, preview, round-N) stays the plain checkmark row.
+      if (id === "propose") {
+        if (state === "start") { handles[id] = thinkingBlock(prompt); return; }
+        if (handles[id]) { handles[id].done(detail); return; }
+      }
+      if (state === "start") { handles[id] = think(detail || STAGE_LABEL[id] || id); return; }
+      if (handles[id]) { handles[id].done(detail); return; }
+      // round-N events only ever arrive as "done" — no matching "start" was
+      // sent (proposeWithRepair only reports once a round's build finished),
+      // so show them as an already-completed line rather than a spinner
+      // that never appeared.
+      const h = think(detail); h.done(detail);
+    }
+
+    try {
+      const res = await fetch("/api/codeagent/build", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Accept": "text/event-stream" },
+        body: JSON.stringify({ prompt: effectivePrompt, projectId: projectId || undefined, buildType: buildType })
+      });
+      if (!res.ok || !res.body) throw new Error("That didn't work");
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buf = "", errorMsg = "", result = null, clarifyReply = null, chitchat = null, gate = null;
+      for (;;) {
+        const chunk = await reader.read();
+        if (chunk.done) break;
+        buf += decoder.decode(chunk.value, { stream: true });
+        let idx;
+        while ((idx = buf.indexOf("\n\n")) >= 0) {
+          const raw = buf.slice(0, idx); buf = buf.slice(idx + 2);
+          const em = /event: (.+)/.exec(raw), dm = /data: (.+)/.exec(raw);
+          if (!em || !dm) continue;
+          const payload = JSON.parse(dm[1]);
+          if (em[1] === "stage") onStage(payload.id, payload.state, payload.detail);
+          else if (em[1] === "result") result = payload;
+          else if (em[1] === "needsAnswer") clarifyReply = payload.reply;
+          else if (em[1] === "chitchat") chitchat = payload.reply;
+          else if (em[1] === "authRequired") gate = { kind: "auth", message: payload.message, loginUrl: payload.loginUrl, signupUrl: payload.signupUrl };
+          else if (em[1] === "subscribeRequired") gate = { kind: "subscribe", message: payload.message, pricingUrl: payload.pricingUrl };
+          else if (em[1] === "error") errorMsg = payload.error || "That didn't work";
+        }
+      }
+      if (errorMsg) throw new Error(errorMsg);
+
+      if (chitchat) {
+        // Not a build — just a friendly reply, no file card, no preview
+        // change, no cost beyond a regex match.
+        say('<span class="muted">' + esc(chitchat) + '</span>');
+        return;
+      }
+      if (gate) {
+        // Blocked before any sandbox/model work happened — the prompt
+        // that triggered this is intentionally NOT kept as pendingPrompt:
+        // after signing in/subscribing elsewhere, the user comes back and
+        // just says it again, same as any other message.
+        var links = gate.kind === "auth"
+          ? '<a href="' + esc(gate.loginUrl) + '">Sign in</a> · <a href="' + esc(gate.signupUrl) + '">Sign up</a>'
+          : '<a href="' + esc(gate.pricingUrl) + '">See plans</a>';
+        say('<span class="muted">' + esc(gate.message) + ' ' + links + '</span>');
+        return;
+      }
+      if (clarifyReply) {
+        // Not built yet, deliberately — no project, no sandbox, no cost
+        // beyond the one cheap assessment call. Keep the original ask
+        // around so the next message completes it instead of replacing it.
+        pendingPrompt = effectivePrompt;
+        showQuestions(clarifyReply);
+        return;
+      }
+      if (!result) throw new Error("No result came back");
+      pendingPrompt = "";
+
+      const isFirstBuild = !projectId;
+      projectId = result.projectId; projectSlug = result.slug;
+      if (isFirstBuild) {
+        // Claims this URL as the project's own — docs/CODE-AGENT-PLAN.md
+        // Phase 7: the moment a build survives a reload is the moment
+        // this became worth bookmarking.
+        try { history.replaceState(null, "", "/agent/" + projectSlug); } catch (e) { /* non-fatal */ }
+        agTypeRow.hidden = true; // only meaningful before there's a project to edit
+      }
+      renderCard(result.files, result.costUsd);
+      say('<span class="muted">Tell me what to change and I\'ll update it.</span>');
+      worked(Math.max(1, Math.round((Date.now() - startedAt) / 1000)));
+
+      showPreview(result.previewUrl);
+    } catch (err) {
+      say(esc(err.message), "err");
+    } finally {
+      building = false;
+      agSend.disabled = agInput.value.trim().length === 0;
+    }
+  }
+
+  function showPreview(url) {
+    agPvIframe.src = url;
+    agPvFrame.hidden = false;
+    agPvEmpty.style.display = "none";
+    agPvOpen.disabled = false;
+    agPvOpen.onclick = () => window.open(url, "_blank", "noopener");
+    agPvLabel.textContent = "Live preview";
+    agPvDevices.removeAttribute("aria-disabled");
+    agPvPublish.disabled = false;
+  }
+
+  let publishing = false;
+  agPvPublish.addEventListener("click", async () => {
+    if (publishing || !projectId) return;
+    publishing = true;
+    agPvPublish.disabled = true;
+    agPvPublish.textContent = "Publishing…";
+    try {
+      const res = await fetch("/api/codeagent/" + encodeURIComponent(projectId) + "/publish", { method: "POST" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Could not publish");
+      const fullUrl = location.origin + data.url;
+      say('<span class="muted">Published! Live at <a href="' + esc(fullUrl) + '" target="_blank" rel="noopener">' + esc(fullUrl) + '</a></span>');
+    } catch (err) {
+      say(esc(err.message), "err");
+    } finally {
+      agPvPublish.textContent = "Publish";
+      agPvPublish.disabled = false;
+      publishing = false;
+    }
+  });
+
+  agPvDevices.querySelectorAll("button").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      if (agPvDevices.getAttribute("aria-disabled") === "true") return;
+      agPvDevices.querySelectorAll("button").forEach((b) => b.classList.remove("on"));
+      btn.classList.add("on");
+      agPvFrame.classList.remove("tablet", "mobile");
+      if (btn.dataset.size !== "desktop") agPvFrame.classList.add(btn.dataset.size);
+    });
+  });
+
+  agInput.addEventListener("input", () => {
+    agSend.disabled = building || agInput.value.trim().length === 0;
+    agInput.style.height = "auto"; agInput.style.height = Math.min(180, agInput.scrollHeight) + "px";
+  });
+  agInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); agForm.requestSubmit(); }
+  });
+  agForm.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const v = agInput.value.trim();
+    if (!v || building) return;
+    agInput.value = ""; agInput.style.height = "auto"; agSend.disabled = true;
+    runTurn(v);
+  });
+
+  // Typewriter-rotating placeholder examples — pauses the moment the user
+  // focuses or types anything, so it never fights real input.
+  const PLACEHOLDER_EXAMPLES = [
+    "Build a landing page for a coffee roastery",
+    "Build a dashboard to track my team's tasks",
+    "Build a booking app for a hair salon",
+    "Build a portfolio site with a projects grid",
+    "Build a budgeting app with monthly charts",
+    "Build a community forum for book lovers"
+  ];
+  (function placeholderTypewriter() {
+    let si = 0, ci = 0, deleting = false;
+    function idle() { return document.activeElement !== agInput && agInput.value.length === 0; }
+    function tick() {
+      if (!idle()) { setTimeout(tick, 300); return; }
+      const full = PLACEHOLDER_EXAMPLES[si];
+      if (!deleting) {
+        ci++;
+        agInput.placeholder = full.slice(0, ci);
+        if (ci >= full.length) { setTimeout(() => { deleting = true; tick(); }, 1900); return; }
+      } else {
+        ci--;
+        agInput.placeholder = full.slice(0, ci);
+        if (ci <= 0) { deleting = false; si = (si + 1) % PLACEHOLDER_EXAMPLES.length; }
+      }
+      setTimeout(tick, deleting ? 20 : 36);
+    }
+    tick();
+  })();
+
+  $("agNew").addEventListener("click", () => { location.href = "/agent"; });
+  agHistNew.addEventListener("click", () => { location.href = "/agent"; });
+
+  /* ---------- account sidebar: Home / Favorites / Domains / Stats / Settings ---------- */
+  const STAR = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01z"/></svg>';
+  function timeAgo(iso) {
+    const s = (Date.now() - new Date(iso)) / 1000;
+    if (s < 3600) return Math.max(1, Math.round(s / 60)) + "m ago";
+    if (s < 86400) return Math.round(s / 3600) + "h ago";
+    if (s < 86400 * 30) return Math.round(s / 86400) + "d ago";
+    return new Date(iso).toLocaleDateString();
+  }
+  function projectItemHtml(p) {
+    const isCurrent = p.slug === projectSlug;
+    return '<div class="ag-hist-item' + (isCurrent ? " current" : "") + '" data-slug="' + esc(p.slug) + '">'
+      + '<button type="button" class="ag-hist-star' + (p.favorite ? " on" : "") + '" data-fav-slug="' + esc(p.slug) + '" data-fav="' + (p.favorite ? "1" : "0") + '" aria-label="Favorite" title="Favorite">' + STAR + '</button>'
+      + '<button type="button" class="hi-main" data-slug="' + esc(p.slug) + '">'
+      + '<div class="t">' + esc(p.title || "Untitled app") + '</div>'
+      + '<div class="w">' + esc(timeAgo(p.updatedAt)) + '</div></button></div>';
+  }
+  function wireProjectList(container) {
+    container.addEventListener("click", (e) => {
+      const star = e.target.closest(".ag-hist-star");
+      if (star) {
+        const next = star.dataset.fav !== "1";
+        star.classList.toggle("on", next); star.dataset.fav = next ? "1" : "0";
+        fetch("/api/codeagent/" + encodeURIComponent(star.dataset.favSlug) + "/favorite", {
+          method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ favorite: next })
+        }).catch(() => {});
+        favLoaded = false; // stale until reopened — cheaper than patching two lists in sync
+        return;
+      }
+      const main = e.target.closest(".hi-main");
+      if (main) location.href = "/agent/" + main.dataset.slug;
+    });
+  }
+  wireProjectList(agHistList);
+
+  let histLoaded = false, favLoaded = false, domLoaded = false, statsLoaded = false, settingsLoaded = false;
+  async function loadHistory() {
+    if (histLoaded) return;
+    histLoaded = true;
+    try {
+      const res = await fetch("/api/projects?kind=code&limit=20");
+      const rows = (await res.json()).projects || [];
+      agHistList.innerHTML = rows.length ? rows.map(projectItemHtml).join("")
+        : '<div class="ag-hist-empty">Nothing built yet — your builds will show up here.</div>';
+    } catch (e) {
+      agHistList.innerHTML = '<div class="ag-hist-empty">Couldn\'t load your builds.</div>';
+      histLoaded = false;
+    }
+  }
+
+  const agFavList = $("agFavList");
+  wireProjectList(agFavList);
+  async function loadFavorites() {
+    if (favLoaded) return;
+    favLoaded = true;
+    try {
+      const res = await fetch("/api/projects?kind=code&favorite=1&limit=20");
+      const rows = (await res.json()).projects || [];
+      agFavList.innerHTML = rows.length ? rows.map(projectItemHtml).join("")
+        : '<div class="ag-hist-empty">Star a build to pin it here.</div>';
+    } catch (e) {
+      agFavList.innerHTML = '<div class="ag-hist-empty">Couldn\'t load favorites.</div>';
+      favLoaded = false;
+    }
+  }
+
+  const agDomList = $("agDomList");
+  async function loadDomains() {
+    if (domLoaded) return;
+    domLoaded = true;
+    try {
+      const res = await fetch("/api/projects?kind=code&limit=50");
+      const rows = ((await res.json()).projects || []).filter((p) => p.published);
+      if (!rows.length) {
+        agDomList.innerHTML = '<div class="ag-hist-empty">Publish a build first, then connect a domain to it here.</div>';
+        return;
+      }
+      agDomList.innerHTML = rows.map((p) => (
+        '<div class="ag-dom-card" data-slug="' + esc(p.slug) + '">'
+        + '<div class="t">' + esc(p.title || "Untitled app") + '</div>'
+        + '<div class="ag-dom-row"><input type="text" placeholder="app.yourbrand.com" class="dom-input" value="">'
+        + '<button type="button" class="dom-connect">Connect</button></div>'
+        + '<div class="ag-dom-status" hidden></div></div>'
+      )).join("");
+      // fetch each card's current domain/status without blocking the list render
+      agDomList.querySelectorAll(".ag-dom-card").forEach(async (card) => {
+        try {
+          const r = await fetch("/api/codeagent/" + encodeURIComponent(card.dataset.slug) + "/domain/status");
+          const d = await r.json();
+          if (d.domain) card.querySelector(".dom-input").value = d.domain;
+          setDomStatus(card, d.domain, d.live);
+        } catch (e) { /* leave blank — not fatal */ }
+      });
+    } catch (e) {
+      agDomList.innerHTML = '<div class="ag-hist-empty">Couldn\'t load your published builds.</div>';
+      domLoaded = false;
+    }
+  }
+  function setDomStatus(card, domain, live) {
+    const el = card.querySelector(".ag-dom-status");
+    if (!domain) { el.hidden = true; return; }
+    el.hidden = false;
+    el.classList.toggle("live", !!live);
+    el.innerHTML = '<span class="d"></span>' + (live ? "Live" : "Waiting for DNS — point a CNAME at " + esc(location.hostname));
+  }
+  agDomList.addEventListener("click", async (e) => {
+    const btn = e.target.closest(".dom-connect"); if (!btn) return;
+    const card = btn.closest(".ag-dom-card");
+    const input = card.querySelector(".dom-input");
+    const domain = input.value.trim();
+    btn.disabled = true; btn.textContent = "…";
+    try {
+      const res = await fetch("/api/codeagent/" + encodeURIComponent(card.dataset.slug) + "/domain", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ domain })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Couldn't connect that domain");
+      setDomStatus(card, data.domain, false);
+    } catch (err) {
+      setDomStatus(card, domain, false);
+      card.querySelector(".ag-dom-status").innerHTML = '<span class="d" style="background:#b3261e"></span>' + esc(err.message);
+      card.querySelector(".ag-dom-status").hidden = false;
+    } finally {
+      btn.disabled = false; btn.textContent = "Connect";
+    }
+  });
+
+  const agStatGrid = $("agStatGrid"), agStatTypes = $("agStatTypes");
+  const TYPE_LABEL = { website: "Website", webapp: "Web App", dashboard: "Dashboard", portfolio: "Portfolio", mobile: "Mobile" };
+  async function loadStats() {
+    if (statsLoaded) return;
+    statsLoaded = true;
+    try {
+      const res = await fetch("/api/codeagent/stats");
+      const d = await res.json();
+      agStatGrid.innerHTML =
+        '<div class="ag-stat"><div class="n">' + d.total + '</div><div class="l">Apps built</div></div>'
+        + '<div class="ag-stat"><div class="n">' + d.published + '</div><div class="l">Published live</div></div>';
+      const entries = Object.entries(d.byType || {}).sort((a, b) => b[1] - a[1]);
+      const max = Math.max(1, ...entries.map((e) => e[1]));
+      agStatTypes.innerHTML = entries.length
+        ? '<h4>By type</h4>' + entries.map(([t, n]) => (
+            '<div class="ag-stat-row"><span style="width:76px">' + esc(TYPE_LABEL[t] || t) + '</span>'
+            + '<span class="bar"><i style="width:' + Math.max(6, n / max * 100) + '%"></i></span>'
+            + '<span class="n">' + n + '</span></div>'
+          )).join("")
+        : "";
+    } catch (e) {
+      agStatGrid.innerHTML = '<div class="ag-hist-empty">Couldn\'t load stats.</div>';
+      statsLoaded = false;
+    }
+  }
+
+  async function loadSettings() {
+    if (settingsLoaded) return;
+    settingsLoaded = true;
+    try {
+      const res = await fetch("/api/codeagent/usage");
+      const d = await res.json();
+      $("setFreeEdits").textContent = d.freeEdits;
+      $("setUsage").textContent = d.budgetUsd > 0 ? "$" + d.spentUsd.toFixed(2) + " / $" + d.budgetUsd.toFixed(2) : "$" + d.spentUsd.toFixed(2);
+    } catch (e) {
+      $("setUsage").textContent = "—";
+      settingsLoaded = false;
+    }
+  }
+
+  const HIST_LOADERS = { home: loadHistory, favorites: loadFavorites, domains: loadDomains, stats: loadStats, settings: loadSettings };
+  $("agHistTabs").addEventListener("click", (e) => {
+    const tab = e.target.closest(".ag-hist-tab"); if (!tab) return;
+    const view = tab.dataset.view;
+    $("agHistTabs").querySelectorAll(".ag-hist-tab").forEach((t) => t.classList.toggle("on", t === tab));
+    document.querySelectorAll(".ag-hist-view").forEach((v) => v.classList.toggle("on", v.id === "view" + view.charAt(0).toUpperCase() + view.slice(1)));
+    HIST_LOADERS[view] && HIST_LOADERS[view]();
+  });
+
+  function openHistory() { agHistory.classList.add("on"); agHistBackdrop.classList.add("on"); loadHistory(); }
+  function closeHistory() { agHistory.classList.remove("on"); agHistBackdrop.classList.remove("on"); }
+  agHistOpen.addEventListener("click", openHistory);
+  agHistClose.addEventListener("click", closeHistory);
+  agHistBackdrop.addEventListener("click", closeHistory);
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeHistory(); });
+
+  agTabChat.addEventListener("click", () => {
+    agTabChat.classList.add("on"); agTabPreview.classList.remove("on");
+    agSection.classList.remove("tab-hidden"); agPreview.classList.add("tab-hidden");
+  });
+  agTabPreview.addEventListener("click", () => {
+    agTabPreview.classList.add("on"); agTabChat.classList.remove("on");
+    agPreview.classList.remove("tab-hidden"); agSection.classList.add("tab-hidden");
+  });
+
+  /* ---------- boot: /agent/<slug> replays a project on reload ----------
+     docs/CODE-AGENT-PLAN.md Phase 7 — the actual point of persistence.
+     /agent with no slug is the blank composer state already in the HTML;
+     nothing to do there. */
+  (async function boot() {
+    const m = /^\/agent\/([a-z0-9-]{1,60})$/i.exec(location.pathname);
+    if (!m) return;
+    try {
+      const res = await fetch("/api/codeagent/" + encodeURIComponent(m[1]));
+      if (!res.ok) throw new Error("gone");
+      const data = await res.json();
+      projectId = data.project.id; projectSlug = data.project.slug;
+      agTypeRow.hidden = true; // an existing project — the type picker only applies before a first build
+
+      (data.turns || []).forEach((t) => {
+        if (t.role === "user") { sayUser(t.body); return; }
+        say(t.body);
+      });
+      if (data.files && data.files.length) renderCard(data.files, 0);
+
+      if (data.previewUrl) {
+        showPreview(data.previewUrl);
+        if (!data.sandboxAlive) {
+          say('<span class="muted">This sandbox has gone idle — send a message and I\'ll pick up right where this left off.</span>');
+        }
+      } else {
+        say('<span class="muted">Tell me what to change and I\'ll update it.</span>');
+      }
+    } catch (e) {
+      const gone = el("ag-empty");
+      gone.innerHTML = 'That project isn\'t here — it may have expired, or the link is wrong. <a href="/agent">Start a new one</a>.';
+      agLog.innerHTML = ""; agLog.appendChild(gone);
+    }
+  })();
+})();
+</script>
+</body>
+</html>

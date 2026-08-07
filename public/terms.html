@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<meta name="theme-color" content="#1aa6df" />
+<meta name="description" content="The terms that govern your use of Souqi." />
+<link rel="icon" type="image/png" href="assets/logo.png" />
+<title>Terms of Service — Souqi</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Jost:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  *,*::before,*::after{box-sizing:border-box}
+  :root{
+    --paper:#ffffff; --card:#ffffff; --ink:#12202e; --ink-2:#5d6f80; --mut:#8b98a5;
+    --accent:#1aa6df; --accent-2:#0f8ec4; --line:#e7e1d7; --navy-800:#0b1e33;
+    --disp:'Jost','Century Gothic',system-ui,sans-serif;
+    --body:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  }
+  html{background:var(--paper)}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--body);-webkit-font-smoothing:antialiased;
+    padding:0 env(safe-area-inset-right) 0 env(safe-area-inset-left)}
+  a{color:inherit}
+  h1,h2,h3{font-family:var(--disp);font-weight:600;letter-spacing:-.02em;line-height:1.1;margin:0}
+
+  .nav{display:flex;align-items:center;gap:20px;padding:14px clamp(18px,4vw,40px);background:var(--paper);border-bottom:1px solid var(--line)}
+  .brand{display:flex;align-items:center;gap:10px;font-family:var(--disp);font-weight:800;font-size:1.1rem;color:var(--ink);text-decoration:none}
+  .brand img{width:26px;height:26px;object-fit:contain;border-radius:6px}
+  .nav .lnk{margin-inline-start:auto;display:flex;gap:2px;align-items:center}
+  .btn-g{padding:9px 15px;border:1px solid var(--line);border-radius:10px;color:var(--ink);font-size:.86rem;font-weight:600;transition:.16s;text-decoration:none}
+  .btn-g:hover{border-color:#c6dbe7;background:rgba(18,32,46,.05)}
+  .btn-d{padding:9px 17px;border-radius:10px;background:var(--accent);color:#fff;font-size:.86rem;font-weight:700;transition:.16s;text-decoration:none}
+  .btn-d:hover{background:var(--accent-2);transform:translateY(-1px)}
+
+  .wrap{max-width:1040px;margin:0 auto;padding:clamp(32px,6vw,64px) clamp(18px,4vw,24px) 80px}
+
+  .doc-head{margin-bottom:20px}
+  .doc-head h1{font-size:clamp(2.6rem,7vw,4rem)}
+  .doc-meta{margin-top:10px;font-size:.86rem;color:var(--mut)}
+  .doc-hr{height:1px;background:var(--line);margin:26px 0}
+
+  /* Contents menu — turkgateway.com's own treatment: a dark sticky panel,
+     green active-pill with a dot indicator, scroll-spied against the
+     section currently in view. The rest of the page stays Souqi's light
+     theme on purpose — this was asked for as "the content menu style",
+     not a full page dark-mode flip. */
+  .doc-grid{display:grid;grid-template-columns:230px 1fr;gap:36px;align-items:start}
+  @media (max-width:860px){ .doc-grid{grid-template-columns:1fr} }
+  .toc{position:sticky;top:20px;background:#0a0d10;border-radius:18px;padding:20px 14px;max-height:calc(100svh - 40px);overflow-y:auto}
+  @media (max-width:860px){ .toc{position:static;max-height:none} }
+  .toc h2{font-size:.68rem;text-transform:uppercase;letter-spacing:.14em;color:#6b7686;margin-bottom:10px;padding:0 12px}
+  .toc ol{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:2px}
+  .toc a{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:11px;color:#98a2b0;text-decoration:none;font-size:.87rem;transition:background .15s,color .15s}
+  .toc a .dot{width:6px;height:6px;border-radius:50%;background:#4b5563;flex:none;transition:background .15s}
+  .toc a:hover{color:#e2e8f0}
+  .toc a.active{background:rgba(34,197,148,.14);color:#5eead4;font-weight:600}
+  .toc a.active .dot{background:#22c58f;box-shadow:0 0 0 3px rgba(34,197,148,.22)}
+
+  section.sec{margin-bottom:38px;scroll-margin-top:24px}
+  .sec-num{font-family:var(--disp);font-size:.78rem;font-weight:700;letter-spacing:.08em;color:var(--accent-2)}
+  .sec h2{font-size:1.3rem;margin-top:4px;margin-bottom:12px}
+  .sec p{color:var(--ink-2);font-size:.98rem;line-height:1.68;margin:0 0 12px}
+  .sec ul{margin:0 0 12px;padding-inline-start:20px;color:var(--ink-2);font-size:.98rem;line-height:1.68}
+  .sec li{margin-bottom:6px}
+  .sec b{color:var(--ink);font-weight:600}
+
+  .callout{background:#fff7e6;border:1px solid #f2d891;border-radius:14px;padding:18px 20px;margin:0 0 12px}
+  .callout .k{display:block;font-size:.72rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#8a6410;margin-bottom:8px}
+  .callout p{color:#6b4e0e;margin:0}
+
+  .contact{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:22px 24px}
+  .contact h2{font-size:1.1rem;margin-bottom:8px}
+  .contact p{color:var(--ink-2);font-size:.94rem;line-height:1.6;margin:0}
+  .contact a{color:var(--accent-2);font-weight:600;text-decoration:none}
+
+  footer{border-top:1px solid var(--line);padding:28px clamp(18px,4vw,40px);margin-top:40px}
+  .foot-inner{max-width:760px;margin:0 auto;display:flex;flex-wrap:wrap;gap:14px;align-items:center;justify-content:space-between;
+    font-size:.84rem;color:var(--mut)}
+  .foot-links{display:flex;gap:16px;flex-wrap:wrap}
+  .foot-links a{color:var(--ink-2);text-decoration:none}
+  .foot-links a:hover{color:var(--accent-2)}
+</style>
+</head>
+<body>
+
+<header class="nav">
+  <a class="brand" href="/"><img src="assets/logo.png" alt="Souqi Logo" onerror="this.style.display='none'"><span>Souqi</span></a>
+  <nav class="lnk">
+    <a class="btn-g" href="/login">Sign in</a>
+    <a class="btn-d" href="/signup">Create workspace</a>
+  </nav>
+</header>
+
+<main class="wrap">
+  <div class="doc-head">
+    <h1>Terms of Service</h1>
+    <div class="doc-meta">Last updated: August 2026 · Version 1.0</div>
+  </div>
+  <div class="doc-hr"></div>
+
+  <div class="doc-grid">
+  <nav class="toc" aria-label="Table of contents" id="tocNav">
+    <h2>Contents</h2>
+    <ol>
+      <li><a href="#acceptance"><span class="dot"></span>Acceptance of Terms</a></li>
+      <li><a href="#service"><span class="dot"></span>Description of Service</a></li>
+      <li><a href="#account"><span class="dot"></span>Accounts &amp; Eligibility</a></li>
+      <li><a href="#use"><span class="dot"></span>Acceptable Use</a></li>
+      <li><a href="#ai"><span class="dot"></span>AI-Generated Content</a></li>
+      <li><a href="#billing"><span class="dot"></span>Subscription &amp; Billing</a></li>
+      <li><a href="#ip"><span class="dot"></span>Intellectual Property</a></li>
+      <li><a href="#termination"><span class="dot"></span>Termination</a></li>
+      <li><a href="#disclaimers"><span class="dot"></span>Disclaimers &amp; Liability</a></li>
+      <li><a href="#law"><span class="dot"></span>Governing Law</a></li>
+      <li><a href="#changes"><span class="dot"></span>Changes to These Terms</a></li>
+      <li><a href="#contact"><span class="dot"></span>Contact Us</a></li>
+    </ol>
+  </nav>
+
+  <div class="doc-main">
+  <section class="sec" id="acceptance">
+    <div class="sec-num">01</div>
+    <h2>Acceptance of Terms</h2>
+    <p>By creating a workspace, building a project, or otherwise using Souqi, you agree to these Terms of Service and our <a href="/privacy">Privacy Policy</a>. If you're using Souqi on behalf of a company, you're confirming you have the authority to bind that company to these terms.</p>
+  </section>
+
+  <section class="sec" id="service">
+    <div class="sec-num">02</div>
+    <h2>Description of Service</h2>
+    <p>Souqi is an AI-assisted platform for building and running websites, storefronts and applications. It has two related products: a deterministic site builder that assembles a storefront from a configuration you edit visually, and Souqi Code, an AI agent that writes and runs real application code in an isolated sandbox. We may add, change or discontinue features at any time.</p>
+  </section>
+
+  <section class="sec" id="account">
+    <div class="sec-num">03</div>
+    <h2>Accounts &amp; Eligibility</h2>
+    <p>You must provide accurate information when creating an account and are responsible for keeping your login credentials secure. You must be at least 16 years old to use Souqi. You're responsible for all activity that happens under your account, whether or not you personally performed it.</p>
+  </section>
+
+  <section class="sec" id="use">
+    <div class="sec-num">04</div>
+    <h2>Acceptable Use</h2>
+    <p>You agree not to use Souqi to:</p>
+    <ul>
+      <li>Build or host anything illegal, fraudulent, or that infringes someone else's intellectual property or privacy.</li>
+      <li>Attempt to bypass sandbox isolation, network restrictions, rate limits, or spend caps.</li>
+      <li>Send prompts intended to make the underlying AI models generate malicious code, credential-harvesting pages, or content designed to deceive visitors.</li>
+      <li>Interfere with the platform's operation, or access another user's project or account without authorization.</li>
+    </ul>
+    <p>We may suspend or terminate access for violations of this section, with or without notice depending on severity.</p>
+  </section>
+
+  <section class="sec" id="ai">
+    <div class="sec-num">05</div>
+    <h2>AI-Generated Content</h2>
+    <div class="callout">
+      <span class="k">Important</span>
+      <p>Content and code generated by Souqi's AI agents — including page copy, layouts, and application logic produced by Souqi Code — is produced automatically and is <b>not guaranteed to be accurate, complete, secure, or free of errors</b>. You are responsible for reviewing anything generated before relying on it for business, legal, financial, medical, or safety-critical purposes.</p>
+    </div>
+    <p>You own the output generated for your own projects, subject to the underlying rights of any third-party material the AI may have referenced. We do not claim ownership of your generated sites or code. We are not liable for decisions made based on AI-generated content, or for losses arising from bugs, inaccuracies, or unexpected behavior in generated code.</p>
+  </section>
+
+  <section class="sec" id="billing">
+    <div class="sec-num">06</div>
+    <h2>Subscription &amp; Billing</h2>
+    <p>Paid plans are billed in advance on a recurring basis until cancelled. You can cancel anytime from your workspace settings; cancellation takes effect at the end of the current billing period, and we don't offer partial-period refunds except where required by law. We may change plan pricing with notice before it takes effect on your next renewal. Some features, including extended AI usage and higher edit limits, are gated behind a paid plan and described on our <a href="/pricing">Pricing</a> page.</p>
+  </section>
+
+  <section class="sec" id="ip">
+    <div class="sec-num">07</div>
+    <h2>Intellectual Property</h2>
+    <p>Souqi's platform, branding, and underlying software are our property or that of our licensors. You retain ownership of the content and projects you create. By using Souqi, you grant us a limited license to host, process, and display your project content solely to operate and improve the service — we don't use your project content to train models for other customers.</p>
+  </section>
+
+  <section class="sec" id="termination">
+    <div class="sec-num">08</div>
+    <h2>Termination</h2>
+    <p>You may stop using Souqi and delete your account at any time. We may suspend or terminate your access if you violate these terms, if required by law, or if your account is inactive and unclaimed past its retention period (see our Privacy Policy). Sections that by their nature should survive termination — including ownership, disclaimers, and limitation of liability — remain in effect.</p>
+  </section>
+
+  <section class="sec" id="disclaimers">
+    <div class="sec-num">09</div>
+    <h2>Disclaimers &amp; Limitation of Liability</h2>
+    <p><b>Souqi is provided "as is" and "as available," without warranties of any kind</b>, express or implied, including merchantability, fitness for a particular purpose, and non-infringement. We do not guarantee the service will be uninterrupted, error-free, or that generated content will meet your requirements.</p>
+    <p>To the fullest extent permitted by law, Souqi and its team are not liable for any indirect, incidental, special, or consequential damages, or for lost profits or data, arising from your use of the service — even if we've been advised of the possibility. Our total liability for any claim relating to Souqi is limited to the amount you paid us in the 12 months before the claim arose.</p>
+  </section>
+
+  <section class="sec" id="law">
+    <div class="sec-num">10</div>
+    <h2>Governing Law</h2>
+    <p>These terms are governed by the laws of the jurisdiction in which Souqi's operating entity is registered, without regard to conflict-of-law principles. Any dispute not resolved informally will be handled in the courts of that jurisdiction, unless local law gives you the right to bring a claim in your own jurisdiction.</p>
+  </section>
+
+  <section class="sec" id="changes">
+    <div class="sec-num">11</div>
+    <h2>Changes to These Terms</h2>
+    <p>We'll update the date at the top of this page when these terms change, and post a notice in-product for material changes. Continuing to use Souqi after an update means you accept the revised terms.</p>
+  </section>
+
+  <section class="sec" id="contact">
+    <div class="sec-num">12</div>
+    <div class="contact">
+      <h2>Contact Us</h2>
+      <p>Questions about these terms? Reach us at <a href="mailto:legal@souqi.site">legal@souqi.site</a>.</p>
+    </div>
+  </section>
+  </div>
+  </div>
+</main>
+
+<script>
+  (function () {
+    var links = [].slice.call(document.querySelectorAll("#tocNav a"));
+    var map = {};
+    links.forEach(function (a) { map[a.getAttribute("href").slice(1)] = a; });
+    var sections = [].slice.call(document.querySelectorAll("section.sec"));
+    if (!sections.length || !("IntersectionObserver" in window)) return;
+    var current = null;
+    function setActive(id) {
+      if (id === current) return;
+      current = id;
+      links.forEach(function (a) { a.classList.remove("active"); });
+      if (map[id]) map[id].classList.add("active");
+    }
+    var io = new IntersectionObserver(function (entries) {
+      var best = null, bestTop = Infinity;
+      entries.forEach(function (e) {
+        if (e.isIntersecting && e.boundingClientRect.top < bestTop) { bestTop = e.boundingClientRect.top; best = e.target.id; }
+      });
+      if (best) setActive(best);
+    }, { rootMargin: "-10% 0px -70% 0px", threshold: 0 });
+    sections.forEach(function (s) { io.observe(s); });
+    setActive(sections[0].id);
+
+    var lastId = sections[sections.length - 1].id;
+    window.addEventListener("scroll", function () {
+      var atBottom = window.scrollY + window.innerHeight >= document.documentElement.scrollHeight - 2;
+      if (atBottom) setActive(lastId);
+    }, { passive: true });
+  })();
+</script>
+
+<footer>
+  <div class="foot-inner">
+    <span>© 2026 Souqi</span>
+    <div class="foot-links">
+      <a href="/terms">Terms</a>
+      <a href="/privacy">Privacy</a>
+      <a href="/pricing">Pricing</a>
+      <a href="mailto:support@souqi.site">Contact</a>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>

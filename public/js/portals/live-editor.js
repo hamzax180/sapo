@@ -23,7 +23,7 @@
      string, so it is never sent to the server in the request line (access
      logs) nor leaked via the Referer header. We read it once at boot, then
      scrub it from the address bar. A query fallback is kept for old links. */
-  const EDIT_TOKEN = (function () {
+  let EDIT_TOKEN = (function () {
     let t = "";
     try { t = new URLSearchParams((location.hash || "").replace(/^#/, "")).get("et") || ""; } catch (e) {}
     if (!t) t = urlParams.get("et") || "";
@@ -32,6 +32,19 @@
     }
     return t;
   })();
+
+  /* Phase 0: keep long editing sessions alive. Edit tokens last 15 min;
+     rotate to a fresh one every ~12 min so Publish never fails mid-session. */
+  let tokenRefreshTimer = null;
+  function startTokenRefresh() {
+    if (!EDIT_TOKEN || tokenRefreshTimer) return;
+    tokenRefreshTimer = setInterval(function () {
+      fetch("/api/storefront/edit-token/refresh", { method: "POST", headers: { "x-edit-token": EDIT_TOKEN } })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (j) { if (j && j.editToken) EDIT_TOKEN = j.editToken; })
+        .catch(function () { /* offline / no backend — publish falls back to localStorage */ });
+    }, 12 * 60 * 1000);
+  }
 
   const esc = (s) => String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
   const escAttr = (s) => esc(s).replace(/'/g, "&#39;");
@@ -63,6 +76,14 @@
   let canvasSelection = null;   // { blockId, elementId } — selected element inside a freeform `canvas` block
   let activeBreakpoint = "desktop"; // "desktop" | "mobile" — which position set the canvas editor reads/writes
   let elDragCtx = null;         // active on-canvas drag/resize operation, see onHandleMouseDown
+
+  let previewDevice = "desktop"; // Phase 3: device-width preview (desktop | tablet | phone)
+
+  /* ---- Phase 0: data-loss protection (autosave recovery + dirty guard) ---- */
+  let isDirty = false;          // changed since the last Publish?
+  let autosaveTimer = null;     // debounce handle for the local recovery save
+  const DRAFT_TTL_MS = 7 * 24 * 3600 * 1000; // recovery drafts expire after a week
+  function draftKey() { return "sap_le_draft_" + (wsId || "default"); }
 
   /* ---- path helpers (dot-path get/set against draftConfig) ---- */
   function keyOf(k) { return /^\d+$/.test(k) ? Number(k) : k; }
@@ -150,7 +171,22 @@
   }
 
   function init() {
-    draftConfig = JSON.parse(JSON.stringify(window.PortalState.config.storefrontConfig || {}));
+    const base = JSON.parse(JSON.stringify(window.PortalState.config.storefrontConfig || {}));
+    // Offer to restore any local recovery draft that differs from the
+    // published config (unsaved work from a previous session).
+    const rec = readRecoveryDraft();
+    if (rec && JSON.stringify(rec.config) !== JSON.stringify(base)) {
+      const when = new Date(rec.ts).toLocaleString();
+      if (window.confirm("You have unpublished changes from " + when + ".\n\nRestore them? (Cancel keeps the currently published version.)")) {
+        draftConfig = rec.config; isDirty = true;
+      } else {
+        draftConfig = base; clearRecoveryDraft();
+      }
+    } else {
+      draftConfig = base;
+    }
+    // Warn before leaving with unsaved (unpublished) changes.
+    window.addEventListener("beforeunload", (e) => { if (isDirty) { e.preventDefault(); e.returnValue = ""; return ""; } });
     draftConfig.pages = draftConfig.pages || { main: { title: "Home", slug: "main", isHome: true, blocks: [] } };
     draftConfig.navOrder = draftConfig.navOrder || Object.keys(draftConfig.pages);
     activePage = "main";
@@ -158,6 +194,7 @@
     document.body.classList.add("le-active");
     mountPanel();
     applyDraft();
+    startTokenRefresh(); // keep the edit token alive for long sessions
 
     document.addEventListener("portal:page-rendered", (e) => {
       const slug = e.detail && e.detail.slug;
@@ -199,7 +236,38 @@
       lastSnapshot = snap;
       pendingKey = null;
       updateHistoryButtons();
+      markChanged(); // Phase 0: flag dirty + schedule a local recovery save
     }
+  }
+
+  /* ---- Phase 0: local recovery draft so work is never lost on tab
+     close / crash / expired session. This is a RECOVERY buffer only —
+     it writes to localStorage, never to the live site. Publish is still
+     the only thing that changes what shoppers see. ---- */
+  function markChanged() { isDirty = true; setSaveStatus("dirty"); scheduleAutosave(); }
+  function scheduleAutosave() { clearTimeout(autosaveTimer); autosaveTimer = setTimeout(saveRecoveryDraft, 800); }
+  function saveRecoveryDraft() {
+    try {
+      localStorage.setItem(draftKey(), JSON.stringify({ ts: Date.now(), config: draftConfig }));
+    } catch (e) {
+      // storage quota exceeded (large inline base64 images) — degrade quietly
+      setSaveStatus("full");
+    }
+  }
+  function clearRecoveryDraft() { try { localStorage.removeItem(draftKey()); } catch (e) {} }
+  function readRecoveryDraft() {
+    try {
+      const d = JSON.parse(localStorage.getItem(draftKey()) || "null");
+      if (!d || !d.config || !d.ts || (Date.now() - d.ts) > DRAFT_TTL_MS) { clearRecoveryDraft(); return null; }
+      return d;
+    } catch (e) { return null; }
+  }
+  function setSaveStatus(state) {
+    const el = document.querySelector(".le-save-status");
+    if (!el) return;
+    const map = { dirty: "● Unsaved changes", full: "⚠ Local save full", clean: "" };
+    el.textContent = map[state] || "";
+    el.classList.toggle("show", !!map[state]);
   }
 
   /* Every block gets a drag handle + a small context action bar that
@@ -616,6 +684,7 @@
       '<button class="le-cmd-btn" id="leCmdPages" data-le-action="toggle-pages-panel"><span class="le-cmd-icon">📄</span> Pages</button>' +
       '<div class="le-panel-sep"></div>' +
       '<button class="le-cmd-add" data-le-action="open-add-block"><span class="le-cmd-icon">＋</span> Add Block</button>' +
+      '<span class="le-save-status" title="Autosaved locally — Publish to make it live"></span>' +
       '<div class="le-panel-sep"></div>' +
       '<button class="le-cmd-disc" data-le-action="discard">Discard</button>' +
       '<button class="le-cmd-pub" data-le-action="publish"><span class="le-cmd-icon">🚀</span> Publish</button>';
@@ -1391,7 +1460,7 @@
       document.body.appendChild(bar);
       // mousedown (not click) so the toolbar acts before the editable
       // element's blur tears everything down.
-      bar.addEventListener("mousedown", onToolbarMouseDown);
+      bar.addEventListener("pointerdown", onToolbarMouseDown);
     }
     const list = listContextFor(path);
     bar.dataset.path = path;
@@ -1849,7 +1918,9 @@
       return;
     }
     if (action === "discard") {
-      if (confirm("Discard all unpublished edits and reload?")) location.reload();
+      if (confirm("Discard all unpublished edits and reload?")) {
+        isDirty = false; clearRecoveryDraft(); location.reload();
+      }
       return;
     }
     if (action === "publish") { publishConfig(); return; }
@@ -2027,14 +2098,17 @@
     box.innerHTML = ["nw", "n", "ne", "e", "se", "s", "sw", "w"].map((d) => '<div class="fc-handle fc-handle-' + d + '" data-dir="' + d + '"></div>').join("") +
       '<div class="fc-drag-body" data-dir="move"></div>';
     section.appendChild(box);
-    box.addEventListener("mousedown", onHandleMouseDown);
+    box.addEventListener("pointerdown", onHandleMouseDown);
   }
 
+  // Pointer events fire for mouse, touch AND pen — one path for every device.
   function onHandleMouseDown(e) {
     const handle = e.target.closest("[data-dir]");
     if (!handle || !canvasSelection) return;
+    if (e.button != null && e.button !== 0) return; // ignore right/middle click
     e.preventDefault();
     e.stopPropagation();
+    if (e.pointerId != null && handle.setPointerCapture) { try { handle.setPointerCapture(e.pointerId); } catch (x) {} }
     beginElementDrag(handle.dataset.dir, canvasSelection.blockId, canvasSelection.elementId, e);
   }
 
@@ -2057,8 +2131,9 @@
       wrap: document.getElementById("fcel-" + blockId + "-" + elementId),
       handlesBox: document.getElementById("fcHandles")
     };
-    document.addEventListener("mousemove", onElementDragMove);
-    document.addEventListener("mouseup", onElementDragEnd);
+    document.addEventListener("pointermove", onElementDragMove);
+    document.addEventListener("pointerup", onElementDragEnd);
+    document.addEventListener("pointercancel", onElementDragEnd);
   }
 
   function onElementDragMove(e) {
@@ -2087,8 +2162,9 @@
   }
 
   function onElementDragEnd() {
-    document.removeEventListener("mousemove", onElementDragMove);
-    document.removeEventListener("mouseup", onElementDragEnd);
+    document.removeEventListener("pointermove", onElementDragMove);
+    document.removeEventListener("pointerup", onElementDragEnd);
+    document.removeEventListener("pointercancel", onElementDragEnd);
     if (!elDragCtx) return;
     const { el, result } = elDragCtx;
     if (result) { if (activeBreakpoint === "mobile") el.mobile = result; else el.desktop = result; }
@@ -2162,6 +2238,8 @@
         const idx = list.findIndex((w) => w.id === wsId);
         if (idx > -1) { list[idx].storefrontConfig = draftConfig; localStorage.setItem("sap_workspaces", JSON.stringify(list)); }
       }
+      // Published successfully → the draft is now live; drop the recovery buffer.
+      isDirty = false; clearRecoveryDraft(); setSaveStatus("clean");
       toast("🎉 Storefront published!");
       if (btn) btn.innerHTML = '🚀 Publish';
     } catch (err) {

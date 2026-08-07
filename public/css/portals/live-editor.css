@@ -76,6 +76,28 @@ body.le-active { margin-left: 0 !important; }
   to   { opacity: 1; transform: translateX(-50%) translateY(0); }
 }
 
+/* Phase 0: "unsaved changes" recovery indicator */
+.le-save-status {
+  display: none;
+  align-items: center;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--le-accent);
+  padding: 0 6px;
+  white-space: nowrap;
+}
+.le-save-status.show { display: inline-flex; }
+
+/* Phase 1: touch/pointer support.
+   Drag surfaces must claim the gesture so a finger-drag moves the element
+   instead of scrolling the page. Buttons use `manipulation` for snappy taps
+   (no 300ms mobile delay). */
+#fcHandles, .fc-handle, .fc-drag-body, .le-block-drag-handle { touch-action: none; }
+.le-panel button, .le-cmd-btn, .le-cmd-add, .le-cmd-pub, .le-cmd-disc,
+.le-action, .le-prop-nav-btn, .le-prop-close, [data-le-action], .de-toolbar button {
+  touch-action: manipulation;
+}
+
 /* Hide old sidebar elements if they somehow render */
 .le-header, .le-hint, .le-tabs, .le-content, .le-footer { display: none !important; }
 
@@ -1060,3 +1082,67 @@ body.le-preview-mobile > footer.portal-footer {
 }
 .le-hist-btn:hover:not(:disabled) { background: var(--le-glass-hover); }
 .le-hist-btn:disabled { opacity: 0.25; cursor: default; }
+
+/* =================================================================
+   PHASE 2 — RESPONSIVE EDITOR CHROME  (tablet + phone)
+   Command bar → full-width scrollable dock; floating panels → bottom
+   sheets; ≥44px touch targets; 16px inputs (no iOS zoom).
+   ================================================================= */
+@media (max-width: 820px) {
+  /* bottom command bar: full width, horizontally scrollable, tall targets */
+  .le-panel {
+    left: 8px; right: 8px; bottom: 8px;
+    transform: none !important;   /* beat the intro-animation fill + inline styles */
+    animation: none;
+    width: auto; max-width: none;
+    border-radius: 16px;
+    justify-content: flex-start;
+    overflow-x: auto; overflow-y: visible;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .le-panel::-webkit-scrollbar { display: none; }
+  .le-cmd-btn, .le-cmd-add, .le-cmd-pub, .le-cmd-disc {
+    min-height: 44px; flex: 0 0 auto;
+  }
+  .le-save-status { display: none !important; }
+
+  /* property + side panels dock to the bottom as full-width sheets */
+  .le-prop-panel, .le-pages-panel, .le-design-panel {
+    left: 0; right: 0; bottom: 60px; top: auto;   /* sit just above the command bar */
+    width: 100%; max-width: none;
+    max-height: calc(100vh - 80px);
+    border-radius: 20px 20px 0 0;
+    border-left: 0; border-right: 0; border-bottom: 0;
+    transform: translateY(100%) !important;
+  }
+  .le-prop-panel.visible,
+  .le-pages-panel.visible,
+  .le-design-panel.visible { transform: translateY(0) !important; }
+
+  /* grab-bar affordance at the top of each sheet */
+  .le-prop-header, .le-sub-header { position: relative; padding-top: 18px; }
+  .le-prop-header::before, .le-sub-header::before {
+    content: ""; position: absolute; top: 7px; left: 50%;
+    width: 36px; height: 4px; border-radius: 999px;
+    background: rgba(255,255,255,0.22); transform: translateX(-50%);
+  }
+
+  /* bigger, zoom-safe form controls */
+  .le-input, .le-select,
+  .le-prop-panel input, .le-prop-panel textarea, .le-prop-panel select {
+    min-height: 42px; font-size: 16px;
+  }
+  .le-action { min-height: 40px; }
+
+  /* the floating text toolbar can render off-screen — pin it near the bottom */
+  .de-toolbar {
+    position: fixed !important;
+    left: 8px !important; right: 8px !important;
+    top: auto !important; bottom: 72px !important;
+    justify-content: center; flex-wrap: wrap;
+  }
+}
+@media (max-width: 480px) {
+  .le-prop-panel, .le-pages-panel, .le-design-panel { max-height: 82vh; }
+}

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="theme-color" content="#1aa6df" />
   <link rel="icon" type="image/png" href="assets/logo.png" />
-  <title>Create your workspace — WeboCloud</title>
+  <title>Create your workspace — Souqi Cloud</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Jost:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
@@ -30,27 +30,6 @@
     .emp-del { flex:0 0 auto; width:32px; height:32px; border:1px solid var(--line); background:var(--surface); border-radius:8px; color:var(--muted); cursor:pointer; display:grid; place-items:center; }
     .emp-del:hover { border-color:#e6534b; color:#e6534b; }
     .emp-card { border:1px solid var(--line); border-radius:10px; padding:9px; margin-bottom:8px; background:var(--surface); }
-    .demo-link-btn {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      margin-top: 8px;
-      padding: 4px 10px;
-      font-size: 0.72rem;
-      font-weight: 600;
-      color: var(--ind-accent, #1aa6df);
-      background: var(--surface);
-      border: 1px solid var(--line);
-      border-radius: 6px;
-      cursor: pointer;
-      transition: all 0.15s ease;
-    }
-    .demo-link-btn:hover {
-      background: var(--ind-accent, #1aa6df);
-      color: #fff;
-      border-color: var(--ind-accent, #1aa6df);
-    }
-
     /* Launch screen — translucent backdrop showing sign up background */
     .launch-overlay {
       position: fixed; inset: 0; z-index: 9999;
@@ -295,14 +274,14 @@
           <img src="assets/logo.png" alt="Souqi Logo" style="width:100%; height:100%; object-fit:contain; border-radius:4px;">
         </div>
         <div>
-          <div style="font-family:var(--font-head);font-weight:800;font-size:1.3rem;letter-spacing:.04em">WEBOCLOUD</div>
+          <div style="font-family:var(--font-head);font-weight:800;font-size:1.3rem;letter-spacing:.04em">SOUQI CLOUD</div>
           <div style="font-size:.74rem;color:#8aa0b6;letter-spacing:.14em;text-transform:uppercase">Operations Console</div>
         </div>
       </div>
 
       <div>
         <h1 style="margin-top:18px">One console,<br />fitted to<br />your business.</h1>
-        <p>Tell us your company name, pick your industry and add your logo — WeboCloud renames its modules, loads the right starter data and brands itself to you in seconds.</p>
+        <p>Tell us your company name, pick your industry and add your logo — Souqi Cloud renames its modules, loads the right starter data and brands itself to you in seconds.</p>
       </div>
 
       <!-- rotating caption -->
@@ -320,7 +299,7 @@
         <div class="ls"><div class="v">0</div><div class="k">Code needed</div></div>
       </div>
 
-      <div class="la-foot">© 2024–2026 WeboCloud · Cloud Operations Platform</div>
+      <div class="la-foot">© 2024–2026 Souqi Cloud · Cloud Operations Platform</div>
     </div>
 
     <!-- Launch screen overlay (shown after workspace is created or demo selected) -->
@@ -333,7 +312,7 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
         </div>
 
-        <h2 class="dhl-modal-title" id="launchTitle">Your demo workspace is ready</h2>
+        <h2 class="dhl-modal-title" id="launchTitle">Your workspace is ready</h2>
         <p class="dhl-modal-sub" id="launchSub">Your <strong>Logistics &amp; Trade</strong> workspace has been initialized and is ready to go.</p>
 
         <div class="dhl-modal-actions">
@@ -427,7 +406,7 @@
           <div class="field">
             <label data-t="Database hosting">Database hosting</label>
             <select class="input" id="dbType">
-              <option value="local">WeboCloud Managed (Demo Mode / LocalStorage)</option>
+              <option value="local">Souqi Cloud Managed (Demo Mode / LocalStorage)</option>
               <option value="neon">Neon PostgreSQL (Cloud Database)</option>
               <option value="mongodb">MongoDB Atlas (NoSQL Cloud)</option>
               <option value="postgres">Self-Hosted PostgreSQL</option>
@@ -499,7 +478,6 @@
           '<div style="display:flex; flex-direction:column; align-items:flex-start; flex:1; height:100%;">' +
             '<div class="it">' + ind.name + '</div>' +
             '<div class="ib" style="flex:1;">' + ind.blurb + '</div>' +
-            '<button type="button" class="demo-link-btn" data-demo="' + k + '">Show Demo &rarr;</button>' +
           '</div>';
         card.addEventListener("click", function () {
           document.querySelectorAll(".ind-card").forEach(function (c) { c.classList.remove("sel"); });
@@ -509,44 +487,6 @@
         grid.appendChild(card);
       });
 
-      // Handle the "Show Demo" click events via event delegation
-      grid.addEventListener("click", async function (e) {
-        const btn = e.target.closest(".demo-link-btn");
-        if (btn) {
-          e.stopPropagation();
-          const key = btn.dataset.demo;
-          const ind = INDUSTRIES[key] || { name: key };
-          
-          btn.innerHTML = 'Loading...';
-          btn.disabled = true;
-
-          try {
-            const session = await Auth.register({
-              company: "Demo " + ind.name,
-              owner: "Demo Admin",
-              email: "admin@demo.com",
-              password: "demo",
-              country: "TR",
-              industry: key,
-              logo: null,
-              sampleData: true
-            });
-            
-            if (session) {
-              const wsId = localStorage.getItem("sap_active_ws");
-              showLaunchScreen(wsId, ind.name);
-            } else {
-              showErr("Something went wrong loading the demo. Please try again.");
-            }
-          } catch(err) {
-            console.error("Demo launch error:", err);
-            showErr("Failed to start demo workspace. Please try again.");
-          } finally {
-            btn.innerHTML = 'Show Demo &rarr;';
-            btn.disabled = false;
-          }
-        }
-      });
 
 
       // Logo → data URL (with a soft size guard)
@@ -569,7 +509,45 @@
       function showErr(m) { err.textContent = m; err.classList.add("show"); }
 
       // Shows the post-creation launch screen with Admin + Portal buttons
-      function showLaunchScreen(wsId, label) {
+      /* ---------- claim a site the Agent built before signup ----------
+         Arriving here with ?project=<id> means the visitor built a site
+         anonymously first and is now going through the full form instead of
+         the two-field micro-claim on the agent page (see agent.html's
+         buildClaimForm — this is its "sign up the long way" fallback). The
+         project id rides in the query string (it is a random handle, not
+         personal data); ownership is proven server-side by the sq_anon
+         cookie that built it, exactly as the micro-claim path does.
+
+         This mints its OWN workspace + account server-side (the same
+         /api/projects/:key/micro-claim endpoint the fast path uses) rather
+         than reusing the wsId Auth.register() created locally — that keeps
+         one code path responsible for "what a claim actually does," and a
+         failure here never blocks signup: the local demo account from
+         Auth.register() above already exists, so we report it and let them
+         rebuild the storefront from the console instead. */
+      async function claimAgentProject(fields, submitBtn) {
+        const projectId = new URLSearchParams(location.search).get("project");
+        if (!projectId) return null;
+
+        if (submitBtn) submitBtn.textContent = "Publishing the site the Agent built...";
+        try {
+          const base = (window.Store && Store.getApiBase && Store.getApiBase()) || location.origin;
+          const res = await fetch(base + "/api/projects/" + encodeURIComponent(projectId) + "/micro-claim", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(fields)
+          });
+          const data = await res.json();
+          if (!res.ok || !data.ok) throw new Error(data.error || "claim failed");
+          try { sessionStorage.removeItem("souqi_agent_prompt"); sessionStorage.removeItem("souqi_agent_draft"); } catch (e) {}
+          return data;                       // { wsId, token, user, editToken, meta, … }
+        } catch (e) {
+          console.warn("[signup] could not claim the agent project:", e.message);
+          return { error: e.message };
+        }
+      }
+
+      function showLaunchScreen(wsId, label, claimed) {
 
         const overlay = document.getElementById("launchOverlay");
         const sub = document.getElementById("launchSub");
@@ -583,6 +561,18 @@
         // Update subtitle
         if (sub && label) {
           sub.innerHTML = 'Your <strong>' + label + '</strong> workspace has been initialized and is ready to go.';
+        }
+
+        // A claimed Agent build goes live immediately — say so, and send the
+        // "open storefront" button into the live editor instead of a preview.
+        // js/portals/live-editor.js only mounts on ?edit=true (not "1"), and
+        // reads the edit token from the URL fragment — never sessionStorage.
+        if (claimed && claimed.editToken && portalBtn) {
+          portalBtn.href = portalUrl + "?edit=true#et=" + encodeURIComponent(claimed.editToken);
+          portalBtn.textContent = "Open your site in the editor";
+          if (sub) sub.innerHTML += '<br>The site the Agent built is already published here.';
+        } else if (claimed && claimed.error && sub) {
+          sub.innerHTML += '<br><span style="opacity:.75">The Agent\'s draft could not be attached automatically — you can rebuild it from the console.</span>';
         }
 
         // Show overlay with animation
@@ -769,9 +759,31 @@
             const apiBase = Store.getApiBase() || "http://localhost:4000";
             Store.setApiBase(apiBase);
           }
-          const wsId = localStorage.getItem("sap_active_ws");
+          let wsId = localStorage.getItem("sap_active_ws");
           const companyName = document.getElementById("company").value.trim();
-          showLaunchScreen(wsId, companyName);
+
+          // Arriving from the Agent with ?project=… means a site was already
+          // built anonymously. Claiming it mints its OWN real workspace +
+          // account server-side (see claimAgentProject above) — when that
+          // happens, it replaces the local-only demo workspace Auth.register()
+          // just created above, so the editor opens the actual claimed site.
+          const claimed = await claimAgentProject({
+            email: document.getElementById("email").value.trim(),
+            password: document.getElementById("password").value,
+            company: companyName,
+            industry: industry,
+            country: document.getElementById("country").value
+          }, submitBtn);
+
+          if (claimed && claimed.wsId && claimed.token) {
+            wsId = claimed.wsId;
+            try {
+              localStorage.setItem("sap_session", JSON.stringify(claimed.user));
+              localStorage.setItem("sap_token", claimed.token);
+              localStorage.setItem("sap_active_ws", claimed.wsId);
+            } catch (e) { /* private browsing, etc — the launch screen still works */ }
+          }
+          showLaunchScreen(wsId, companyName, claimed);
         } else {
           showErr("Something went wrong creating your workspace. Please try again.");
           submitBtn.disabled = false;

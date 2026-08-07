@@ -21,8 +21,13 @@
     --body:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
     --ease:cubic-bezier(.16,1,.3,1); --ease2:cubic-bezier(.22,.61,.36,1);
   }
-  html{overflow-x:clip}
-  body{margin:0;padding:0 env(safe-area-inset-right) 0 env(safe-area-inset-left);background:var(--paper);color:var(--ink);font-family:var(--body);-webkit-font-smoothing:antialiased}
+  /* Prevent the white gutter that shows up on iOS "rubber-band" overscroll
+     (or any accidental horizontal overflow): clip + hidden together, an
+     explicit background on <html> itself, and overscroll-behavior-x so the
+     page can't bounce sideways at all. */
+  html{overflow-x:clip;overflow-x:hidden;background:var(--paper);overscroll-behavior-x:none;width:100%;max-width:100vw}
+  body{margin:0;padding:0 env(safe-area-inset-right) 0 env(safe-area-inset-left);background:var(--paper);color:var(--ink);font-family:var(--body);-webkit-font-smoothing:antialiased;overflow-x:hidden;overscroll-behavior-x:none;width:100%;max-width:100vw}
+  * { -webkit-tap-highlight-color: transparent; }
   h1,h2,h3,h4{font-family:var(--disp);letter-spacing:-.025em;line-height:1.06;margin:0;font-weight:800}
   a{text-decoration:none;color:inherit}
   .wrap{max-width:1180px;margin:0 auto;padding:0 clamp(18px,4vw,40px)}
@@ -399,7 +404,7 @@
 
   /* ---------- scroll-driven 8-industries showcase ---------- */
   @property --c{syntax:'<color>';inherits:true;initial-value:#12a594}
-  .inx{position:relative;height:680vh;background:#06111d;color:#fff;--c:#12a594}
+  .inx{position:relative;height:320vh;background:#06111d;color:#fff;--c:#12a594}
   .inx-pin{position:sticky;top:0;height:100vh;overflow:hidden;display:flex;align-items:center}
   .inx-bg{position:absolute;inset:0;pointer-events:none;transition:--c .7s var(--ease);
     background:
@@ -453,7 +458,7 @@
   .inx-dots button.on{background:color-mix(in srgb,var(--c) 80%,#fff);width:46px}
   .inx.static{height:auto}.inx.static .inx-pin{position:static;height:auto;padding:clamp(52px,7vw,90px) 0}
   @media (max-width:860px){
-    .inx{height:600vh}
+    .inx{height:320vh}
     .inx-top{margin-bottom:14px;align-items:center}
     .inx-eyebrow{font-size:clamp(.65rem,2.7vw,.76rem);letter-spacing:.09em;white-space:nowrap}
     .inx-count{font-size:.88rem;white-space:nowrap;display:inline-flex;align-items:center;gap:3px}
@@ -654,6 +659,27 @@
   .cdemo-site{--st:#1aa6df;position:relative;background:#fff;height:436px;overflow:hidden}
   .site-empty{position:absolute;inset:0;display:grid;place-items:center;color:#9fb0a8;font-weight:600;font-size:1.02rem;transition:opacity .4s;z-index:1}
   .site-empty.gone{opacity:0}
+
+  /* Phase 0 — the ask. Sits above the blank site and fades out once the
+     build starts, so the sequence reads: someone asks → agent replies →
+     the site builds itself. */
+  .cd-ask{position:absolute;inset:0;z-index:6;display:flex;flex-direction:column;justify-content:center;gap:14px;
+    padding:0 clamp(20px,5%,52px);background:#fff;opacity:0;pointer-events:none;transition:opacity .45s var(--ease)}
+  .cd-ask.on{opacity:1}
+  .cd-ask-bubble{align-self:flex-end;max-width:82%;background:var(--accent,#1aa6df);color:#fff;border-radius:18px 18px 5px 18px;
+    padding:14px 17px;font-size:1rem;line-height:1.45;box-shadow:0 12px 28px rgba(26,166,223,.28);
+    opacity:0;transform:translateY(10px);transition:opacity .35s var(--ease),transform .35s var(--ease)}
+  .cd-ask.typing .cd-ask-bubble{opacity:1;transform:none}
+  .cd-ask-car{display:inline-block;width:2px;height:1.05em;margin-left:2px;background:currentColor;vertical-align:-.16em;animation:cdAskBlink 1s steps(1,end) infinite}
+  .cd-ask.sent .cd-ask-car{display:none}
+  @keyframes cdAskBlink{0%,50%{opacity:1}51%,100%{opacity:0}}
+  .cd-ask-reply{align-self:flex-start;display:flex;align-items:center;gap:10px;max-width:82%;
+    background:#f2f6fa;color:#0e2136;border-radius:18px 18px 18px 5px;padding:13px 17px;font-size:.97rem;font-weight:600;
+    opacity:0;transform:translateY(10px);transition:opacity .35s var(--ease),transform .35s var(--ease)}
+  .cd-ask.replied .cd-ask-reply{opacity:1;transform:none}
+  .cd-ask-av{width:24px;height:24px;flex:none;border-radius:7px;background:var(--accent,#1aa6df);color:#fff;
+    display:grid;place-items:center;font-size:.7rem}
+  @media (max-width:560px){ .cd-ask-bubble,.cd-ask-reply{font-size:.9rem;max-width:92%} }
   .site-head{display:flex;align-items:center;gap:12px;padding:14px 18px;border-bottom:1px solid #eef1ec;opacity:0;transform:translateY(-8px);transition:opacity .5s var(--ease),transform .5s var(--ease)}
   .site-head.in{opacity:1;transform:none}
   .site-logo{font-family:var(--disp);font-weight:800;color:var(--st);font-size:1.05rem;transition:color .5s var(--ease)}
@@ -766,7 +792,7 @@
 
   /* ---------- auto-cycling demo scenes ---------- */
   .stage{position:relative;min-height:288px;overflow:hidden}
-  .scene{position:absolute;inset:18px;opacity:0;transform:translateY(12px) scale(.98);filter:blur(4px);
+  .scene{position:absolute;inset:18px;display:flex;flex-direction:column;opacity:0;transform:translateY(12px) scale(.98);filter:blur(4px);
     transition:opacity .45s var(--ease),transform .5s var(--ease),filter .45s var(--ease);pointer-events:none}
   .scene.active{opacity:1;transform:none;filter:none;pointer-events:auto}
   .rail .step.on{transform:translateX(3px)}
@@ -957,30 +983,32 @@
   .second-hero .stage{background:#eef1f5}
 
   /* ---- sidebar (real console) ---- */
-  .second-hero .rail{padding:0;background:#fff;border-right:1px solid #e2e8f0;font-size:.72rem;display:flex;flex-direction:column;overflow:hidden}
+  /* Sidebar — matches the REAL console's navy sidebar (sap.css .sidebar /
+     .sb-link) exactly, in every view (desktop, tablet, phone). */
+  .second-hero .rail{padding:0;background:linear-gradient(180deg,#081522,#102a45 60%,#163655);border-right:0;font-size:.72rem;display:flex;flex-direction:column;overflow:hidden}
   .second-hero .rail h5{display:none}
-  .rail-ws{background:linear-gradient(160deg,#0b1e33,#123a5c);padding:10px 11px;display:flex;align-items:center;gap:8px}
+  .rail-ws{padding:10px 11px;display:flex;align-items:center;gap:8px;border-bottom:1px solid rgba(255,255,255,.08)}
   .rail-ws .ws-av{width:28px;height:28px;border-radius:50%;background:#fff;display:grid;place-items:center;flex:0 0 auto;color:#1aa6df}
   .rail-ws .ws-av svg{width:15px;height:15px}
   .rail-ws .ws-tx{min-width:0}
   .rail-ws .ws-nm{font-family:var(--disp);font-weight:800;font-size:.68rem;color:#fff;line-height:1.05;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .rail-ws .ws-sub{font-size:.46rem;letter-spacing:.08em;text-transform:uppercase;color:#8fb0cf;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .rail-ws .ws-sub{font-size:.46rem;letter-spacing:.08em;text-transform:uppercase;color:#8aa0b6;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .rail-nav{padding:8px;flex:1;overflow:hidden}
-  .rail-grp{font-size:.48rem;letter-spacing:.11em;text-transform:uppercase;color:#93a1b3;font-weight:800;margin:8px 4px 4px}
+  .rail-grp{font-size:.48rem;letter-spacing:.11em;text-transform:uppercase;color:#6f86a0;font-weight:800;margin:8px 4px 4px}
   .rail-grp:first-child{margin-top:0}
-  .second-hero .rail .step{position:relative;display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:8px;color:#3a4a60;margin-bottom:1px;font-weight:600;font-size:.66rem;cursor:pointer;transition:background .2s,color .2s}
-  .second-hero .rail .step:hover{background:#f1f5f9;color:#14233a}
-  .second-hero .rail .step.on{background:linear-gradient(135deg,#1aa6df,#0284c7);color:#fff;box-shadow:0 5px 13px rgba(26,166,223,.3)}
-  .second-hero .rail .step.done{color:#3a4a60}
-  .second-hero .rail .step .dot{width:18px;height:18px;border-radius:0;background:transparent;display:grid;place-items:center;color:#8492a6;box-shadow:none;flex:0 0 auto}
+  .second-hero .rail .step{position:relative;display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:8px;color:#b8c6d6;margin-bottom:1px;font-weight:600;font-size:.66rem;cursor:pointer;transition:background .2s,color .2s}
+  .second-hero .rail .step:hover{background:rgba(255,255,255,.06);color:#fff}
+  .second-hero .rail .step.on{background:linear-gradient(90deg,rgba(26,166,223,.34),rgba(26,166,223,.10));color:#fff;box-shadow:inset 3px 0 0 #1aa6df}
+  .second-hero .rail .step.done{color:#cdd9e6}
+  .second-hero .rail .step .dot{width:18px;height:18px;border-radius:0;background:transparent;display:grid;place-items:center;color:#b8c6d6;opacity:.85;box-shadow:none;flex:0 0 auto}
   .second-hero .rail .step .dot svg{width:13px;height:13px}
-  .second-hero .rail .step.on .dot{background:transparent;color:#fff;box-shadow:none}
-  .second-hero .rail .step .st-badge{margin-left:auto;background:#e2e8f0;color:#3a4a60;font-size:.5rem;font-weight:800;border-radius:999px;padding:1px 6px;min-width:14px;text-align:center;line-height:1.5}
+  .second-hero .rail .step.on .dot{background:transparent;color:#fff;opacity:1;box-shadow:none}
+  .second-hero .rail .step .st-badge{margin-left:auto;background:rgba(255,255,255,.14);color:#fff;font-size:.5rem;font-weight:800;border-radius:999px;padding:1px 6px;min-width:14px;text-align:center;line-height:1.5}
   .second-hero .rail .step.on .st-badge{background:rgba(255,255,255,.28);color:#fff}
   .second-hero .rail .step + .step::before{display:none}
   .second-hero .rail .step.on{transform:none}
-  .rail-item{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:8px;color:#64748b;margin-bottom:1px;font-weight:600;font-size:.66rem}
-  .rail-item .ri-ic{width:18px;height:18px;display:grid;place-items:center;color:#93a1b3;flex:0 0 auto}
+  .rail-item{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:8px;color:#b8c6d6;margin-bottom:1px;font-weight:600;font-size:.66rem}
+  .rail-item .ri-ic{width:18px;height:18px;display:grid;place-items:center;color:#b8c6d6;opacity:.85;flex:0 0 auto}
   .rail-item .ri-ic svg{width:13px;height:13px}
 
   /* ---- scene headers (light) ---- */
@@ -1245,12 +1273,13 @@
      and the decorative browser mockups drop to 2 columns.
      ============================================================ */
   @media (max-width:600px){
-    .nav{gap:8px;padding:11px 14px}
-    .brand{font-size:1rem;gap:8px}
+    .nav{gap:6px;padding:11px 12px}
+    .brand{font-size:1rem;gap:6px}
     .brand svg{width:22px;height:22px}
     .lang-dropdown{display:inline-block}
+    .nav .lang-trigger{min-width:0;padding:8px 10px;font-size:.78rem}
     .nav .btn-g{margin-left:auto}
-    .nav .btn-g,.nav .btn-d{padding:8px 11px;font-size:.8rem;line-height:1.15;text-align:center}
+    .nav .btn-g,.nav .btn-d{padding:8px 9px;font-size:.72rem;line-height:1.15;text-align:center;max-width:74px}
     .chero{min-height:auto}
     .chero-grid>*{min-width:0}
     .chero-auth{max-width:none}
@@ -1274,11 +1303,12 @@
     .langs .lead{font-size:1rem}
 
     /* --- live-ops demo on phones: iPhone frame + stacked stepper --- */
-    .second-hero .wrap{grid-template-columns:1fr}
+    .second-hero{padding:20px 0 28px}
+    .second-hero .wrap{grid-template-columns:1fr;gap:14px}
     .second-hero .wrap > *{min-width:0}
     .device,.device-screen,.second-hero .win,.second-hero .win-b,.second-hero .stage{min-width:0}
     .second-hero .win{max-width:100%}
-    .second-hero .rail{display:flex;align-items:center;justify-content:center;gap:0;padding:11px 6px;border-right:0;border-bottom:1px solid rgba(120,190,240,.12)}
+    .second-hero .rail{display:flex;flex-direction:column;align-items:center;gap:0;padding:9px 4px;border-right:1px solid rgba(255,255,255,.08);border-bottom:0;width:46px}
     .second-hero .rail h5{display:none}
     .second-hero .rail .step{font-size:0;margin:0;padding:0;color:transparent;background:none!important;box-shadow:none!important;flex:0 0 auto}
     .second-hero .rail .step:hover{background:none!important}
@@ -1291,14 +1321,16 @@
     .second-hero .qr-svg{width:48px;height:48px}
     .second-hero .sc-t{font-size:.9rem}
     .second-hero .sc-badge{font-size:.5rem;padding:3px 7px}
-    /* new light-console sidebar collapses to a clean icon bar on phones */
+    /* phones keep the sidebar on the LEFT (like iPad/laptop) — a compact,
+       blue icon rail. Labels/groups/workspace header are hidden for room. */
     .second-hero .rail-ws,.second-hero .rail-grp,.second-hero .rail-item{display:none}
-    .second-hero .rail-nav{display:flex;align-items:center;justify-content:center;gap:8px;padding:0;flex:0 0 auto}
-    .second-hero .rail .step{border-radius:9px}
+    .second-hero .rail-nav{display:flex;flex-direction:column;align-items:center;gap:6px;padding:0;flex:0 0 auto}
+    .second-hero .rail .step{border-radius:9px;padding:0}
     .second-hero .rail .step .st-badge{display:none}
-    .second-hero .rail .step .dot{background:#eef2f7;color:#64748b;border-radius:9px}
-    .second-hero .rail .step .dot svg{width:15px;height:15px}
-    .second-hero .rail .step.on .dot{background:linear-gradient(135deg,#1aa6df,#0284c7);color:#fff;box-shadow:0 3px 9px rgba(26,166,223,.4)}
+    .second-hero .rail .step + .step::before{display:none}
+    .second-hero .rail .step .dot{width:30px;height:30px;background:#e7f5fc;color:#1aa6df;border-radius:9px}
+    .second-hero .rail .step .dot svg{width:16px;height:16px}
+    .second-hero .rail .step.on .dot{background:linear-gradient(135deg,#1aa6df,#0284c7);color:#fff;box-shadow:0 4px 11px rgba(26,166,223,.45)}
     /* dashboard components fitted to the phone screen */
     .second-hero .dash-hero{padding:10px 11px;margin-bottom:8px}
     .second-hero .dash-hero .dh-greet{font-size:.98rem}
@@ -1316,7 +1348,7 @@
     .second-hero .con-panel{padding:9px 10px}
 
     /* iPhone body */
-    .device{width:min(300px,84vw);max-width:none;margin:12px auto 0;padding:11px;border-radius:56px;
+    .device{width:min(360px,94vw);max-width:none;margin:6px auto 0;padding:10px;border-radius:52px;
       background:linear-gradient(145deg,#434952 0%,#20242b 44%,#111419 100%);
       box-shadow:0 0 0 1px rgba(0,0,0,.65),inset 0 2px 2px rgba(255,255,255,.16),inset 0 -3px 7px rgba(0,0,0,.55),0 34px 66px rgba(3,10,20,.62)}
     .device::before{content:"";position:absolute;left:-2px;top:116px;width:3px;height:24px;border-radius:3px;background:#2c333c;box-shadow:0 38px 0 #2c333c,0 74px 0 #2c333c}
@@ -1332,10 +1364,10 @@
     .ios-bar{display:flex}
     .second-hero .win-tb i{display:none}
     .second-hero .win-tb{justify-content:center;padding:8px 16px 9px}
-    .second-hero .win-b{display:flex;flex-direction:column;flex:1;min-height:0;min-width:0}
-    .second-hero .rail{flex:0 0 auto}
+    .second-hero .win-b{display:flex;flex-direction:row;flex:1;min-height:0;min-width:0}
+    .second-hero .rail{flex:0 0 46px}
     .second-hero .stage{flex:1 1 auto;min-height:0;min-width:0}
-    .second-hero .scene{inset:15px 14px 30px;display:flex;flex-direction:column;justify-content:center}
+    .second-hero .scene{inset:12px 12px 22px;display:flex;flex-direction:column;justify-content:flex-start}
 
     /* touch tap ripple instead of a mouse pointer */
     .win-cursor svg{display:none}
@@ -1356,17 +1388,17 @@
     <div class="ndrop">
       <button type="button" class="ntop"><span data-t="Platform">Platform</span> <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></button>
       <div class="npanel">
-        <a><b data-t="Operations console">Operations console</b><small data-t="Dashboard, orders, stock &amp; finance">Dashboard, orders, stock &amp; finance</small></a>
-        <a><b data-t="Website builder">Website builder</b><small data-t="A branded storefront in minutes">A branded storefront in minutes</small></a>
-        <a><b data-t="AI Accountant">AI Accountant</b><small data-t="Finance insights, on tap">Finance insights, on tap</small></a>
-        <a><b data-t="Audit history">Audit history</b><small data-t="Every action, logged">Every action, logged</small></a>
+        <a href="signup"><b data-t="Operations console">Operations console</b><small data-t="Dashboard, orders, stock &amp; finance">Dashboard, orders, stock &amp; finance</small></a>
+        <a href="signup"><b data-t="Website builder">Website builder</b><small data-t="A branded storefront in minutes">A branded storefront in minutes</small></a>
+        <a href="signup"><b data-t="AI Accountant">AI Accountant</b><small data-t="Finance insights, on tap">Finance insights, on tap</small></a>
+        <a href="signup"><b data-t="Audit history">Audit history</b><small data-t="Every action, logged">Every action, logged</small></a>
       </div>
     </div>
     <div class="ndrop">
       <button type="button" class="ntop"><span data-t="Solutions">Solutions</span> <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></button>
       <div class="npanel cols">
-        <div><h5 data-t="By industry">By industry</h5><a data-t="Logistics &amp; Trade">Logistics &amp; Trade</a><a data-t="Fashion &amp; Apparel">Fashion &amp; Apparel</a><a data-t="Retail Superstore">Retail Superstore</a><a data-t="Restaurant">Restaurant</a></div>
-        <div><h5>&nbsp;</h5><a data-t="Manufacturing">Manufacturing</a><a data-t="Wholesale">Wholesale</a><a data-t="Construction">Construction</a><a data-t="Professional Services">Professional Services</a></div>
+        <div><h5 data-t="By industry">By industry</h5><a href="signup" data-t="Logistics &amp; Trade">Logistics &amp; Trade</a><a href="signup" data-t="Fashion &amp; Apparel">Fashion &amp; Apparel</a><a href="signup" data-t="Retail Superstore">Retail Superstore</a><a href="signup" data-t="Restaurant">Restaurant</a></div>
+        <div><h5>&nbsp;</h5><a href="signup" data-t="Manufacturing">Manufacturing</a><a href="signup" data-t="Wholesale">Wholesale</a><a href="signup" data-t="Construction">Construction</a><a href="signup" data-t="Professional Services">Professional Services</a></div>
       </div>
     </div>
     <div class="ndrop">
@@ -1431,6 +1463,16 @@
         </div>
         <div class="cdemo-site" id="cdSite">
           <div class="site-empty" id="siteEmpty" data-t="Watch your website build itself…">Watch your website build itself…</div>
+          <!-- Phase 0: the ASK. The build animation below only shows the
+               result; this shows where it comes from — someone typing a
+               plain sentence to the agent, which is the actual product. -->
+          <div class="cd-ask" id="cdAsk" aria-hidden="true">
+            <div class="cd-ask-bubble" id="cdAskBubble"><span id="cdAskText"></span><span class="cd-ask-car"></span></div>
+            <div class="cd-ask-reply" id="cdAskReply">
+              <span class="cd-ask-av">◆</span>
+              <span id="cdAskReplyText">On it — building your store now…</span>
+            </div>
+          </div>
           <div class="site-head">
             <span class="site-logo">◆ <span data-t="demo">demo</span></span>
             <span class="site-nav"><i></i><i></i><i></i></span>
@@ -1465,277 +1507,6 @@
   </div>
 </section>
 
-<section class="wall">
-  <div class="marq"><div class="marq-row" id="marqRow"></div></div>
-</section>
-
-<section class="hero second-hero">
-  <div class="wrap">
-    <div>
-      <h1 class="headline" id="headline"></h1>
-      <p class="sub rvl" style="--d:.9s" data-t="Souqi turns invoices, orders, stock and ledgers into one live console — searchable, shareable and always up to date.">Souqi turns invoices, orders, stock and ledgers into one live console — searchable, shareable and always up to date.</p>
-    </div>
-    <div class="rvl-s" style="--d:.45s">
-      <div class="device" dir="ltr">
-       <div class="device-screen" dir="ltr">
-      <div class="win">
-        <div class="win-cursor" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 2 L4 18 L8 14 L11 21 L13.6 20 L10.6 13.4 L16 13.4 Z"/></svg><span class="win-cursor-ring"></span></div>
-        <div class="ios-bar" aria-hidden="true">
-          <span class="ios-time">9:41</span>
-          <span class="ios-ind"><svg viewBox="0 0 78 16" width="50" height="14" fill="#eaf6ff"><rect x="0" y="9" width="3.5" height="7" rx="1"/><rect x="5.5" y="6.5" width="3.5" height="9.5" rx="1"/><rect x="11" y="4" width="3.5" height="12" rx="1"/><rect x="16.5" y="1.5" width="3.5" height="14.5" rx="1"/><path d="M28 6c4-3.6 11-3.6 15 0M30.5 9c2.6-2.2 9.4-2.2 12 0M35 12l1.5 1.4L38 12" fill="none" stroke="#eaf6ff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><rect x="55" y="4.5" width="18" height="10" rx="2.6" fill="none" stroke="#eaf6ff" stroke-width="1.4"/><rect x="57" y="6.5" width="12.5" height="6" rx="1.2"/><rect x="74" y="7.5" width="1.6" height="4" rx="1"/></svg></span>
-        </div>
-        <div class="win-tb"><i class="r"></i><i class="y"></i><i class="g"></i><b>Souqi · admin console</b></div>
-        <div class="win-b">
-          <aside class="rail">
-            <div class="rail-ws">
-              <div class="ws-av"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg></div>
-              <div class="ws-tx"><div class="ws-nm">Demo Fashion</div><div class="ws-sub">Fashion &amp; Luxury</div></div>
-            </div>
-            <div class="rail-nav">
-              <div class="rail-grp">Main</div>
-              <div class="step" data-s="0"><span class="dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z"/></svg></span>Dashboard</div>
-              <div class="rail-item"><span class="ri-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.5 5.5 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.5-6.5A2 2 0 0 0 16.7 4H7.3a2 2 0 0 0-1.8 1.5z"/></svg></span>My Work</div>
-              <div class="rail-grp">Sales</div>
-              <div class="step" data-s="1"><span class="dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.7 13.4a2 2 0 0 0 2 1.6h9.7a2 2 0 0 0 2-1.6L23 6H6"/></svg></span>Orders<span class="st-badge">1</span></div>
-              <div class="step" data-s="2"><span class="dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/></svg></span>Clients</div>
-              <div class="rail-grp">Operations</div>
-              <div class="step" data-s="3"><span class="dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg></span>Catalog</div>
-              <div class="rail-grp">Finance</div>
-              <div class="step" data-s="4"><span class="dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M4 2v20l3-2 3 2 3-2 3 2 3-2V2l-3 2-3-2-3 2-3-2z"/><path d="M8 8h8M8 12h8"/></svg></span>Invoices</div>
-            </div>
-          </aside>
-          <div class="stage">
-            <!-- scene 0 · dashboard -->
-            <div class="scene" data-s="0">
-              <div class="dash-hero">
-                <div class="dh-date">Friday, July 31, 2026</div>
-                <div class="dh-greet">Good evening, Demo</div>
-                <div class="dh-sub">1 open order · $0 receivable</div>
-                <div class="dh-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Apparel, luxury collections &amp; seasonal drops.</div>
-              </div>
-              <div class="dash-kpis">
-                <div class="dk">
-                  <div class="dk-top"><div class="dk-ic purple"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.7 13.4a2 2 0 0 0 2 1.6h9.7a2 2 0 0 0 2-1.6L23 6H6"/></svg></div><span class="dk-delta"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><path d="M12 19V5M5 12l7-7 7 7"/></svg>1 total</span></div>
-                  <div class="dk-n"><span class="qty" data-to="1">0</span></div>
-                  <div class="dk-l">Open orders</div>
-                  <svg class="dk-spark" viewBox="0 0 100 22" preserveAspectRatio="none"><path d="M0 16 L16 14 L32 15 L48 10 L64 12 L80 6 L100 4 L100 22 L0 22 Z" fill="#7a4fb0" opacity=".14"/><path d="M0 16 L16 14 L32 15 L48 10 L64 12 L80 6 L100 4" fill="none" stroke="#7a4fb0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                </div>
-                <div class="dk">
-                  <div class="dk-top"><div class="dk-ic green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg></div><span class="dk-delta"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><path d="M20 6 9 17l-5-5"/></svg>0 low</span></div>
-                  <div class="dk-n">$<span class="qty" data-to="34400">30100</span></div>
-                  <div class="dk-l">Inventory value (est.)</div>
-                  <svg class="dk-spark" viewBox="0 0 100 22" preserveAspectRatio="none"><path d="M0 15 L16 16 L32 12 L48 13 L64 9 L80 10 L100 6 L100 22 L0 22 Z" fill="#1f9d6b" opacity=".14"/><path d="M0 15 L16 16 L32 12 L48 13 L64 9 L80 10 L100 6" fill="none" stroke="#1f9d6b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                </div>
-                <div class="dk">
-                  <div class="dk-top"><div class="dk-ic gold"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div><span class="dk-delta"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h16.9a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg>0 overdue</span></div>
-                  <div class="dk-n">$<span class="qty" data-to="0">0</span></div>
-                  <div class="dk-l">Outstanding receivables</div>
-                  <svg class="dk-spark" viewBox="0 0 100 22" preserveAspectRatio="none"><path d="M0 14 L16 14 L32 15 L48 14 L64 15 L80 14 L100 15 L100 22 L0 22 Z" fill="#c08a1f" opacity=".12"/><path d="M0 14 L16 14 L32 15 L48 14 L64 15 L80 14 L100 15" fill="none" stroke="#c08a1f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                </div>
-              </div>
-              <div class="dash-rev">
-                <div class="dr-h"><div class="dr-t">Revenue trend<small>Last 8 weeks · k USD</small></div><div class="dr-up"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><path d="M12 19V5M5 12l7-7 7 7"/></svg>69%</div></div>
-                <svg class="dr-chart" viewBox="0 0 300 66" preserveAspectRatio="none">
-                  <defs><linearGradient id="drG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1aa6df" stop-opacity=".2"/><stop offset="1" stop-color="#1aa6df" stop-opacity="0"/></linearGradient></defs>
-                  <path d="M0 52 L43 46 L86 48 L129 38 L172 31 L215 33 L258 18 L300 8 L300 66 L0 66 Z" fill="url(#drG)"/>
-                  <path class="dr-line" d="M0 52 L43 46 L86 48 L129 38 L172 31 L215 33 L258 18 L300 8"/>
-                  <circle class="dr-dot" cx="0" cy="52" r="2.6"/><circle class="dr-dot" cx="86" cy="48" r="2.6"/><circle class="dr-dot" cx="172" cy="31" r="2.6"/><circle class="dr-dot" cx="258" cy="18" r="2.6"/><circle class="dr-dot" cx="300" cy="8" r="2.6"/>
-                </svg>
-              </div>
-            </div>
-            <!-- scene 1 · orders -->
-            <div class="scene" data-s="1">
-              <div class="sc-head"><span class="sc-t">Orders</span><span class="sc-badge blue">34 TODAY</span></div>
-              <div class="con-panel">
-                <div class="con-tools">
-                  <div class="con-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>Search orders…</div>
-                  <span class="con-btn">+ New</span>
-                </div>
-                <table class="con-table"><thead><tr><th>Order</th><th>Customer</th><th class="t-r">Total</th><th>Status</th></tr></thead>
-                  <tbody>
-                    <tr><td class="t-main">#ORD-8801<span class="t-sub">2 items</span></td><td>Vogue Boutique</td><td class="t-r num">$420</td><td><span class="pill paid">Paid</span></td></tr>
-                    <tr><td class="t-main">#ORD-8802<span class="t-sub">14 items</span></td><td>Harvey Nichols</td><td class="t-r num">$1,240</td><td><span class="pill processing">Processing</span></td></tr>
-                    <tr><td class="t-main">#ORD-8803<span class="t-sub">6 items</span></td><td>Beymen Stores</td><td class="t-r num">$860</td><td><span class="pill shipped">Shipped</span></td></tr>
-                    <tr><td class="t-main">#ORD-8804<span class="t-sub">3 items</span></td><td>Walk-in Customer</td><td class="t-r num">$540</td><td><span class="pill pending">Pending</span></td></tr>
-                  </tbody></table>
-              </div>
-            </div>
-            <!-- scene 2 · clients -->
-            <div class="scene" data-s="2">
-              <div class="sc-head"><span class="sc-t">Clients</span><span class="sc-badge blue">128 TOTAL</span></div>
-              <div class="con-panel">
-                <div class="con-tools">
-                  <div class="con-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>Search clients…</div>
-                  <span class="con-btn">+ Client</span>
-                </div>
-                <table class="con-table"><thead><tr><th>Client</th><th>Location</th><th class="t-r">Orders</th><th>Status</th></tr></thead>
-                  <tbody>
-                    <tr><td class="t-main">Vogue Boutique<span class="t-sub">Wholesale</span></td><td>London, UK</td><td class="t-r num">24</td><td><span class="pill active">Active</span></td></tr>
-                    <tr><td class="t-main">Harvey Nichols<span class="t-sub">Retail chain</span></td><td>London, UK</td><td class="t-r num">18</td><td><span class="pill active">Active</span></td></tr>
-                    <tr><td class="t-main">Beymen Stores<span class="t-sub">Department</span></td><td>İstanbul, TR</td><td class="t-r num">31</td><td><span class="pill active">Active</span></td></tr>
-                    <tr><td class="t-main">Zara Wholesale<span class="t-sub">Wholesale</span></td><td>Madrid, ES</td><td class="t-r num">9</td><td><span class="pill hold">On hold</span></td></tr>
-                  </tbody></table>
-              </div>
-            </div>
-            <!-- scene 3 · catalog -->
-            <div class="scene" data-s="3">
-              <div class="sc-head"><span class="sc-t">Catalog</span><span class="sc-badge blue">312 PRODUCTS</span></div>
-              <div class="con-panel">
-                <div class="con-tools">
-                  <div class="con-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>Search products…</div>
-                  <span class="con-btn">+ Product</span>
-                </div>
-                <table class="con-table"><thead><tr><th>Product</th><th>SKU</th><th class="t-r">Price</th><th>Stock</th></tr></thead>
-                  <tbody>
-                    <tr><td class="t-main">Silk Slip Dress<span class="t-sub">Dresses</span></td><td>APP-DRS-01</td><td class="t-r num">$120</td><td><span class="pill instock">In stock</span></td></tr>
-                    <tr><td class="t-main">Wool Overcoat<span class="t-sub">Outerwear</span></td><td>APP-COT-04</td><td class="t-r num">$340</td><td><span class="pill instock">In stock</span></td></tr>
-                    <tr><td class="t-main">Leather Tote<span class="t-sub">Accessories</span></td><td>ACC-BAG-02</td><td class="t-r num">$210</td><td><span class="pill low">Low</span></td></tr>
-                    <tr><td class="t-main">Suede Boots<span class="t-sub">Footwear</span></td><td>FTW-BOT-03</td><td class="t-r num">$180</td><td><span class="pill instock">In stock</span></td></tr>
-                  </tbody></table>
-              </div>
-            </div>
-            <!-- scene 4 · finance & invoices -->
-            <div class="scene" data-s="4">
-              <div class="sc-head"><span class="sc-t">Finance &amp; Invoices</span><span class="sc-badge blue">E-INVOICE</span></div>
-              <div class="con-panel">
-                <div class="con-tools">
-                  <div class="con-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>Search invoices…</div>
-                  <span class="con-btn">+ Invoice</span>
-                </div>
-                <table class="con-table"><thead><tr><th>Invoice</th><th>Client</th><th class="t-r">Amount</th><th>Status</th></tr></thead>
-                  <tbody>
-                    <tr><td class="t-main">INV-8801</td><td>Vogue Boutique</td><td class="t-r num">$420</td><td><span class="pill paid">Paid</span></td></tr>
-                    <tr><td class="t-main">INV-8795</td><td>Beymen Stores</td><td class="t-r num">$8,900</td><td><span class="pill paid">Paid</span></td></tr>
-                    <tr><td class="t-main">INV-8790</td><td>Zara Wholesale</td><td class="t-r num">$12,400</td><td><span class="pill overdue">Overdue</span></td></tr>
-                    <tr><td class="t-main">INV-8788</td><td>Harvey Nichols</td><td class="t-r num">$3,150</td><td><span class="pill paid">Paid</span></td></tr>
-                  </tbody></table>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-       </div>
-       <div class="device-base"><span class="device-notch"></span></div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ============ scroll-driven 8-industries showcase ============ -->
-<section class="inx" id="inx">
-  <div class="inx-pin">
-    <div class="inx-bg" id="inxBg"></div>
-    <div class="inx-grain"></div>
-    <div class="wrap inx-inner">
-      <div class="inx-top">
-        <span class="inx-eyebrow" data-t="8 industries you choose from">8 industries you choose from</span>
-        <span class="inx-count"><b id="inxNum">01</b><em>/ 08</em></span>
-      </div>
-      <div class="inx-main">
-        <div class="inx-left">
-          <div class="inx-name-wrap"><h2 class="inx-name" id="inxName">Logistics &amp; Trade</h2></div>
-          <p class="inx-tag" id="inxTag">Freight, customs and fleet — tracked end to end.</p>
-          <a class="inx-cta" id="inxCta" href="signup">Explore Logistics &amp; Trade →</a>
-        </div>
-        <div class="inx-right">
-          <div class="inx-card" id="inxCard">
-            <div class="inx-card-bar"><i class="d1"></i><i class="d2"></i><i class="d3"></i><span class="inx-url"><b class="inx-host" id="inxHost">freight</b>.souqi.site</span></div>
-            <div class="inx-card-hero"><span class="inx-kick">STOREFRONT</span><span class="inx-ctag" id="inxCardTag">Freight, fully tracked.</span></div>
-            <div class="inx-card-grid" id="inxGrid"></div>
-          </div>
-        </div>
-      </div>
-      <div class="inx-dots" id="inxDots"></div>
-    </div>
-  </div>
-</section>
-
-<section class="langs">
-  <div class="wrap">
-    <h2 class="speaks-h rvl">Your store speaks<br><span class="speaks-word" id="speaksWord">Türkçe</span></h2>
-    <p class="lead rvl" style="--d:.1s">Staff and customers each pick their own language in a click — with full right-to-left support built in.</p>
-  </div>
-</section>
-
-<section class="plain-quote">
-  <div class="wrap">
-    <div class="pq-card rvl">
-      <blockquote>“We replaced four separate tools and a shared drive. Everything our team needs is now in one place, and month-end went from a week to an afternoon.”</blockquote>
-      <div class="pq-by">Operations Director</div>
-      <div class="pq-role">Distribution &amp; trade, 40 staff</div>
-    </div>
-  </div>
-</section>
-
-<section class="plain-stats">
-  <div class="wrap">
-    <h2 class="rvl">Built for the whole business</h2>
-    <div class="ps-grid">
-      <div class="ps-card rvl"><div class="ps-num">8</div><div class="ps-label">Industry presets, each with its own modules, language and storefront.</div></div>
-      <div class="ps-card rvl" style="--d:.06s"><div class="ps-num">20+</div><div class="ps-label">Modules from orders and stock through to payroll and accounting.</div></div>
-      <div class="ps-card rvl" style="--d:.12s"><div class="ps-num">Unlimited</div><div class="ps-label">Companies per account — run every branch side by side.</div></div>
-    </div>
-  </div>
-</section>
-
-<section class="prices" id="prices">
-  <div class="wrap">
-    <div class="prices-head">
-      <div class="rvl" style="--d:.04s;display:inline-flex;align-items:center;gap:8px;padding:7px 18px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;border-radius:999px;font-size:.84rem;font-weight:700;margin-bottom:16px;box-shadow:0 4px 14px rgba(16,185,129,.35)">
-        <span>🎉</span> <span>EARLY ACCESS SPECIAL: Everything 100% FREE for 6 Months!</span>
-      </div>
-      <h2 class="rvl" style="--d:.06s">Start free. Upgrade when you grow.</h2>
-      <p class="lead rvl" style="--d:.12s">All plans are currently <b>100% Free for 6 Months</b> for early users — no credit card required.</p>
-    </div>
-    <div class="price-cards">
-      <div class="pcard rvl">
-        <div class="pc-name">Free</div>
-        <div class="pc-price"><b>$0</b><span>free forever</span></div>
-        <div class="pc-tag">Get your business online.</div>
-        <a class="pc-cta ghost" href="signup">Start free</a>
-        <ul class="pc-feats"><li>1 user — full owner access</li><li>Orders, inventory &amp; finance</li><li>Dashboard &amp; reports</li><li>10&nbsp;GB storage</li><li>Community support</li></ul>
-      </div>
-      <div class="pcard rec rvl" style="--d:.08s">
-        <span class="pc-badge">6 Months Free</span>
-        <div class="pc-name">Pro</div>
-        <div class="pc-price"><b>$0</b><span>/ 6 months free</span></div>
-        <div style="font-size:.76rem;color:var(--muted);margin:-4px 0 6px"><s style="color:#ef4444;font-weight:700">$20/mo</s> originally &bull; 100% Free</div>
-        <div class="pc-tag">Run your whole business.</div>
-        <a class="pc-cta solid" href="checkout?plan=pro">Claim 6 Months Free</a>
-        <ul class="pc-feats"><li>Unlimited orders &amp; invoices</li><li>AI Accountant — finance insights</li><li>E-fatura &amp; receipts</li><li>Shipment labels + QR printing</li><li>Full audit history</li><li>Email &amp; chat support</li></ul>
-      </div>
-      <div class="pcard rvl" style="--d:.16s">
-        <span class="pc-badge" style="background:#0f172a;color:#38bdf8">6 Months Free</span>
-        <div class="pc-name">Business</div>
-        <div class="pc-price"><b>$0</b><span>/ 6 months free</span></div>
-        <div style="font-size:.76rem;color:var(--muted);margin:-4px 0 6px"><s style="color:#ef4444;font-weight:700">$100/mo</s> originally &bull; 100% Free</div>
-        <div class="pc-tag">Scale across branches.</div>
-        <a class="pc-cta ghost" href="checkout?plan=business">Claim 6 Months Free</a>
-        <ul class="pc-feats"><li>Up to 25 employees</li><li>Multi-warehouse &amp; multi-currency</li><li>Live AI Accountant</li><li>Quotations &amp; purchase orders</li><li>Advanced permissions</li><li>Priority support (12h)</li></ul>
-      </div>
-    </div>
-    <p class="prices-note rvl">All plans are 100% free for early users for 6 months. Need something custom? <a href="mailto:sales@souqi.site">Talk to sales</a>.</p>
-  </div>
-</section>
-
-<section class="sec">
-  <div class="wrap">
-    <span class="eyebrow rvl">Build with help by your side</span>
-    <h2 class="rvl" style="--d:.06s">You’re never setting this up alone.</h2>
-    <div class="help" id="help"></div>
-  </div>
-</section>
-
-<section class="close">
-  <div class="wrap">
-    <h2 class="rvl">Your business. One console.</h2>
-    <form class="capture rvl" style="--d:.1s" onsubmit="return false"><input type="email" placeholder="Enter your email address" aria-label="Email"><button>Start free</button></form>
-    <p class="note rvl" style="--d:.16s">Free to start. No card required.</p>
-  </div>
-</section>
-
-<footer class="foot"><div class="wrap"><span>© 2026 WeboCloud · <span data-t="Cloud Operations Platform">Cloud Operations Platform</span></span><span><a href="signup" data-t="Create workspace">Create workspace</a> · <a href="login" data-t="Sign in">Sign in</a> · <a href="mailto:sales@souqi.site">Contact sales</a></span></div></footer>
-
 
 <script src="js/config.js?v=28"></script>
 <script src="js/seed.js?v=28"></script>
@@ -1748,48 +1519,6 @@
   var I=function(p){return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'+p+'</svg>';};
   var lang = (window.UI && UI.getLang) ? UI.getLang() : "en";
 
-  // headline word-by-word
-  var headlineText = lang === "ar"
-    ? "انقل أعمالك بعيداً عن الورق."
-    : (lang === "tr" ? "İşinizi kâğıttan dijitale taşıyın." : "Take your business off paper.");
-  var words = headlineText.split(" ");
-  document.getElementById("headline").innerHTML = words.map(function(w,i){
-    var cls = (w.indexOf("الورق") >= 0 || w.indexOf("dijitale") >= 0 || w.indexOf("paper") >= 0) ? "w grad" : "w";
-    return '<span class="'+cls+'" style="--wi:'+i+'">'+w+'</span>';
-  }).join(" ");
-
-  // marquee (doubled for seamless loop)
-  var inds = lang === "ar"
-    ? ["اللوجستيات والتجارة","الأزياء والموضة","تجارة الجملة والتوزيع","المتاجر والبيع بالتجزئة","التصنيع","المطاعم والتموين","الإنشاءات والشواغر","الخدمات المهنية"]
-    : (lang === "tr"
-      ? ["Lojistik ve Ticaret","Moda ve Giyim","Toptan Dağıtım","Perakende Mağaza","Üretim ve Sanayi","Restoran","İnşaat ve Şantiye","Profesyonel Hizmetler"]
-      : ["Logistics & Trade","Fashion & Apparel","Wholesale / Distribution","Retail Superstore","Manufacturing","Restaurant","Construction","Professional Services"]);
-  document.getElementById("marqRow").innerHTML = inds.concat(inds).map(function(n,i){return '<b style="--wi:'+i+'">'+n+'</b>';}).join("");
-
-  // help
-  var help = lang === "ar"
-    ? [
-        ["دعم حقيقي",'<path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/>',"تحدث مع خبراء متخصصين يفهمون المنتج حقاً، وليس مجرد ردود جاهزة."],
-        ["إعداد موجه",'<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/>',"اختر قطاعك وابدأ ببيانات تجريبية تناسب تخصصك مباشرة."],
-        ["تعلم أثناء العمل",'<path d="M2 6a4 4 0 0 1 4-2h4a2 2 0 0 1 2 2v14a1.5 1.5 0 0 0-1.5-1.5H6A4 4 0 0 1 2 16z"/><path d="M22 6a4 4 0 0 0-4-2h-4a2 2 0 0 0-2 2v14a1.5 1.5 0 0 1 1.5-1.5H18a4 4 0 0 0 4-2z"/>',"جولات ومساعدات قصيرة داخل المنصة بالضبط حيث تحتاجها."],
-        ["بياناتك ملكك بالكامل",'<rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',"صَدّر أي شيء في أي وقت. بدون قيود أو رسوم مخفية."]
-      ]
-    : (lang === "tr"
-      ? [
-          ["Gerçek Destek",'<path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/>',"Robotlarla değil, ürünü gerçekten bilen uzmanlarla konuşun."],
-          ["Rehberli Kurulum",'<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/>',"Sektörünüzü seçin ve anlamlı verilerle hemen başlayın."],
-          ["Kullanırken Öğrenin",'<path d="M2 6a4 4 0 0 1 4-2h4a2 2 0 0 1 2 2v14a1.5 1.5 0 0 0-1.5-1.5H6A4 4 0 0 1 2 16z"/><path d="M22 6a4 4 0 0 0-4-2h-4a2 2 0 0 0-2 2v14a1.5 1.5 0 0 1 1.5-1.5H18a4 4 0 0 0 4-2z"/>',"Tam ihtiyacınız olan yerde konsola entegre kısa rehberler."],
-          ["Verileriniz Sizin",'<rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',"İstediğiniz zaman tüm verilerinizi dışa aktarın. Bağlayıcı şartlar yok."]
-        ]
-      : [
-          ["Real support",'<path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/>',"Talk to people who know the product, not a script."],
-          ["Guided setup",'<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/>',"Pick your industry and start with data that already makes sense."],
-          ["Learn as you go",'<path d="M2 6a4 4 0 0 1 4-2h4a2 2 0 0 1 2 2v14a1.5 1.5 0 0 0-1.5-1.5H6A4 4 0 0 1 2 16z"/><path d="M22 6a4 4 0 0 0-4-2h-4a2 2 0 0 0-2 2v14a1.5 1.5 0 0 1 1.5-1.5H18a4 4 0 0 0 4-2z"/>',"Short walkthroughs built into the console, exactly where you need them."],
-          ["Your data, yours",'<rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',"Export anything, any time. No lock-in, no hostage pricing."]
-        ]);
-  document.getElementById("help").innerHTML=help.map(function(h,i){
-    return '<div class="rvl" style="--d:'+(i*0.07)+'s"><div class="ic">'+I(h[1])+'</div><h3>'+h[0]+'</h3><p>'+h[2]+'</p></div>';
-  }).join("");
 
   // sticky nav shadow
   var nav=document.getElementById("nav");
@@ -1979,6 +1708,9 @@
     function typeInto(el,text,cb){ el.textContent=""; var car=document.createElement("span"); car.className="car"; el.appendChild(car); var i=0;
       (function tick(){ if(i<text.length){ car.insertAdjacentText("beforebegin",text.charAt(i)); i++; setTimeout(tick,46); } else { setTimeout(function(){ if(car.parentNode) car.remove(); cb&&cb(); },500); } })(); }
     function skeleton(){ grid.innerHTML=getProducts().map(function(){return '<div class="site-card"><div class="ph"></div><div class="nm">&nbsp;</div><div class="pr">&nbsp;</div></div>';}).join(""); }
+    var ask=document.getElementById("cdAsk"), askText=document.getElementById("cdAskText"),
+        askReplyText=document.getElementById("cdAskReplyText");
+    var ASK_PROMPT="Build me an online store for my clothing brand";
     function reset(){
       site.style.setProperty("--st","#1aa6df"); site.classList.remove("live");
       head.classList.remove("in"); hero.classList.remove("in"); title.textContent=""; grid.innerHTML="";
@@ -1986,8 +1718,29 @@
       status.classList.remove("islive"); status.innerHTML='<i></i>'+_t("building…");
       var co=document.getElementById("siteCheckout"); if(co) co.classList.remove("in");
       var sb=document.getElementById("scoBtn"); if(sb){ sb.classList.remove("paid"); sb.textContent=_t("Pay $260"); }
+      if(ask){ ask.className="cd-ask"; askText.textContent=""; }
     }
     var steps=[
+      // Phase 0 — someone asks for it, in a plain sentence. Everything
+      // after this is the agent doing what was asked.
+      function(next){
+        if(!ask){ next(); return; }
+        setChip("Waiting for your prompt…");
+        ask.classList.add("on","typing");
+        var txt=_t(ASK_PROMPT), i=0;
+        (function tick(){
+          if(i<txt.length){ askText.textContent+=txt.charAt(i); i++; setTimeout(tick,52); }
+          else setTimeout(function(){
+            ask.classList.add("sent");
+            setChip("Reading your request…");
+            askReplyText.textContent=_t("On it — building your store now…");
+            setTimeout(function(){
+              ask.classList.add("replied");
+              setTimeout(function(){ ask.classList.remove("on"); next(); },1500);
+            },520);
+          },620);
+        })();
+      },
       function(next){ setChip("Creating your site…"); empty.classList.add("gone"); head.classList.add("in"); setTimeout(function(){ setChip("✓ Site created",1); next(); },1100); },
       function(next){ setChip("Applying the Retail template…"); hero.classList.add("in"); skeleton(); setTimeout(function(){ setChip("✓ Template applied",1); next(); },1300); },
       function(next){ setChip("Adding products…"); var prods=getProducts(); var c=grid.querySelectorAll(".site-card");
@@ -2006,7 +1759,7 @@
     if(reduce){
       empty.classList.add("gone"); head.classList.add("in"); hero.classList.add("in"); site.style.setProperty("--st","#12a594");
       title.textContent="New season, now live."; cart.textContent=_t("Cart · 2"); status.innerHTML='<i></i>'+_t("live"); status.classList.add("islive");
-      grid.innerHTML=PRODUCTS.map(function(p){return '<div class="site-card in"><div class="ph"></div><div class="nm">'+p[0]+'</div><div class="pr">'+p[1]+'</div></div>';}).join("");
+      grid.innerHTML=getProducts().map(function(p){return '<div class="site-card in"><div class="ph"></div><div class="nm">'+p[0]+'</div><div class="pr">'+p[1]+'</div></div>';}).join("");
       setChip("Built with Souqi",1);
     } else {
       (function run(){ reset(); var i=0; (function go(){ if(i<steps.length){ steps[i++](go); } else { setTimeout(run,2800); } })(); })();
@@ -2028,14 +1781,14 @@
   var inx=document.getElementById("inx");
   if(inx){
     var INDX=[
-      {n:"Logistics & Trade", c:"#12a594", host:"freight", tag:"Freight, customs and fleet — tracked end to end.", ctag:"Freight, fully tracked.", items:[["Container 20ft","$1,200"],["Pallet Ship","$85"],["Express Air","$240"]]},
-      {n:"Fashion & Apparel", c:"#e0498b", host:"atelier", tag:"Collections, sizes and seasons that sell themselves.", ctag:"New season, now live.", items:[["Linen Blazer","$89"],["Silk Dress","$120"],["Suede Boots","$140"]]},
-      {n:"Wholesale & Distribution", c:"#4e9c2b", host:"depot", tag:"Bulk orders, price tiers and B2B — handled with ease.", ctag:"Bulk, priced to move.", items:[["Rice 25kg","$22"],["Sugar 50kg","$30"],["Flour Pallet","$210"]]},
-      {n:"Retail Superstore", c:"#1aa6df", host:"market", tag:"Aisles of stock, one live shelf count.", ctag:"Everything, in stock.", items:[["Cola 6-pack","$4"],["Olive Oil 1L","$8"],["Detergent","$6"]]},
-      {n:"Manufacturing", c:"#6b6ff0", host:"works", tag:"Raw parts to finished product, right on schedule.", ctag:"Parts to product.", items:[["Bearing Set","$32"],["Alloy Sheet","$54"],["Motor Unit","$180"]]},
-      {n:"Restaurant", c:"#e2673a", host:"bistro", tag:"Menu, kitchen and tables in one smooth flow.", ctag:"Order fresh, served fast.", items:[["Margherita","$9"],["Beef Burger","$11"],["Garden Salad","$7"]]},
-      {n:"Construction", c:"#d9962a", host:"buildco", tag:"Sites, materials and crews — all accounted for.", ctag:"Materials, on schedule.", items:[["Cement 50kg","$7"],["Steel Pipe","$15"],["Power Drill","$65"]]},
-      {n:"Professional Services", c:"#7a4fb0", host:"studio", tag:"Book, bill and deliver every engagement.", ctag:"Book, bill, deliver.", items:[["Consulting hr","$120"],["Design Package","$900"],["Retainer","$2,400"]]}
+      {n:"Dashboards & Analytics", c:"#1aa6df", host:"insights", tag:"Live charts, KPIs and reports — wired to your real data.", ctag:"Every metric, one glance.", items:[["Revenue","$48.2k"],["Active Users","2,391"],["Uptime","99.98%"]]},
+      {n:"Booking & Scheduling", c:"#e2673a", host:"book", tag:"Calendars, slots and reminders — built and running in minutes.", ctag:"Booked, confirmed, done.", items:[["Tomorrow","9:00 AM"],["This week","24 slots"],["No-shows","1.2%"]]},
+      {n:"Communities & Social", c:"#e0498b", host:"circle", tag:"Feeds, profiles and comments — a real social app, not a mockup.", ctag:"Where your people gather.", items:[["Members","8,402"],["Posts today","312"],["Online now","614"]]},
+      {n:"Marketplaces", c:"#4e9c2b", host:"market", tag:"Buyers, sellers and listings — a two-sided platform from one prompt.", ctag:"Buyers and sellers, matched.", items:[["Listings","1,847"],["Active sellers","96"],["This week","$21.4k"]]},
+      {n:"Internal Tools", c:"#6b6ff0", host:"ops", tag:"Ticket queues, approvals and admin panels your team actually wants.", ctag:"Ops, finally organized.", items:[["Open tickets","14"],["Avg response","2m"],["Resolved today","38"]]},
+      {n:"Portfolios & Personal Sites", c:"#7a4fb0", host:"folio", tag:"Case studies, projects and a resume — designed, not templated.", ctag:"Your work, well told.", items:[["Projects","12"],["Case studies","5"],["Visitors","3.1k"]]},
+      {n:"Games & Interactive", c:"#d9962a", host:"play", tag:"Playable in the browser — logic, state and score, all real code.", ctag:"Built to be played.", items:[["High score","94,200"],["Players","1,509"],["Levels","12"]]},
+      {n:"Calculators & Tools", c:"#12a594", host:"calc", tag:"Real formulas, real inputs — a tool people actually bookmark.", ctag:"Type in, get an answer.", items:[["Calculations today","6,204"],["Avg time","8s"],["Saved results","912"]]}
     ];
     var inxName=document.getElementById("inxName"), inxTag=document.getElementById("inxTag"), inxNum=document.getElementById("inxNum"),
         inxHost=document.getElementById("inxHost"), inxCardTag=document.getElementById("inxCardTag"), inxGrid=document.getElementById("inxGrid"),
@@ -2052,7 +1805,7 @@
       inxTag.textContent=_t(d.tag); retrig(inxTag,"swap");
       inxNum.textContent=pad(i+1);
       inxHost.textContent=_t(d.host); inxCardTag.textContent=_t(d.ctag);
-      inxCta.textContent=_t("Explore ") + _t(d.n) + " →";
+      inxCta.textContent=_t("Build this in Souqi Code →");
       inxGrid.innerHTML=d.items.map(function(it){return '<div class="inx-prod"><div class="ph"></div><div class="pn">'+_t(it[0])+'</div><div class="pp">'+_t(it[1])+'</div></div>';}).join("");
       retrig(inxGrid,"swap");
       inxDots.querySelectorAll("button").forEach(function(b,k){b.classList.toggle("on",k===i);});

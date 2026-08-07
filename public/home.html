@@ -1,0 +1,1165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#faf7f2">
+<link rel="icon" type="image/png" href="assets/logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Jost:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<title>Souqi — What will you build?</title>
+<meta name="description" content="Describe your business in one sentence and Souqi builds your storefront, then hands it to a live editor you can click and change.">
+<style>
+  *,*::before,*::after{box-sizing:border-box}
+  :root{
+    /* warm paper surface + one bold accent — Souqi's cyan, not a borrowed brand */
+    --paper:#faf7f2; --paper-2:#f3eee6; --card:#ffffff;
+    --ink:#12202e; --ink-2:#5d6f80; --mut:#8b98a5;
+    --accent:#1aa6df; --accent-2:#0f8ec4; --accent-ink:#04202e;
+    --tint:#c7e8fa; --tint-2:#e7f5fd;
+    --stone:#dedad2; --dark:#0d2338; --line:#e7e1d7; --navy-800:#0b1e33;
+    --disp:'Jost','Century Gothic',system-ui,sans-serif;
+    --body:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+    --ease:cubic-bezier(.16,1,.3,1);
+    --r-card:26px;
+  }
+  /* NOTE: no `overflow-x` on <html>. Setting it (even to `clip`) forces the
+     other axis to `auto`, which turns the root into a scroll container and
+     silently breaks `position:sticky` on the navbar. Horizontal overflow is
+     contained at its source instead — see .bh-hero and .inx-pin. */
+  html{background:var(--paper);overscroll-behavior-x:none}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--body);-webkit-font-smoothing:antialiased;
+    padding:0 env(safe-area-inset-right) 0 env(safe-area-inset-left)}
+  *{-webkit-tap-highlight-color:transparent}
+  a{color:inherit;text-decoration:none}
+  h1,h2,h3,h4{font-family:var(--disp);font-weight:600;letter-spacing:-.03em;line-height:1.04;margin:0}
+  button{font:inherit}
+  .wrap{max-width:1240px;margin:0 auto;padding:0 clamp(18px,4vw,36px)}
+
+  /* ---------- reveal ---------- */
+  .rvl{opacity:0;transform:translateY(24px);transition:opacity .8s var(--ease),transform .8s var(--ease);transition-delay:var(--d,0s)}
+  .rvl.in{opacity:1;transform:none}
+  @media (prefers-reduced-motion:reduce){.rvl{opacity:1;transform:none;transition:none}}
+
+  /* ================= NAV (same bar as login.html) ================= */
+  /* `static`, exactly like login.html: the bar scrolls away with the page
+     rather than following you down it. */
+  .nav{position:static;z-index:40;display:flex;align-items:center;gap:20px;padding:14px clamp(18px,4vw,40px);
+    background:var(--paper)}
+  .brand{display:flex;align-items:center;gap:10px;font-family:var(--disp);font-weight:800;font-size:1.1rem;color:var(--ink)}
+  .nav .lnk{margin-left:auto;display:flex;gap:2px}
+  .ndrop{position:relative}
+  .ntop{display:inline-flex;align-items:center;gap:5px;background:none;border:0;cursor:pointer;font:inherit;font-size:.88rem;font-weight:500;color:var(--ink);padding:9px 12px;border-radius:9px;transition:.16s}
+  .ntop svg{width:12px;height:12px;opacity:.6;transition:transform .18s}
+  .ndrop:hover .ntop{background:rgba(18,32,46,.06);color:var(--ink)}
+  .ndrop:hover .ntop svg{transform:rotate(180deg)}
+  .npanel{position:absolute;top:calc(100% + 8px);left:0;min-width:252px;background:#fff;border:1px solid var(--line);border-radius:14px;
+    box-shadow:0 18px 46px rgba(11,30,51,.16);padding:9px;opacity:0;visibility:hidden;transform:translateY(8px);
+    transition:opacity .16s,transform .16s,visibility .16s;z-index:60}
+  .ndrop:hover .npanel{opacity:1;visibility:visible;transform:none}
+  .npanel a{display:block;padding:9px 11px;border-radius:9px;text-decoration:none;color:var(--ink);font-size:.88rem;font-weight:500;cursor:pointer}
+  .npanel a:hover{background:var(--paper-2);color:var(--navy-800)}
+  .npanel a b{display:block;font-size:.9rem;color:var(--navy-800);font-weight:700}
+  .npanel a small{display:block;font-size:.76rem;color:var(--mut);margin-top:1px;font-weight:400}
+  .npanel.cols{display:grid;grid-template-columns:1fr 1fr;min-width:380px;gap:0 6px}
+  .npanel.cols h5{font-size:.64rem;text-transform:uppercase;letter-spacing:.1em;color:var(--mut);font-weight:800;padding:8px 11px 4px;margin:0}
+  .btn-g{padding:9px 15px;border:1px solid var(--line);border-radius:10px;color:var(--ink);font-size:.86rem;font-weight:600;transition:.16s}
+  .btn-g:hover{border-color:#c6dbe7;background:rgba(18,32,46,.05)}
+  .btn-d{padding:9px 17px;border-radius:10px;background:var(--accent);color:#fff;font-size:.86rem;font-weight:700;transition:.16s}
+  .btn-d:hover{background:var(--accent-2);transform:translateY(-1px)}
+  /* the Agent badge stays the one bold thing in the bar */
+  .nav-agent{display:inline-flex;align-items:center;background:var(--accent);color:#fff;border-radius:999px;
+    padding-inline-start:14px;font-weight:700;font-size:.86rem;height:34px;margin-inline-start:6px;transition:.16s}
+  .nav-agent:hover{background:var(--accent-2)}
+  .nav-agent i{display:grid;place-items:center;width:22px;height:22px;margin-inline:8px 6px;border-radius:50%;
+    background:#04202e;color:#cfeafb;font-style:normal;font-size:.74rem}
+  /* ---- language selector: the same control login.html ships ----
+     Square, red-bordered, arrow hidden — kept byte-for-byte in step with
+     login.html so the two pages never drift apart. */
+  .lang-dropdown{position:relative;display:inline-block;font-family:var(--disp);font-size:.85rem;z-index:9999}
+  .lang-trigger{display:flex;align-items:center;justify-content:center;background:#fff;border:2px solid #d0112b;
+    border-radius:0;padding:10px 18px;color:#d0112b;font-weight:700;cursor:pointer;box-shadow:none;
+    transition:background .16s;outline:none;user-select:none;min-width:100px}
+  .lang-trigger *{pointer-events:none}
+  .lang-trigger:hover{background:#fdf5f5}
+  .lang-trigger .lang-arrow{display:none}
+  .lang-list{position:absolute;top:100%;right:0;left:0;background:#fff;border:1px solid #111;border-top:none;
+    border-radius:0;box-shadow:none;padding:0;margin:0;list-style:none;display:none;overflow:hidden;z-index:9999}
+  .lang-dropdown.open .lang-list{display:block}
+  .lang-item{padding:10px 16px;cursor:pointer;font-weight:700;text-align:center;color:#d0112b;background:#fff;
+    transition:background .16s,color .16s}
+  .lang-item:hover{background:#f5f5f5}
+  .lang-item.active{background:#1e73be;color:#fff}
+
+  /* ================= HERO ================= */
+  /* `overflow:clip` (not hidden) — the ::before glow bleeds 20% past each
+     edge and would otherwise give the whole page a horizontal scrollbar,
+     without turning the hero into a scroll container. */
+  .bh-hero{padding:clamp(48px,9vw,120px) 0 clamp(30px,5vw,60px);text-align:center;position:relative;overflow:clip}
+  .bh-hero::before{content:"";position:absolute;inset:-10% -20% 30%;pointer-events:none;z-index:0;
+    background:radial-gradient(46% 52% at 50% 24%,rgba(26,166,223,.14),transparent 62%)}
+  .bh-hero .wrap{position:relative;z-index:1}
+  .bh-h1{font-size:clamp(2.5rem,7vw,4.6rem);font-weight:600}
+  .bh-sub{color:var(--ink-2);font-size:clamp(.98rem,2vw,1.1rem);margin:20px auto 0;max-width:560px}
+
+  /* composer */
+  .bh-composer{max-width:800px;margin:clamp(26px,4vw,42px) auto 0;background:var(--card);border:1px solid var(--line);
+    border-radius:22px;padding:18px 18px 12px;text-align:left;box-shadow:0 2px 3px rgba(18,32,46,.03);
+    transition:border-color .18s,box-shadow .18s}
+  .bh-composer:focus-within{border-color:#bcd9e8;box-shadow:0 12px 40px rgba(26,166,223,.13)}
+  .bh-ta{width:100%;border:0;outline:0;resize:none;background:none;font-family:var(--body);font-size:1.02rem;
+    line-height:1.55;color:var(--ink);min-height:52px;max-height:230px;overflow-y:auto}
+  .bh-ta::placeholder{color:var(--mut)}
+  .bh-crow{display:flex;align-items:center;gap:8px;padding-top:6px}
+  .bh-plus{width:34px;height:34px;flex:none;border-radius:50%;border:1px solid var(--line);background:var(--card);
+    color:var(--ink-2);cursor:pointer;display:grid;place-items:center;font-size:1.2rem;line-height:1;transition:.16s}
+  .bh-plus:hover{background:var(--paper-2);color:var(--ink)}
+  .bh-chip-sel{display:none;align-items:center;gap:7px;background:var(--tint-2);border:1px solid #cbe7f6;color:var(--accent-ink);
+    border-radius:999px;padding:6px 8px 6px 12px;font-size:.86rem;font-weight:500}
+  .bh-chip-sel.on{display:inline-flex}
+  .bh-chip-sel button{border:0;background:none;cursor:pointer;color:var(--ink-2);font-size:1rem;line-height:1;padding:0 2px}
+  .bh-send{margin-left:auto;flex:none;height:38px;min-width:38px;padding:0;border:0;border-radius:999px;cursor:pointer;
+    background:#e9e4db;color:#fff;display:inline-flex;align-items:center;justify-content:center;gap:8px;
+    transition:background .2s,padding .2s,transform .16s}
+  .bh-send svg{width:17px;height:17px}
+  .bh-send span{display:none;font-weight:600;font-size:.92rem}
+  .bh-send.live{background:var(--accent)}
+  .bh-send.live:hover{background:var(--accent-2);transform:translateY(-1px)}
+  .bh-send.labelled{padding:0 20px}
+  .bh-send.labelled span{display:inline}
+  .bh-send:disabled{cursor:not-allowed}
+
+  /* the hand-off beat: shown under the composer while the page changes */
+  .bh-boot{max-width:800px;margin:14px auto 0;text-align:left;display:flex;flex-direction:column;gap:2px}
+  /* rows arrive one at a time — a step that hasn't started yet isn't shown */
+  .bh-bstage{display:none;align-items:center;gap:11px;padding:8px 4px;font-size:.94rem;color:var(--ink-2)}
+  .bh-bstage.on{display:flex;opacity:0;transform:translateY(5px);animation:bootIn .3s var(--ease) forwards}
+  @keyframes bootIn{to{opacity:1;transform:none}}
+  .bh-bstage i{width:18px;height:18px;flex:none;border-radius:50%;border:2px solid var(--line);
+    border-top-color:var(--accent);animation:bootSpin .7s linear infinite}
+  @keyframes bootSpin{to{transform:rotate(360deg)}}
+  .bh-bstage.done{color:var(--ink)}
+  .bh-bstage.done i{border:0;background:var(--accent);position:relative;animation:none}
+  .bh-bstage.done i::after{content:"";position:absolute;left:6px;top:3px;width:4px;height:8px;
+    border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg)}
+  .bh-boot .bar{height:2px;border-radius:2px;background:var(--line);overflow:hidden;margin-top:10px}
+  .bh-boot .bar i{display:block;height:100%;width:0;background:var(--accent);border-radius:2px;
+    animation:bootBar 1.45s var(--ease) forwards}
+  @keyframes bootBar{to{width:100%}}
+  @media (prefers-reduced-motion:reduce){
+    .bh-bstage.on{animation:none;opacity:1;transform:none}
+    .bh-bstage i{animation:none}
+    .bh-boot .bar i{animation:none;width:100%}
+  }
+
+  /* mode rail */
+  .bh-modes{display:flex;align-items:center;justify-content:center;gap:6px;margin-top:22px}
+  .bh-arrow{flex:none;width:34px;height:34px;border:0;background:none;color:var(--mut);cursor:pointer;border-radius:50%;
+    display:grid;place-items:center;transition:.16s}
+  .bh-arrow:hover{background:rgba(18,32,46,.06);color:var(--ink)}
+  .bh-rail{display:flex;gap:8px;overflow-x:auto;scroll-behavior:smooth;scroll-snap-type:x mandatory;
+    scrollbar-width:none;padding:4px}
+  .bh-rail::-webkit-scrollbar{display:none}
+  .bh-mode{scroll-snap-align:center;flex:none;width:86px;border:0;background:none;cursor:pointer;text-align:center;
+    color:var(--ink-2);font-size:.8rem;font-weight:500;padding:0}
+  .bh-mode i{display:grid;place-items:center;width:56px;height:52px;margin:0 auto 8px;border:1px solid var(--line);
+    border-radius:16px;background:var(--card);color:var(--ink);transition:.18s}
+  .bh-mode i svg{width:20px;height:20px}
+  .bh-mode:hover i{border-color:#c6dbe7;transform:translateY(-2px)}
+  .bh-mode.sel i{background:var(--ink);border-color:var(--ink);color:#fff}
+  .bh-mode.sel{color:var(--ink)}
+
+  /* examples */
+  .bh-try{margin-top:30px;font-size:.88rem;color:var(--ink-2);display:inline-flex;align-items:center;gap:8px}
+  .bh-try button{border:0;background:none;cursor:pointer;color:var(--ink-2);display:grid;place-items:center;
+    width:26px;height:26px;border-radius:50%;transition:.16s}
+  .bh-try button:hover{background:rgba(18,32,46,.07);color:var(--ink);transform:rotate(90deg)}
+  .bh-ex{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-top:14px}
+  .bh-ex button{border:1px solid var(--line);background:var(--card);border-radius:999px;padding:10px 18px;
+    font-size:.9rem;font-weight:500;color:var(--ink);cursor:pointer;transition:.16s}
+  .bh-ex button:hover{border-color:#c6dbe7;background:var(--tint-2);transform:translateY(-1px)}
+
+  @keyframes scFade{from{opacity:0;transform:translateY(8px);filter:blur(3px)}to{opacity:1;transform:none;filter:blur(0)}}
+  @keyframes prodIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+  /* ---------- scroll-driven 8-industries showcase ---------- */
+  @property --c{syntax:'<color>';inherits:true;initial-value:#12a594}
+  .inx{position:relative;height:320vh;background:#06111d;color:#fff;--c:#12a594}
+  .inx-pin{position:sticky;top:0;height:100vh;overflow:hidden;display:flex;align-items:center}
+  .inx-bg{position:absolute;inset:0;pointer-events:none;transition:--c .7s var(--ease);
+    background:
+      radial-gradient(46% 55% at 76% 42%, color-mix(in srgb, var(--c) 55%, transparent), transparent 62%),
+      radial-gradient(60% 60% at 12% 92%, color-mix(in srgb, var(--c) 22%, transparent), transparent 60%),
+      linear-gradient(160deg,#0a1a2b,#06111d 70%)}
+  .inx-grain{position:absolute;inset:0;pointer-events:none;opacity:.5;
+    background-image:linear-gradient(rgba(255,255,255,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.03) 1px,transparent 1px);
+    background-size:46px 46px;-webkit-mask-image:radial-gradient(70% 70% at 60% 50%,#000,transparent 80%);mask-image:radial-gradient(70% 70% at 60% 50%,#000,transparent 80%)}
+  .inx-inner{position:relative;z-index:1;width:100%}
+  .inx-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:clamp(18px,4vh,40px)}
+  .inx-eyebrow{font-size:.76rem;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:color-mix(in srgb,var(--c) 55%,#fff)}
+  .inx-count{font-family:var(--disp);font-size:1rem;color:#8ba6bd;font-variant-numeric:tabular-nums}
+  .inx-count b{font-size:1.5rem;font-weight:800;color:#fff}
+  .inx-count em{font-style:normal;margin-left:4px}
+  .inx-main{display:grid;grid-template-columns:minmax(0,1fr) clamp(258px,30vw,342px);gap:clamp(24px,4vw,56px);align-items:center}
+  .inx-left{min-width:0}.inx-right{min-width:0}
+  .inx-name-wrap{overflow:hidden;padding-bottom:.06em}
+  .inx-name{font-family:var(--disp);font-weight:800;letter-spacing:-.03em;line-height:.94;margin:0;
+    font-size:clamp(2.4rem,6.6vw,5.9rem);text-wrap:balance;
+    color:transparent;background:linear-gradient(120deg,#fff 30%, color-mix(in srgb,var(--c) 75%,#fff));-webkit-background-clip:text;background-clip:text}
+  .inx-name.swap{animation:inxUp .7s var(--ease)}
+  @keyframes inxUp{0%{opacity:0;transform:translateY(.5em) rotate(1.5deg)}100%{opacity:1;transform:none}}
+  .inx-tag{margin:clamp(14px,2.4vh,26px) 0 0;font-size:clamp(1rem,1.5vw,1.35rem);line-height:1.5;color:#c6d8e8;max-width:34ch}
+  .inx-tag.swap{animation:scFade .6s var(--ease)}
+  .inx-cta{display:inline-flex;align-items:center;justify-content:center;text-align:center;margin-top:clamp(18px,3vh,30px);padding:13px 22px;border-radius:12px;font-weight:700;font-size:.95rem;color:#06131f;text-decoration:none;
+    background:color-mix(in srgb,var(--c) 78%,#fff);box-shadow:0 12px 30px color-mix(in srgb,var(--c) 45%,transparent);transition:--c .7s var(--ease),transform .18s,background .18s;white-space:nowrap}
+  .inx-cta:hover{transform:translateY(-2px)}
+  /* themed storefront card */
+  .inx-card{background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 30px 70px rgba(0,0,0,.5);color:var(--ink);
+    max-width:342px;width:100%;margin-left:auto;transform:rotate(-1.4deg);transition:transform .5s var(--ease)}
+  .inx-pin:hover .inx-card{transform:rotate(0deg)}
+  .inx-card-bar{display:flex;align-items:center;gap:6px;padding:10px 13px;background:linear-gradient(180deg,#fbfdff,#eef4f9);border-bottom:1px solid var(--line)}
+  .inx-card-bar i{width:9px;height:9px;border-radius:50%}
+  .inx-card-bar .d1{background:#ff6b6b}.inx-card-bar .d2{background:#ffce5c}.inx-card-bar .d3{background:#34c77b}
+  .inx-url{margin-left:8px;font-size:.72rem;color:#8295a8;font-weight:500}
+  .inx-url .inx-host{color:var(--c);font-weight:800;transition:--c .7s var(--ease)}
+  .inx-card-hero{padding:20px 18px;color:#fff;background:linear-gradient(135deg,var(--c),color-mix(in srgb,var(--c) 55%,#0b1e33));transition:--c .7s var(--ease)}
+  .inx-kick{font-size:.58rem;font-weight:800;letter-spacing:.14em;opacity:.85}
+  .inx-ctag{display:block;font-family:var(--disp);font-weight:800;font-size:1.2rem;margin-top:5px}
+  .inx-card-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:14px}
+  .inx-prod{border:1px solid var(--line);border-radius:9px;padding:9px;min-width:0}
+  .inx-prod .ph{height:44px;border-radius:6px;background:color-mix(in srgb,var(--c) 15%,#fff);border:1px solid color-mix(in srgb,var(--c) 24%,#fff);transition:--c .7s var(--ease)}
+  .inx-prod .pn{font-size:.72rem;font-weight:600;color:var(--navy-800);margin-top:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .inx-prod .pp{font-size:.72rem;color:var(--c);font-weight:800;margin-top:2px;transition:--c .7s var(--ease)}
+  .inx-card-grid.swap .inx-prod{animation:prodIn .5s var(--ease) both}
+  .inx-card-grid.swap .inx-prod:nth-child(2){animation-delay:.07s}.inx-card-grid.swap .inx-prod:nth-child(3){animation-delay:.14s}
+  /* progress dots */
+  .inx-dots{display:flex;gap:9px;margin-top:clamp(20px,4vh,44px)}
+  .inx-dots button{width:26px;height:5px;border-radius:5px;border:0;padding:0;cursor:pointer;background:rgba(255,255,255,.18);transition:background .3s,width .3s}
+  .inx-dots button.on{background:color-mix(in srgb,var(--c) 80%,#fff);width:46px}
+  .inx.static{height:auto}.inx.static .inx-pin{position:static;height:auto;padding:clamp(52px,7vw,90px) 0}
+  @media (max-width:860px){
+    .inx{height:320vh}
+    .inx-top{margin-bottom:14px;align-items:center}
+    .inx-eyebrow{font-size:clamp(.65rem,2.7vw,.76rem);letter-spacing:.09em;white-space:nowrap}
+    .inx-count{font-size:.88rem;white-space:nowrap;display:inline-flex;align-items:center;gap:3px}
+    .inx-count b{font-size:1.25rem}
+    .inx-main{display:flex;flex-direction:column;gap:8px}
+    .inx-left{display:contents}
+    .inx-name-wrap{order:1;height:135px;min-height:135px;display:flex;align-items:center;overflow:hidden}
+    .inx-name{font-size:clamp(2.8rem,13.5vw,5rem);line-height:.92;letter-spacing:-.035em}
+    .inx-tag{order:2;height:2.6em;min-height:2.6em;margin-top:4px;font-size:clamp(.9rem,3.4vw,1.1rem);line-height:1.35;display:flex;align-items:center}
+    .inx-right{order:3;max-width:340px;margin:6px auto 0;width:100%}
+    .inx-cta{order:4;margin-top:14px;width:100%;max-width:340px;margin-left:auto;margin-right:auto;font-size:clamp(.78rem,3.8vw,.9rem);padding:13px 14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;justify-content:center;box-sizing:border-box}
+  }
+  @media (prefers-reduced-motion:reduce){
+    .inx{height:auto}.inx .inx-pin{position:static;height:auto;padding:clamp(52px,7vw,90px) 0}
+    .inx-bg,.inx-card-hero,.inx-host,.inx-prod .ph,.inx-prod .pp,.inx-cta{transition:none}
+  }
+
+  /* ================= LANGUAGE ================= */
+  .langs{min-height:70vh;display:flex;align-items:center;padding:clamp(40px,6vw,80px) 0;text-align:center;
+    background:linear-gradient(180deg,var(--paper-2),var(--paper))}
+  .langs .wrap{width:100%}
+  .speaks-h{font-family:var(--disp);font-weight:800;color:var(--navy-800);letter-spacing:-.025em;line-height:1;
+    font-size:clamp(2.4rem,6vw,4.8rem)}
+  .speaks-word{display:block;margin-top:.06em;font-size:clamp(4rem,17vw,13rem);line-height:.86;color:var(--sw,var(--accent));
+    letter-spacing:-.04em;will-change:transform,opacity;transition:color .3s var(--ease)}
+  .speaks-word.swap{animation:speakSwap .5s var(--ease)}
+  @keyframes speakSwap{0%{opacity:0;transform:translateY(.34em);filter:blur(7px)}100%{opacity:1;transform:none;filter:blur(0)}}
+  @media (prefers-reduced-motion:reduce){.speaks-word.swap{animation:none}}
+  .langs .lead{color:var(--ink-2);margin:14px auto 0;max-width:56ch;font-size:1.04rem;line-height:1.55}
+  @media (max-width:640px){
+    .langs{min-height:auto;padding:56px 0}
+    .langs .speaks-h{font-size:clamp(2rem,9vw,3rem)}
+    .langs .speaks-word{font-size:clamp(3.4rem,20vw,6rem)}
+  }
+
+  /* ================= QUOTE + STATS (blue-themed, not login's black/cream) ================= */
+  .plain-quote{padding:clamp(28px,4vw,44px) 0 0}
+  .pq-card{background:linear-gradient(155deg,var(--navy-800),var(--dark));border-radius:28px;padding:clamp(40px,6vw,72px) clamp(28px,5vw,56px);max-width:1180px;margin:0 auto}
+  .pq-card blockquote{margin:0;font-family:var(--disp);font-weight:500;font-size:clamp(1.3rem,2.6vw,1.9rem);line-height:1.4;color:#fff;letter-spacing:-.01em;max-width:32ch}
+  .pq-by{margin-top:22px;font-weight:700;color:#fff;font-size:1rem}
+  .pq-role{margin-top:3px;color:var(--tint);font-size:.9rem}
+  .plain-stats{padding:clamp(56px,8vw,100px) 0}
+  .plain-stats h2{font-size:clamp(2rem,4.4vw,3.3rem);color:var(--navy-800);font-weight:800}
+  .ps-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:44px}
+  .ps-card{background:var(--tint-2);border:1px solid var(--tint);border-radius:18px;padding:40px 34px 44px}
+  .ps-num{font-family:var(--disp);font-weight:700;font-size:clamp(2.1rem,4.4vw,3.3rem);color:var(--accent-2);letter-spacing:-.02em;line-height:1;margin-bottom:12px}
+  .ps-label{font-size:.98rem;color:var(--ink-2);line-height:1.5}
+  @media (max-width:860px){.ps-card{padding:28px 22px}}
+  @media (max-width:600px){
+    .ps-grid{gap:8px;margin-top:30px}
+    .ps-card{padding:16px 9px 18px;border-radius:13px}
+    .ps-num{font-size:clamp(1rem,5.4vw,1.7rem);margin-bottom:6px}
+    .ps-label{font-size:.66rem;line-height:1.32}
+  }
+
+  /* ================= SECTION HEADS ================= */
+  .bh-sec{padding:clamp(50px,7vw,90px) 0}
+  .bh-sec-h{text-align:center;font-size:clamp(2.1rem,5.4vw,3.6rem);font-weight:600}
+  .bh-sec-h em{font-style:normal;color:var(--accent)}
+  .bh-sec-sub{text-align:center;color:var(--ink-2);font-size:clamp(1rem,2vw,1.2rem);margin-top:14px}
+
+  /* ================= BENTO ================= */
+  .bh-bento{display:grid;grid-template-columns:repeat(12,1fr);gap:18px;margin-top:clamp(32px,5vw,54px)}
+  .bento{position:relative;overflow:hidden;padding:clamp(28px,3.4vw,48px);display:flex;flex-direction:column}
+  .bento .eyebrow{font-size:.88rem;color:inherit;opacity:.72;margin-bottom:10px}
+  .bento h3{font-size:clamp(1.9rem,3.6vw,3rem);font-weight:600}
+  .bento p{margin:16px 0 0;font-size:.98rem;line-height:1.6;opacity:.82;max-width:42ch}
+  .b-a{grid-column:span 7;background:var(--tint);color:var(--ink);border-radius:300px 26px 26px 300px;
+    padding-inline-start:clamp(28px,5vw,84px);min-height:400px;flex-direction:row;gap:28px;align-items:center}
+  .b-a .b-copy{flex:1;min-width:0}
+  .b-b{grid-column:span 5;background:var(--stone);color:var(--ink);border-radius:26px;justify-content:flex-end;min-height:400px}
+  .b-c{grid-column:span 5;background:var(--dark);color:#eef4f9;border-radius:26px;justify-content:flex-end;min-height:400px}
+  .b-d{grid-column:span 7;background:var(--accent);color:#04202e;border-radius:26px 300px 26px 300px;
+    padding-inline-end:clamp(28px,5vw,84px);justify-content:center;min-height:400px}
+  .b-d p{opacity:.9}
+
+  [dir="rtl"] .b-a{border-radius:26px 300px 300px 26px}
+  [dir="rtl"] .b-d{border-radius:300px 26px 300px 26px}
+  @media (max-width:1080px){[dir="rtl"] .b-a,[dir="rtl"] .b-d{border-radius:26px}}
+
+  /* storefront mock inside card A */
+  .mock{flex:none;width:min(300px,42%);display:flex;flex-direction:column;gap:9px}
+  .mock-bar{background:#fff;border-radius:12px;padding:11px 13px;display:flex;align-items:center;gap:9px;
+    font-size:.82rem;color:var(--ink-2);box-shadow:0 1px 2px rgba(18,32,46,.05)}
+  .mock-row{display:flex;gap:9px}
+  .mock-row .mock-bar{flex:1}
+  .mock-btn{background:var(--accent);color:#fff;border-radius:12px;padding:11px 13px;display:flex;align-items:center;
+    gap:8px;font-size:.82rem;font-weight:600;flex:1}
+  .mock-prod{background:#fff;border-radius:12px;padding:11px;display:flex;gap:11px;align-items:center;
+    box-shadow:0 1px 2px rgba(18,32,46,.05)}
+  .mock-prod .ph{width:40px;height:40px;flex:none;border-radius:9px;background:var(--paper-2);display:grid;place-items:center;color:var(--mut)}
+  .mock-prod b{display:block;font-size:.8rem;font-weight:600}
+  .mock-prod i{display:block;font-style:normal;font-size:.78rem;color:var(--accent-2);font-weight:600}
+  .mock-prod small{display:block;font-size:.68rem;color:var(--mut);line-height:1.35;margin-top:2px}
+  .mock svg{width:14px;height:14px;flex:none}
+
+  /* wireframe strip inside card C */
+  .wire{display:flex;gap:11px;margin-bottom:auto}
+  .wire div{border:1px solid rgba(255,255,255,.28);border-radius:12px;height:150px;display:grid;place-items:center;color:rgba(255,255,255,.5)}
+  .wire .w1{flex:1.4}.wire .w2{flex:.7}.wire .w3{flex:1.8}
+  .wire svg{width:26px;height:26px}
+  .wire .bars{display:flex;align-items:flex-end;gap:3px;height:34px}
+  .wire .bars i{display:block;width:3px;background:rgba(255,255,255,.45);border-radius:2px}
+
+  /* progress rows inside card B */
+  .plines{margin-bottom:auto;display:flex;flex-direction:column;gap:10px}
+  .pline{background:rgba(255,255,255,.6);border-radius:11px;padding:10px 13px;font-size:.84rem;display:flex;
+    align-items:center;gap:10px;color:var(--ink)}
+  .pline .dot{width:8px;height:8px;border-radius:50%;background:var(--accent);flex:none}
+  .pline .bar{margin-left:auto;width:64px;height:5px;border-radius:3px;background:rgba(18,32,46,.12);overflow:hidden}
+  .pline .bar i{display:block;height:100%;background:var(--accent);border-radius:3px}
+
+  /* team avatars inside card D */
+  .team{display:flex;margin-bottom:24px}
+  .team span{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;font-weight:600;font-size:.9rem;
+    background:#04202e;color:#cfeafb;border:2px solid var(--accent)}
+  .team span{margin-inline-start:-10px}
+  .team span:first-child{margin-inline-start:0}
+
+  /* ================= PLATFORM CARDS ================= */
+  .bh-plat{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-top:clamp(32px,5vw,54px)}
+  .plat{border-radius:var(--r-card);padding:clamp(22px,2vw,30px);display:flex;flex-direction:column;min-height:440px}
+  .plat .eyebrow{font-size:.9rem;opacity:.72}
+  .plat h3{font-size:clamp(1.4rem,2.2vw,1.72rem);margin-top:12px;font-weight:600;line-height:1.12}
+  .plat p{font-size:.92rem;line-height:1.6;opacity:.85;margin:auto 0 0}
+  .plat .art{margin:26px 0;display:grid;place-items:center;min-height:150px}
+  .p1{background:var(--card);border:1px solid var(--line)}
+  .p2{background:var(--stone)}
+  .p3{background:var(--tint)}
+  .p4{background:var(--accent);color:#04202e}
+  /* art bits */
+  .art-ring{position:relative;width:100%;max-width:210px;aspect-ratio:1;display:grid;place-items:center}
+  .art-ring::before{content:"";position:absolute;inset:14%;border:1.5px dashed rgba(26,166,223,.55);border-radius:50%}
+  .art-note{background:#fff;border:1px solid var(--line);border-radius:10px;padding:9px 12px;font-size:.78rem;
+    position:absolute;top:0;left:6%;box-shadow:0 4px 12px rgba(18,32,46,.07)}
+  .art-pub{position:absolute;bottom:8%;right:0;background:var(--accent);color:#fff;border-radius:999px;padding:9px 16px;
+    font-size:.8rem;font-weight:600;display:inline-flex;align-items:center;gap:7px}
+  .art-stack{border:1.5px solid var(--accent);border-radius:14px;padding:9px;display:flex;flex-direction:column;gap:7px;width:100%;max-width:180px}
+  .art-stack b{display:block;background:#fff;border:1px solid rgba(18,32,46,.14);border-radius:9px;padding:9px;
+    font-size:.8rem;font-weight:500;text-align:center}
+  .art-net{position:relative;width:100%;max-width:200px;height:150px}
+  .art-net .n{position:absolute;background:#fff;border-radius:12px;width:40px;height:40px;display:grid;place-items:center;
+    font-size:.82rem;font-weight:600;box-shadow:0 3px 10px rgba(18,32,46,.09)}
+  .art-net .core{background:var(--accent);color:#fff;width:52px;height:52px;border-radius:15px;left:38%;top:36%}
+  .art-net .n1{left:0;top:6%}.art-net .n2{right:0;top:0}.art-net .n3{right:4%;bottom:0}
+  .art-net svg{position:absolute;inset:0;width:100%;height:100%}
+  .art-shield{width:120px;height:136px;display:grid;place-items:center;border:2px solid rgba(4,32,46,.4);
+    border-radius:16px 16px 60px 60px;color:rgba(4,32,46,.6)}
+  .art-shield svg{width:34px;height:34px}
+
+  /* ================= TESTIMONIALS ================= */
+  .bh-quotes{display:grid;grid-template-columns:300px 1fr 320px;gap:16px;align-items:start}
+  .q-lab{background:var(--paper-2);border-radius:var(--r-card);padding:26px}
+  .q-lab h3{font-size:1.8rem;font-weight:600}
+  .q-lab small{display:block;color:var(--ink-2);margin-top:8px;font-size:.88rem}
+  .q-card{background:var(--card);border-radius:var(--r-card);padding:clamp(26px,3vw,44px);min-height:330px;
+    display:flex;flex-direction:column}
+  .q-mark{font-family:var(--disp);font-size:2.6rem;line-height:1;color:var(--tint);margin-bottom:12px}
+  .q-text{font-size:clamp(1.1rem,2vw,1.5rem);line-height:1.42;font-family:var(--disp);font-weight:400;letter-spacing:-.02em}
+  .q-who{margin-top:auto;padding-top:26px;font-size:.9rem}
+  .q-who b{display:block;font-weight:600}
+  .q-who span{display:block;color:var(--ink-2)}
+  .q-side{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .q-nav{background:var(--tint);border-radius:var(--r-card);border:0;cursor:pointer;padding:20px;text-align:left;
+    font-size:.92rem;font-weight:500;color:var(--ink);min-height:120px;display:flex;flex-direction:column;
+    justify-content:space-between;transition:.16s;font-family:var(--body)}
+  .q-nav:hover{background:var(--accent);color:#fff}
+  .q-nav svg{width:20px;height:20px}
+  .q-av{border-radius:var(--r-card);min-height:120px;display:grid;place-items:center;font-family:var(--disp);
+    font-size:1.7rem;font-weight:600;background:var(--stone);color:var(--ink)}
+  .q-av.on{background:var(--accent);color:#fff}
+  .q-dots{display:flex;gap:7px;justify-content:center;margin-top:22px}
+  .q-dots i{width:7px;height:7px;border-radius:50%;background:#cdd6de;transition:.2s}
+  .q-dots i.on{background:var(--accent);width:20px;border-radius:4px}
+
+  /* ================= FINAL CTA ================= */
+  .bh-end{padding:clamp(70px,10vw,140px) 0;text-align:center}
+  .bh-end h2{font-size:clamp(2.2rem,5.6vw,3.8rem);font-weight:600}
+  .bh-big{display:inline-block;margin-top:38px;background:var(--accent);color:#fff;border-radius:999px;
+    padding:24px 58px;font-size:clamp(1.05rem,2vw,1.32rem);font-weight:600;transition:.18s;
+    box-shadow:0 10px 30px rgba(26,166,223,.28)}
+  .bh-big:hover{background:var(--accent-2);transform:translateY(-2px);box-shadow:0 16px 40px rgba(26,166,223,.34)}
+
+  /* ================= FOOTER ================= */
+  .bh-foot{border-top:1px solid var(--line);padding:clamp(44px,6vw,72px) 0 40px}
+  .bh-foot .grid{display:grid;grid-template-columns:1.6fr repeat(3,1fr);gap:34px}
+  .bh-foot .bh-brand{font-size:clamp(2rem,4.4vw,3.2rem)}
+  .bh-foot .bh-brand img{width:44px;height:44px}
+  .bh-foot h5{font-size:.72rem;letter-spacing:.13em;text-transform:uppercase;color:var(--mut);font-weight:600;margin:0 0 14px}
+  .bh-foot ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:11px}
+  .bh-foot li a{font-size:.95rem;color:var(--ink-2)}
+  .bh-foot li a:hover{color:var(--accent-2)}
+  .bh-legal{margin-top:46px;padding-top:22px;border-top:1px solid var(--line);display:flex;flex-wrap:wrap;gap:12px;
+    justify-content:space-between;font-size:.84rem;color:var(--mut)}
+
+  /* ================= FEEDBACK TOAST ================= */
+  .bh-toast{position:fixed;left:50%;transform:translateX(-50%) translateY(140%);bottom:calc(18px + env(safe-area-inset-bottom));
+    z-index:80;background:#12202e;color:#fff;border-radius:14px;padding:12px 12px 12px 20px;display:flex;align-items:center;
+    gap:14px;font-size:.9rem;box-shadow:0 16px 44px rgba(0,0,0,.28);transition:transform .5s var(--ease);max-width:calc(100vw - 24px)}
+  .bh-toast.show{transform:translateX(-50%) translateY(0)}
+  .bh-toast button{border:0;cursor:pointer;border-radius:9px;background:rgba(255,255,255,.14);color:#fff;
+    padding:8px 15px;font-size:.86rem;font-weight:500;transition:.16s}
+  .bh-toast button:hover{background:rgba(255,255,255,.26)}
+  .bh-toast .x{background:none;padding:8px 6px;opacity:.6;font-size:1rem}
+
+  /* ================= RESPONSIVE ================= */
+  @media (max-width:1080px){
+    /* same rule login.html uses: the dropdown row drops out, brand +
+       language + the two buttons stay */
+    .nav .lnk{display:none}
+    /* two bento cards per row all the way down to phones — same colours,
+       same 26px shape, just half-width columns */
+    .bh-bento{gap:14px}
+    .b-a,.b-b,.b-c,.b-d{grid-column:span 6;min-height:0;border-radius:26px}
+    .b-a{flex-direction:column;align-items:stretch;border-radius:26px;padding-inline-start:clamp(28px,3.4vw,48px)}
+    .mock{width:100%}
+    .bh-plat{grid-template-columns:repeat(2,1fr)}
+    .bh-quotes{grid-template-columns:1fr}
+    .q-side{grid-template-columns:repeat(4,1fr)}
+  }
+  @media (max-width:640px){
+    .nav{gap:6px;padding:11px 12px}
+    .brand{font-size:1rem;gap:6px}
+    /* same small-screen treatment login.html gives it */
+    .lang-dropdown{display:inline-block}
+    .nav .lang-trigger{min-width:0;padding:8px 10px;font-size:.78rem}
+    .nav .btn-g{margin-inline-start:auto}
+    .nav .btn-g,.nav .btn-d{padding:8px 9px;font-size:.72rem;line-height:1.15;text-align:center;max-width:74px}
+    .bh-hero{padding-top:38px}
+    .bh-composer{border-radius:18px;padding:15px 15px 10px}
+    .bh-arrow{display:none}
+    .bh-rail{justify-content:flex-start;padding:4px 2px}
+    .bh-mode{width:78px}
+    .bh-mode i{width:52px;height:48px}
+    .bh-plat{grid-template-columns:1fr}
+    .plat{min-height:0}
+    .q-side{grid-template-columns:repeat(2,1fr)}
+    .bh-foot .grid{grid-template-columns:1fr 1fr}
+    .bh-foot .brandcol{grid-column:span 2}
+    .bh-big{padding:20px 44px;width:100%}
+    /* the bento stays 2-up here, so its insides scale to the narrower column
+       — nothing about the cards' colour, radius or content changes */
+    .bh-bento{gap:10px}
+    .bento{padding:16px}
+    .bento h3{font-size:clamp(1.05rem,4.6vw,1.5rem)}
+    .bento .eyebrow{font-size:.68rem;margin-bottom:6px}
+    .bento p{font-size:.76rem;margin-top:10px}
+    .b-a{padding-inline-start:16px;gap:14px}
+    .b-d{padding-inline-end:16px}
+    .mock{gap:6px}
+    .mock-bar,.mock-btn,.mock-prod{padding:8px;font-size:.68rem;border-radius:9px}
+    .mock-row{flex-direction:column}
+    .mock-prod .ph{width:28px;height:28px}
+    .mock-prod b,.mock-prod i{font-size:.68rem}
+    .mock-prod small{display:none}
+    .pline{padding:8px 10px;font-size:.7rem;gap:6px}
+    .pline .bar{width:32px}
+    .team span{width:32px;height:32px;font-size:.7rem}
+    .wire{gap:6px}.wire div{height:74px}.wire svg{width:18px;height:18px}
+    /* touch targets: the composer controls grow to ~44px on phones */
+    .bh-plus{width:42px;height:42px}
+    .bh-send{height:44px;min-width:44px}
+    /* the toast stacks its question above the answers instead of squeezing */
+    .bh-toast{left:12px;right:12px;transform:translateY(140%);max-width:none;
+      flex-wrap:wrap;padding:14px 14px 14px 18px}
+    .bh-toast.show{transform:translateY(0)}
+    .bh-toast>span:first-child{flex:1 0 100%}
+    .bh-toast button{flex:1;padding:11px 12px}
+    .bh-toast .x{flex:0 0 auto}
+  }
+  /* keyboard-safe composer on iOS: dvh, never vh */
+  @supports (height:100dvh){.bh-hero{min-height:auto}}
+</style>
+</head>
+<body>
+
+<!-- ======================= NAV ======================= -->
+<header class="nav" id="nav">
+  <span class="brand"><img src="assets/logo.png" alt="Souqi Logo" style="width:26px; height:26px; object-fit:contain; border-radius:4px;"><span data-t="Souqi">Souqi</span></span>
+  <nav class="lnk">
+    <div class="ndrop">
+      <button type="button" class="ntop"><span data-t="Platform">Platform</span> <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></button>
+      <div class="npanel">
+        <a href="signup"><b data-t="Operations console">Operations console</b><small data-t="Dashboard, orders, stock &amp; finance">Dashboard, orders, stock &amp; finance</small></a>
+        <a href="signup"><b data-t="Website builder">Website builder</b><small data-t="A branded storefront in minutes">A branded storefront in minutes</small></a>
+        <a href="signup"><b data-t="AI Accountant">AI Accountant</b><small data-t="Finance insights, on tap">Finance insights, on tap</small></a>
+        <a href="signup"><b data-t="Audit history">Audit history</b><small data-t="Every action, logged">Every action, logged</small></a>
+      </div>
+    </div>
+    <div class="ndrop">
+      <button type="button" class="ntop"><span data-t="Solutions">Solutions</span> <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></button>
+      <div class="npanel cols">
+        <div><h5 data-t="By industry">By industry</h5><a href="signup" data-t="Logistics &amp; Trade">Logistics &amp; Trade</a><a href="signup" data-t="Fashion &amp; Apparel">Fashion &amp; Apparel</a><a href="signup" data-t="Retail Superstore">Retail Superstore</a><a href="signup" data-t="Restaurant">Restaurant</a></div>
+        <div><h5>&nbsp;</h5><a href="signup" data-t="Manufacturing">Manufacturing</a><a href="signup" data-t="Wholesale">Wholesale</a><a href="signup" data-t="Construction">Construction</a><a href="signup" data-t="Professional Services">Professional Services</a></div>
+      </div>
+    </div>
+    <div class="ndrop">
+      <button type="button" class="ntop"><span data-t="Pricing">Pricing</span> <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></button>
+      <div class="npanel">
+        <a href="pricing"><b data-t="Individual">Individual</b><small data-t="Free, Pro &amp; Max plans">Free, Pro &amp; Max plans</small></a>
+        <a href="pricing"><b data-t="Team &amp; Enterprise">Team &amp; Enterprise</b><small data-t="Multi-user teams &amp; offices">Multi-user teams &amp; offices</small></a>
+      </div>
+    </div>
+    <div class="ndrop">
+      <button type="button" class="ntop"><span data-t="Resources">Resources</span> <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></button>
+      <div class="npanel">
+        <a><b>User guide (EN)</b><small>Full PDF walkthrough</small></a>
+        <a><b>Kullanım kılavuzu (TR)</b><small>Türkçe PDF rehber</small></a>
+      </div>
+    </div>
+    <a class="nav-agent" href="#agent"><span data-t="Agent">Agent</span><i>1</i></a>
+  </nav>
+  <div class="lang-dropdown" id="langDropdown">
+    <button type="button" class="lang-trigger" id="langTrigger">
+      <span class="lang-current">English</span>
+      <svg class="lang-arrow" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+    </button>
+    <ul class="lang-list" id="langList">
+      <li data-value="en" class="lang-item">English</li>
+      <li data-value="tr" class="lang-item">Türkçe</li>
+      <li data-value="ar" class="lang-item">العربية</li>
+    </ul>
+  </div>
+  <a class="btn-g" href="login" data-t="Sign in">Sign in</a><a class="btn-d" href="signup" data-t="Create workspace">Create workspace</a>
+</header>
+
+
+<!-- ======================= HERO ======================= -->
+<section class="bh-hero">
+  <div class="wrap">
+    <h1 class="bh-h1" data-t="What will you build?">What will you build?</h1>
+    <p class="bh-sub" data-t="Describe your business in one sentence. Your first build is free — no card needed.">Describe your business in one sentence. Your first build is free — no card needed.</p>
+
+    <form class="bh-composer" id="bhForm" autocomplete="off">
+      <textarea class="bh-ta" id="bhPrompt" rows="2" aria-label="Describe what you want to build"
+        placeholder="Describe your business…"></textarea>
+      <div class="bh-crow">
+        <button class="bh-plus" type="button" id="bhPlus" title="Add a logo" aria-label="Add a logo">+</button>
+        <span class="bh-chip-sel" id="bhChip">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18"/></svg>
+          <span id="bhChipName">Website</span>
+          <button type="button" id="bhChipX" aria-label="Clear mode">×</button>
+        </span>
+        <button class="bh-send" id="bhSend" type="submit" disabled aria-label="Start building">
+          <span data-t="Start">Start</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        </button>
+      </div>
+    </form>
+
+    <div class="bh-boot" id="bhBoot" hidden aria-live="polite">
+      <!-- data-t goes on the <span>, never the row: translatePage() writes
+           innerHTML, so a key on the row would delete the spinner. -->
+      <div class="bh-bstage"><i></i><span data-t="Reading your prompt">Reading your prompt</span></div>
+      <div class="bh-bstage"><i></i><span data-t="Working out your industry">Working out your industry</span></div>
+      <div class="bh-bstage"><i></i><span data-t="Choosing your sections">Choosing your sections</span></div>
+      <div class="bh-bstage"><i></i><span data-t="Writing your pages">Writing your pages</span></div>
+      <div class="bh-bstage"><i></i><span data-t="Opening the Agent">Opening the Agent</span></div>
+      <div class="bar"><i></i></div>
+    </div>
+
+    <div class="bh-modes">
+      <button class="bh-arrow" type="button" id="bhPrev" aria-label="Previous">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M15 6l-6 6 6 6"/></svg></button>
+      <div class="bh-rail" id="bhRail">
+        <button class="bh-mode" type="button" data-mode="Website">
+          <i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18"/></svg></i><span data-t="Website">Website</span></button>
+        <button class="bh-mode" type="button" data-mode="Storefront">
+          <i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 9l1.5-5h15L21 9"/><path d="M4 9v11h16V9"/><path d="M9 20v-6h6v6"/></svg></i><span data-t="Storefront">Storefront</span></button>
+        <button class="bh-mode" type="button" data-mode="Catalog">
+          <i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></i><span data-t="Catalog">Catalog</span></button>
+        <button class="bh-mode" type="button" data-mode="Booking">
+          <i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg></i><span data-t="Booking">Booking</span></button>
+        <button class="bh-mode" type="button" data-mode="Landing">
+          <i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 5h16M4 11h10M4 17h7"/></svg></i><span data-t="Landing">Landing</span></button>
+      </div>
+      <button class="bh-arrow" type="button" id="bhNext" aria-label="Next">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg></button>
+    </div>
+
+    <div class="bh-try">
+      <span data-t="Try an example prompt">Try an example prompt</span>
+      <button type="button" id="bhShuffle" aria-label="Shuffle examples">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-2.6-6.4"/><path d="M21 3v6h-6"/></svg></button>
+    </div>
+    <div class="bh-ex" id="bhEx"></div>
+  </div>
+</section>
+
+<!-- ======================= INDUSTRY STRIP ======================= -->
+<section class="inx" id="inx">
+  <div class="inx-pin">
+    <div class="inx-bg" id="inxBg"></div>
+    <div class="inx-grain"></div>
+    <div class="wrap inx-inner">
+      <div class="inx-top">
+        <span class="inx-eyebrow" data-t="Not 8 industries. Build anything.">Not 8 industries. Build anything.</span>
+        <span class="inx-count"><b id="inxNum">01</b><em>/ 08</em></span>
+      </div>
+      <div class="inx-main">
+        <div class="inx-left">
+          <div class="inx-name-wrap"><h2 class="inx-name" id="inxName">Dashboards &amp; Analytics</h2></div>
+          <p class="inx-tag" id="inxTag">Live charts, KPIs and reports — wired to your real data.</p>
+          <a class="inx-cta" id="inxCta" href="/agent">Build this in Souqi Code →</a>
+        </div>
+        <div class="inx-right">
+          <div class="inx-card" id="inxCard">
+            <div class="inx-card-bar"><i class="d1"></i><i class="d2"></i><i class="d3"></i><span class="inx-url"><b class="inx-host" id="inxHost">insights</b>.souqi.site</span></div>
+            <div class="inx-card-hero"><span class="inx-kick">LIVE APP</span><span class="inx-ctag" id="inxCardTag">Every metric, one glance.</span></div>
+            <div class="inx-card-grid" id="inxGrid"></div>
+          </div>
+        </div>
+      </div>
+      <div class="inx-dots" id="inxDots"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ======================= LANGUAGE ======================= -->
+<section class="langs">
+  <div class="wrap">
+    <h2 class="speaks-h rvl">Your store speaks<br><span class="speaks-word" id="speaksWord">Türkçe</span></h2>
+    <p class="lead rvl" style="--d:.1s">Staff and customers each pick their own language in a click — with full right-to-left support built in.</p>
+  </div>
+</section>
+
+<!-- ======================= MEET THE AGENT ======================= -->
+<section class="bh-sec" id="agent">
+  <div class="wrap">
+    <!-- data-t keys carry their own inline markup: translatePage() writes
+         innerHTML, so a key without the <em>/<br> would flatten the styling
+         even in English. -->
+    <h2 class="bh-sec-h rvl" data-t="Meet the <em>Souqi Agent</em>">Meet the <em>Souqi Agent</em></h2>
+    <p class="bh-sec-sub rvl" style="--d:.08s" data-t="Your business, running on one sentence.">Your business, running on one sentence.</p>
+
+    <div class="bh-bento">
+      <!-- A — Design freely -->
+      <article class="bento b-a rvl">
+        <div class="b-copy">
+          <div class="eyebrow" data-t="Live editor">Live editor</div>
+          <h3 data-t="Design Freely">Design Freely</h3>
+          <p data-t="Click any section, heading, price or photo and change it right on the page. What you see is exactly what your customers get.">Click any section, heading, price or photo and change it right on the page. What you see is exactly what your customers get.</p>
+        </div>
+        <div class="mock" aria-hidden="true">
+          <div class="mock-bar">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/></svg>Menu</div>
+          <div class="mock-row">
+            <div class="mock-bar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s7-5.3 7-11a7 7 0 1 0-14 0c0 5.7 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>Store finder</div>
+            <div class="mock-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="20" r="1.4"/><circle cx="18" cy="20" r="1.4"/><path d="M2 3h3l2.6 12h11L21 7H6"/></svg>Add to cart</div>
+          </div>
+          <div class="mock-prod">
+            <span class="ph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="m4 19 5-5 4 4 3-3 4 4"/></svg></span>
+            <span><b>Türk kahvesi · 250g</b><i>₺165.00</i><small>Single origin, roasted weekly in Istanbul.</small></span>
+          </div>
+          <div class="mock-prod">
+            <span class="ph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="m4 19 5-5 4 4 3-3 4 4"/></svg></span>
+            <span><b>Filtre · 1kg</b><i>₺420.00</i><small>Bright, citrus notes. Ships next day.</small></span>
+          </div>
+        </div>
+      </article>
+
+      <!-- B — Move faster -->
+      <article class="bento b-b rvl" style="--d:.06s">
+        <div class="plines" aria-hidden="true">
+          <div class="pline"><span class="dot"></span>Planning 5 sections<span class="bar"><i style="width:100%"></i></span></div>
+          <div class="pline"><span class="dot"></span>Writing your hero<span class="bar"><i style="width:82%"></i></span></div>
+          <div class="pline"><span class="dot"></span>Building the catalog<span class="bar"><i style="width:47%"></i></span></div>
+          <div class="pline"><span class="dot"></span>Choosing your palette<span class="bar"><i style="width:20%"></i></span></div>
+        </div>
+        <div class="eyebrow" data-t="Staged builds">Staged builds</div>
+        <h3 data-t="Move faster">Move faster</h3>
+        <p data-t="The Agent plans, writes and assembles your pages in parallel — and shows you every step as it happens.">The Agent plans, writes and assembles your pages in parallel — and shows you every step as it happens.</p>
+      </article>
+
+      <!-- C — Ship anything -->
+      <article class="bento b-c rvl" style="--d:.06s">
+        <div class="wire" aria-hidden="true">
+          <div class="w1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 3 2.5 15 0 18M12 3c-2.5 3-2.5 15 0 18"/></svg></div>
+          <div class="w2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="6" y="2" width="12" height="20" rx="2.5"/></svg></div>
+          <div class="w3"><span class="bars"><i style="height:40%"></i><i style="height:70%"></i><i style="height:30%"></i><i style="height:95%"></i><i style="height:55%"></i><i style="height:80%"></i><i style="height:35%"></i><i style="height:65%"></i></span></div>
+        </div>
+        <div class="eyebrow" data-t="One workspace">One workspace</div>
+        <h3 data-t="Ship Anything">Ship Anything</h3>
+        <p data-t="Storefront, catalog, orders, invoices and shipments in one project — with one design and no context switching.">Storefront, catalog, orders, invoices and shipments in one project — with one design and no context switching.</p>
+      </article>
+
+      <!-- D — Build together -->
+      <article class="bento b-d rvl" style="--d:.12s">
+        <div class="team" aria-hidden="true"><span>SA</span><span>MK</span><span>ZY</span><span>+6</span></div>
+        <div class="eyebrow" data-t="Roles &amp; permissions">Roles &amp; permissions</div>
+        <h3 data-t="Build together">Build together</h3>
+        <p data-t="Invite your team with the right role — owner, manager, staff. Everyone works on the same live data, and every change is on the audit trail.">Invite your team with the right role — owner, manager, staff. Everyone works on the same live data, and every change is on the audit trail.</p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ======================= PLATFORM ======================= -->
+<section class="bh-sec">
+  <div class="wrap">
+    <h2 class="bh-sec-h rvl" data-t="Powered by the Souqi platform">Powered by the Souqi platform</h2>
+
+    <div class="bh-plat">
+      <article class="plat p1 rvl">
+        <div class="eyebrow" data-t="Agent chat">Agent chat</div>
+        <h3 data-t="Describe It.<br>Publish It.">Describe It.<br>Publish It.</h3>
+        <div class="art" aria-hidden="true">
+          <div class="art-ring">
+            <div class="art-note">Make my idea real</div>
+            <div class="art-pub"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 3 2.5 15 0 18M12 3c-2.5 3-2.5 15 0 18"/></svg>Publish</div>
+          </div>
+        </div>
+        <p data-t="Describe your business and publish it. The Agent builds a real storefront, keeps improving it, and stays out of your way.">Describe your business and publish it. The Agent builds a real storefront, keeps improving it, and stays out of your way.</p>
+      </article>
+
+      <article class="plat p2 rvl" style="--d:.06s">
+        <div class="eyebrow" data-t="Full-stack infrastructure">Full-stack infrastructure</div>
+        <h3 data-t="Build &amp; Scale<br>Your Store.">Build &amp; Scale<br>Your Store.</h3>
+        <div class="art" aria-hidden="true">
+          <div class="art-stack"><b>Auth</b><b>Database</b><b>Hosting</b><b>Audit trail</b></div>
+        </div>
+        <p data-t="Built-in from day one — accounts, your own database, hosting, and a full audit log. No servers to wire up.">Built-in from day one — accounts, your own database, hosting, and a full audit log. No servers to wire up.</p>
+      </article>
+
+      <article class="plat p3 rvl" style="--d:.12s">
+        <div class="eyebrow" data-t="Integrations">Integrations</div>
+        <h3 data-t="Connect To AI<br>&amp; Services.">Connect To AI<br>&amp; Services.</h3>
+        <div class="art" aria-hidden="true">
+          <div class="art-net">
+            <svg viewBox="0 0 200 150" fill="none" stroke="rgba(18,32,46,.28)" stroke-width="1.4" stroke-dasharray="4 4">
+              <path d="M40 25 L96 70M160 15 L112 66M170 130 L120 90"/>
+            </svg>
+            <span class="n n1">AI</span><span class="n n2">₺</span><span class="n core">◆</span><span class="n n3">QR</span>
+          </div>
+        </div>
+        <p data-t="Payments, QR checkout, WhatsApp orders and a Gemini-powered assistant that answers questions about your own data.">Payments, QR checkout, WhatsApp orders and a Gemini-powered assistant that answers questions about your own data.</p>
+      </article>
+
+      <article class="plat p4 rvl" style="--d:.18s">
+        <div class="eyebrow" data-t="Control">Control</div>
+        <h3 data-t="Secure Your Data<br>As You Scale.">Secure Your Data<br>As You Scale.</h3>
+        <div class="art" aria-hidden="true">
+          <div class="art-shield"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m5 8 7-4 7 4v5c0 4.4-3 7.4-7 8.5C8 20.4 5 17.4 5 13z"/><path d="m9 12 2 2 4-4"/></svg></div>
+        </div>
+        <p data-t="Per-workspace isolation, hashed passwords, signed sessions and role-based access. Your data never mixes with anyone else's.">Per-workspace isolation, hashed passwords, signed sessions and role-based access. Your data never mixes with anyone else's.</p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ======================= QUOTE ======================= -->
+<section class="plain-quote">
+  <div class="wrap">
+    <div class="pq-card rvl">
+      <blockquote>&ldquo;We replaced four separate tools and a shared drive. Everything our team needs is now in one place, and month-end went from a week to an afternoon.&rdquo;</blockquote>
+      <div class="pq-by">Operations Director</div>
+      <div class="pq-role">Distribution &amp; trade, 40 staff</div>
+    </div>
+  </div>
+</section>
+
+<!-- ======================= STATS ======================= -->
+<section class="plain-stats">
+  <div class="wrap">
+    <h2 class="rvl">Built for the whole business</h2>
+    <div class="ps-grid">
+      <div class="ps-card rvl"><div class="ps-num">8</div><div class="ps-label">Industry presets, each with its own modules, language and storefront.</div></div>
+      <div class="ps-card rvl" style="--d:.06s"><div class="ps-num">20+</div><div class="ps-label">Modules from orders and stock through to payroll and accounting.</div></div>
+      <div class="ps-card rvl" style="--d:.12s"><div class="ps-num">Unlimited</div><div class="ps-label">Companies per account — run every branch side by side.</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ======================= TESTIMONIALS ======================= -->
+<!-- Placeholder copy. Replace with real, written-permission quotes before
+     this goes to production — do not ship invented endorsements. -->
+<section class="bh-sec">
+  <div class="wrap">
+    <div class="bh-quotes rvl">
+      <div class="q-lab">
+        <h3 data-t="Trusted by builders">Trusted by builders</h3>
+        <small data-t="Sample quotes — replace before launch">Sample quotes — replace before launch</small>
+      </div>
+
+      <div class="q-card">
+        <div class="q-mark">“</div>
+        <p class="q-text" id="qText">We had a storefront, a stock list and an order book by lunchtime. The part that used to take a developer two weeks took one sentence.</p>
+        <div class="q-who"><b id="qName">Placeholder Name</b><span id="qRole">Founder · Retail</span></div>
+      </div>
+
+      <div class="q-side">
+        <button class="q-nav" type="button" id="qNext">
+          <span data-t="Next<br>testimonial">Next<br>testimonial</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        </button>
+        <div class="q-av on" id="qAvA">SA</div>
+        <button class="q-nav" type="button" id="qPrev">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>
+          <span data-t="Previous<br>testimonial">Previous<br>testimonial</span>
+        </button>
+        <div class="q-av" id="qAvB">MK</div>
+      </div>
+    </div>
+    <div class="q-dots" id="qDots"></div>
+  </div>
+</section>
+
+<!-- ======================= FINAL CTA ======================= -->
+<section class="bh-end">
+  <div class="wrap">
+    <h2 class="rvl" data-t="What are you waiting for?">What are you waiting for?</h2>
+    <a class="bh-big rvl" style="--d:.08s" href="/signup" data-t="Get started free">Get started free</a>
+  </div>
+</section>
+
+<!-- ======================= FOOTER ======================= -->
+<footer class="bh-foot">
+  <div class="wrap">
+    <div class="grid">
+      <div class="brandcol">
+        <a class="bh-brand" href="/"><img src="assets/logo.png" alt=""><span>Souqi</span></a>
+      </div>
+      <div>
+        <h5 data-t="Product">Product</h5>
+        <ul>
+          <li><a href="/index" data-t="Operations console">Operations console</a></li>
+          <li><a href="/index" data-t="Storefront builder">Storefront builder</a></li>
+          <li><a href="/pricing" data-t="Pricing">Pricing</a></li>
+          <li><a href="#agent" data-t="Agent">Agent</a></li>
+        </ul>
+      </div>
+      <div>
+        <h5 data-t="Company">Company</h5>
+        <ul>
+          <li><a href="mailto:sales@souqi.site" data-t="Contact sales">Contact sales</a></li>
+          <li><a href="/login" data-t="Log in">Log in</a></li>
+          <li><a href="/signup" data-t="Create workspace">Create workspace</a></li>
+        </ul>
+      </div>
+      <div>
+        <h5 data-t="Legal">Legal</h5>
+        <ul>
+          <li><a href="#" data-t="Terms of Service">Terms of Service</a></li>
+          <li><a href="#" data-t="Privacy">Privacy</a></li>
+          <li><a href="#" data-t="Security">Security</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="bh-legal">
+      <span>© 2026 Souqi Cloud · <span data-t="Cloud Operations Platform">Cloud Operations Platform</span></span>
+      <span><a href="https://souqi.site">souqi.site</a></span>
+    </div>
+  </div>
+</footer>
+
+<!-- ======================= FEEDBACK TOAST ======================= -->
+<div class="bh-toast" id="bhToast" role="status">
+  <span data-t="Is this page worth your time?">Is this page worth your time?</span>
+  <button type="button" data-vote="yes" data-t="Yes">Yes</button>
+  <button type="button" data-vote="no" data-t="No">No</button>
+  <button type="button" class="x" data-vote="dismiss" aria-label="Dismiss">×</button>
+</div>
+
+<script src="js/ui.js?v=28"></script>
+<script>
+(function () {
+  "use strict";
+  const $ = (id) => document.getElementById(id);
+
+  /* ---------- i18n ----------
+     The nav is login.html's bar, so ui.js already owns it: translatePage()
+     fills every [data-t], and its .lang-dropdown initialiser binds the
+     trigger + items and reloads on change. Nothing to wire here. */
+  if (window.UI && UI.translatePage) { try { UI.translatePage(); } catch (e) {} }
+  document.addEventListener("click", (e) => {
+    const dd = document.getElementById("langDropdown");
+    if (dd && !dd.contains(e.target)) dd.classList.remove("open");
+  });
+
+  /* ---------- reveal on scroll ---------- */
+  const io = new IntersectionObserver((es) => {
+    es.forEach((e) => { if (e.isIntersecting) { e.target.classList.add("in"); io.unobserve(e.target); } });
+  }, { rootMargin: "0px 0px -8% 0px", threshold: .08 });
+  document.querySelectorAll(".rvl").forEach((el) => io.observe(el));
+
+  /* ---------- composer ---------- */
+  const ta = $("bhPrompt"), send = $("bhSend"), chip = $("bhChip"), chipName = $("bhChipName");
+  let mode = "";
+
+  function autoGrow() { ta.style.height = "auto"; ta.style.height = Math.min(ta.scrollHeight, 230) + "px"; }
+  function syncSend() {
+    const has = ta.value.trim().length > 0;
+    send.disabled = !has;
+    send.classList.toggle("live", has);
+    send.classList.toggle("labelled", has && !!mode);
+  }
+  ta.addEventListener("input", () => { autoGrow(); syncSend(); });
+
+  // Enter submits on pointer devices; on touch it stays a newline (the
+  // arrow button is the submit affordance there).
+  const isTouch = matchMedia("(hover:none)").matches;
+  ta.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey && !isTouch) { e.preventDefault(); $("bhForm").requestSubmit(); }
+  });
+
+  /* rotating placeholder — only while untouched and empty */
+  const PLACEHOLDERS = [
+    "Describe your business…",
+    "A storefront for my Istanbul coffee roastery with online ordering…",
+    "A booking site for a two-chair barber shop…",
+    "A catalog for a freight forwarder with a shipment tracker…",
+    "A landing page for a furniture workshop…"
+  ];
+  let phi = 0, phTimer = setInterval(() => {
+    if (ta.value || document.activeElement === ta) return;
+    phi = (phi + 1) % PLACEHOLDERS.length;
+    ta.placeholder = PLACEHOLDERS[phi];
+  }, 3800);
+  if (matchMedia("(prefers-reduced-motion:reduce)").matches) clearInterval(phTimer);
+
+  /* ---------- mode rail ---------- */
+  const rail = $("bhRail");
+  rail.addEventListener("click", (e) => {
+    const b = e.target.closest(".bh-mode"); if (!b) return;
+    const picked = b.dataset.mode;
+    const already = b.classList.contains("sel");
+    rail.querySelectorAll(".bh-mode").forEach((x) => x.classList.remove("sel"));
+    if (already) { mode = ""; chip.classList.remove("on"); }
+    else { b.classList.add("sel"); mode = picked; chipName.textContent = picked; chip.classList.add("on"); }
+    syncSend(); ta.focus();
+  });
+  $("bhChipX").addEventListener("click", () => {
+    mode = ""; chip.classList.remove("on");
+    rail.querySelectorAll(".bh-mode").forEach((x) => x.classList.remove("sel"));
+    syncSend();
+  });
+  $("bhPrev").addEventListener("click", () => rail.scrollBy({ left: -180 }));
+  $("bhNext").addEventListener("click", () => rail.scrollBy({ left: 180 }));
+
+  $("bhPlus").addEventListener("click", () => {
+    // Phase 4: logo upload + palette extraction. Until then, point people
+    // at the place that already accepts a logo.
+    location.href = "/signup";
+  });
+
+  /* ---------- example prompts ---------- */
+  const EXAMPLES = [
+    "Coffee roastery with online ordering",
+    "Freight forwarder with shipment tracking",
+    "Barber shop with appointment booking",
+    "Furniture workshop catalog",
+    "Boutique clothing store",
+    "Restaurant with a digital menu",
+    "Auto parts wholesaler",
+    "Bakery with daily specials",
+    "Construction firm project portfolio"
+  ];
+  const exWrap = $("bhEx");
+  function drawExamples() {
+    const pool = EXAMPLES.slice();
+    const picks = [];
+    while (picks.length < 3 && pool.length) picks.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
+    exWrap.innerHTML = picks.map((p) => '<button type="button">' + p + "</button>").join("");
+  }
+  drawExamples();
+  $("bhShuffle").addEventListener("click", drawExamples);
+  exWrap.addEventListener("click", (e) => {
+    const b = e.target.closest("button"); if (!b) return;
+    ta.value = b.textContent; autoGrow(); syncSend(); ta.focus();
+  });
+
+  /* ---------- submit ----------
+     The build happens on its own page, so a conversation has a URL you can
+     come back to. The prompt travels in sessionStorage rather than the query
+     string — it is the visitor's own words about their business, and it has
+     no business being in a URL, a referer header or a server log. */
+  let handingOff = false;
+
+  /* Coming BACK from /agent restores this page from the bfcache exactly as it
+     was left — mid-hand-off, with the steps frozen mid-spin and Send disabled.
+     `pageshow` fires on a restore (unlike `load`), so reset there. */
+  addEventListener("pageshow", () => {
+    handingOff = false;
+    const boot = $("bhBoot");
+    boot.hidden = true;
+    boot.querySelectorAll(".bh-bstage").forEach((row) => row.classList.remove("on", "done"));
+    syncSend();
+  });
+
+  $("bhForm").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const prompt = ta.value.trim();
+    if (!prompt || handingOff) return;
+    handingOff = true;
+    try {
+      sessionStorage.setItem("souqi_agent_prompt", JSON.stringify({ prompt: prompt, mode: mode, at: Date.now() }));
+    } catch (x) {}
+
+    // The build itself runs on /agent, where each stage reports its real
+    // state. These rows are the hand-off: they name the same pipeline so the
+    // send never reads as a dead click, and the last one is the navigation.
+    send.disabled = true;
+    ta.blur();
+    const boot = $("bhBoot");
+    boot.hidden = false;
+
+    const rows = [...boot.querySelectorAll(".bh-bstage")];
+    const STEP = 340;                       // ms between one step appearing and the next
+    rows.forEach((row, i) => {
+      // each step appears when it starts, and ticks over when the next one does
+      setTimeout(() => { row.classList.add("on"); boot.scrollIntoView({ block: "nearest", behavior: "smooth" }); }, i * STEP);
+      // the final row stays spinning — it is still happening when we leave
+      if (i < rows.length - 1) setTimeout(() => row.classList.add("done"), (i + 1) * STEP);
+    });
+
+    const go = () => { location.href = "/agent"; };
+    if (matchMedia("(prefers-reduced-motion:reduce)").matches) go();
+    else setTimeout(go, rows.length * STEP + 320);
+  });
+
+  /* ---------- scroll-driven 8-industries showcase (same as login.html) ---------- */
+  const reduce = matchMedia("(prefers-reduced-motion:reduce)").matches;
+
+  // ---- "your store speaks" — big rotating language every second (ported from login.html) ----
+  var speaksWord = document.getElementById("speaksWord");
+  if (speaksWord) {
+    var LANGS = [["Türkçe","#1aa6df"],["English","#e0498b"],["العربية","#4e9c2b","rtl"],["Deutsch","#d9962a"],["Русский","#6b6ff0"],["Français","#12a594"],["Español","#e2673a"],["中文","#7a4fb0"]];
+    var li = 0;
+    function showLang(i) {
+      var d = LANGS[i];
+      speaksWord.textContent = d[0]; speaksWord.style.setProperty("--sw", d[1]); speaksWord.dir = d[2] || "ltr";
+      speaksWord.classList.remove("swap"); void speaksWord.offsetWidth; speaksWord.classList.add("swap");
+    }
+    showLang(0);
+    if (!reduce) setInterval(function () { li = (li + 1) % LANGS.length; showLang(li); }, 1100);
+  }
+
+  // ---- scroll-driven 8-industries showcase ----
+  var inx=document.getElementById("inx");
+  if(inx){
+    var INDX=[
+      {n:"Dashboards & Analytics", c:"#1aa6df", host:"insights", tag:"Live charts, KPIs and reports — wired to your real data.", ctag:"Every metric, one glance.", items:[["Revenue","$48.2k"],["Active Users","2,391"],["Uptime","99.98%"]]},
+      {n:"Booking & Scheduling", c:"#e2673a", host:"book", tag:"Calendars, slots and reminders — built and running in minutes.", ctag:"Booked, confirmed, done.", items:[["Tomorrow","9:00 AM"],["This week","24 slots"],["No-shows","1.2%"]]},
+      {n:"Communities & Social", c:"#e0498b", host:"circle", tag:"Feeds, profiles and comments — a real social app, not a mockup.", ctag:"Where your people gather.", items:[["Members","8,402"],["Posts today","312"],["Online now","614"]]},
+      {n:"Marketplaces", c:"#4e9c2b", host:"market", tag:"Buyers, sellers and listings — a two-sided platform from one prompt.", ctag:"Buyers and sellers, matched.", items:[["Listings","1,847"],["Active sellers","96"],["This week","$21.4k"]]},
+      {n:"Internal Tools", c:"#6b6ff0", host:"ops", tag:"Ticket queues, approvals and admin panels your team actually wants.", ctag:"Ops, finally organized.", items:[["Open tickets","14"],["Avg response","2m"],["Resolved today","38"]]},
+      {n:"Portfolios & Personal Sites", c:"#7a4fb0", host:"folio", tag:"Case studies, projects and a resume — designed, not templated.", ctag:"Your work, well told.", items:[["Projects","12"],["Case studies","5"],["Visitors","3.1k"]]},
+      {n:"Games & Interactive", c:"#d9962a", host:"play", tag:"Playable in the browser — logic, state and score, all real code.", ctag:"Built to be played.", items:[["High score","94,200"],["Players","1,509"],["Levels","12"]]},
+      {n:"Calculators & Tools", c:"#12a594", host:"calc", tag:"Real formulas, real inputs — a tool people actually bookmark.", ctag:"Type in, get an answer.", items:[["Calculations today","6,204"],["Avg time","8s"],["Saved results","912"]]}
+    ];
+    var inxName=document.getElementById("inxName"), inxTag=document.getElementById("inxTag"), inxNum=document.getElementById("inxNum"),
+        inxHost=document.getElementById("inxHost"), inxCardTag=document.getElementById("inxCardTag"), inxGrid=document.getElementById("inxGrid"),
+        inxCta=document.getElementById("inxCta"), inxDots=document.getElementById("inxDots");
+    inxDots.innerHTML=INDX.map(function(d,i){return '<button type="button" data-i="'+i+'"'+(i===0?' class="on"':'')+' aria-label="'+d.n+'"></button>';}).join("");
+    var icur=-1;
+    function pad(n){return n<10?"0"+n:""+n;}
+    function retrig(el,cls){ el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls); }
+    function paint(i){
+      if(i===icur) return; icur=i; var d=INDX[i];
+      var _t = window.UI && window.UI.t ? window.UI.t : function(s){return s;};
+      inx.style.setProperty("--c",d.c);
+      inxName.textContent=_t(d.n); retrig(inxName,"swap");
+      inxTag.textContent=_t(d.tag); retrig(inxTag,"swap");
+      inxNum.textContent=pad(i+1);
+      inxHost.textContent=_t(d.host); inxCardTag.textContent=_t(d.ctag);
+      inxCta.textContent=_t("Build this in Souqi Code →");
+      inxGrid.innerHTML=d.items.map(function(it){return '<div class="inx-prod"><div class="ph"></div><div class="pn">'+_t(it[0])+'</div><div class="pp">'+_t(it[1])+'</div></div>';}).join("");
+      retrig(inxGrid,"swap");
+      inxDots.querySelectorAll("button").forEach(function(b,k){b.classList.toggle("on",k===i);});
+    }
+    if(reduce){ inx.classList.add("static"); paint(0); }
+    else {
+      paint(0);
+      var iTick=false;
+      function inxRender(){
+        var top=inx.getBoundingClientRect().top, span=inx.offsetHeight-window.innerHeight;
+        var p=Math.min(1,Math.max(0,-top/(span||1)));
+        paint(Math.min(INDX.length-1, Math.floor(p*INDX.length)));
+      }
+      function inxOnScroll(){ if(!iTick){ iTick=true; requestAnimationFrame(function(){ inxRender(); iTick=false; }); } }
+      inxRender();
+      window.addEventListener("scroll",inxOnScroll,{passive:true});
+      window.addEventListener("resize",inxRender);
+      inxDots.querySelectorAll("button").forEach(function(b){ b.addEventListener("click",function(){
+        var i=+b.dataset.i, span=inx.offsetHeight-window.innerHeight;
+        window.scrollTo({top:inx.offsetTop + (i+0.5)/INDX.length*span, behavior:"smooth"});
+      }); });
+    }
+  }
+
+  /* ---------- testimonial carousel ---------- */
+  const QUOTES = [
+    { t: "We had a storefront, a stock list and an order book by lunchtime. The part that used to take a developer two weeks took one sentence.", n: "Placeholder Name", r: "Founder · Retail", a: "SA" },
+    { t: "Our customers order from the site and it lands straight in the console. No copying between a spreadsheet and WhatsApp any more.", n: "Placeholder Name", r: "Operations lead · Logistics", a: "MK" },
+    { t: "I changed the whole homepage on my phone, on the bus, by tapping the bits I wanted different.", n: "Placeholder Name", r: "Owner · Restaurant", a: "ZY" }
+  ];
+  let qi = 0;
+  const dots = $("qDots");
+  dots.innerHTML = QUOTES.map(() => "<i></i>").join("");
+  function drawQuote() {
+    const q = QUOTES[qi];
+    $("qText").textContent = q.t; $("qName").textContent = q.n; $("qRole").textContent = q.r;
+    $("qAvA").textContent = q.a;
+    $("qAvB").textContent = QUOTES[(qi + 1) % QUOTES.length].a;
+    [...dots.children].forEach((d, i) => d.classList.toggle("on", i === qi));
+  }
+  drawQuote();
+  $("qNext").addEventListener("click", () => { qi = (qi + 1) % QUOTES.length; drawQuote(); });
+  $("qPrev").addEventListener("click", () => { qi = (qi - 1 + QUOTES.length) % QUOTES.length; drawQuote(); });
+
+  /* ---------- feedback toast ---------- */
+  const toast = $("bhToast");
+  if (!localStorage.getItem("souqi_home_vote")) {
+    setTimeout(() => toast.classList.add("show"), 2600);
+  }
+  toast.addEventListener("click", (e) => {
+    const b = e.target.closest("button[data-vote]"); if (!b) return;
+    try { localStorage.setItem("souqi_home_vote", b.dataset.vote); } catch (x) {}
+    toast.classList.remove("show");
+  });
+})();
+</script>
+</body>
+</html>

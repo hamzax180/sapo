@@ -54,6 +54,30 @@
     return null;
   }
 
+  /* Agent Project preview (docs/AGENT-PARITY-PLAN.md §6) — a query param, not
+     a path segment, so it can never collide with resolveWsId()'s path regex
+     above. An unclaimed project has no wsId to put in the URL at all. */
+  function resolvePreviewProjectId() {
+    return new URLSearchParams(location.search).get("project");
+  }
+  async function fetchProjectPreview(id) {
+    try {
+      // Owner-gated, and ownership moves from the sq_anon cookie to the USER
+      // on claim (projects.owns() is asymmetric on purpose). So a claimed
+      // project's preview needs the session token as well as the cookie —
+      // without it this 403s and the preview pane silently goes blank.
+      const headers = {};
+      let token = "";
+      try { token = localStorage.getItem("sap_token") || ""; } catch (e) { /* private browsing */ }
+      if (token) headers.Authorization = "Bearer " + token;
+      const r = await fetch(apiBase() + "/api/projects/" + encodeURIComponent(id) + "/preview", {
+        credentials: "same-origin", headers: headers
+      });
+      if (r.ok) return await r.json();
+    } catch (e) {}
+    return null;
+  }
+
   /* ── api calls ────────────────────────────────────────────────── */
   async function fetchConfig(id) {
     try {
@@ -2102,33 +2126,50 @@
   /* ── boot ─────────────────────────────────────────────────────── */
   async function boot() {
     try {
-      const wsId = resolveWsId();
-      S.wsId = wsId;
+      const previewProjectId = resolvePreviewProjectId();
+      let cfg, prods;
 
-      const effectiveWsId = wsId || localStorage.getItem("sap_active_ws");
-      S.wsId = effectiveWsId;
+      if (previewProjectId) {
+        // An Agent project has no workspace yet — S.wsId stays null on
+        // purpose, so wishlist storage, order/inquiry/tracking submits and
+        // the visit beacon all cleanly no-op instead of writing against a
+        // fake id. This is a preview, not a live storefront.
+        S.wsId = null; S.isPreview = true;
+        cfg = await fetchProjectPreview(previewProjectId);
+        prods = [];
+        if (!cfg) {
+          showUnavail("Preview unavailable", "This project couldn't be loaded — it may have expired or the link is wrong.");
+          return;
+        }
+      } else {
+        const wsId = resolveWsId();
+        S.wsId = wsId;
 
-      // Privacy-preserving visit beacon (storefront traffic). Skipped in the
-      // live editor so owner edits don't inflate visit counts.
-      if (effectiveWsId && new URLSearchParams(location.search).get("edit") !== "true") {
-        try {
-          fetch(apiBase() + "/api/track/visit", {
-            method: "POST", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ path: location.pathname, type: "portal", wsId: effectiveWsId, ref: document.referrer || null }),
-            keepalive: true
-          }).catch(function () {});
-        } catch (e) {}
+        const effectiveWsId = wsId || localStorage.getItem("sap_active_ws");
+        S.wsId = effectiveWsId;
+
+        // Privacy-preserving visit beacon (storefront traffic). Skipped in the
+        // live editor so owner edits don't inflate visit counts.
+        if (effectiveWsId && new URLSearchParams(location.search).get("edit") !== "true") {
+          try {
+            fetch(apiBase() + "/api/track/visit", {
+              method: "POST", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ path: location.pathname, type: "portal", wsId: effectiveWsId, ref: document.referrer || null }),
+              keepalive: true
+            }).catch(function () {});
+          } catch (e) {}
+        }
+
+        if (!effectiveWsId) {
+          showUnavail("Configuration Error", "Portal URL is missing the workspace ID.");
+          return;
+        }
+
+        [cfg, prods] = await Promise.all([
+          fetchConfig(effectiveWsId),
+          fetchProducts(effectiveWsId)
+        ]);
       }
-
-      if (!effectiveWsId) {
-        showUnavail("Configuration Error", "Portal URL is missing the workspace ID.");
-        return;
-      }
-
-      let [cfg, prods] = await Promise.all([
-        fetchConfig(effectiveWsId),
-        fetchProducts(effectiveWsId)
-      ]);
 
       // Fallback demo config if no workspace record exists yet
       if (!cfg) {

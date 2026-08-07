@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<meta name="theme-color" content="#1aa6df" />
+<meta name="description" content="How Souqi collects, uses and protects your data." />
+<link rel="icon" type="image/png" href="assets/logo.png" />
+<title>Privacy Policy — Souqi</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Jost:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  *,*::before,*::after{box-sizing:border-box}
+  :root{
+    --paper:#ffffff; --card:#ffffff; --ink:#12202e; --ink-2:#5d6f80; --mut:#8b98a5;
+    --accent:#1aa6df; --accent-2:#0f8ec4; --line:#e7e1d7; --navy-800:#0b1e33;
+    --disp:'Jost','Century Gothic',system-ui,sans-serif;
+    --body:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  }
+  html{background:var(--paper)}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--body);-webkit-font-smoothing:antialiased;
+    padding:0 env(safe-area-inset-right) 0 env(safe-area-inset-left)}
+  a{color:inherit}
+  h1,h2,h3{font-family:var(--disp);font-weight:600;letter-spacing:-.02em;line-height:1.1;margin:0}
+
+  .nav{display:flex;align-items:center;gap:20px;padding:14px clamp(18px,4vw,40px);background:var(--paper);border-bottom:1px solid var(--line)}
+  .brand{display:flex;align-items:center;gap:10px;font-family:var(--disp);font-weight:800;font-size:1.1rem;color:var(--ink);text-decoration:none}
+  .brand img{width:26px;height:26px;object-fit:contain;border-radius:6px}
+  .nav .lnk{margin-inline-start:auto;display:flex;gap:2px;align-items:center}
+  .btn-g{padding:9px 15px;border:1px solid var(--line);border-radius:10px;color:var(--ink);font-size:.86rem;font-weight:600;transition:.16s;text-decoration:none}
+  .btn-g:hover{border-color:#c6dbe7;background:rgba(18,32,46,.05)}
+  .btn-d{padding:9px 17px;border-radius:10px;background:var(--accent);color:#fff;font-size:.86rem;font-weight:700;transition:.16s;text-decoration:none}
+  .btn-d:hover{background:var(--accent-2);transform:translateY(-1px)}
+
+  .wrap{max-width:1040px;margin:0 auto;padding:clamp(32px,6vw,64px) clamp(18px,4vw,24px) 80px}
+
+  .doc-head{margin-bottom:20px}
+  .doc-head h1{font-size:clamp(2.6rem,7vw,4rem)}
+  .doc-meta{margin-top:10px;font-size:.86rem;color:var(--mut)}
+  .doc-hr{height:1px;background:var(--line);margin:26px 0}
+
+  /* Contents menu — turkgateway.com's own treatment: a dark sticky panel,
+     green active-pill with a dot indicator, scroll-spied against the
+     section currently in view. The rest of the page stays Souqi's light
+     theme on purpose — this was asked for as "the content menu style",
+     not a full page dark-mode flip. */
+  .doc-grid{display:grid;grid-template-columns:230px 1fr;gap:36px;align-items:start}
+  @media (max-width:860px){ .doc-grid{grid-template-columns:1fr} }
+  .toc{position:sticky;top:20px;background:#0a0d10;border-radius:18px;padding:20px 14px;max-height:calc(100svh - 40px);overflow-y:auto}
+  @media (max-width:860px){ .toc{position:static;max-height:none} }
+  .toc h2{font-size:.68rem;text-transform:uppercase;letter-spacing:.14em;color:#6b7686;margin-bottom:10px;padding:0 12px}
+  .toc ol{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:2px}
+  .toc a{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:11px;color:#98a2b0;text-decoration:none;font-size:.87rem;transition:background .15s,color .15s}
+  .toc a .dot{width:6px;height:6px;border-radius:50%;background:#4b5563;flex:none;transition:background .15s}
+  .toc a:hover{color:#e2e8f0}
+  .toc a.active{background:rgba(34,197,148,.14);color:#5eead4;font-weight:600}
+  .toc a.active .dot{background:#22c58f;box-shadow:0 0 0 3px rgba(34,197,148,.22)}
+
+  section.sec{margin-bottom:38px;scroll-margin-top:24px}
+  .sec-num{font-family:var(--disp);font-size:.78rem;font-weight:700;letter-spacing:.08em;color:var(--accent-2)}
+  .sec h2{font-size:1.3rem;margin-top:4px;margin-bottom:12px}
+  .sec p{color:var(--ink-2);font-size:.98rem;line-height:1.68;margin:0 0 12px}
+  .sec ul{margin:0 0 12px;padding-inline-start:20px;color:var(--ink-2);font-size:.98rem;line-height:1.68}
+  .sec li{margin-bottom:6px}
+  .sec b{color:var(--ink);font-weight:600}
+  .dont{color:#b3261e}
+
+  .contact{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:22px 24px}
+  .contact h2{font-size:1.1rem;margin-bottom:8px}
+  .contact p{color:var(--ink-2);font-size:.94rem;line-height:1.6;margin:0}
+  .contact a{color:var(--accent-2);font-weight:600;text-decoration:none}
+
+  footer{border-top:1px solid var(--line);padding:28px clamp(18px,4vw,40px);margin-top:40px}
+  .foot-inner{max-width:760px;margin:0 auto;display:flex;flex-wrap:wrap;gap:14px;align-items:center;justify-content:space-between;
+    font-size:.84rem;color:var(--mut)}
+  .foot-links{display:flex;gap:16px;flex-wrap:wrap}
+  .foot-links a{color:var(--ink-2);text-decoration:none}
+  .foot-links a:hover{color:var(--accent-2)}
+</style>
+</head>
+<body>
+
+<header class="nav">
+  <a class="brand" href="/"><img src="assets/logo.png" alt="Souqi Logo" onerror="this.style.display='none'"><span>Souqi</span></a>
+  <nav class="lnk">
+    <a class="btn-g" href="/login">Sign in</a>
+    <a class="btn-d" href="/signup">Create workspace</a>
+  </nav>
+</header>
+
+<main class="wrap">
+  <div class="doc-head">
+    <h1>Privacy Policy</h1>
+    <div class="doc-meta">Last updated: August 2026 · Version 1.0</div>
+  </div>
+  <div class="doc-hr"></div>
+
+  <div class="doc-grid">
+  <nav class="toc" aria-label="Table of contents" id="tocNav">
+    <h2>Contents</h2>
+    <ol>
+      <li><a href="#collect"><span class="dot"></span>Information We Collect</a></li>
+      <li><a href="#use"><span class="dot"></span>How We Use It</a></li>
+      <li><a href="#sharing"><span class="dot"></span>Sharing &amp; Third Parties</a></li>
+      <li><a href="#security"><span class="dot"></span>Data Security</a></li>
+      <li><a href="#cookies"><span class="dot"></span>Cookies &amp; Local Storage</a></li>
+      <li><a href="#retention"><span class="dot"></span>Data Retention</a></li>
+      <li><a href="#rights"><span class="dot"></span>Your Rights &amp; Choices</a></li>
+      <li><a href="#children"><span class="dot"></span>Children's Privacy</a></li>
+      <li><a href="#changes"><span class="dot"></span>Changes to This Policy</a></li>
+      <li><a href="#contact"><span class="dot"></span>Contact Us</a></li>
+    </ol>
+  </nav>
+
+  <div class="doc-main">
+  <section class="sec" id="collect">
+    <div class="sec-num">01</div>
+    <h2>Information We Collect</h2>
+    <p>Souqi lets you describe a website or app and get a working version of it back — some of that requires us to hold on to a few things:</p>
+    <ul>
+      <li><b>Account information.</b> Name, email address and a hashed password when you create a workspace.</li>
+      <li><b>Project content.</b> The prompts you send an AI agent, and the files, pages or configuration it produces for you.</li>
+      <li><b>An anonymous identifier.</b> If you build something before signing up, we assign a random id (not tied to your name or email) so you can find your work again later.</li>
+      <li><b>Usage data.</b> Pages visited, build/edit counts, and approximate timestamps — used for the product analytics described in Section 2, not for advertising.</li>
+      <li><b>Billing information.</b> If you subscribe to a paid plan, our payment processor handles your card details directly — we never see or store full card numbers.</li>
+    </ul>
+  </section>
+
+  <section class="sec" id="use">
+    <div class="sec-num">02</div>
+    <h2>How We Use It</h2>
+    <p>We use what we collect to:</p>
+    <ul>
+      <li>Operate your workspace, generate and preview the sites or apps you ask for, and keep your project history intact across sessions.</li>
+      <li>Send prompts to the AI providers described in Section 3 so they can generate content on your behalf.</li>
+      <li>Secure your account, detect abuse, and enforce the usage limits described in our Terms of Service.</li>
+      <li>Understand aggregate product usage so we can improve the platform. We do not build advertising profiles from your data.</li>
+    </ul>
+  </section>
+
+  <section class="sec" id="sharing">
+    <div class="sec-num">03</div>
+    <h2>Sharing &amp; Third Parties</h2>
+    <p>We share data only where it's needed to run the product:</p>
+    <ul>
+      <li><b>AI model providers.</b> Your prompts (and, for follow-up edits, relevant snippets of your existing project) are sent to the language model providers that power generation. They process this data to return a result; we do not permit them to use it to train models on our customers' behalf.</li>
+      <li><b>Sandbox infrastructure.</b> Code you generate through Souqi Code runs in an isolated, egress-restricted sandbox operated by our infrastructure provider, only for the duration of a build.</li>
+      <li><b>Payment processing.</b> Handled entirely by our payment processor under their own privacy terms.</li>
+      <li><b class="dont">We do not</b> sell your personal data, and we do not share your project content with other customers or the public unless you explicitly publish it.</li>
+    </ul>
+  </section>
+
+  <section class="sec" id="security">
+    <div class="sec-num">04</div>
+    <h2>Data Security</h2>
+    <p>Passwords are hashed with bcrypt before storage — we never store or can retrieve a plaintext password. Session identity is carried by a signed, httpOnly cookie that client-side scripts cannot read. Generated code runs inside an isolated sandbox with default-deny network egress, so a build can only reach the package registry it needs, nothing else. No system is perfectly secure, and we can't guarantee against every possible incident, but these are real, load-bearing controls, not marketing language.</p>
+  </section>
+
+  <section class="sec" id="cookies">
+    <div class="sec-num">05</div>
+    <h2>Cookies &amp; Local Storage</h2>
+    <p>We use a small number of cookies to make the product work, not to track you across other websites:</p>
+    <ul>
+      <li>A signed anonymous-identity cookie, so a project you build before signing up is still there when you come back.</li>
+      <li>A signed session cookie once you're logged in, so you don't have to re-authenticate on every request.</li>
+      <li>No third-party advertising or cross-site tracking cookies.</li>
+    </ul>
+  </section>
+
+  <section class="sec" id="retention">
+    <div class="sec-num">06</div>
+    <h2>Data Retention</h2>
+    <p>Projects you build without an account are kept for 30 days before automatic deletion, so an anonymous visitor's unfinished work doesn't sit around forever. Claiming a project (creating an account) removes that expiry. Account data is kept for as long as your account is active, and deleted or anonymized within a reasonable period after you close it, except where we're required to retain records for legal or accounting reasons.</p>
+  </section>
+
+  <section class="sec" id="rights">
+    <div class="sec-num">07</div>
+    <h2>Your Rights &amp; Choices</h2>
+    <p>Depending on where you live, you may have the right to access, correct, export or delete your personal data, and to object to certain kinds of processing. You can update your account details from your workspace settings, or contact us using the details in Section 10 for anything you can't do yourself — including a full account deletion request.</p>
+  </section>
+
+  <section class="sec" id="children">
+    <div class="sec-num">08</div>
+    <h2>Children's Privacy</h2>
+    <p>Souqi is intended for business and professional use and is not directed at children. We do not knowingly collect personal data from anyone under 16. If you believe a child has provided us data, contact us and we'll remove it.</p>
+  </section>
+
+  <section class="sec" id="changes">
+    <div class="sec-num">09</div>
+    <h2>Changes to This Policy</h2>
+    <p>We'll update the date at the top of this page whenever this policy changes, and post a notice in-product for material changes. Continued use of Souqi after an update means you accept the revised policy.</p>
+  </section>
+
+  <section class="sec" id="contact">
+    <div class="sec-num">10</div>
+    <div class="contact">
+      <h2>Contact Us</h2>
+      <p>Questions about this policy or your data? Reach us at <a href="mailto:privacy@souqi.site">privacy@souqi.site</a>.</p>
+    </div>
+  </section>
+  </div>
+  </div>
+</main>
+
+<script>
+  // Scroll-spy: highlight whichever section's heading is currently nearest
+  // the top of the viewport, matching turkgateway.com's own Contents menu.
+  (function () {
+    var links = [].slice.call(document.querySelectorAll("#tocNav a"));
+    var map = {};
+    links.forEach(function (a) { map[a.getAttribute("href").slice(1)] = a; });
+    var sections = [].slice.call(document.querySelectorAll("section.sec"));
+    if (!sections.length || !("IntersectionObserver" in window)) return;
+    var current = null;
+    function setActive(id) {
+      if (id === current) return;
+      current = id;
+      links.forEach(function (a) { a.classList.remove("active"); });
+      if (map[id]) map[id].classList.add("active");
+    }
+    var io = new IntersectionObserver(function (entries) {
+      var best = null, bestTop = Infinity;
+      entries.forEach(function (e) {
+        if (e.isIntersecting && e.boundingClientRect.top < bestTop) { bestTop = e.boundingClientRect.top; best = e.target.id; }
+      });
+      if (best) setActive(best);
+    }, { rootMargin: "-10% 0px -70% 0px", threshold: 0 });
+    sections.forEach(function (s) { io.observe(s); });
+    setActive(sections[0].id);
+
+    // A short last section can be too small to ever cross the observer's
+    // trigger band once the page hits its scroll limit — found live, the
+    // Contents menu got visibly stuck one section behind at the very
+    // bottom of the page. Same fallback every scroll-spy implementation
+    // needs: at the scroll limit, the last item is active, full stop.
+    var lastId = sections[sections.length - 1].id;
+    window.addEventListener("scroll", function () {
+      var atBottom = window.scrollY + window.innerHeight >= document.documentElement.scrollHeight - 2;
+      if (atBottom) setActive(lastId);
+    }, { passive: true });
+  })();
+</script>
+
+<footer>
+  <div class="foot-inner">
+    <span>© 2026 Souqi</span>
+    <div class="foot-links">
+      <a href="/terms">Terms</a>
+      <a href="/privacy">Privacy</a>
+      <a href="/pricing">Pricing</a>
+      <a href="mailto:support@souqi.site">Contact</a>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>

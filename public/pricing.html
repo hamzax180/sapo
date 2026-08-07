@@ -13,6 +13,46 @@
   <link href="https://fonts.googleapis.com/css2?family=Jost:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="css/sap.css?v=28" />
   <style>
+    /* ---- marketing top navigation — EXACT copy of login.html's .nav so
+       Home and Pricing share one navbar (same positions, same options). ---- */
+    .nav{position:static;z-index:40;display:flex;align-items:center;gap:20px;padding:14px clamp(18px,4vw,40px);
+      background:#0d2338}
+    .brand{display:flex;align-items:center;gap:10px;font-family:var(--font-head);font-weight:800;font-size:1.1rem;color:#fff;text-decoration:none}
+    .nav .lnk{margin-left:auto;display:flex;gap:2px}
+    .ndrop{position:relative}
+    .ntop{display:inline-flex;align-items:center;gap:5px;background:none;border:0;cursor:pointer;font:inherit;font-size:.88rem;font-weight:500;color:#b9cde0;padding:9px 12px;border-radius:9px;transition:.16s}
+    .ntop svg{width:12px;height:12px;opacity:.6;transition:transform .18s}
+    .ndrop:hover .ntop,.ntop.active{background:rgba(255,255,255,.09);color:#fff}
+    .ndrop:hover .ntop svg{transform:rotate(180deg)}
+    .npanel{position:absolute;top:calc(100% + 8px);left:0;min-width:252px;background:#fff;border:1px solid var(--line);border-radius:14px;
+      box-shadow:0 18px 46px rgba(11,30,51,.16);padding:9px;opacity:0;visibility:hidden;transform:translateY(8px);
+      transition:opacity .16s,transform .16s,visibility .16s;z-index:60}
+    .ndrop:hover .npanel{opacity:1;visibility:visible;transform:none}
+    .npanel a{display:block;padding:9px 11px;border-radius:9px;text-decoration:none;color:var(--ink);font-size:.88rem;font-weight:500;cursor:pointer}
+    .npanel a:hover{background:var(--surface-2);color:var(--navy-800)}
+    .npanel a b{display:block;font-size:.9rem;color:var(--navy-800);font-weight:700}
+    .npanel a small{display:block;font-size:.76rem;color:var(--muted);margin-top:1px;font-weight:400}
+    .npanel.cols{display:grid;grid-template-columns:1fr 1fr;min-width:380px;gap:0 6px}
+    .npanel.cols h5{font-size:.64rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);font-weight:800;padding:8px 11px 4px;margin:0}
+    .btn-g{padding:9px 15px;border:1px solid rgba(255,255,255,.22);border-radius:10px;color:#e7f0f8;font-size:.86rem;font-weight:600;transition:.16s;text-decoration:none}
+    .btn-g:hover{border-color:rgba(255,255,255,.4);background:rgba(255,255,255,.08)}
+    .btn-d{padding:9px 17px;border-radius:10px;background:var(--accent);color:#04121d;font-size:.86rem;font-weight:700;transition:.16s;text-decoration:none}
+    .btn-d:hover{background:#3bb8ea;transform:translateY(-1px)}
+    /* language switcher — matches the app's own dropdown */
+    .lang-dropdown{position:relative;display:inline-block;font-family:var(--font-head);font-size:.85rem;z-index:9999}
+    .lang-trigger{display:flex;align-items:center;justify-content:center;background:#fff;border:2px solid #d0112b;border-radius:0;
+      padding:10px 18px;color:#d0112b;font-weight:700;cursor:pointer;transition:background .18s;outline:none;user-select:none;min-width:100px}
+    .lang-trigger *{pointer-events:none}
+    .lang-trigger:hover{background:#fdf5f5}
+    .lang-trigger .lang-arrow{display:none}
+    .lang-list{position:absolute;top:100%;right:0;left:0;background:#fff;border:1px solid #111;border-top:none;border-radius:0;
+      padding:0;margin:0;list-style:none;display:none;overflow:hidden;z-index:10000}
+    .lang-dropdown.open .lang-list{display:block!important;visibility:visible!important;opacity:1!important}
+    .lang-item{padding:10px 16px;cursor:pointer;font-weight:700;text-align:center;color:#d0112b;background:#fff;transition:background .18s,color .18s}
+    .lang-item:hover{background:#f5f5f5}
+    .lang-item.active{background:#1e73be;color:#fff}
+    @media(max-width:860px){ .nav .lnk{display:none} }
+
     /* ---- marketing top navigation (shared with login) ---- */
     :root { --wcnav-h:64px; }
     body { background:linear-gradient(180deg, #f9fbfd, var(--surface-2)); min-height:100vh; }
@@ -162,50 +202,52 @@
 </head>
 <body>
   <!-- Marketing top navigation -->
-  <header class="wc-nav">
-    <a class="wc-brand" href="/">
-      <span class="wc-mark"><img src="assets/logo.png" alt="Souqi Logo" style="width:100%; height:100%; object-fit:contain; border-radius:4px;"></span>
-      <span class="wc-name">Souqi</span>
-    </a>
-
-    <nav class="wc-links">
-      <div class="wc-item">
-        <button type="button" class="wc-top">Platform <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></button>
-        <div class="wc-menu">
-          <a href="signup"><span class="mi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg></span><span>Operations console<small>Dashboard, orders, stock, finance</small></span></a>
-          <a href="signup"><span class="mi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M2 12h20"/></svg></span><span>Multi-company<small>Run every branch in one place</small></span></a>
-          <a href="signup"><span class="mi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></span><span>Audit history<small>Every action, logged</small></span></a>
+  <header class="nav" id="nav">
+    <a class="brand" href="/"><img src="assets/logo.png" alt="Souqi Logo" style="width:26px; height:26px; object-fit:contain; border-radius:4px;"><span data-t="Souqi">Souqi</span></a>
+    <nav class="lnk">
+      <div class="ndrop">
+        <button type="button" class="ntop"><span data-t="Platform">Platform</span> <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></button>
+        <div class="npanel">
+          <a href="signup"><b data-t="Operations console">Operations console</b><small data-t="Dashboard, orders, stock &amp; finance">Dashboard, orders, stock &amp; finance</small></a>
+          <a href="signup"><b data-t="Website builder">Website builder</b><small data-t="A branded storefront in minutes">A branded storefront in minutes</small></a>
+          <a href="signup"><b data-t="AI Accountant">AI Accountant</b><small data-t="Finance insights, on tap">Finance insights, on tap</small></a>
+          <a href="signup"><b data-t="Audit history">Audit history</b><small data-t="Every action, logged">Every action, logged</small></a>
         </div>
       </div>
-      <div class="wc-item">
-        <button type="button" class="wc-top">Solutions <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></button>
-        <div class="wc-menu" id="solMenu"></div>
-      </div>
-      <div class="wc-item">
-        <button type="button" class="wc-top active">Pricing <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></button>
-        <div class="wc-menu">
-          <a href="pricing?group=individual"><span class="mi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span><span>Individual<small>Single user &amp; solo founder plans</small></span></a>
-          <a href="pricing?group=team"><span class="mi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></span><span>Enterprise<small>Multi-user teams &amp; offices</small></span></a>
+      <div class="ndrop">
+        <button type="button" class="ntop"><span data-t="Solutions">Solutions</span> <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></button>
+        <div class="npanel cols">
+          <div><h5 data-t="By industry">By industry</h5><a href="signup" data-t="Logistics &amp; Trade">Logistics &amp; Trade</a><a href="signup" data-t="Fashion &amp; Apparel">Fashion &amp; Apparel</a><a href="signup" data-t="Retail Superstore">Retail Superstore</a><a href="signup" data-t="Restaurant">Restaurant</a></div>
+          <div><h5>&nbsp;</h5><a href="signup" data-t="Manufacturing">Manufacturing</a><a href="signup" data-t="Wholesale">Wholesale</a><a href="signup" data-t="Construction">Construction</a><a href="signup" data-t="Professional Services">Professional Services</a></div>
         </div>
       </div>
-      <div class="wc-item">
-        <button type="button" class="wc-top">Resources <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></button>
-        <div class="wc-menu">
-          <a href="assets/docs/MERVEKS_SAP_Client_Guide.pdf" target="_blank"><span class="mi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg></span><span>User guide (EN)<small>PDF walkthrough</small></span></a>
-          <a href="assets/docs/MERVEKS_SAP_Musteri_Kilavuzu.pdf" target="_blank"><span class="mi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg></span><span>Kullanım kılavuzu (TR)<small>PDF rehber</small></span></a>
+      <div class="ndrop">
+        <button type="button" class="ntop active"><span data-t="Pricing">Pricing</span> <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></button>
+        <div class="npanel">
+          <a href="pricing?group=individual"><b data-t="Individual">Individual</b><small data-t="Free, Pro &amp; Max plans">Free, Pro &amp; Max plans</small></a>
+          <a href="pricing?group=team"><b data-t="Team &amp; Enterprise">Team &amp; Enterprise</b><small data-t="Multi-user teams &amp; offices">Multi-user teams &amp; offices</small></a>
+        </div>
+      </div>
+      <div class="ndrop">
+        <button type="button" class="ntop"><span data-t="Resources">Resources</span> <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></button>
+        <div class="npanel">
+          <a href="assets/docs/MERVEKS_SAP_Client_Guide.pdf" target="_blank"><b>User guide (EN)</b><small>Full PDF walkthrough</small></a>
+          <a href="assets/docs/MERVEKS_SAP_Musteri_Kilavuzu.pdf" target="_blank"><b>Kullanım kılavuzu (TR)</b><small>Türkçe PDF rehber</small></a>
         </div>
       </div>
     </nav>
-
-    <div class="wc-actions">
-      <select class="lang-select input" style="padding:6px 10px; font-size:.84rem; border-radius:8px; border:1px solid var(--line); background:#fff; color:var(--ink);">
-        <option value="en">English</option>
-        <option value="tr">Türkçe</option>
-        <option value="ar">العربية</option>
-      </select>
-      <a class="wc-btn-ghost" href="login" data-t="Console Sign In">Sign in</a>
-      <a class="wc-btn-dark" href="signup" data-t="Create workspace">Create workspace</a>
+    <div class="lang-dropdown" id="langDropdown">
+      <button type="button" class="lang-trigger" id="langTrigger">
+        <span class="lang-current">English</span>
+        <svg class="lang-arrow" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+      </button>
+      <ul class="lang-list" id="langList">
+        <li data-value="en" class="lang-item">English</li>
+        <li data-value="tr" class="lang-item">Türkçe</li>
+        <li data-value="ar" class="lang-item">العربية</li>
+      </ul>
     </div>
+    <a class="btn-g" href="login" data-t="Sign in to console">Sign in</a><a class="btn-d" href="signup" data-t="Create workspace">Create workspace</a>
   </header>
 
   <div class="wrap">
@@ -273,7 +315,7 @@
           </button>
           <div class="faq-content" style="max-height:0; overflow:hidden; transition:max-height .25s ease-out;">
             <div style="padding:0 20px 18px; font-size:0.88rem; color:var(--ink); line-height:1.55;">
-              We accept instant bank transfers via T.C. Ziraat Bankası QR code (Karekod) or IBAN transfer. Company accounts are typically unlocked within 1 to 24 hours after sending payment.
+              Nothing to pay right now — access is free while we finish rolling out card and wallet billing (Visa, PayPal and more). We'll let you know before any payment is required.
             </div>
           </div>
         </div>
@@ -286,6 +328,18 @@
           <div class="faq-content" style="max-height:0; overflow:hidden; transition:max-height .25s ease-out;">
             <div style="padding:0 20px 18px; font-size:0.88rem; color:var(--ink); line-height:1.55;">
               Yes! The Team and Business plans fully support multi-warehouse tracking, multi-currency transactions, and custom role permissions across different branches.
+            </div>
+          </div>
+        </div>
+
+        <div class="faq-item" style="background:#fff; border:1px solid var(--line); border-radius:12px; overflow:hidden; transition:border-color .15s;">
+          <button type="button" class="faq-trigger" style="width:100%; display:flex; align-items:center; justify-content:space-between; gap:16px; padding:18px 20px; background:none; border:0; text-align:left; font:inherit; font-size:0.98rem; font-weight:700; color:var(--navy-800); cursor:pointer;">
+            <span data-t="Can I export my data?">Can I export my data?</span>
+            <svg class="faq-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="width:16px; height:16px; flex:0 0 auto; color:var(--muted); transition:transform .2s;"><path d="m6 9 6 6 6-6"/></svg>
+          </button>
+          <div class="faq-content" style="max-height:0; overflow:hidden; transition:max-height .25s ease-out;">
+            <div style="padding:0 20px 18px; font-size:0.88rem; color:var(--ink); line-height:1.55;">
+              Yes, anytime. Your data is never locked in — export orders, invoices, clients and inventory to CSV directly from the console, on any plan, no rebuild or migration required.
             </div>
           </div>
         </div>
@@ -323,15 +377,6 @@
   <script src="js/ui.js?v=28"></script>
   <script>
     (function () {
-      // ---- Build the "Solutions" nav dropdown from the industry registry ----
-      var m = document.getElementById("solMenu");
-      if (m && window.INDUSTRIES) {
-        m.innerHTML = Object.keys(INDUSTRIES).map(function (k) {
-          var ind = INDUSTRIES[k];
-          return '<a href="signup"><span class="mi">' + UI.icon(ind.icon) + "</span>" +
-            "<span>" + ind.name + "<small>" + ind.blurb + "</small></span></a>";
-        }).join("");
-      }
       document.getElementById("yr").textContent = new Date().getFullYear();
 
       // ---- icons ----
@@ -349,7 +394,7 @@
         individual: [
           { name:"Free", icon:"cloud", tag:"Get your business online",
             price:{ type:"fixed", amt:"$0", unit:"free forever" },
-            cta:{ label:"Use WeboCloud free", href:"signup", style:"btn-ghost" }, sub:"No card needed",
+            cta:{ label:"Use Souqi Cloud free", href:"signup", style:"btn-ghost" }, sub:"No card needed",
             head:"What you get",
             feats:["<b>1 user</b> — full owner access","Orders, inventory &amp; finance","Dashboard &amp; reports","10&nbsp;GB storage","Community support"] },
           { name:"Pro", icon:"spark", tag:"Run your whole business", rec:true,
