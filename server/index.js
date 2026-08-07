@@ -11,6 +11,7 @@
 require("dotenv").config();
 const path = require("path");
 const crypto = require("crypto");
+const dns = require("dns");
 const express = require("express");
 const cors = require("cors");
 const bcrypt = require("bcryptjs");
@@ -22,7 +23,7 @@ const { httpError, errorHandler } = require("./lib/errors");
 const requestId = require("./middleware/requestId");
 const { makeAuth } = require("./middleware/auth");
 const { validateBody } = require("./lib/validate");
-const { loginSchema, orderSchema, inquirySchema } = require("./lib/schemas");
+const { loginSchema, orderSchema, inquirySchema, microClaimSchema } = require("./lib/schemas");
 const { initIdempotency, withIdempotency } = require("./lib/idempotency");
 const securityHeaders = require("./middleware/securityHeaders");
 const { rateLimit } = require("./middleware/rateLimit");
@@ -119,6 +120,14 @@ app.use(async (req, res, next) => {
         if (req.path === "/" || req.path === "") {
           return res.sendFile(path.join(__dirname, "..", "public", "portal.html"));
         }
+        return next();
+      }
+      // Not a Sites workspace domain — check Souqi Code's own published
+      // projects before falling through. Same trust model, same reason
+      // it's safe (see projects.js findByCustomDomain's own comment).
+      const codeProject = await projects.findByCustomDomain(host);
+      if (codeProject && codeProject.published) {
+        return servePublishedSite(req, res, req.path.replace(/^\//, ""), codeProject);
       }
     }
   } catch (e) {
@@ -128,9 +137,22 @@ app.use(async (req, res, next) => {
 });
 
 /* ---- Serve specific frontend pages ---- */
+app.get("/home", (req, res) => res.sendFile(path.join(__dirname, "..", "public", "home.html")));
+// /agent now serves Souqi CODE (docs/CODE-AGENT-PLAN.md), not the old
+// deterministic site builder — a deliberate, explicit swap, not an
+// accident: agent.html (site builder: prompt -> storefront config,
+// no AI, /api/projects) still exists on disk, untouched and fully
+// working, it's just no longer reachable via this route. code.html
+// (this one) drives /api/codeagent/build — real files, a real model,
+// a real sandbox. The two share no backend and no renderer.
+app.get("/agent", (req, res) => res.sendFile(path.join(__dirname, "..", "public", "code.html")));
+app.get("/agent/:slug", (req, res) => res.sendFile(path.join(__dirname, "..", "public", "code.html")));
+app.get("/build", (req, res) => res.sendFile(path.join(__dirname, "..", "public", "home.html")));
 app.get("/login", (req, res) => res.sendFile(path.join(__dirname, "..", "public", "login.html")));
 app.get("/signup", (req, res) => res.sendFile(path.join(__dirname, "..", "public", "signup.html")));
 app.get("/pricing", (req, res) => res.sendFile(path.join(__dirname, "..", "public", "pricing.html")));
+app.get("/terms", (req, res) => res.sendFile(path.join(__dirname, "..", "public", "terms.html")));
+app.get("/privacy", (req, res) => res.sendFile(path.join(__dirname, "..", "public", "privacy.html")));
 app.get("/checkout", (req, res) => res.sendFile(path.join(__dirname, "..", "public", "checkout.html")));
 app.get("/index", (req, res) => res.sendFile(path.join(__dirname, "..", "public", "index.html")));
 app.get("/admin", (req, res) => res.sendFile(path.join(__dirname, "..", "public", "admin.html")));
@@ -625,6 +647,32 @@ app.get("/api/storefront/edit-token/verify", async (req, res) => {
   }
 });
 
+/**
+ * POST /api/storefront/edit-token/refresh
+ * Rotates a STILL-VALID edit token into a fresh 15-minute one so long
+ * editing sessions don't fail at Publish. The current unexpired token is
+ * itself the proof of an authorized session — no owner JWT needed on the
+ * portal page. An already-expired token cannot be refreshed (reopen from
+ * the console).
+ */
+app.post("/api/storefront/edit-token/refresh", (req, res) => {
+  try {
+    const et = req.headers["x-edit-token"] || (req.body && req.body.et);
+    if (!et) return res.status(400).json({ error: "edit token required" });
+    const decoded = jwt.verify(String(et), JWT_SECRET);
+    if (decoded.scope !== "portal-edit" || !decoded.wsId) {
+      return res.status(403).json({ error: "not an edit token" });
+    }
+    const editToken = jwt.sign(
+      { wsId: decoded.wsId, email: decoded.email, scope: "portal-edit" },
+      JWT_SECRET, { expiresIn: "15m" }
+    );
+    res.json({ editToken, expiresIn: 900 });
+  } catch (e) {
+    res.status(401).json({ error: "invalid or expired edit token" });
+  }
+});
+
 /* =================================================================
    PUBLIC PORTAL API  (no auth required — guest access)
    All portal reads use findAllPublic() which strips private fields.
@@ -879,6 +927,1629 @@ app.post("/ai/chat", aiLimiter, async (req, res) => {
   } catch (e) {
     console.error("ai proxy error:", e.message);
     res.status(500).json({ error: "ai proxy failed" });
+  }
+});
+
+/* =================================================================
+   AI SITE BUILDER  ("what will you build?")
+   -----------------------------------------------------------------
+   A prompt becomes a storefront config. Two hard rules:
+
+     1. Whatever produces the config — the composer today, a
+        model tomorrow — its output goes through site-validate.js
+        before it is stored or returned. One trust boundary, no
+        exceptions. See docs/AI-BUILDER-PLAN.md §3.6.
+     2. A draft is NOT a workspace. It has no database, no tenancy and
+        no owner, so it can safely exist for an anonymous visitor.
+        Claiming one (post-signup) is what creates the real workspace.
+   ================================================================= */
+const { validateSiteConfig } = require("./lib/site-validate");
+const composer = require("./lib/composer");
+const { classify, choices } = require("./lib/nlu/classify");
+const { extract } = require("./lib/nlu/slots");
+
+/* Labels the visitor sees when we have to ask which industry they meant. */
+const INDUSTRY_LABELS = {
+  restaurant: "Restaurant / café", fashion: "Fashion & clothing", logistics: "Logistics & freight",
+  manufacturing: "Manufacturing", construction: "Construction", services: "Services & bookings",
+  wholesale: "Wholesale & trade", retail: "Retail shop"
+};
+
+const agentLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 8, key: (req) => req.ip || "" });
+
+const DRAFT_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+const draftMemory = new Map();   // fallback when the master DB isn't up
+
+function pruneDrafts() {
+  const now = Date.now();
+  for (const [id, d] of draftMemory) if (d.expiresAt <= now) draftMemory.delete(id);
+  if (draftMemory.size > 500) {
+    // hard cap so an unbacked dev server can't grow without bound
+    const oldest = [...draftMemory.entries()].sort((a, b) => a[1].createdAt - b[1].createdAt);
+    oldest.slice(0, draftMemory.size - 500).forEach(([id]) => draftMemory.delete(id));
+  }
+}
+
+async function saveDraft(draft) {
+  const masterDb = getMasterDb();
+  if (masterDb) {
+    await masterDb.collection("agent_drafts").insertOne(draft);
+    // TTL index is idempotent; expired drafts are reaped by Mongo itself
+    masterDb.collection("agent_drafts")
+      .createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 })
+      .catch(() => {});
+    return;
+  }
+  pruneDrafts();
+  draftMemory.set(draft.id, draft);
+}
+
+async function loadDraft(id) {
+  const masterDb = getMasterDb();
+  if (masterDb) return masterDb.collection("agent_drafts").findOne({ id: id }, { projection: { _id: 0 } });
+  pruneDrafts();
+  return draftMemory.get(id) || null;
+}
+
+/**
+ * POST /api/agent/build
+ * Body: { prompt, mode? }   — no auth; this is the free first build.
+ * Returns: { draftId, config, meta, issues }
+ */
+app.post("/api/agent/build", agentLimiter, async (req, res, next) => {
+  try {
+    const prompt = String((req.body && req.body.prompt) || "").trim();
+    if (prompt.length < 3) return res.status(400).json({ error: "prompt is required" });
+    if (prompt.length > 2000) return res.status(400).json({ error: "prompt is too long" });
+
+    const mode = String((req.body && req.body.mode) || "").slice(0, 30);
+    // set when the visitor answered a "which is closest?" question
+    const forcedIndustry = String((req.body && req.body.industry) || "").slice(0, 30);
+
+    /* ---- understand (no model, no network — see NO-API-BUILDER-PLAN §3) ---- */
+    const verdictNlu = classify(prompt);
+    const slots = extract(prompt, verdictNlu.lang);
+
+    // Guessing confidently wrong is worse than asking. One chip row costs the
+    // visitor a tap; it costs us 150ms.
+    if (!forcedIndustry && !verdictNlu.certain) {
+      return res.json({
+        needsAnswer: {
+          question: "Which is closest to your business?",
+          options: choices(verdictNlu).map((k) => ({ key: k, label: INDUSTRY_LABELS[k] || k }))
+        },
+        lang: verdictNlu.lang,
+        confidence: verdictNlu.confidence
+      });
+    }
+
+    const industry = forcedIndustry || verdictNlu.industry;
+
+    // Today: the deterministic composer, now fed real slots instead of its own
+    // keyword guess. A model pipeline would slot in here and hand its output to
+    // the SAME validator below.
+    const composed = composer.compose(prompt, {
+      mode: mode,
+      industry: industry,
+      company: slots.company,
+      city: slots.city,
+      currency: slots.currency,
+      colour: slots.colour,
+      features: slots.features,
+      tone: slots.tone,
+      lang: slots.lang
+    });
+    const verdict = validateSiteConfig(composed.config, { forAgent: true });
+
+    if (!verdict.ok) {
+      console.error("agent build failed validation:", verdict.issues.slice(0, 5));
+      return res.status(502).json({ error: "could not build a site from that", issues: verdict.issues.slice(0, 5) });
+    }
+
+    const now = Date.now();
+    const draft = {
+      id: "dr_" + crypto.randomBytes(9).toString("base64url"),
+      prompt: prompt.slice(0, 2000),
+      mode: mode,
+      meta: composed.meta,
+      config: verdict.config,
+      ip: req.ip || "",
+      createdAt: new Date(now).toISOString(),
+      expiresAt: new Date(now + DRAFT_TTL_MS)
+    };
+    await saveDraft(draft);
+
+    res.json({
+      draftId: draft.id,
+      config: draft.config,
+      meta: draft.meta,
+      issues: verdict.issues.slice(0, 10),
+      expiresInDays: 7
+    });
+  } catch (e) {
+    next(e);
+  }
+});
+
+/**
+ * POST /api/agent/claim
+ * Body: { draftId, wsId }   Header: Authorization: Bearer <owner JWT>
+ *
+ * Turns an anonymous draft into the workspace's live storefront. This is the
+ * moment a draft stops being a throwaway and becomes the owner's property, so
+ * it goes through the SAME ownership check as every other workspace write —
+ * knowing a draft id is not authorisation for anything.
+ *
+ * Returns an edit token so the caller can jump straight into the live editor.
+ */
+app.post("/api/agent/claim", async (req, res, next) => {
+  try {
+    const draftId = String((req.body && req.body.draftId) || "");
+    const wsId = String((req.body && req.body.wsId) || "");
+    if (!/^dr_[A-Za-z0-9_-]{6,40}$/.test(draftId)) return res.status(400).json({ error: "bad draft id" });
+    if (!wsId) return res.status(400).json({ error: "wsId is required" });
+
+    const { decoded, masterDb } = await assertOwnsWorkspace(req, wsId);
+
+    const draft = await loadDraft(draftId);
+    if (!draft) return res.status(404).json({ error: "draft not found or expired" });
+
+    // Re-validate on the way in. The draft was validated when it was built,
+    // but it has been sitting in a database since — never trust stored state
+    // that is about to become a published page.
+    const verdict = validateSiteConfig(draft.config, { forAgent: true });
+    if (!verdict.ok) return res.status(422).json({ error: "draft is no longer valid", issues: verdict.issues.slice(0, 5) });
+
+    await masterDb.collection("workspaces").updateOne(
+      { id: wsId },
+      { $set: { storefrontConfig: verdict.config, storefrontEnabled: true } }
+    );
+
+    // one draft, one claim
+    if (getMasterDb()) await masterDb.collection("agent_drafts").deleteOne({ id: draftId });
+    draftMemory.delete(draftId);
+
+    const ws = await resolveWsContext(wsId);
+    await writeAudit(dbAdapter, ws, {
+      requestId: req.id, actor: decoded.email, action: "workspace.storefront.claim",
+      entity: "workspace", entityId: wsId,
+      summary: "Agent draft " + draftId + " claimed as the live storefront"
+    });
+
+    const editToken = jwt.sign({ wsId: wsId, email: decoded.email, scope: "portal-edit" }, JWT_SECRET, { expiresIn: "15m" });
+    res.json({ ok: true, wsId: wsId, editToken: editToken, expiresIn: 900, meta: draft.meta || null });
+  } catch (e) {
+    if (e.status) return res.status(e.status).json({ error: e.message });
+    next(e);
+  }
+});
+
+/* =================================================================
+   PROJECTS — the durable object (docs/AGENT-PARITY-PLAN.md §1–3)
+   -----------------------------------------------------------------
+   A build used to be a throwaway draft. A project survives a reload,
+   has a URL, remembers its conversation and keeps every version.
+   Owned by an anonymous signed cookie first, by a user after claim.
+   ================================================================= */
+const projects = require("./lib/projects");
+const anon = require("./lib/anon");
+projects.init({ getMasterDb });
+anon.init({ JWT_SECRET });
+
+const projectLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 20, key: (req) => req.ip || "" });
+// Micro-claim creates a real account — a tighter budget than the build
+// endpoints, since abuse here means spamming workspace/user rows, not just CPU.
+const microClaimLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 8, key: (req) => req.ip || "" });
+
+/**
+ * Run the whole pipeline for a prompt. Shared by create and follow-up, and by
+ * both the plain-JSON and SSE response modes below.
+ *
+ * `onStage(id, state, detail)` is called at REAL boundaries in the actual
+ * work — not on a timer. `state` is "start" or "done"; `detail` is only ever
+ * present on "done" and is built from data that genuinely exists at that
+ * point (see docs/AGENT-PARITY-PLAN.md §5 — a stage is done when it IS done,
+ * so a fast pipeline shows a fast build instead of a manufactured 1.5s wait).
+ * The default no-op keeps every existing caller — including both integration
+ * test suites — behaving exactly as before.
+ */
+async function buildFromPrompt(prompt, opts, onStage) {
+  const emit = onStage || function () {};
+  const o = opts || {};
+  const t0 = Date.now();
+
+  emit("understand", "start", "Reading your prompt");
+  const verdictNlu = classify(prompt);
+  const slots = extract(prompt, verdictNlu.lang);
+
+  if (!o.industry && !verdictNlu.certain) {
+    emit("understand", "done", "not sure yet");
+    return {
+      needsAnswer: {
+        question: "Which is closest to your business?",
+        options: choices(verdictNlu).map((k) => ({ key: k, label: INDUSTRY_LABELS[k] || k }))
+      },
+      nlu: verdictNlu, ms: Date.now() - t0
+    };
+  }
+  const industry = o.industry || verdictNlu.industry;
+  emit("understand", "done", [INDUSTRY_LABELS[industry] || industry, slots.city, slots.tone !== "neutral" ? slots.tone : ""].filter(Boolean).join(" · "));
+
+  emit("structure", "start", "Choosing your sections");
+  const composed = composer.compose(prompt, {
+    industry: industry, company: o.company || slots.company,
+    city: slots.city, currency: slots.currency, colour: slots.colour,
+    features: slots.features, tone: slots.tone, lang: slots.lang, mode: o.mode || ""
+  });
+  const verdict = validateSiteConfig(composed.config, { forAgent: true });
+  emit("structure", "done", composed.meta.archetypeLabel || "");
+
+  emit("write", "start", "Writing your pages");
+  if (verdict.ok) {
+    const pages = Object.keys(verdict.config.pages);
+    const blocks = pages.reduce((n, s) => n + ((verdict.config.pages[s].blocks || []).length), 0);
+    emit("write", "done", blocks + " sections across " + pages.length + " pages");
+  } else {
+    emit("write", "done", "");
+  }
+
+  return { composed: composed, verdict: verdict, nlu: verdictNlu, slots: slots, ms: Date.now() - t0 };
+}
+
+/* ---- SSE plumbing ----
+   Native EventSource can only GET, and this endpoint needs a POST body, so
+   the client reads a normal streamed fetch() response and parses SSE frames
+   itself — the standard workaround for POST-triggered server-sent events.
+   Negotiated by Accept, so the exact same route serves plain JSON to any
+   client (including both test suites) that doesn't ask for a stream. */
+function wantsStream(req) {
+  return String(req.headers.accept || "").indexOf("text/event-stream") >= 0;
+}
+function sseOpen(res) {
+  res.writeHead(200, {
+    "Content-Type": "text/event-stream; charset=utf-8",
+    "Cache-Control": "no-cache, no-transform",
+    "Connection": "keep-alive",
+    "X-Accel-Buffering": "no"        // nginx/proxies: don't buffer the stream
+  });
+  if (typeof res.flushHeaders === "function") res.flushHeaders();
+}
+function sseFrame(res, event, data) {
+  res.write("event: " + event + "\ndata: " + JSON.stringify(data) + "\n\n");
+}
+
+/**
+ * POST /api/projects
+ * Body: { prompt, mode?, industry? }
+ * Creates the project AND its first revision. No auth — the anonymous
+ * cookie is minted here and owns it until someone claims it.
+ */
+/** The side effects of a successful create: persisted once, used by both the
+    plain-JSON and SSE response paths so they can never drift apart. */
+async function finishCreate(built, prompt, owner) {
+  const meta = built.composed.meta;
+  const project = await projects.create({ title: meta.company, prompt: prompt, meta: meta, owner: owner });
+  const revision = await projects.addRevision(project.id, built.verdict.config, "First build");
+  await projects.addTurn(project.id, { role: "user", kind: "text", body: prompt });
+  await projects.addTurn(project.id, {
+    role: "agent", kind: "result", body: summarise(built.verdict.config, meta),
+    revisionId: revision.id, ms: built.ms
+  });
+  await projects.ensureIndexes();
+  return {
+    projectId: project.id, slug: project.slug, title: project.title,
+    config: built.verdict.config, meta: meta, revisionId: revision.id, ms: built.ms
+  };
+}
+
+app.post("/api/projects", projectLimiter, async (req, res, next) => {
+  const prompt = String((req.body && req.body.prompt) || "").trim();
+  if (prompt.length < 3) return res.status(400).json({ error: "prompt is required" });
+  if (prompt.length > 2000) return res.status(400).json({ error: "prompt is too long" });
+  const owner = anon.ownerOf(req, res);
+  const opts = { mode: req.body.mode, industry: req.body.industry };
+
+  if (wantsStream(req)) {
+    sseOpen(res);
+    try {
+      const built = await buildFromPrompt(prompt, opts, (id, state, detail) => sseFrame(res, "stage", { id, state, detail }));
+      if (built.needsAnswer) {
+        sseFrame(res, "needsAnswer", { needsAnswer: built.needsAnswer, lang: built.nlu.lang });
+      } else if (!built.verdict.ok) {
+        sseFrame(res, "error", { error: "could not build a site from that", issues: built.verdict.issues.slice(0, 5) });
+      } else {
+        sseFrame(res, "result", await finishCreate(built, prompt, owner));
+      }
+      sseFrame(res, "done", { ms: built.ms });
+    } catch (e) {
+      sseFrame(res, "error", { error: "build failed" });
+      console.error("SSE /api/projects error:", e.message);
+    }
+    return res.end();
+  }
+
+  try {
+    const built = await buildFromPrompt(prompt, opts);
+    // Not confident enough to build something good — ask, don't guess. No
+    // project is created for a question, so nothing half-made is left behind.
+    if (built.needsAnswer) return res.json({ needsAnswer: built.needsAnswer, lang: built.nlu.lang });
+    if (!built.verdict.ok) {
+      console.error("project build failed validation:", built.verdict.issues.slice(0, 5));
+      return res.status(502).json({ error: "could not build a site from that", issues: built.verdict.issues.slice(0, 5) });
+    }
+    res.status(201).json(await finishCreate(built, prompt, owner));
+  } catch (e) {
+    next(e);
+  }
+});
+
+/** GET /api/projects — everything this owner has made.
+    ?kind=code filters to Souqi Code projects only (for its own sidebar) —
+    filtered here rather than in projects.js's query, so a mixed history
+    (Sites + Code) still returns `limit` Code rows even if Sites projects
+    are more numerous; fetching a wider page first is the cheap way to
+    keep that true without a schema-level index change for one filter. */
+app.get("/api/projects", async (req, res, next) => {
+  try {
+    const owner = anon.ownerOf(req, res);
+    const kind = String(req.query.kind || "");
+    const onlyFavorites = req.query.favorite === "1";
+    const limit = Number(req.query.limit) || 30;
+    const rows = await projects.list(owner, (kind || onlyFavorites) ? Math.max(limit * 3, 60) : limit);
+    let filtered = kind ? rows.filter((p) => (p.meta || {}).kind === kind) : rows;
+    if (onlyFavorites) filtered = filtered.filter((p) => !!p.favorite);
+    res.json({
+      projects: filtered.slice(0, limit).map((p) => ({
+        id: p.id, slug: p.slug, title: p.title, prompt: p.prompt,
+        industry: (p.meta || {}).industry, accent: (p.meta || {}).accent, kind: (p.meta || {}).kind || null,
+        buildType: (p.meta || {}).buildType || null, published: !!p.published, favorite: !!p.favorite,
+        claimed: !!p.wsId, updatedAt: p.updatedAt
+      }))
+    });
+  } catch (e) { next(e); }
+});
+
+/** POST /api/codeagent/:key/favorite — Body: { favorite: true|false } */
+app.post("/api/codeagent/:key/favorite", async (req, res, next) => {
+  try {
+    const owner = anon.ownerOf(req, res);
+    const project = await resolveProject(req.params.key, owner);
+    if (!project) return res.status(404).json({ error: "project not found" });
+    if (!projects.owns(project, owner)) return res.status(403).json({ error: "not your project" });
+    const favorite = !!(req.body && req.body.favorite);
+    await projects.patch(project.id, { favorite });
+    res.json({ ok: true, favorite });
+  } catch (e) { next(e); }
+});
+
+/** GET /api/codeagent/usage — this owner's spend this month, for the
+    Settings view (reuses the exact tracker the build-time cap already
+    checks in POST /build, so the number shown always matches what's
+    actually enforced). */
+app.get("/api/codeagent/usage", async (req, res, next) => {
+  try {
+    const owner = anon.ownerOf(req, res);
+    const spentUsd = await codeAgentUsage.monthSpend(owner);
+    res.json({ spentUsd, budgetUsd: CODEAGENT_OWNER_MONTHLY_BUDGET_USD, freeEdits: CODEAGENT_FREE_EDITS });
+  } catch (e) { next(e); }
+});
+
+/** GET /api/codeagent/stats — a small dashboard: how many apps this owner
+    has built, broken down by the type they picked at build time. */
+app.get("/api/codeagent/stats", async (req, res, next) => {
+  try {
+    const owner = anon.ownerOf(req, res);
+    const rows = (await projects.list(owner, 200)).filter((p) => (p.meta || {}).kind === "code");
+    const byType = {};
+    let published = 0;
+    rows.forEach((p) => {
+      const t = (p.meta || {}).buildType || "website";
+      byType[t] = (byType[t] || 0) + 1;
+      if (p.published) published += 1;
+    });
+    res.json({ total: rows.length, published, byType });
+  } catch (e) { next(e); }
+});
+
+/** GET /api/projects/:idOrSlug — the project, its transcript and head config. */
+app.get("/api/projects/:key", async (req, res, next) => {
+  try {
+    const owner = anon.ownerOf(req, res);
+    const project = await resolveProject(req.params.key, owner);
+    if (!project) return res.status(404).json({ error: "project not found" });
+    if (!projects.owns(project, owner)) return res.status(403).json({ error: "not your project" });
+
+    const [turns, revision, revisions] = await Promise.all([
+      projects.listTurns(project.id),
+      projects.head(project.id),
+      projects.listRevisions(project.id)
+    ]);
+
+    res.json({
+      project: {
+        id: project.id, slug: project.slug, title: project.title, prompt: project.prompt,
+        meta: project.meta, claimed: !!project.wsId, wsId: project.wsId,
+        publishedRevisionId: project.publishedRevisionId || null,
+        createdAt: project.createdAt, updatedAt: project.updatedAt
+      },
+      turns: turns,
+      config: revision ? revision.config : null,
+      revisionId: revision ? revision.id : null,
+      revisions: revisions
+    });
+  } catch (e) { next(e); }
+});
+
+/**
+ * POST /api/projects/:key/turns
+ * Body: { message, industry? }
+ * A follow-up. First tries to PATCH the head revision in place — the six ops
+ * in refine/grammar.js + refine/apply.js (docs/AGENT-PARITY-PLAN.md §4) — so
+ * "make it darker" doesn't throw away three turns of other changes. Only
+ * when nothing in that closed vocabulary matches does it fall back to a full
+ * rebuild from the combined description, same as before. Either way the
+ * result is a new revision through the SAME validator; nothing bypasses it.
+ */
+const refineGrammar = require("./lib/refine/grammar");
+const { applyOps } = require("./lib/refine/apply");
+
+/** The side effects of a successful rebuild-style follow-up. */
+async function finishFollowUp(built, project, message, combined) {
+  const meta = built.composed.meta;
+  const revision = await projects.addRevision(project.id, built.verdict.config, message.slice(0, 60));
+  const body = summarise(built.verdict.config, meta);
+  await projects.addTurn(project.id, { role: "agent", kind: "result", body: body, revisionId: revision.id, ms: built.ms });
+  // the prompt grows, so the next follow-up still knows everything so far
+  await projects.patch(project.id, { prompt: combined.slice(0, 2000), meta: meta, title: meta.company });
+  return { kind: "rebuild", config: built.verdict.config, meta: meta, revisionId: revision.id, body: body, ms: built.ms };
+}
+
+/**
+ * Try to satisfy `message` as a patch against the CURRENT head revision.
+ *   undefined → no rule matched; caller should fall back to a full rebuild
+ *   {noop:true, reason} → recognised the intent, there was nothing to change
+ *   {kind:"patch", …} → applied, validated, stored as a new revision
+ */
+async function attemptPatch(project, message, onStage) {
+  const emit = onStage || function () {};
+  const t0 = Date.now();
+  emit("understand", "start", "Reading your message");
+
+  const head = await projects.head(project.id);
+  if (!head) { emit("understand", "done", "no revision to patch yet"); return undefined; }
+
+  const parsed = refineGrammar.parse(message, head.config, project.meta || {});
+  if (!parsed) { emit("understand", "done", "no direct match"); return undefined; }
+  emit("understand", "done", parsed.noop ? "nothing to change" : parsed.summary);
+  if (parsed.noop) return { noop: true, reason: parsed.reason };
+
+  emit("apply", "start", "Making the change");
+  const applied = applyOps(head.config, parsed.ops);
+  if (!applied.changed) { emit("apply", "done", "no effect"); return { noop: true, reason: "That didn't change anything." }; }
+
+  const verdict = validateSiteConfig(applied.config, { forAgent: true });
+  if (!verdict.ok) { emit("apply", "done", "failed"); return { error: "could not apply that", issues: verdict.issues.slice(0, 5) }; }
+  emit("apply", "done", parsed.summary);
+
+  const revision = await projects.addRevision(project.id, verdict.config, parsed.summary.slice(0, 60));
+  const body = "Done — " + parsed.summary + ".";
+  const ms = Date.now() - t0;
+  await projects.addTurn(project.id, { role: "agent", kind: "result", body: body, revisionId: revision.id, ms: ms });
+  await projects.patch(project.id, {});   // bump updatedAt only — meta/title are unchanged by a patch
+  return { kind: "patch", config: verdict.config, meta: project.meta, revisionId: revision.id, body: body, ms: ms };
+}
+
+app.post("/api/projects/:key/turns", projectLimiter, async (req, res, next) => {
+  try {
+    const owner = anon.ownerOf(req, res);
+    const project = await resolveProject(req.params.key, owner);
+    if (!project) return res.status(404).json({ error: "project not found" });
+    if (!projects.owns(project, owner)) return res.status(403).json({ error: "not your project" });
+
+    const message = String((req.body && req.body.message) || "").trim();
+    if (!message) return res.status(400).json({ error: "message is required" });
+    if (message.length > 2000) return res.status(400).json({ error: "message is too long" });
+
+    await projects.addTurn(project.id, { role: "user", kind: "text", body: message });
+    const combined = (project.prompt ? project.prompt + ". " : "") + message;
+    const opts = { industry: req.body.industry };
+
+    if (wantsStream(req)) {
+      sseOpen(res);
+      try {
+        const onStage = (id, state, detail) => sseFrame(res, "stage", { id, state, detail });
+        const patch = await attemptPatch(project, message, onStage);
+        let ms = 0;
+
+        if (patch && patch.error) {
+          sseFrame(res, "error", { error: patch.error, issues: patch.issues });
+        } else if (patch && patch.noop) {
+          await projects.addTurn(project.id, { role: "agent", kind: "text", body: patch.reason });
+          sseFrame(res, "noop", { reason: patch.reason });
+        } else if (patch) {
+          ms = patch.ms;
+          sseFrame(res, "result", patch);
+        } else {
+          const built = await buildFromPrompt(combined, opts, onStage);
+          ms = built.ms;
+          if (built.needsAnswer) {
+            await projects.addTurn(project.id, { role: "agent", kind: "question", body: built.needsAnswer.question });
+            sseFrame(res, "needsAnswer", { needsAnswer: built.needsAnswer });
+          } else if (!built.verdict.ok) {
+            sseFrame(res, "error", { error: "could not apply that", issues: built.verdict.issues.slice(0, 5) });
+          } else {
+            sseFrame(res, "result", await finishFollowUp(built, project, message, combined));
+          }
+        }
+        sseFrame(res, "done", { ms: ms });
+      } catch (e) {
+        sseFrame(res, "error", { error: "build failed" });
+        console.error("SSE /turns error:", e.message);
+      }
+      return res.end();
+    }
+
+    const patch = await attemptPatch(project, message);
+    if (patch && patch.error) return res.status(502).json(patch);
+    if (patch && patch.noop) {
+      await projects.addTurn(project.id, { role: "agent", kind: "text", body: patch.reason });
+      return res.json({ noop: true, reason: patch.reason });
+    }
+    if (patch) return res.json(patch);
+
+    const built = await buildFromPrompt(combined, opts);
+    if (built.needsAnswer) {
+      await projects.addTurn(project.id, { role: "agent", kind: "question", body: built.needsAnswer.question });
+      return res.json({ needsAnswer: built.needsAnswer });
+    }
+    if (!built.verdict.ok) return res.status(502).json({ error: "could not apply that", issues: built.verdict.issues.slice(0, 5) });
+    res.json(await finishFollowUp(built, project, message, combined));
+  } catch (e) { next(e); }
+});
+
+/**
+ * GET /api/projects/:key/preview
+ * The head revision, in the EXACT shape /api/portal/:wsId/config returns —
+ * so public/portal.html can render an unclaimed project through the same
+ * renderer (generic-renderer.js) the published storefront runs, with no
+ * separate preview code path to keep in sync (docs/AGENT-PARITY-PLAN.md §6).
+ * Owner-only: a draft isn't published, so it isn't public like a real portal.
+ */
+app.get("/api/projects/:key/preview", async (req, res, next) => {
+  try {
+    const owner = anon.ownerOf(req, res);
+    const project = await resolveProject(req.params.key, owner);
+    if (!project) return res.status(404).json({ error: "project not found" });
+    if (!projects.owns(project, owner)) return res.status(403).json({ error: "not your project" });
+
+    const revision = await projects.head(project.id);
+    if (!revision) return res.status(404).json({ error: "nothing built yet" });
+
+    res.json({
+      id: project.id,
+      company: project.title,
+      industry: (project.meta || {}).industry || "retail",
+      logo: null,
+      storefrontEnabled: true,
+      storefrontConfig: revision.config
+    });
+  } catch (e) { next(e); }
+});
+
+/** POST /api/projects/:key/restore — go back to a revision, without losing it. */
+app.post("/api/projects/:key/restore", async (req, res, next) => {
+  try {
+    const owner = anon.ownerOf(req, res);
+    const project = await resolveProject(req.params.key, owner);
+    if (!project) return res.status(404).json({ error: "project not found" });
+    if (!projects.owns(project, owner)) return res.status(403).json({ error: "not your project" });
+
+    const target = await projects.getRevision(String((req.body && req.body.revisionId) || ""));
+    if (!target || target.projectId !== project.id) return res.status(404).json({ error: "revision not found" });
+
+    // Restoring APPENDS a revision rather than rewinding, so the thing you
+    // undid is still there if you change your mind again.
+    const verdict = validateSiteConfig(target.config, { forAgent: true });
+    if (!verdict.ok) return res.status(422).json({ error: "that revision is no longer valid" });
+
+    // Name it after what it restored TO, not the internal revision id — "Restored
+    // rv_wvkNLnLa2pU" means nothing to the person looking at their own history.
+    const revision = await projects.addRevision(project.id, verdict.config, "Restored: " + (target.label || "an earlier version"));
+    await projects.addTurn(project.id, {
+      role: "agent", kind: "result", body: "Restored an earlier version.", revisionId: revision.id
+    });
+    res.json({ config: verdict.config, revisionId: revision.id });
+  } catch (e) { next(e); }
+});
+
+/** DELETE /api/projects/:key */
+app.delete("/api/projects/:key", async (req, res, next) => {
+  try {
+    const owner = anon.ownerOf(req, res);
+    const project = await resolveProject(req.params.key, owner);
+    if (!project) return res.status(404).json({ error: "project not found" });
+    if (!projects.owns(project, owner)) return res.status(403).json({ error: "not your project" });
+    await projects.remove(project.id);
+    res.json({ ok: true });
+  } catch (e) { next(e); }
+});
+
+/** Accept either a project id or a slug in the URL. */
+async function resolveProject(key, owner) {
+  const k = String(key || "");
+  if (/^pr_[A-Za-z0-9_-]{6,40}$/.test(k)) return projects.get(k);
+  return projects.findBySlug(k.toLowerCase(), owner);
+}
+
+/** One sentence about what was built, from the config itself. */
+function summarise(config, meta) {
+  const pages = Object.keys(config.pages || {});
+  const blocks = pages.reduce((n, s) => n + ((config.pages[s].blocks || []).length), 0);
+  return blocks + " sections across " + pages.length + " page" + (pages.length === 1 ? "" : "s") +
+    (meta && meta.industry ? " for a " + meta.industry + " business" : "") + ".";
+}
+
+/**
+ * The write side of "publish": push ONE revision's config into the
+ * workspace's live storefrontConfig. Pure — no ownership changes, no
+ * project.patch, no audit — because claim-time publishing and every publish
+ * after it need this same write but each layers different bookkeeping on
+ * top (see finalizeClaim and POST /publish below). This is what fixes
+ * docs/AGENT-GAP-AUDIT.md §1.3: it's the ONE place a project's head
+ * revision becomes the live site, called explicitly, not implicitly on
+ * every agent turn.
+ */
+async function publishRevisionToWorkspace({ revision, wsId, masterDb }) {
+  // Re-validate on the way in — a revision was validated when it was
+  // written, but it has been sitting in a database since.
+  const verdict = validateSiteConfig(revision.config, { forAgent: true });
+  if (!verdict.ok) {
+    const e = new Error("this version is no longer valid");
+    e.status = 422; e.issues = verdict.issues.slice(0, 5);
+    throw e;
+  }
+  await masterDb.collection("workspaces").updateOne(
+    { id: wsId },
+    { $set: { storefrontConfig: verdict.config, storefrontEnabled: true } }
+  );
+  return verdict;
+}
+
+/**
+ * The rest of a claim: re-point project ownership to the user and mint an
+ * edit token. Shared by the pre-authenticated /claim route and the one-shot
+ * micro-claim route below, so "what a claim actually does" only exists in
+ * one place. Claiming publishes the head revision as a side effect — that
+ * first publish is what makes "claim this site" mean something immediately
+ * — but every publish AFTER this one goes through POST /publish instead.
+ */
+async function finalizeClaim({ project, wsId, userId, email, masterDb, requestId }) {
+  const revision = await projects.head(project.id);
+  if (!revision) { const e = new Error("project has no build yet"); e.status = 422; throw e; }
+
+  await publishRevisionToWorkspace({ revision, wsId, masterDb });
+  await projects.patch(project.id, {
+    wsId: wsId, ownerUserId: userId, ownerAnonId: project.ownerAnonId, expiresAt: null,
+    publishedRevisionId: revision.id
+  });
+
+  const ws = await resolveWsContext(wsId);
+  await writeAudit(dbAdapter, ws, {
+    requestId: requestId, actor: email, action: "workspace.storefront.claim",
+    entity: "workspace", entityId: wsId,
+    summary: "Project " + project.id + " (" + project.slug + ") claimed as the live storefront"
+  });
+
+  return jwt.sign({ wsId: wsId, email: email, scope: "portal-edit" }, JWT_SECRET, { expiresIn: "15m" });
+}
+
+/**
+ * POST /api/projects/:key/claim
+ * Body: { wsId }   Header: Authorization: Bearer <owner JWT>
+ *
+ * Turns a project into the workspace's live storefront and moves ownership
+ * from the anonymous cookie to the signed-in user — the same row, re-pointed,
+ * so nothing is copied and nothing is lost. The anonymous cookie on THIS
+ * request must match the project's anonymous owner: knowing a project's slug
+ * or id is not authorisation for anything, same as the workspace check below.
+ */
+app.post("/api/projects/:key/claim", async (req, res, next) => {
+  try {
+    const wsId = String((req.body && req.body.wsId) || "");
+    if (!wsId) return res.status(400).json({ error: "wsId is required" });
+
+    const { decoded, masterDb } = await assertOwnsWorkspace(req, wsId);
+    const owner = anon.ownerOf(req, res);
+
+    const project = await resolveProject(req.params.key, owner);
+    if (!project) return res.status(404).json({ error: "project not found" });
+
+    const alreadyClaimedByMe = project.ownerUserId && project.ownerUserId === decoded.id;
+    const claimableByAnon = !project.ownerUserId && project.ownerAnonId && project.ownerAnonId === owner.anonId;
+    if (!alreadyClaimedByMe && !claimableByAnon) {
+      return res.status(403).json({ error: "not your project" });
+    }
+    if (project.wsId && project.wsId !== wsId) {
+      return res.status(409).json({ error: "this project is already attached to a different workspace" });
+    }
+
+    const editToken = await finalizeClaim({ project, wsId, userId: decoded.id, email: decoded.email, masterDb, requestId: req.id });
+    res.json({ ok: true, wsId: wsId, editToken: editToken, expiresIn: 900, meta: project.meta || null });
+  } catch (e) {
+    if (e.status) return res.status(e.status).json({ error: e.message, issues: e.issues });
+    next(e);
+  }
+});
+
+/**
+ * POST /api/projects/:key/publish
+ * Header: Authorization: Bearer <owner JWT>
+ *
+ * Pushes the project's CURRENT head revision live. Claiming already
+ * publishes once as a side effect (finalizeClaim) — this is every publish
+ * after that. Deliberately its own step rather than automatic on every
+ * agent turn: docs/AGENT-GAP-AUDIT.md §1.3 is what happens when a project's
+ * revisions and a workspace's storefrontConfig are allowed to drift with no
+ * one ever telling the owner they've diverged. This endpoint is the one
+ * place that reconciles them, and only when asked to.
+ */
+app.post("/api/projects/:key/publish", async (req, res, next) => {
+  try {
+    const owner = anon.ownerOf(req, res);
+    const project = await resolveProject(req.params.key, owner);
+    if (!project) return res.status(404).json({ error: "project not found" });
+    if (!projects.owns(project, owner)) return res.status(403).json({ error: "not your project" });
+    if (!project.wsId) return res.status(400).json({ error: "this project has not been claimed yet — nothing to publish to" });
+
+    const { decoded, masterDb } = await assertOwnsWorkspace(req, project.wsId);
+    const revision = await projects.head(project.id);
+    if (!revision) return res.status(422).json({ error: "project has no build yet" });
+
+    if (project.publishedRevisionId === revision.id) {
+      return res.json({ ok: true, alreadyPublished: true, publishedRevisionId: revision.id });
+    }
+
+    await publishRevisionToWorkspace({ revision, wsId: project.wsId, masterDb });
+    await projects.patch(project.id, { publishedRevisionId: revision.id });
+
+    const ws = await resolveWsContext(project.wsId);
+    await writeAudit(dbAdapter, ws, {
+      requestId: req.id, actor: decoded.email, action: "workspace.storefront.publish",
+      entity: "workspace", entityId: project.wsId,
+      summary: "Project " + project.id + " (" + project.slug + ") published revision " + revision.id
+    });
+
+    res.json({ ok: true, publishedRevisionId: revision.id });
+  } catch (e) {
+    if (e.status) return res.status(e.status).json({ error: e.message, issues: e.issues });
+    next(e);
+  }
+});
+
+/**
+ * POST /api/projects/:key/micro-claim
+ * Body: { email, password, company?, industry?, country? }
+ *
+ * The "own it in ten seconds" path (docs/AGENT-PARITY-PLAN.md §7): two
+ * fields instead of the full twelve-field signup, because everything else
+ * a workspace needs is already known — the agent extracted the industry
+ * and company name while building, and the database defaults to local
+ * until the owner says otherwise from the console.
+ *
+ * Order of operations matters: create the account, then the workspace,
+ * then claim, then let the caller redirect. A failure at any step leaves
+ * the project exactly as it was — nothing here can lose the work someone
+ * just watched being made, it can only fail to attach it yet.
+ */
+app.post("/api/projects/:key/micro-claim", microClaimLimiter, validateBody(microClaimSchema), async (req, res, next) => {
+  try {
+    const { email, password, company, industry, country } = req.valid;
+    const emailLower = email.toLowerCase();
+
+    const owner = anon.ownerOf(req, res);
+    const project = await resolveProject(req.params.key, owner);
+    if (!project) return res.status(404).json({ error: "project not found" });
+    if (!projects.owns(project, owner)) return res.status(403).json({ error: "not your project" });
+    if (project.wsId) return res.status(409).json({ error: "this project is already claimed" });
+
+    const masterDb = getMasterDb();
+    if (!masterDb) return res.status(503).json({ error: "Master DB not available" });
+
+    const existingWs = await masterDb.collection("workspaces").findOne({ ownerEmail: emailLower });
+    if (existingWs) {
+      return res.status(409).json({ error: "an account with this email already exists — sign in and claim from there instead" });
+    }
+
+    const meta = project.meta || {};
+    const wsId = "ws_" + Date.now().toString(36) + crypto.randomBytes(4).toString("hex");
+    const companyName = String(company || meta.company || project.title || "My Business").slice(0, 120);
+
+    await masterDb.collection("workspaces").insertOne({
+      id: wsId,
+      company: companyName,
+      industry: String(industry || meta.industry || "retail"),
+      country: String(country || "TR"),
+      ownerEmail: emailLower,
+      dbType: "local",
+      dbUri: "",
+      logo: null,
+      tagline: "",
+      storefrontEnabled: false,
+      plan: "free",
+      createdAt: new Date().toISOString()
+    });
+
+    const ownerUser = {
+      id: "usr_" + crypto.randomBytes(8).toString("base64url"),
+      name: emailLower.split("@")[0],
+      email: emailLower,
+      password: password,              // insertOne() bcrypt-hashes "users" passwords automatically
+      role: "Owner", dept: "Management", active: true,
+      joined: new Date().toISOString().slice(0, 10)
+    };
+    const ws = await resolveWsContext(wsId);
+    await dbAdapter.insertOne(ws, "users", ownerUser);
+
+    let editToken;
+    try {
+      editToken = await finalizeClaim({ project, wsId, userId: ownerUser.id, email: emailLower, masterDb, requestId: req.id });
+    } catch (claimErr) {
+      // Account + workspace exist; the project just isn't attached yet. Say
+      // so plainly rather than losing either half of what already happened.
+      const status = claimErr.status || 500;
+      const session = { id: ownerUser.id, name: ownerUser.name, email: ownerUser.email, role: "Owner", dept: "Management", wsId: wsId };
+      const token = jwt.sign(session, JWT_SECRET, { expiresIn: "12h" });
+      return res.status(status).json({
+        ok: false, accountCreated: true, wsId: wsId, token: token, user: session,
+        error: "your account and workspace were created, but this build could not be attached: " + claimErr.message
+      });
+    }
+
+    const session = { id: ownerUser.id, name: ownerUser.name, email: ownerUser.email, role: "Owner", dept: "Management", wsId: wsId };
+    const token = jwt.sign(session, JWT_SECRET, { expiresIn: "12h" });
+    res.json({ ok: true, wsId: wsId, token: token, user: session, editToken: editToken, expiresIn: 900, meta: project.meta || null });
+  } catch (e) {
+    if (e.status) return res.status(e.status).json({ error: e.message });
+    next(e);
+  }
+});
+
+/* =================================================================
+   SOUQI CODE — the code-generating agent (docs/CODE-AGENT-PLAN.md)
+   -----------------------------------------------------------------
+   A different product line from the site builder above it: this one
+   writes real files and runs them in an isolated Daytona sandbox,
+   not a storefront config — but it durably persists through the SAME
+   `projects.js` object the site builder uses (one `projects` Mongo
+   collection, both product lines, differentiated only by
+   `meta.kind === "code"`), so it inherits the same owner-scoped
+   security model for free: `projects.owns()` gates every read and
+   write here exactly as it does for the site builder.
+
+   Two lifetimes, deliberately not conflated:
+     - `codeBuilds` (in-memory) tracks a LIVE sandbox for the life of
+       this server process — what makes a follow-up fast (reuse, no
+       reinstall).
+     - `projects` (Mongo) durably stores full file contents per
+       revision — what makes a build survive a reload or a server
+       restart. If the sandbox is gone but the project isn't, a
+       follow-up (or just reopening the page) re-creates a sandbox and
+       re-materializes the last known files onto it before doing
+       anything new — "resume", not "start over".
+   Git commits inside the sandbox (Phase 7's literal ask) are a THIRD,
+   shorter-lived layer on top of the first — checkpoints for undo
+   within a still-alive session; they die with the sandbox exactly
+   like everything else in it, which is why they are not the
+   durability mechanism on their own.
+   ================================================================= */
+const codeAgentRuntimeReg = require("./lib/codeagent/runtime");
+const daytonaRuntimeModule = require("./lib/codeagent/runtimes/daytona-runtime"); // registers "daytona"
+const { makeTools: makeCodeAgentTools } = require("./lib/codeagent/tools");
+const { proposeWithRepair, assessPrompt } = require("./lib/codeagent/model-loop");
+const codeAgentUsage = require("./lib/codeagent/usage");
+codeAgentUsage.init({ getMasterDb });
+
+const codeBuilds = new Map(); // projectId -> { ws, runtime, tools, createdAt }
+const codeAgentLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 10, key: (req) => req.ip || "" });
+
+// The platform-wide AI_MONTHLY_BUDGET_USD (lib/ai/client.js) stops total
+// spend across BOTH product lines from running away — but it's a shared
+// pool, and that guard alone doesn't stop one visitor from spending all of
+// it before anyone else gets a turn. This caps spend per OWNER instead,
+// independently of that shared ceiling. 0 disables the check (useful for
+// local dev, matching AI_MONTHLY_BUDGET_USD's own "0 = off" convention).
+const CODEAGENT_OWNER_MONTHLY_BUDGET_USD = Number(process.env.CODEAGENT_OWNER_MONTHLY_BUDGET_USD || 1);
+
+// First build is always free and anonymous (matches the rest of the funnel
+// — no signup wall before someone has seen anything real). Editing it is
+// where the product asks for something: sign in for the first few free
+// edits, then a paid plan to keep going. Both gates apply ONLY to
+// follow-ups, never the first message.
+const CODEAGENT_FREE_EDITS = Number(process.env.CODEAGENT_FREE_EDITS || 3);
+
+/** Reads the sq_session cookie directly, scoped to this file rather than
+    anon.js's shared userOf() — that one is Authorization-header-only on
+    purpose (project-test.js's claim/publish security model depends on a
+    stray session cookie NOT counting as ownership proof). Code's own
+    sign-in gate below needs the opposite: recognize a visitor who's
+    logged in through the site's normal cookie-based flow, since code.html
+    has no reason to duplicate Bearer-token plumbing the rest of the site
+    doesn't use either. Used ONLY for the gate check, never for project
+    ownership — codeBuilds/projects.owns() keep working exactly as before. */
+function codeAgentSessionUser(req) {
+  const raw = req.headers.cookie || "";
+  const m = /(?:^|;\s*)sq_session=([^;]*)/.exec(raw);
+  if (!m) return null;
+  try {
+    const decoded = jwt.verify(decodeURIComponent(m[1]), JWT_SECRET);
+    return decoded && decoded.id ? decoded : null;
+  } catch (e) { return null; }
+}
+
+/** Only the truly-degenerate case (empty, or a couple of stray characters)
+    is worth rejecting for free — genuine vagueness ("hello", "build me
+    something cool") now gets a REAL clarifying question from
+    assessPrompt() instead of a canned message, which is strictly better
+    and is what this gate used to stand in for before that existed. */
+function promptTooVague(prompt) {
+  return prompt.length < 3;
+}
+
+// Whole-message match only, deliberately — "thanks for the great header but
+// also make the button blue" is a real change request that happens to
+// start with a pleasantry, and must NOT get caught here.
+const CODEAGENT_CHITCHAT_RE = /^(thanks?( you)?|thx|ty|cool|nice|great|awesome|perfect|good( job| one)?|ok(ay)?|sounds good|lol+|ha+h?a*|nvm|never ?mind|no(pe)?|yes|yep|yup|k|👍|🙏|❤️?)[\s.!?]*$/i;
+function isCodeAgentChitChat(message) {
+  return CODEAGENT_CHITCHAT_RE.test(message.trim());
+}
+const CODEAGENT_CHITCHAT_REPLIES = [
+  "Glad it's working! Tell me what to change whenever you're ready.",
+  "You're welcome — happy to keep going whenever you have another change.",
+  "Anytime! Just say the word if you want to tweak anything."
+];
+function codeAgentChitChatReply() {
+  return CODEAGENT_CHITCHAT_REPLIES[Math.floor(Math.random() * CODEAGENT_CHITCHAT_REPLIES.length)];
+}
+
+/** One line for the transcript — what actually happened, not a template. */
+function summariseCodeBuild(fileCount, repaired, rounds) {
+  return fileCount + (fileCount === 1 ? " file" : " files") + " written" +
+    (repaired ? ", after fixing a build error (" + rounds + " tries)" : "") + ".";
+}
+
+/** A safe, short git commit message from a free-text prompt — same escaping
+    concern as anywhere else user text reaches a shell-adjacent argument. */
+function gitSafeMessage(label) {
+  return label.slice(0, 72).replace(/["\\\n]/g, " ").trim() || "Update";
+}
+
+/** code.html's type-picker (Website/Web App/Dashboard/Mobile) — kept
+    server-side rather than baked into the client's prompt string
+    deliberately: `projects.create()` derives the project's title AND
+    slug from the raw prompt (`prompt.slice(0, 60)`), and a client-side
+    prefix like "Build this as a dashboard-style app…" landed IN that
+    slice, ahead of anything the user actually typed — found live, a
+    build of "a sales tracker" got the title "Build this as a
+    dashboard-style app with stat tiles, a chart" and a matching
+    unreadable URL. Applying the hint here, after the raw prompt is
+    already captured for storage, keeps the model instruction and the
+    human-facing title/slug from fighting over the same 60 characters.
+    Every option still produces the same one stack (React/Vite) — this
+    only ever changes what gets ASKED FOR, never what gets built. */
+const CODEAGENT_TYPE_HINT = {
+  webapp: " Build it as an interactive web app (meaningful state, more than one view or section as needed), not a static marketing page.",
+  dashboard: " Build it as a dashboard-style app with stat tiles, a chart or table, and realistic example data.",
+  portfolio: " Build it as a personal portfolio site with a projects/work grid, short case-study blurbs, and an about section.",
+  mobile: " Build it as a mobile-optimized, single-column, touch-friendly layout that feels great on a phone screen."
+};
+
+/**
+ * POST /api/codeagent/build
+ * Body: { prompt, projectId? }   SSE only.
+ *
+ * No projectId -> a brand new project. With projectId -> a follow-up:
+ * reuses the live sandbox if this process still has one, otherwise spins
+ * up a fresh sandbox and re-materializes the project's last known files
+ * onto it first (a resume, transparent to the caller — same event shape
+ * either way). There is no persisted model conversation (see file
+ * header) — a follow-up is seeded with whatever is CURRENTLY on disk
+ * plus the new request, so the model re-orients from real state each
+ * turn rather than from memory of the first message.
+ */
+app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
+  if (!wantsStream(req)) return res.status(400).json({ error: "this endpoint only supports SSE (Accept: text/event-stream)" });
+  const prompt = String((req.body && req.body.prompt) || "").trim();
+
+  // MUST run before sseOpen(): ownerOf() sets the sq_anon cookie the first
+  // time a visitor is seen, which needs res.setHeader — writeHead (inside
+  // sseOpen) commits the response headers immediately, and calling it
+  // after that throws ERR_HTTP_HEADERS_SENT. Found live: that throw came
+  // from OUTSIDE this handler's own try/catch, as an unhandled rejection —
+  // which crashed the entire Node process, not just this one request, on
+  // literally the first anonymous visitor. Same ordering the working
+  // POST /api/projects above already uses.
+  const owner = anon.ownerOf(req, res);
+
+  sseOpen(res);
+  if (prompt.length > 2000) {
+    sseFrame(res, "error", { error: "prompt is too long" });
+    return res.end();
+  }
+  if (promptTooVague(prompt)) {
+    sseFrame(res, "error", { error: "Tell me a bit more about what to build — e.g. \"a landing page for a coffee shop\" or \"a todo app with categories\"." });
+    return res.end();
+  }
+
+  const existingKey = String((req.body && req.body.projectId) || "");
+  let project = null;
+  if (existingKey) {
+    project = await resolveProject(existingKey, owner);
+    if (!project) { sseFrame(res, "error", { error: "project not found" }); return res.end(); }
+    if (!projects.owns(project, owner)) { sseFrame(res, "error", { error: "not your project" }); return res.end(); }
+  }
+  const isFollowUp = !!project; // fixed at request start — independent of whether the sandbox turns out to still be alive below
+
+  // A follow-up that's just conversational ("thanks!", "nice", "lol") is
+  // not a change request — running it through proposeWithRepair would
+  // waste a full build cycle on a model trying to interpret "thanks" as
+  // an edit. Deterministic and cheap on purpose: unlike a first prompt's
+  // near-infinite phrasing space, an acknowledgment is a small, closed
+  // set of very short, common phrases — a model call here would be
+  // slower AND less reliable than just matching it.
+  if (isFollowUp && isCodeAgentChitChat(prompt)) {
+    sseFrame(res, "chitchat", { reply: codeAgentChitChatReply() });
+    sseFrame(res, "done", {});
+    return res.end();
+  }
+
+  // Edit gate: the first build stays free and anonymous, exactly like
+  // today — this only applies to a follow-up (an actual edit request).
+  // Two steps, checked before any sandbox/model cost is incurred:
+  //  1. Must be signed in at all — an anonymous cookie can build once but
+  //     not iterate indefinitely for free forever.
+  //  2. Once signed in, CODEAGENT_FREE_EDITS follow-ups are free; beyond
+  //     that, their workspace needs a paid plan. "Workspace" because every
+  //     account in this system is one (see /auth/login) — there is no
+  //     separate personal-account concept to check a plan against.
+  if (isFollowUp) {
+    const sessionUser = codeAgentSessionUser(req);
+    if (!sessionUser) {
+      sseFrame(res, "authRequired", {
+        message: "Sign in (it's free) to keep editing this build.",
+        loginUrl: "/login", signupUrl: "/signup"
+      });
+      sseFrame(res, "done", {});
+      return res.end();
+    }
+    const priorTurns = await projects.listTurns(project.id);
+    const editsUsed = Math.max(0, priorTurns.filter((t) => t.role === "user").length - 1);
+    if (editsUsed >= CODEAGENT_FREE_EDITS) {
+      const masterDbForPlan = getMasterDb();
+      let plan = "free";
+      if (sessionUser && sessionUser.wsId && masterDbForPlan) {
+        const ws = await masterDbForPlan.collection("workspaces").findOne({ id: sessionUser.wsId }, { projection: { plan: 1 } });
+        plan = (ws && ws.plan) || "free";
+      }
+      if (plan === "free") {
+        sseFrame(res, "subscribeRequired", {
+          message: "You've used your " + CODEAGENT_FREE_EDITS + " free edits. Subscribe to keep editing this build.",
+          pricingUrl: "/pricing"
+        });
+        sseFrame(res, "done", {});
+        return res.end();
+      }
+    }
+  }
+
+  // Per-owner spend cap (§9 "Abuse") — checked AFTER the free chit-chat
+  // path (that one costs nothing) but before assessPrompt/proposeWithRepair
+  // (both real model calls), and for both a fresh build and a follow-up —
+  // a follow-up is exactly as billable as a first build. This is
+  // independent of AI_MONTHLY_BUDGET_USD's own check inside lib/ai/client.js:
+  // that one protects the whole platform's shared pool from running away in
+  // aggregate; this one stops a single owner from being the reason it does.
+  if (CODEAGENT_OWNER_MONTHLY_BUDGET_USD > 0) {
+    const spent = await codeAgentUsage.monthSpend(owner);
+    if (spent >= CODEAGENT_OWNER_MONTHLY_BUDGET_USD) {
+      sseFrame(res, "error", { error: "You've used this month's free build budget ($" + CODEAGENT_OWNER_MONTHLY_BUDGET_USD.toFixed(2) + "). It resets next month." });
+      sseFrame(res, "done", {});
+      return res.end();
+    }
+  }
+
+  // Ask, don't guess — only for a FRESH build. A follow-up already has an
+  // established project; re-litigating "is this clear enough" on every
+  // small change would be an annoying tax on someone already mid-build,
+  // and there's real context (the current files) a follow-up can lean on
+  // that a first prompt doesn't have. No sandbox, no project, no cost
+  // beyond one cheap model call for a question nobody asked to see built.
+  if (!isFollowUp) {
+    const assessment = await assessPrompt(prompt);
+    if (!assessment.clear) {
+      sseFrame(res, "needsAnswer", { reply: assessment.reply });
+      sseFrame(res, "done", {});
+      return res.end();
+    }
+  }
+
+  // A registry entry existing is NOT the same claim as the sandbox being
+  // alive — Daytona's own autoStopInterval can kill it out from under this
+  // process at any time, and nothing notifies `codeBuilds` when that
+  // happens (found live: it silently killed a real follow-up with "not
+  // found: sandbox ... has been deleted" instead of resuming). A cheap
+  // health check here is what makes "resume" trigger for the case that
+  // actually matters — the ordinary auto-stop, not just a server restart.
+  let live = project ? codeBuilds.get(project.id) : null;
+  if (live) {
+    try {
+      const health = await live.runtime.run(live.ws, ["echo", "ok"], 5000);
+      if (health.code !== 0) live = null;
+    } catch (e) { live = null; }
+    if (!live) codeBuilds.delete(project.id);
+  }
+
+  const runtime = codeAgentRuntimeReg.createRuntime("daytona");
+  let ws = null, tools = null;
+  const ownsSandbox = !live; // only the creator destroys it on failure — a follow-up must not tear down a build the user is still looking at
+
+  try {
+    if (live) {
+      ws = live.ws; tools = live.tools;
+      sseFrame(res, "stage", { id: "sandbox", state: "done", detail: "Using your existing sandbox" });
+    } else {
+      sseFrame(res, "stage", { id: "sandbox", state: "start", detail: project ? "Resuming your sandbox" : "Creating a sandbox" });
+      ws = await runtime.create();
+      tools = makeCodeAgentTools(runtime, ws);
+      sseFrame(res, "stage", { id: "sandbox", state: "done", detail: "Sandbox ready" });
+
+      sseFrame(res, "stage", { id: "install", state: "start", detail: "Installing dependencies" });
+      const install = await tools.run("npm install", 180000);
+      if (install.code !== 0) {
+        sseFrame(res, "error", { error: "could not set up the project environment" });
+        await runtime.destroy(ws);
+        return res.end();
+      }
+      await tools.run("git init", 10000);
+      await tools.run('git config user.email "agent@souqi.local"', 5000);
+      await tools.run('git config user.name "Souqi Code"', 5000);
+      sseFrame(res, "stage", { id: "install", state: "done", detail: "Dependencies installed" });
+
+      // Resume: the project has a prior revision but no live sandbox (server
+      // restarted, or the last one auto-stopped) — re-materialize its last
+      // known files onto this fresh sandbox BEFORE writing anything new, so
+      // a follow-up edits the real prior state instead of the bare scaffold.
+      if (project) {
+        const head = await projects.head(project.id);
+        const files = head && head.config && head.config.files;
+        if (files) {
+          for (const [path, content] of Object.entries(files)) await tools.write_file(path, content);
+          sseFrame(res, "stage", { id: "resume", state: "done", detail: "Restored your previous files" });
+        }
+      }
+    }
+
+    sseFrame(res, "stage", { id: "propose", state: "start", detail: project ? "Making the change" : "Writing your app" });
+    let effectivePrompt = prompt;
+    if (!project) {
+      const buildType = String((req.body && req.body.buildType) || "");
+      effectivePrompt = prompt + (CODEAGENT_TYPE_HINT[buildType] || "");
+    }
+    if (project) {
+      let currentApp = "";
+      try { currentApp = await tools.read_file("src/App.tsx"); } catch (e) { /* nothing written yet */ }
+      effectivePrompt = "The current src/App.tsx is:\n\n" + currentApp + "\n\nChange request: " + prompt;
+    }
+
+    const result = await proposeWithRepair({
+      userPrompt: effectivePrompt, tools, maxRounds: 3,
+      onRound: (r) => {
+        sseFrame(res, "stage", {
+          id: "round-" + r.round, state: "done",
+          detail: r.ok ? "Build succeeded" : ("Fixing " + r.errors.length + " issue(s)")
+        });
+      }
+    });
+
+    // Recorded regardless of outcome — a failed repair loop still spent real
+    // model tokens getting there, and both the per-owner cap above and the
+    // platform-wide one in lib/ai/client.js need the true total, not just
+    // what successful builds cost.
+    await codeAgentUsage.recordSpend(owner, result.costUsd || 0);
+    const masterDbForAudit = getMasterDb();
+    if (masterDbForAudit) {
+      await writeMasterAudit(masterDbForAudit, {
+        requestId: req.id, actor: owner.userId || owner.anonId || "anon",
+        action: "codeagent.build", entityId: project ? project.id : null,
+        summary: (result.ok ? "Build" : "Failed build") + " — $" + (result.costUsd || 0).toFixed(4),
+        meta: { costUsd: result.costUsd || 0, ok: result.ok, rounds: result.rounds, isFollowUp }
+      });
+    }
+
+    if (!result.ok) {
+      sseFrame(res, "stage", { id: "propose", state: "done", detail: "Could not finish" });
+      sseFrame(res, "error", { error: result.reason || "the agent could not produce a working build" });
+      if (ownsSandbox) await runtime.destroy(ws);
+      return res.end();
+    }
+    sseFrame(res, "stage", {
+      id: "propose", state: "done",
+      detail: result.repaired ? "Fixed it after " + result.rounds + " tries" : "Wrote it in one try"
+    });
+
+    sseFrame(res, "stage", { id: "preview", state: "start", detail: "Starting your preview" });
+    const preview = await runtime.startPreview(ws, 20000);
+    if (!preview.ok) {
+      sseFrame(res, "error", { error: "the build succeeded but the preview server did not start: " + preview.reason });
+      return res.end();
+    }
+    // The RAW Daytona URL — kept for the revision's own record, but never
+    // sent to the client (see serveCodeAgentPreview's header for why).
+    const rawPreviewUrl = await runtime.getPublicPreviewUrl(ws, daytonaRuntimeModule.PREVIEW_PORT, 1800);
+    sseFrame(res, "stage", { id: "preview", state: "done", detail: "Preview ready" });
+
+    // Checkpoint (Phase 7, §6): a commit per turn, session-scoped — this
+    // does not survive the sandbox on its own, the Mongo write below does.
+    await tools.run("git add -A", 10000);
+    await tools.run('git commit -m "' + gitSafeMessage((project ? "Follow-up: " : "Initial build: ") + prompt) + '" --allow-empty', 10000);
+
+    // Durable checkpoint: full current file content, so a reload or a dead
+    // sandbox can be answered from Mongo instead of losing the build.
+    const allFiles = await tools.list_files();
+    const fileContents = {};
+    for (const path of allFiles) fileContents[path] = await tools.read_file(path);
+    const srcFiles = allFiles.filter((f) => f.startsWith("src/"));
+
+    if (!project) {
+      const createdBuildType = String((req.body && req.body.buildType) || "website");
+      project = await projects.create({ title: prompt.slice(0, 60) || "Untitled app", prompt, meta: { kind: "code", buildType: createdBuildType }, owner });
+    }
+    await projects.addTurn(project.id, { role: "user", kind: "text", body: prompt });
+    const revision = await projects.addRevision(
+      project.id,
+      { files: fileContents, previewUrl: rawPreviewUrl, sandboxId: ws.id },
+      result.repaired ? "Fixed after " + result.rounds + " tries" : (isFollowUp ? "Follow-up" : "First build")
+    );
+    await projects.addTurn(project.id, {
+      role: "agent", kind: "result", body: summariseCodeBuild(srcFiles.length, result.repaired, result.rounds), revisionId: revision.id
+    });
+    await projects.ensureIndexes();
+    await codeAgentUsage.ensureIndexes();
+
+    codeBuilds.set(project.id, { ws, runtime, tools, createdAt: Date.now() });
+
+    sseFrame(res, "result", {
+      projectId: project.id, slug: project.slug, files: srcFiles,
+      previewUrl: "/api/codeagent/preview/" + encodeURIComponent(project.slug),
+      repaired: !!result.repaired, rounds: result.rounds, costUsd: result.costUsd || 0
+    });
+    sseFrame(res, "done", {});
+    res.end();
+  } catch (e) {
+    console.error("codeagent build error:", e.message);
+    try { sseFrame(res, "error", { error: "build failed" }); } catch (e2) { /* response may already be gone */ }
+    if (ws && ownsSandbox) { try { await runtime.destroy(ws); } catch (e2) { /* best effort */ } }
+    try { res.end(); } catch (e3) { /* already ended */ }
+  }
+});
+
+/**
+ * GET /api/codeagent/:key
+ * Replays a code project's transcript on reload — the point of Phase 7.
+ * `previewUrl` is always OUR OWN proxy path (see below), never Daytona's
+ * raw domain — `sandboxAlive` tells the caller whether that path will
+ * actually resolve right now or needs a resume first.
+ */
+app.get("/api/codeagent/:key", async (req, res, next) => {
+  try {
+    const owner = anon.ownerOf(req, res);
+    const project = await resolveProject(req.params.key, owner);
+    if (!project) return res.status(404).json({ error: "project not found" });
+    if (!projects.owns(project, owner)) return res.status(403).json({ error: "not your project" });
+
+    const [turns, revision] = await Promise.all([projects.listTurns(project.id), projects.head(project.id)]);
+    const live = codeBuilds.get(project.id);
+    let sandboxAlive = false;
+    if (live) {
+      try {
+        await live.runtime.getPublicPreviewUrl(live.ws, daytonaRuntimeModule.PREVIEW_PORT, 1800);
+        sandboxAlive = true;
+      } catch (e) { /* the sandbox died without telling this process — fall through as not-alive */ }
+    }
+
+    res.json({
+      project: { id: project.id, slug: project.slug, title: project.title, prompt: project.prompt, createdAt: project.createdAt, updatedAt: project.updatedAt },
+      turns: turns,
+      files: revision && revision.config && revision.config.files ? Object.keys(revision.config.files).filter((f) => f.startsWith("src/")) : [],
+      previewUrl: "/api/codeagent/preview/" + encodeURIComponent(project.slug), sandboxAlive: sandboxAlive
+    });
+  } catch (e) { next(e); }
+});
+
+/**
+ * GET /api/codeagent/preview/:key(/*)
+ * A same-origin reverse proxy onto the sandbox's signed Daytona preview
+ * URL — the actual fix for two real problems found live, not a
+ * workaround for either:
+ *
+ *   1. Embedding Daytona's raw *.daytonaproxy01.eu domain directly in an
+ *      iframe got silently blocked by local security software treating
+ *      an unfamiliar domain as suspicious ("This content is blocked.").
+ *      Same-origin content the visitor is already using isn't unfamiliar
+ *      to anything.
+ *   2. The signed preview URL never has to reach the browser at all now
+ *      — this process fetches it server-side and streams the response
+ *      back under Souqi's own origin, so a leaked/inspected iframe src
+ *      reveals nothing that grants access on its own.
+ *
+ * Owner-gated exactly like every other project read — knowing a slug is
+ * not authorisation, same rule as everywhere else this session.
+ */
+async function serveCodeAgentPreview(req, res, subPath) {
+  try {
+    const owner = anon.ownerOf(req, res);
+    const project = await resolveProject(req.params.key, owner);
+    if (!project) return res.status(404).send("Not found");
+    if (!projects.owns(project, owner)) return res.status(403).send("Forbidden");
+
+    const live = codeBuilds.get(project.id);
+    if (!live) return res.status(503).send("This preview isn't running right now — send a message to the agent and I'll pick up where this left off.");
+
+    let baseUrl;
+    try {
+      baseUrl = await live.runtime.getPublicPreviewUrl(live.ws, daytonaRuntimeModule.PREVIEW_PORT, 1800);
+    } catch (e) {
+      return res.status(503).send("This preview isn't running right now — send a message to the agent and I'll pick up where this left off.");
+    }
+
+    const qsIdx = req.url.indexOf("?");
+    const qs = qsIdx >= 0 ? req.url.slice(qsIdx) : "";
+    const targetUrl = baseUrl.replace(/\/$/, "") + "/" + subPath + qs;
+
+    const upstream = await fetch(targetUrl, { signal: AbortSignal.timeout(15000) });
+    const contentType = upstream.headers.get("content-type") || "application/octet-stream";
+    res.status(upstream.status);
+
+    if (contentType.indexOf("text/html") >= 0) {
+      let html = await upstream.text();
+      // Root-relative asset URLs (Vite's default output) need to resolve
+      // back through THIS proxy path, not the origin the browser thinks
+      // it's on — a <base> tag is the one-line way to redirect every
+      // relative URL on the page without parsing/rewriting each one.
+      const base = "/api/codeagent/preview/" + encodeURIComponent(req.params.key) + "/";
+      html = /<head[^>]*>/i.test(html)
+        ? html.replace(/<head([^>]*)>/i, "<head$1><base href=\"" + base + "\">")
+        : "<base href=\"" + base + "\">" + html;
+      res.setHeader("Content-Type", "text/html; charset=utf-8");
+      return res.send(html);
+    }
+
+    res.setHeader("Content-Type", contentType);
+    res.send(Buffer.from(await upstream.arrayBuffer()));
+  } catch (e) {
+    console.error("codeagent preview proxy error:", e.message);
+    res.status(502).send("Preview unavailable");
+  }
+}
+app.get("/api/codeagent/preview/:key", (req, res) => serveCodeAgentPreview(req, res, ""));
+app.get("/api/codeagent/preview/:key/*", (req, res) => serveCodeAgentPreview(req, res, req.params[0]));
+
+// Total base64 payload kept comfortably under Mongo's 16MB document cap —
+// dist/ is model-written text plus whatever assets it references, and
+// nothing here bounds what the model could reference, so this is a real
+// guard, not a formality.
+const PUBLISH_MAX_BYTES = 12 * 1024 * 1024;
+
+/**
+ * POST /api/codeagent/:key/publish
+ * Builds the project's current files to a static dist/ and stores it
+ * directly on the project doc (Phase 8, scoped down: reuse this server as
+ * the "CDN" rather than standing up a new object-storage account before
+ * one is needed — see docs/CODE-AGENT-PLAN.md §7). Reuses the exact
+ * live-check/resume dance POST /build already does, since publishing an
+ * idle project needs the same "sandbox may be gone" handling a follow-up
+ * does. Once published the site is served by servePublishedSite() below
+ * with NO sandbox involved — the whole point of Phase 8.
+ */
+app.post("/api/codeagent/:key/publish", codeAgentLimiter, async (req, res, next) => {
+  // `registered` (not just ownsSandbox) is what gates cleanup-on-error: once
+  // codeBuilds.set() below runs, the sandbox is a legitimate live resource a
+  // later, unrelated failure (e.g. the Mongo write) must NOT tear down —
+  // that would kill a perfectly good sandbox out from under the user for a
+  // problem that has nothing to do with it.
+  let ws = null, runtime = null, ownsSandbox = false, registered = false;
+  try {
+    const owner = anon.ownerOf(req, res);
+    const project = await resolveProject(req.params.key, owner);
+    if (!project) return res.status(404).json({ error: "project not found" });
+    if (!projects.owns(project, owner)) return res.status(403).json({ error: "not your project" });
+
+    let live = codeBuilds.get(project.id);
+    if (live) {
+      try {
+        const health = await live.runtime.run(live.ws, ["echo", "ok"], 5000);
+        if (health.code !== 0) live = null;
+      } catch (e) { live = null; }
+      if (!live) codeBuilds.delete(project.id);
+    }
+
+    runtime = codeAgentRuntimeReg.createRuntime("daytona");
+    let tools;
+    ownsSandbox = !live;
+    if (live) {
+      ws = live.ws; tools = live.tools;
+    } else {
+      ws = await runtime.create();
+      tools = makeCodeAgentTools(runtime, ws);
+      const install = await tools.run("npm install", 180000);
+      if (install.code !== 0) return res.status(502).json({ error: "could not set up the project environment" });
+      await tools.run("git init", 10000);
+      await tools.run('git config user.email "agent@souqi.local"', 5000);
+      await tools.run('git config user.name "Souqi Code"', 5000);
+
+      const head = await projects.head(project.id);
+      const files = head && head.config && head.config.files;
+      if (!files) return res.status(409).json({ error: "nothing has been built yet" });
+      for (const [path, content] of Object.entries(files)) await tools.write_file(path, content);
+
+      codeBuilds.set(project.id, { ws, runtime, tools, createdAt: Date.now() });
+      registered = true;
+    }
+
+    const build = await tools.build(180000);
+    if (!build.ok) {
+      const first = build.errors && build.errors[0];
+      return res.status(502).json({ error: "the current build has an error and can't be published" + (first ? ": " + first.message : "") });
+    }
+
+    const distFiles = await daytonaRuntimeModule.readDist(ws);
+    if (!distFiles.length) return res.status(502).json({ error: "build produced no output" });
+    const totalBytes = distFiles.reduce((n, f) => n + f.size, 0);
+    if (totalBytes > PUBLISH_MAX_BYTES) {
+      return res.status(413).json({ error: "this app's build is too large to publish (" + (totalBytes / 1024 / 1024).toFixed(1) + " MB) — trim large assets and try again" });
+    }
+
+    const publicSlug = (project.published && project.published.publicSlug) || await projects.uniquePublicSlug(project.slug);
+    const filesMap = {};
+    for (const f of distFiles) filesMap[f.path] = f.base64;
+
+    await projects.patch(project.id, {
+      published: { publicSlug, files: filesMap, publishedAt: new Date().toISOString(), revisionId: project.headRevision }
+    });
+    await projects.ensureIndexes();
+
+    res.json({ ok: true, url: "/s/" + publicSlug + "/" });
+  } catch (e) {
+    console.error("codeagent publish error:", e.message);
+    if (ws && ownsSandbox && !registered) { try { await runtime.destroy(ws); } catch (e2) { /* best effort */ } }
+    next(e);
+  }
+});
+
+/**
+ * POST /api/codeagent/:key/domain
+ * Body: { domain: "app.yourbrand.com" | "" }
+ * Set or clear a custom domain for an already-published project. Same
+ * trust model as Sites' /api/ws/:id/domain (db-adapters.js's
+ * findWorkspaceByDomain) — the stored field is the only check, no separate
+ * verification flow, see projects.js's findByCustomDomain for why that's
+ * fine: setting it is already owner-gated, and a domain not actually
+ * pointed at Souqi's DNS sends this server no traffic regardless of what's
+ * stored here.
+ */
+app.post("/api/codeagent/:key/domain", codeAgentLimiter, async (req, res, next) => {
+  try {
+    const owner = anon.ownerOf(req, res);
+    const project = await resolveProject(req.params.key, owner);
+    if (!project) return res.status(404).json({ error: "project not found" });
+    if (!projects.owns(project, owner)) return res.status(403).json({ error: "not your project" });
+    if (!project.published) return res.status(409).json({ error: "publish this project first, then connect a domain" });
+
+    const raw = String((req.body && req.body.domain) || "").toLowerCase().trim();
+    if (!raw) {
+      await projects.patch(project.id, { published: Object.assign({}, project.published, { customDomain: null }) });
+      return res.json({ ok: true, domain: null });
+    }
+    if (!/^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$/.test(raw)) {
+      return res.status(400).json({ error: "that doesn't look like a valid domain (e.g. app.yourbrand.com)" });
+    }
+    const clash = await projects.findByCustomDomain(raw);
+    if (clash && clash.id !== project.id) {
+      return res.status(409).json({ error: "that domain is already connected to a different project" });
+    }
+    await projects.patch(project.id, { published: Object.assign({}, project.published, { customDomain: raw }) });
+    await projects.ensureIndexes();
+    res.json({ ok: true, domain: raw, target: process.env.PLATFORM_HOST || "app.souqi.site" });
+  } catch (e) { next(e); }
+});
+
+/** GET /api/codeagent/:key/domain/status — a live DNS check, informational
+    only (not a security gate, see above) — tells the UI whether the
+    domain's DNS has actually started pointing at Souqi yet, for a real
+    "waiting for DNS" vs "live" state instead of a static instructions page. */
+app.get("/api/codeagent/:key/domain/status", async (req, res, next) => {
+  try {
+    const owner = anon.ownerOf(req, res);
+    const project = await resolveProject(req.params.key, owner);
+    if (!project) return res.status(404).json({ error: "project not found" });
+    if (!projects.owns(project, owner)) return res.status(403).json({ error: "not your project" });
+    const domain = project.published && project.published.customDomain;
+    if (!domain) return res.json({ domain: null, live: false });
+
+    const target = (process.env.PLATFORM_HOST || "app.souqi.site").toLowerCase();
+    let live = false;
+    try {
+      const cnames = await dns.promises.resolveCname(domain).catch(() => []);
+      live = cnames.some((r) => r.toLowerCase().replace(/\.$/, "") === target);
+      if (!live) {
+        // Some DNS providers flatten a CNAME-at-apex into A records instead
+        // — compare resolved IPs so a correctly-configured apex domain
+        // doesn't read as "not live" just for not literally being a CNAME.
+        const [domainIps, targetIps] = await Promise.all([
+          dns.promises.resolve4(domain).catch(() => []),
+          dns.promises.resolve4(target).catch(() => [])
+        ]);
+        live = domainIps.length > 0 && targetIps.some((ip) => domainIps.includes(ip));
+      }
+    } catch (e) { live = false; }
+    res.json({ domain, live, target });
+  } catch (e) { next(e); }
+});
+
+/**
+ * GET /s/:slug(/*) — a published Souqi Code app: static files served
+ * straight from Mongo, no sandbox involved and no owner check at all —
+ * this is the PUBLISHED artifact, same public trust model as Sites'
+ * storefront pages (§7: "the published site is static, permanent, and
+ * costs ~nothing"). Unknown paths fall back to index.html, matching how
+ * a client-side-routed SPA is expected to be served.
+ */
+const PUBLISHED_MIME = {
+  ".html": "text/html; charset=utf-8", ".js": "application/javascript; charset=utf-8",
+  ".mjs": "application/javascript; charset=utf-8", ".css": "text/css; charset=utf-8",
+  ".json": "application/json; charset=utf-8", ".svg": "image/svg+xml", ".png": "image/png",
+  ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp", ".gif": "image/gif",
+  ".ico": "image/x-icon", ".woff": "font/woff", ".woff2": "font/woff2", ".ttf": "font/ttf",
+  ".map": "application/json; charset=utf-8", ".txt": "text/plain; charset=utf-8",
+  // Every generated app is now a PWA (vite-plugin-pwa in the scaffold) — a
+  // published site needs the correct manifest MIME or "Add to Home Screen"
+  // silently fails to detect it as installable in some browsers.
+  ".webmanifest": "application/manifest+json"
+};
+function mimeForPath(p) {
+  const dot = p.lastIndexOf(".");
+  return (dot >= 0 && PUBLISHED_MIME[p.slice(dot).toLowerCase()]) || "application/octet-stream";
+}
+async function servePublishedSite(req, res, subPath, projectOverride) {
+  try {
+    const project = projectOverride || await projects.findPublished(req.params.slug);
+    const files = project && project.published && project.published.files;
+    if (!files) return res.status(404).send("Not found");
+
+    let key = subPath || "index.html";
+    if (!Object.prototype.hasOwnProperty.call(files, key)) key = "index.html";
+    if (!Object.prototype.hasOwnProperty.call(files, key)) return res.status(404).send("Not found");
+
+    res.setHeader("Content-Type", mimeForPath(key));
+    res.setHeader("Cache-Control", "public, max-age=300");
+    res.send(Buffer.from(files[key], "base64"));
+  } catch (e) {
+    console.error("published site serve error:", e.message);
+    res.status(500).send("Server error");
+  }
+}
+app.get("/s/:slug", (req, res) => servePublishedSite(req, res, ""));
+app.get("/s/:slug/*", (req, res) => servePublishedSite(req, res, req.params[0]));
+
+/** GET /api/agent/draft/:id — read a draft back (reload, share-preview). */
+app.get("/api/agent/draft/:id", async (req, res, next) => {
+  try {
+    const id = String(req.params.id || "");
+    if (!/^dr_[A-Za-z0-9_-]{6,40}$/.test(id)) return res.status(400).json({ error: "bad draft id" });
+    const draft = await loadDraft(id);
+    if (!draft) return res.status(404).json({ error: "draft not found or expired" });
+    res.json({ draftId: draft.id, prompt: draft.prompt, meta: draft.meta, config: draft.config });
+  } catch (e) {
+    next(e);
   }
 });
 

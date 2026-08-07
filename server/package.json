@@ -12,11 +12,33 @@
     "test": "node unit-test.js",
     "test:isolation": "node isolation-test.js",
     "lint": "eslint . --ext .js --max-warnings 50",
-    "ci": "npm run lint && npm test && npm run test:isolation && npm run smoke-test"
+    "gen:schema": "node ../scripts/gen-block-schema.js",
+    "check:schema": "node ../scripts/gen-block-schema.js --check",
+    "train:nlu": "node ../scripts/train-classifier.js",
+    "check:nlu": "node ../scripts/train-classifier.js --check",
+    "eval:nlu": "node ../scripts/train-classifier.js --eval",
+    "test:agent": "node agent-test.js",
+    "test:nlu": "node nlu-test.js",
+    "test:claim": "node claim-test.js",
+    "test:project": "node project-test.js",
+    "test:sse": "node sse-test.js",
+    "test:refine": "node refine-test.js",
+    "test:microclaim": "node microclaim-test.js",
+    "codeagent:phase1": "node codeagent-phase1-demo.js",
+    "codeagent:phase2": "node codeagent-phase2-demo.js",
+    "codeagent:phase3": "node codeagent-phase3-demo.js",
+    "codeagent:phase4": "node codeagent-phase4-demo.js",
+    "codeagent:phase5": "node codeagent-phase5-demo.js",
+    "test:daytona-runtime": "node daytona-runtime-test.js",
+    "test:ai-client": "node ai-client-test.js",
+    "test:model-loop": "node model-loop-test.js",
+    "ci": "npm run check:schema && npm run check:nlu && npm run lint && npm test && npm run test:nlu && npm run test:agent && npm run test:claim && npm run test:project && npm run test:sse && npm run test:refine && npm run test:microclaim && npm run test:isolation && npm run smoke-test"
   },
   "dependencies": {
+    "@daytona/sdk": "^0.203.0",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
+    "cross-spawn": "^7.0.6",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
     "jsonwebtoken": "^9.0.2",
@@ -25,6 +47,7 @@
   },
   "devDependencies": {
     "eslint": "^8.57.0",
-    "mongodb-memory-server": "^11.2.0"
+    "mongodb-memory-server": "^11.2.0",
+    "puppeteer": "^25.5.0"
   }
 }
