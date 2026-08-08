@@ -101,10 +101,21 @@
   .ag-log::-webkit-scrollbar-thumb{background:rgba(18,32,46,.14);border-radius:8px}
   .ag-log::-webkit-scrollbar-thumb:hover{background:rgba(18,32,46,.24)}
 
+  /* The user's own message gets a distinct entrance from the agent's:
+     it comes from the composer, so it rises and settles with a slight
+     overshoot, while agent rows (agIn) drift in more quietly. Motion
+     direction carries authorship without needing a label. */
   .ag-user{align-self:flex-end;max-width:min(86%,560px);margin:18px 0 2px;text-align:right}
   .ag-user .bubble{display:inline-block;background:var(--tint-2);border:1px solid #cbe7f6;color:var(--ink);
-    border-radius:16px;padding:12px 16px;font-size:.98rem;line-height:1.5;text-align:left;white-space:pre-wrap}
-  .ag-user .when{display:block;font-size:.76rem;color:var(--mut);margin-top:6px}
+    border-radius:16px;padding:12px 16px;font-size:.98rem;line-height:1.5;text-align:left;white-space:pre-wrap;
+    transform-origin:100% 100%;animation:agSent .42s var(--ease) both}
+  .ag-user .when{display:block;font-size:.76rem;color:var(--mut);margin-top:6px;
+    opacity:0;animation:agIn .3s var(--ease) .16s forwards}
+  @keyframes agSent{
+    from{opacity:0;transform:translateY(14px) scale(.94)}
+    60%{opacity:1;transform:translateY(-2px) scale(1.01)}
+    to{opacity:1;transform:none}
+  }
 
   .ag-think{display:flex;align-items:center;gap:11px;padding:11px 2px;font-size:.96rem;color:var(--ink-2);
     opacity:0;animation:agIn .35s var(--ease) forwards}
@@ -113,8 +124,23 @@
   .ag-think .ic svg{width:13px;height:13px}
   .ag-think.busy .ic{border-color:var(--accent);border-top-color:transparent;animation:spin .8s linear infinite}
   .ag-think.busy .ic svg{display:none}
-  @keyframes agIn{to{opacity:1}}
+  /* Was opacity-only, which read as things blinking into place. A short
+     rise gives each row a direction without becoming a slideshow —
+     kept to 6px and .38s so a long stage list still feels immediate. */
+  @keyframes agIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
   @keyframes spin{to{transform:rotate(360deg)}}
+  /* The checkmark that replaces the spinner when a stage completes —
+     a small pop so finishing reads as an event, not a swap. */
+  @keyframes agTick{from{transform:scale(.5);opacity:0}60%{transform:scale(1.15)}to{transform:none;opacity:1}}
+  .ag-think:not(.busy) .ic svg{animation:agTick .3s var(--ease) both}
+  /* Respect a system-level reduced-motion preference: keep the fades,
+     drop the travel and the pop. */
+  @media (prefers-reduced-motion:reduce){
+    .ag-user .bubble,.ag-think,.ag-say,.ag-thinking,.ag-card{animation-duration:.01ms!important}
+    .ag-think:not(.busy) .ic svg{animation:none}
+    @keyframes agIn{from{opacity:0}to{opacity:1}}
+    @keyframes agSent{from{opacity:0}to{opacity:1}}
+  }
 
   .ag-say{padding:6px 2px 14px 35px;font-size:1rem;line-height:1.62;color:var(--ink);opacity:0;animation:agIn .35s var(--ease) forwards}
   /* Per-word reveal for the agent's own text (see revealWords()) — .ag-say
@@ -190,7 +216,23 @@
   .ag-send svg{width:15px;height:15px}
   .ag-send.live{background:var(--accent)}
   .ag-send.live:hover{background:var(--accent-2);transform:translateY(-1px)}
+  .ag-send.live:active{transform:scale(.9)}
   .ag-send:disabled{cursor:not-allowed}
+  /* Launch: the arrow flies up and out, then the button settles back —
+     the send has visibly LEFT rather than just greying out. Driven by a
+     class the submit handler adds and self-removes on animationend. */
+  .ag-send.sent svg{animation:agLaunch .45s var(--ease) both}
+  @keyframes agLaunch{
+    0%{transform:none;opacity:1}
+    45%{transform:translateY(-16px);opacity:0}
+    46%{transform:translateY(10px);opacity:0}
+    to{transform:none;opacity:1}
+  }
+  /* The composer briefly relaxes its focus ring as the message leaves. */
+  .ag-box.sending{border-color:var(--accent);box-shadow:0 0 0 3px rgba(26,166,223,.12)}
+  @media (prefers-reduced-motion:reduce){
+    .ag-send.sent svg{animation:none}
+  }
 
   .ag-empty{padding:40px 20px 32px;color:var(--ink-2);text-align:center}
   .ag-empty h2{font-family:var(--body);font-weight:500;font-size:1.1rem;color:var(--ink);letter-spacing:0;margin-bottom:32px}
@@ -1498,6 +1540,21 @@
     // — intercepted here, before the input even clears, so a typo'd draft
     // isn't lost and the ask (blur + "sign up to keep editing") is instant.
     if (projectId && !signedIn) { lockForEdit(); return; }
+
+    // Send feedback: the arrow launches and the box flashes its focus
+    // ring. Both self-clean — the class is removed on animationend
+    // (once:true) rather than a setTimeout that could outlive the
+    // element or fire after a new send started.
+    const box = agForm.querySelector(".ag-box");
+    agSend.classList.remove("sent");
+    void agSend.offsetWidth; // restart the animation if sending twice quickly
+    agSend.classList.add("sent");
+    agSend.addEventListener("animationend", () => agSend.classList.remove("sent"), { once: true });
+    if (box) {
+      box.classList.add("sending");
+      setTimeout(() => box.classList.remove("sending"), 260);
+    }
+
     agInput.value = ""; agInput.style.height = "auto"; agSend.disabled = true;
     runTurn(v);
   });

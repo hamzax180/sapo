@@ -8,8 +8,16 @@
      x-workspace-db-type (mongodb / postgres / neon)
      x-workspace-db-uri
    ================================================================= */
-require("dotenv").config();
 const path = require("path");
+// Explicit path, not the default require("dotenv").config() — that
+// resolves .env relative to process.cwd(), which silently does nothing
+// (no error, no warning) whenever this is launched from anywhere other
+// than server/ itself. Found live: DAYTONA_API_KEY IS set in
+// server/.env, but a launcher starting `node server/index.js` from the
+// repo root left process.env.DAYTONA_API_KEY undefined, and every build
+// failed at sandbox creation with "DAYTONA_API_KEY is not set" — a
+// working-directory bug wearing a missing-credentials error message.
+require("dotenv").config({ path: path.join(__dirname, ".env") });
 const crypto = require("crypto");
 const dns = require("dns");
 const express = require("express");
