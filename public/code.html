@@ -214,11 +214,20 @@
      scroll back to it once content is wider than the track (a real
      flexbox footgun). "safe" falls back to flex-start only when it would
      otherwise overflow, so five tiles centre normally and a sixth added
-     later doesn't hide "Website" behind the left edge. */
-  .ag-tiles-track{flex:0 1 auto;display:flex;justify-content:center;gap:12px;overflow-x:auto;scrollbar-width:none;scroll-behavior:smooth;padding:0 4px}
+     later doesn't hide "Website" behind the left edge.
+     Found live: the comment above was already true, but the actual
+     value here was still plain "center" — the mismatch is exactly why
+     "Website" rendered cut off at the left edge with 8 tiles.
+     max-width caps the visible strip to exactly 5 tiles (5×80 + 4×12
+     gap = 448px) regardless of the composer's own width, so the arrows
+     page through a clean set of 5 instead of showing a fractional 6th —
+     scroll-snap is what makes each arrow click land exactly on a tile
+     boundary rather than wherever a fixed pixel scroll happened to stop. */
+  .ag-tiles-track{flex:0 1 auto;max-width:448px;display:flex;justify-content:safe center;gap:12px;
+    overflow-x:auto;scrollbar-width:none;scroll-behavior:smooth;scroll-snap-type:x mandatory;padding:0 4px}
   .ag-tiles-track::-webkit-scrollbar{display:none}
   .ag-tile{flex:none;display:flex;flex-direction:column;align-items:center;gap:10px;border:0;background:none;
-    color:var(--ink-2);font-size:.82rem;font-weight:500;cursor:pointer;width:80px;transition:.15s}
+    color:var(--ink-2);font-size:.82rem;font-weight:500;cursor:pointer;width:80px;transition:.15s;scroll-snap-align:start}
   .ag-tile .ic{width:56px;height:56px;border-radius:12px;background:var(--paper-2);border:1.5px solid var(--line);
     display:grid;place-items:center;color:var(--ink-2);transition:.2s}
   .ag-tile .ic svg{width:24px;height:24px}
@@ -891,8 +900,14 @@
   });
 
   const agTilesTrack = $("agTilesTrack"), agTilesPrev = $("agTilesPrev"), agTilesNext = $("agTilesNext");
-  agTilesPrev.addEventListener("click", () => agTilesTrack.scrollBy({ left: -180, behavior: "smooth" }));
-  agTilesNext.addEventListener("click", () => agTilesTrack.scrollBy({ left: 180, behavior: "smooth" }));
+  // One full page (the track's own visible width, capped to exactly 5
+  // tiles by CSS) per click, not an arbitrary pixel amount — scroll-snap
+  // on the track then guarantees it lands on a tile boundary rather than
+  // mid-tile. Was a hardcoded 180px, which matched neither the tile
+  // width (80px) nor the gap (12px) and was why tiles rendered
+  // half-cut-off after scrolling instead of a clean next-5.
+  agTilesPrev.addEventListener("click", () => agTilesTrack.scrollBy({ left: -agTilesTrack.clientWidth, behavior: "smooth" }));
+  agTilesNext.addEventListener("click", () => agTilesTrack.scrollBy({ left: agTilesTrack.clientWidth, behavior: "smooth" }));
   // Real disabled state, not just a click handler that quietly does
   // nothing when the 5 tiles already fit (found live: on desktop they
   // never overflow, so the arrows looked broken rather than simply
