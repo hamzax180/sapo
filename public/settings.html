@@ -315,6 +315,14 @@
           <div class="kv"><div class="k">Plan</div><div class="v" id="ovPlan">—</div></div>
         </div>
       </div>
+      <!-- The by-type breakdown that used to live only in the sidebar's
+           Stats drawer. That row is hidden on phones now (everything
+           reachable from Settings is), so this is where the data lives
+           rather than being lost on a small screen. -->
+      <div class="sec" id="ovTypesSec" hidden>
+        <h3>Apps by type<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m18 15-6-6-6 6"/></svg></h3>
+        <div id="ovTypes"></div>
+      </div>
       <div class="sec">
         <h3>Owner<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m18 15-6-6-6 6"/></svg></h3>
         <p>The account this workspace belongs to.</p>
@@ -648,6 +656,28 @@
     $("ovApps").textContent = n;
     $("ovPub").textContent = pub.length;
     $("uApps").textContent = n;
+
+    // By-type breakdown, from the SAME rows already fetched rather than a
+    // second call to /api/codeagent/stats — the counts can't disagree
+    // with the totals above this way. Hidden entirely with no apps,
+    // since an empty bar chart says nothing the "0 apps built" above
+    // hasn't already said.
+    var TYPE_LABEL = { website: "Website", webapp: "Web App", dashboard: "Dashboard", portfolio: "Portfolio", mobile: "Mobile" };
+    var counts = {};
+    rows.forEach(function (p) { var t = p.buildType || "website"; counts[t] = (counts[t] || 0) + 1; });
+    var entries = Object.keys(counts).map(function (t) { return [t, counts[t]]; }).sort(function (a, b) { return b[1] - a[1]; });
+    if (entries.length) {
+      var max = Math.max.apply(null, entries.map(function (e) { return e[1]; }));
+      $("ovTypes").innerHTML = entries.map(function (e) {
+        return '<div class="srow" style="padding:7px 0">'
+          + '<span class="txt"><span class="t">' + esc(TYPE_LABEL[e[0]] || e[0]) + '</span></span>'
+          + '<span class="meter" style="width:120px"><i style="width:' + Math.max(6, e[1] / max * 100) + '%"></i></span>'
+          + '<span class="val">' + e[1] + '</span></div>';
+      }).join("");
+      $("ovTypesSec").hidden = false;
+    } else {
+      $("ovTypesSec").hidden = true;
+    }
 
     // Domains lists PUBLISHED apps only — an unpublished build has no
     // address to point a domain at yet, so offering the field would be

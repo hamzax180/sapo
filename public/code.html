@@ -617,6 +617,16 @@
     .ag-hist-tab{padding:5px 9px;font-size:.85rem;gap:10px}
     .ag-hist-tab svg{width:16px;height:16px}
     .ag-hist-gap{height:8px}
+    /* Anything reachable from Settings is dropped from the phone rail —
+       Domains and Stats have their own Settings panels (Domains, and
+       Workspace overview for the stats), and the three [data-panel] rows
+       are literally shortcuts INTO Settings, so on a small screen they're
+       duplicate height. Leaves Home, Projects, Favorites, Settings, Learn
+       and Documentation. Attribute selectors are (0,2,0), so these beat
+       .ag-hist-tab's own display:flex regardless of source order. */
+    .ag-hist-tab[data-view="domains"],
+    .ag-hist-tab[data-view="stats"],
+    .ag-hist-tab[data-panel]{display:none}
     /* The builds list would claim the space the plan block needs; the
        nav above it already links to the same thing. */
     .ag-hist-view{flex:0 1 auto;min-height:0}
@@ -663,11 +673,13 @@
   .ag-hist-new svg{width:15px;height:15px}
   .ag-hist-new:hover{transform:translateY(-1px);box-shadow:0 6px 18px -5px rgba(26,166,223,.75)}
   .ag-hist-new:active{transform:translateY(0)}
-  /* Hidden on phones: "Create something new" directly above does the same
-     thing, and one of the two is pure height on a small screen. Must sit
-     AFTER .ag-hist-new's own display:flex — an override placed earlier
-     lost on source order and the button stayed visible. */
-  @media (max-width:900px){ .ag-hist-new{display:none} }
+  /* Hidden at every width: "Create something new" at the top of the rail
+     does exactly the same thing (both go to /agent), so this was a second
+     button for one action — and it sat awkwardly between the nav and the
+     builds list. Must stay AFTER .ag-hist-new's own display:flex above:
+     same specificity, so source order is what decides, and an override
+     placed earlier did nothing at all. */
+  .ag-hist-new{display:none}
 
   /* Stats view */
   .ag-stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:14px}
