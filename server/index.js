@@ -2021,7 +2021,19 @@ const CODEAGENT_TYPE_HINT = {
   webapp: " Build it as an interactive web app (meaningful state, more than one view or section as needed), not a static marketing page.",
   dashboard: " Build it as a dashboard-style app with stat tiles, a chart or table, and realistic example data.",
   portfolio: " Build it as a personal portfolio site with a projects/work grid, short case-study blurbs, and an about section.",
-  mobile: " Build it as a mobile-optimized, single-column, touch-friendly layout that feels great on a phone screen."
+  mobile: " Build it as a mobile-optimized, single-column, touch-friendly layout that feels great on a phone screen.",
+  // Honest extensions of the same idea as the four above: every one of
+  // these still only ever produces the same React/Vite web app
+  // (docs/CODE-AGENT-PLAN.md §1) — just steered toward a different shape
+  // of ONE, same as "mobile" biases a layout without promising a native
+  // app. Deliberately NOT Replit's full type list: several of theirs
+  // (3D Game, Spreadsheet, Slides, Document) are genuinely different
+  // output formats their agent builds differently, which this one does
+  // not — offering them as selectable options here would promise a
+  // capability that doesn't exist behind it.
+  landing: " Build it as a single-page marketing landing page: a hero, a few feature/benefit sections, and a clear call to action — not a multi-page app.",
+  blog: " Build it as a blog: a post list/index and an individual post view, with realistic example posts, not lorem ipsum.",
+  ecommerce: " Build it as a storefront: a product grid, a product detail view, and a cart — with realistic example products, not a payment integration."
 };
 
 // docs/pricing.html: Free has no total-app cap (each app gets its own

@@ -1,4 +1,14 @@
-.vercel
-job_log.txt
+# Dependencies — reinstallable from package.json/package-lock.json, and
+# committing them makes every diff unreadable (a stray `git add -A`
+# stages ~4MB of vendor code).
+node_modules/
+
+# Secrets — never commit real credentials. .env.example is the tracked
+# template; .env itself holds real keys.
+.env
+.env.local
+.env.*.local
+server/.env
 
 .vercel
+job_log.txt

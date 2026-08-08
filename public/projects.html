@@ -41,29 +41,69 @@
   .btn-d:hover{background:var(--accent-2)}
 
   .wrap{max-width:1180px;margin:0 auto;padding:clamp(26px,5vw,46px) clamp(18px,4vw,40px) 80px}
-  .phead{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:28px}
-  .phead h1{font-size:clamp(1.7rem,3.5vw,2.2rem)}
-  .search{margin-left:auto;position:relative;width:min(280px,100%)}
+  .phead{display:flex;align-items:center;gap:10px;margin-bottom:20px}
+  .phead svg.ic{width:22px;height:22px;color:var(--ink)}
+  .phead h1{font-size:clamp(1.5rem,3vw,1.9rem)}
+
+  /* Filter toolbar — search + two REAL filters (status: published/private,
+     artifact type: buildType), both backed by fields the project list
+     already carries, not decorative dropdowns that do nothing. Grid/list
+     is a real second render mode for the same data, toggled below. */
+  .toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:22px}
+  .search{position:relative;width:min(260px,100%)}
   .search svg{position:absolute;left:12px;top:50%;transform:translateY(-50%);width:16px;height:16px;color:var(--mut)}
   .search input{width:100%;border:1px solid var(--line);border-radius:10px;padding:9px 12px 9px 34px;
     font:inherit;font-size:.9rem;background:var(--card);color:var(--ink)}
   .search input:focus{outline:none;border-color:var(--accent)}
+  .fsel{border:1px solid var(--line);border-radius:10px;padding:9px 12px;font:inherit;font-size:.87rem;
+    background:var(--card);color:var(--ink);cursor:pointer}
+  .fsel:focus{outline:none;border-color:var(--accent)}
+  .toolbar .sp{margin-left:auto}
+  .viewtog{display:flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--card)}
+  .viewtog button{border:0;background:none;color:var(--mut);width:36px;height:36px;display:grid;place-items:center;cursor:pointer;transition:.15s}
+  .viewtog button:hover{color:var(--ink);background:var(--paper-2)}
+  .viewtog button.on{background:var(--paper-2);color:var(--ink)}
+  .viewtog button svg{width:16px;height:16px}
+  .viewtog span{width:1px;background:var(--line)}
 
   .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px}
   .card{display:block;text-align:left;border:1px solid var(--line);background:var(--card);border-radius:16px;
     overflow:hidden;cursor:pointer;transition:.15s}
   .card:hover{border-color:#c6dbe7;box-shadow:0 8px 22px -12px rgba(11,22,38,.28);transform:translateY(-1px)}
-  .thumb{height:120px;display:flex;align-items:center;justify-content:space-between;padding:14px;font-family:var(--disp);font-weight:700;font-size:1.9rem;color:#fff}
-  .thumb .star{border:0;background:rgba(255,255,255,.22);color:#fff;width:28px;height:28px;border-radius:8px;
-    display:grid;place-items:center;cursor:pointer;opacity:.85;transition:.15s}
-  .thumb .star:hover{background:rgba(255,255,255,.34);opacity:1}
-  .thumb .star.on{color:#ffd25a}
+  /* Plain neutral thumb with the colour on a small centred tile, not a
+     solid colour field — matches Replit's card shape, where the artifact
+     preview area reads as a canvas and the type icon is just a badge on
+     it, not the card's entire personality. */
+  .thumb{height:128px;position:relative;background:var(--paper-2);display:grid;place-items:center}
+  .thumb .tile{width:44px;height:44px;border-radius:11px;display:grid;place-items:center;
+    font-family:var(--disp);font-weight:700;font-size:1.3rem;color:#fff}
+  .thumb .star{position:absolute;top:10px;right:10px;border:0;background:rgba(18,32,46,.06);color:var(--mut);
+    width:28px;height:28px;border-radius:8px;display:grid;place-items:center;cursor:pointer;transition:.15s}
+  .thumb .star:hover{background:rgba(18,32,46,.1);color:var(--ink)}
+  .thumb .star.on{color:#e0a11a}
   .thumb .star svg{width:15px;height:15px}
   .thumb .star.on svg{fill:currentColor}
   .body{padding:12px 14px 14px}
   .body .t{font-size:.94rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .body .m{display:flex;align-items:center;gap:5px;font-size:.79rem;color:var(--mut);margin-top:4px}
   .body .m svg{width:12px;height:12px;flex:none}
+
+  /* List view — same cards, laid out as rows instead of a grid */
+  .rows{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:14px;overflow:hidden;background:var(--card)}
+  .row{display:flex;align-items:center;gap:12px;padding:12px 14px;border-bottom:1px solid var(--line);cursor:pointer;transition:.15s}
+  .row:last-child{border-bottom:0}
+  .row:hover{background:var(--paper-2)}
+  .row .tile{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;flex:none;
+    font-family:var(--disp);font-weight:700;font-size:.95rem;color:#fff}
+  .row .t{flex:1;min-width:0;font-size:.9rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .row .m{display:flex;align-items:center;gap:5px;font-size:.79rem;color:var(--mut);flex:none}
+  .row .m svg{width:12px;height:12px}
+  .row .star{flex:none;border:0;background:none;color:var(--mut);width:28px;height:28px;border-radius:8px;
+    display:grid;place-items:center;cursor:pointer;transition:.15s}
+  .row .star:hover{background:rgba(18,32,46,.06);color:var(--ink)}
+  .row .star.on{color:#e0a11a}
+  .row .star svg{width:15px;height:15px}
+  .row .star.on svg{fill:currentColor}
 
   .empty{text-align:center;padding:80px 20px;color:var(--ink-2)}
   .empty h2{font-size:1.3rem;margin-bottom:8px;color:var(--ink)}
@@ -82,10 +122,36 @@
 
 <div class="wrap">
   <div class="phead">
+    <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
     <h1>Projects</h1>
+  </div>
+  <div class="toolbar">
     <div class="search">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
       <input type="search" id="q" placeholder="Search by name…" aria-label="Search projects">
+    </div>
+    <select class="fsel" id="fStatus" aria-label="Filter by status">
+      <option value="">Any status</option>
+      <option value="published">Published</option>
+      <option value="private">Private</option>
+    </select>
+    <select class="fsel" id="fType" aria-label="Filter by artifact type">
+      <option value="">Any artifact type</option>
+      <option value="website">Website</option>
+      <option value="webapp">Web App</option>
+      <option value="dashboard">Dashboard</option>
+      <option value="portfolio">Portfolio</option>
+      <option value="mobile">Mobile</option>
+    </select>
+    <span class="sp"></span>
+    <div class="viewtog" role="group" aria-label="View">
+      <button type="button" id="vGrid" class="on" aria-label="Grid view" title="Grid view">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+      </button>
+      <span></span>
+      <button type="button" id="vList" aria-label="List view" title="List view">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+      </button>
     </div>
   </div>
   <div id="body"><div class="loading">Loading…</div></div>
@@ -106,7 +172,52 @@
   }
 
   var all = [];
-  function render(list) {
+  var view = "grid";
+  var STAR = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01z"/></svg>';
+  var META_PUB = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 0 1 0 18 15 15 0 0 1 0-18z"/></svg>Published';
+  var META_PRIV = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>Private';
+
+  function currentFiltered() {
+    var q = $("q").value.trim().toLowerCase();
+    var status = $("fStatus").value, type = $("fType").value;
+    return all.filter(function (p) {
+      if (q && (p.title || "").toLowerCase().indexOf(q) < 0) return false;
+      if (status === "published" && !p.published) return false;
+      if (status === "private" && p.published) return false;
+      if (type && p.buildType !== type) return false;
+      return true;
+    });
+  }
+
+  function renderGrid(list) {
+    return '<div class="grid">' + list.map(function (p) {
+      var title = p.title || "Untitled app";
+      var color = TYPE_COLOR[p.buildType] || "#8b98a5";
+      var star = p.favorite ? "on" : "";
+      var meta = p.published ? META_PUB : META_PRIV;
+      return '<a class="card" href="/agent/' + esc(p.slug) + '">'
+        + '<span class="thumb"><span class="tile" style="background:' + color + '">' + esc(title.charAt(0).toUpperCase() || "A") + '</span>'
+        + '<button type="button" class="star ' + star + '" data-slug="' + esc(p.slug) + '" data-fav="' + (p.favorite ? "1" : "0") + '" aria-label="Favorite" onclick="event.preventDefault()">' + STAR + '</button></span>'
+        + '<span class="body"><span class="t">' + esc(title) + '</span>'
+        + '<span class="m">' + meta + ' · ' + esc(timeAgo(p.updatedAt)) + '</span></span></a>';
+    }).join("") + '</div>';
+  }
+
+  function renderRows(list) {
+    return '<div class="rows">' + list.map(function (p) {
+      var title = p.title || "Untitled app";
+      var color = TYPE_COLOR[p.buildType] || "#8b98a5";
+      var star = p.favorite ? "on" : "";
+      var meta = p.published ? META_PUB : META_PRIV;
+      return '<a class="row" href="/agent/' + esc(p.slug) + '">'
+        + '<span class="tile" style="background:' + color + '">' + esc(title.charAt(0).toUpperCase() || "A") + '</span>'
+        + '<span class="t">' + esc(title) + '</span>'
+        + '<span class="m">' + meta + ' · ' + esc(timeAgo(p.updatedAt)) + '</span>'
+        + '<button type="button" class="star ' + star + '" data-slug="' + esc(p.slug) + '" data-fav="' + (p.favorite ? "1" : "0") + '" aria-label="Favorite" onclick="event.preventDefault()">' + STAR + '</button></a>';
+    }).join("") + '</div>';
+  }
+
+  function render() {
     var body = $("body");
     if (!all.length) {
       body.innerHTML = '<div class="empty"><h2>Nothing built yet</h2>'
@@ -114,37 +225,26 @@
         + '<a class="btn-d" href="/agent">Start building</a></div>';
       return;
     }
+    var list = currentFiltered();
     if (!list.length) {
-      body.innerHTML = '<div class="empty"><h2>No matches</h2><p>Try a different search.</p></div>';
+      body.innerHTML = '<div class="empty"><h2>No matches</h2><p>Try a different search or filter.</p></div>';
       return;
     }
-    body.innerHTML = '<div class="grid">' + list.map(function (p) {
-      var title = p.title || "Untitled app";
-      var color = TYPE_COLOR[p.buildType] || "#8b98a5";
-      var star = p.favorite ? "on" : "";
-      var meta = p.published
-        ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 0 1 0 18 15 15 0 0 1 0-18z"/></svg>Published'
-        : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>Private';
-      return '<a class="card" href="/agent/' + esc(p.slug) + '">'
-        + '<span class="thumb" style="background:' + color + '">' + esc(title.charAt(0).toUpperCase() || "A")
-        + '<button type="button" class="star ' + star + '" data-slug="' + esc(p.slug) + '" data-fav="' + (p.favorite ? "1" : "0") + '" aria-label="Favorite" onclick="event.preventDefault()">'
-        + '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01z"/></svg></button></span>'
-        + '<span class="body"><span class="t">' + esc(title) + '</span>'
-        + '<span class="m">' + meta + ' · ' + esc(timeAgo(p.updatedAt)) + '</span></span></a>';
-    }).join("") + '</div>';
+    body.innerHTML = view === "list" ? renderRows(list) : renderGrid(list);
   }
 
   fetch("/api/projects?kind=code&limit=200").then(function (r) { return r.json(); }).then(function (d) {
     all = d.projects || [];
-    render(all);
+    render();
   }).catch(function () {
     $("body").innerHTML = '<div class="empty"><h2>Couldn\'t load your projects</h2><p>Try reloading the page.</p></div>';
   });
 
-  $("q").addEventListener("input", function () {
-    var q = $("q").value.trim().toLowerCase();
-    render(!q ? all : all.filter(function (p) { return (p.title || "").toLowerCase().indexOf(q) >= 0; }));
-  });
+  $("q").addEventListener("input", render);
+  $("fStatus").addEventListener("change", render);
+  $("fType").addEventListener("change", render);
+  $("vGrid").addEventListener("click", function () { view = "grid"; $("vGrid").classList.add("on"); $("vList").classList.remove("on"); render(); });
+  $("vList").addEventListener("click", function () { view = "list"; $("vList").classList.add("on"); $("vGrid").classList.remove("on"); render(); });
 
   document.addEventListener("click", function (e) {
     var star = e.target.closest(".star"); if (!star) return;

@@ -9,16 +9,16 @@
     }
   },
   "rewrites": [
-    { "source": "/", "destination": "/home.html" },
-    { "source": "/agent", "destination": "/code.html" },
-    { "source": "/agent/:slug", "destination": "/code.html" },
-    { "source": "/build", "destination": "/home.html" },
-    { "source": "/settings", "destination": "/settings.html" },
-    { "source": "/projects", "destination": "/projects.html" },
-    { "source": "/portal/:path*", "destination": "/portal.html" },
+    { "source": "/", "destination": "/home" },
+    { "source": "/agent", "destination": "/code" },
+    { "source": "/agent/:slug", "destination": "/code" },
+    { "source": "/build", "destination": "/home" },
+    { "source": "/settings", "destination": "/settings" },
+    { "source": "/projects", "destination": "/projects" },
+    { "source": "/portal/:path*", "destination": "/portal" },
 
-    { "source": "/api/:path*", "destination": "/api/index.js" },
-    { "source": "/auth/:path*", "destination": "/api/index.js" },
-    { "source": "/s/:path*", "destination": "/api/index.js" }
+    { "source": "/api/:path*", "destination": "/api/index" },
+    { "source": "/auth/:path*", "destination": "/api/index" },
+    { "source": "/s/:path*", "destination": "/api/index" }
   ]
 }

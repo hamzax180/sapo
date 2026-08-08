@@ -67,7 +67,7 @@
      460px column is already under the 720px cap. */
   .ag-head,.ag-log,.ag-composer,.ag-newchat-extras{width:100%;max-width:720px;align-self:center}
   .ag-split.has-preview .ag{flex:0 0 clamp(340px,34vw,460px)}
-  .ag-head{display:flex;align-items:center;gap:10px;padding:4px 2px 18px;border-bottom:1px solid var(--line);margin-bottom:22px}
+  .ag-head{display:none}
   .ag-head .mark{width:26px;height:26px;border-radius:7px;background:var(--accent);display:grid;place-items:center}
   .ag-head .mark svg{width:15px;height:15px;color:#fff}
   .ag-head b{font-family:var(--disp);font-weight:600;font-size:1.05rem;letter-spacing:-.02em}
@@ -79,6 +79,21 @@
      lets it actually shrink inside the flex column instead of pushing the
      composer off the bottom. */
   .ag-log{flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:4px;padding-bottom:20px}
+  /* Scoped to :has(#agEmptyState) specifically — that placeholder exists
+     ONLY before the first message (clearEmpty() removes it the instant
+     one is sent), so this only ever centers the "what do you want to
+     make?" greeting, never a real conversation, which should read
+     top-down like any normal chat log, not float in the middle. */
+  /* safe center, not plain center — the same footgun the tile-scroll
+     arrows were built to avoid (see .ag-tiles-track above), hit for real
+     here: once "Your recent Projects" has actual cards, the whole
+     greeting+composer+extras block is taller than .ag-log's own box, and
+     plain center clips the TOP (the greeting, the header context) off
+     the scrollable range with no way to scroll up to it — found live,
+     "the header isn't showing" was this exact bug. safe center keeps the
+     centering when everything fits and falls back to flex-start (normal,
+     scrollable top-anchored flow) the moment it doesn't. */
+  .ag-log:has(#agEmptyState){justify-content:safe center}
   .ag-log::-webkit-scrollbar{width:8px}
   .ag-log::-webkit-scrollbar-thumb{background:rgba(18,32,46,.14);border-radius:8px}
   .ag-log::-webkit-scrollbar-thumb:hover{background:rgba(18,32,46,.24)}
@@ -140,12 +155,12 @@
       unbroken text, so a long pill silently overflowed the card on narrow screens */
   .ag-card .cost{font-size:.78rem;color:var(--mut)}
 
-  .ag-composer{position:sticky;bottom:0;background:linear-gradient(180deg,transparent,var(--paper) 22%);padding:18px 0 calc(18px + env(safe-area-inset-bottom))}
-  .ag-box{background:var(--card);border:1.5px solid var(--line);border-radius:20px;padding:14px 16px 12px;box-shadow:0 2px 8px rgba(18,32,46,.04);transition:border-color .2s,box-shadow .2s}
-  .ag-box:focus-within{border-color:var(--accent);box-shadow:0 16px 40px rgba(26,166,223,.14),0 0 0 4px rgba(26,166,223,.07)}
-  .ag-box textarea{width:100%;border:0;outline:0;resize:none;background:none;font-family:var(--body);font-size:1rem;line-height:1.5;color:var(--ink);min-height:26px;max-height:180px;overflow-y:auto}
-  .ag-box textarea::placeholder{color:var(--mut)}
-  .ag-brow{display:flex;align-items:center;gap:8px;padding-top:8px}
+  .ag-composer{position:sticky;bottom:0;background:linear-gradient(180deg,transparent,var(--paper) 22%);padding:0 0 calc(0 + env(safe-area-inset-bottom))}
+  .ag-box{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:12px 14px 10px;box-shadow:0 1px 3px rgba(0,0,0,.08);transition:border-color .2s,box-shadow .2s}
+  .ag-box:focus-within{border-color:var(--accent);box-shadow:0 4px 12px rgba(26,166,223,.12)}
+  .ag-box textarea{width:100%;border:0;outline:0;resize:none;background:none;font-family:var(--body);font-size:.95rem;line-height:1.5;color:var(--ink);min-height:24px;max-height:140px;overflow-y:auto;padding:0}
+  .ag-box textarea::placeholder{color:var(--mut);font-weight:400}
+  .ag-brow{display:flex;align-items:center;gap:6px;padding-top:6px}
   .ag-brow-sp{flex:1}
 
   /* Attach button + the chip that replaces it once a file's picked —
@@ -153,8 +168,8 @@
      logo/image the agent should build from rather than invent. Rectangular
      like every other control here (see the sitewide button pass), not the
      old circular .ag-send. */
-  .ag-attach{flex:none;width:32px;height:32px;border:1px solid var(--line);background:var(--paper-2);color:var(--ink-2);
-    border-radius:8px;display:grid;place-items:center;cursor:pointer;transition:.15s}
+  .ag-attach{flex:none;width:30px;height:30px;border:1px solid var(--line);background:transparent;color:var(--ink-2);
+    border-radius:6px;display:grid;place-items:center;cursor:pointer;transition:.15s}
   .ag-attach:hover{border-color:#c6dbe7;color:var(--ink)}
   .ag-attach svg{width:16px;height:16px}
   .ag-attach-chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--paper-2);
@@ -168,14 +183,14 @@
   /* Rounded square, not the old full circle — matches the attach button
      and every other control's radius (see the sitewide rectangle-button
      pass) rather than being the one round thing in the row. */
-  .ag-send{flex:none;width:34px;height:34px;border:0;border-radius:9px;cursor:pointer;background:#e9e4db;color:#fff;display:grid;place-items:center;transition:background .2s,transform .16s}
-  .ag-send svg{width:16px;height:16px}
+  .ag-send{flex:none;width:32px;height:32px;border:0;border-radius:6px;cursor:pointer;background:#dcd7ce;color:#fff;display:grid;place-items:center;transition:background .2s,transform .16s}
+  .ag-send svg{width:15px;height:15px}
   .ag-send.live{background:var(--accent)}
   .ag-send.live:hover{background:var(--accent-2);transform:translateY(-1px)}
   .ag-send:disabled{cursor:not-allowed}
 
-  .ag-empty{padding:8px 2px 28px;color:var(--ink-2);text-align:center}
-  .ag-empty h2{font-family:var(--disp);font-weight:600;font-size:clamp(1.5rem,3.2vw,1.9rem);color:var(--ink);letter-spacing:-.02em}
+  .ag-empty{padding:40px 20px 32px;color:var(--ink-2);text-align:center}
+  .ag-empty h2{font-family:var(--body);font-weight:500;font-size:1.1rem;color:var(--ink);letter-spacing:0;margin-bottom:32px}
 
   /* New-chat-only extras: type tiles + example prompts, both hidden the
      moment a first turn lands (see isFirstBuild in runTurn()) — the same
@@ -183,38 +198,44 @@
      override is repeated here rather than assumed. */
   .ag-newchat-extras[hidden]{display:none}
 
-  .ag-type-tiles{display:flex;align-items:center;gap:4px;margin:22px 0 20px}
-  .ag-tiles-arrow{flex:none;width:26px;height:26px;border:0;background:none;color:var(--ink-2);border-radius:7px;
-    display:grid;place-items:center;cursor:pointer;transition:.15s}
-  .ag-tiles-arrow:hover{background:var(--paper-2);color:var(--ink)}
-  .ag-tiles-arrow svg{width:16px;height:16px}
+  .ag-type-tiles{display:flex;align-items:center;gap:12px;margin:24px 0 20px;justify-content:center}
+  .ag-tiles-arrow{flex:none;width:32px;height:32px;border:0;background:var(--paper-2);color:var(--ink-2);border-radius:8px;
+    display:grid;place-items:center;cursor:pointer;transition:.2s;font-weight:600}
+  .ag-tiles-arrow:hover{background:var(--stone);color:var(--ink);transform:scale(1.05)}
+  .ag-tiles-arrow svg{width:18px;height:18px}
+  /* Matches Replit's own left arrow at rest (visibly inert, not just
+     unclickable) — there's nothing to scroll TO at the start/end of the
+     row, or at all when all 5 tiles already fit, so the button says so
+     instead of looking clickable and silently doing nothing. */
+  .ag-tiles-arrow:disabled{opacity:.35;cursor:default;pointer-events:none}
+  .ag-tiles-arrow:disabled:hover{background:var(--paper-2);color:var(--ink-2);transform:none}
   /* justify-content:safe center, not plain center — with overflow-x:auto,
      plain center clips the START of the row off-screen with no way to
      scroll back to it once content is wider than the track (a real
      flexbox footgun). "safe" falls back to flex-start only when it would
      otherwise overflow, so five tiles centre normally and a sixth added
      later doesn't hide "Website" behind the left edge. */
-  .ag-tiles-track{flex:1;display:flex;justify-content:safe center;gap:10px;overflow-x:auto;scrollbar-width:none;scroll-behavior:smooth}
+  .ag-tiles-track{flex:0 1 auto;display:flex;justify-content:center;gap:12px;overflow-x:auto;scrollbar-width:none;scroll-behavior:smooth;padding:0 4px}
   .ag-tiles-track::-webkit-scrollbar{display:none}
-  .ag-tile{flex:none;display:flex;flex-direction:column;align-items:center;gap:8px;border:0;background:none;
-    color:var(--ink-2);font-size:.82rem;font-weight:500;cursor:pointer;width:74px}
-  .ag-tile .ic{width:52px;height:52px;border-radius:14px;background:var(--paper-2);border:1px solid var(--line);
-    display:grid;place-items:center;color:var(--ink-2);transition:.15s}
-  .ag-tile .ic svg{width:21px;height:21px}
-  .ag-tile:hover .ic{border-color:#c6dbe7;color:var(--ink)}
+  .ag-tile{flex:none;display:flex;flex-direction:column;align-items:center;gap:10px;border:0;background:none;
+    color:var(--ink-2);font-size:.82rem;font-weight:500;cursor:pointer;width:80px;transition:.15s}
+  .ag-tile .ic{width:56px;height:56px;border-radius:12px;background:var(--paper-2);border:1.5px solid var(--line);
+    display:grid;place-items:center;color:var(--ink-2);transition:.2s}
+  .ag-tile .ic svg{width:24px;height:24px}
+  .ag-tile:hover .ic{border-color:#c6dbe7;color:var(--ink);transform:translateY(-2px)}
   .ag-tile.on .ic{background:var(--ink);border-color:var(--ink);color:#fff}
   .ag-tile.on{color:var(--ink);font-weight:600}
 
-  .ag-examples{text-align:center}
-  .ag-examples .lbl{display:inline-flex;align-items:center;gap:7px;font-size:.86rem;color:var(--ink-2);margin-bottom:12px}
+  .ag-examples{text-align:center;margin-top:20px}
+  .ag-examples .lbl{display:inline-flex;align-items:center;gap:7px;font-size:.82rem;color:var(--ink-2);margin-bottom:12px;font-weight:500}
   .ag-examples .lbl button{border:0;background:none;color:var(--ink-2);cursor:pointer;width:20px;height:20px;
     border-radius:6px;display:grid;place-items:center;transition:.15s}
   .ag-examples .lbl button:hover{background:var(--paper-2);color:var(--ink);transform:rotate(60deg)}
   .ag-examples .lbl button svg{width:14px;height:14px}
   .ag-ex-row{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
-  .ag-ex-chip{border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:10px;
-    padding:9px 14px;font-size:.85rem;font-weight:500;cursor:pointer;transition:.15s}
-  .ag-ex-chip:hover{border-color:#c6dbe7;background:var(--paper-2)}
+  .ag-ex-chip{border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:8px;
+    padding:8px 12px;font-size:.82rem;font-weight:400;cursor:pointer;transition:.15s}
+  .ag-ex-chip:hover{border-color:#b8cdd7;background:var(--paper-2)}
 
   .ag-recent{margin-top:44px;padding-top:24px;border-top:1px solid var(--line)}
   .ag-recent-head{display:flex;align-items:center;margin-bottom:16px}
@@ -437,16 +458,23 @@
   .ag-hist-links{display:flex;gap:10px;justify-content:center;margin-top:11px;font-size:.76rem;color:var(--mut)}
   .ag-hist-links a:hover{color:var(--ink)}
 
-  /* Permanent rail from 901px up — Replit's sidebar has no close control
-     and never collapses on desktop. The drawer behaviour (and the
-     hamburger and X that drive it) only exist below that width, where
-     there isn't room for three columns.
+  /* Permanent rail from 901px up — Replit's sidebar has no manual close
+     control. The drawer behaviour (and the hamburger and X that drive it)
+     only exist below that width, where there isn't room for three
+     columns.
      Placed AFTER the rules it overrides: these selectors are no more
      specific than the base ones, so source order is what decides, and
      sitting above them meant .ag-hist-close's own display:grid won. */
   @media (min-width:901px){
     .ag-history{width:290px;border-right:1px solid var(--line)}
     .ag-hist-btn,.ag-hist-close,.ag-hist-backdrop{display:none}
+    /* .focus: not a manual close — an AUTOMATIC one, only for the
+       duration of an active turn (see runTurn() in the script below),
+       reusing the same width transition the rail already has so it's the
+       one thing that (briefly) collapses it, matching Replit's own
+       behavior of giving the conversation full width while the agent is
+       working, then bringing the rail back once it's done. */
+    .ag-history.focus{width:0;border-right-color:transparent}
   }
 
   /* Vertical nav list, Replit-style — not a horizontal tab row: with 5
@@ -507,20 +535,6 @@
   .ag-stat-row .bar i{display:block;height:100%;background:linear-gradient(90deg,var(--accent),var(--accent-2));border-radius:4px}
   .ag-stat-row .n{font-weight:700;width:22px;text-align:right}
 
-  /* Domains view */
-  .ag-dom-list{padding:6px 10px}
-  .ag-dom-card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:13px 14px;margin:6px 0;transition:box-shadow .15s}
-  .ag-dom-card:hover{box-shadow:0 4px 14px -8px rgba(11,22,38,.25)}
-  .ag-dom-card .t{font-size:.88rem;font-weight:600}
-  .ag-dom-row{display:flex;gap:6px;margin-top:8px}
-  .ag-dom-row input{flex:1;min-width:0;border:1px solid var(--line);border-radius:9px;padding:7px 10px;font:inherit;font-size:.84rem;background:var(--paper)}
-  .ag-dom-row input:focus{outline:none;border-color:var(--accent)}
-  .ag-dom-row button{border:0;background:var(--dark);color:#fff;border-radius:9px;padding:0 14px;font-size:.82rem;font-weight:600;cursor:pointer;transition:.15s}
-  .ag-dom-row button:hover{background:var(--navy-800)}
-  .ag-dom-status{margin-top:8px;font-size:.78rem;display:flex;align-items:center;gap:6px}
-  .ag-dom-status .d{width:7px;height:7px;border-radius:50%;background:var(--mut)}
-  .ag-dom-status.live .d{background:#22c58f;box-shadow:0 0 0 3px rgba(34,197,148,.2)}
-  .ag-dom-status.live{color:#0f8a5f}
 
   /* Settings view */
   .ag-set-profile{margin:10px;padding:16px;border-radius:16px;background:linear-gradient(135deg,var(--dark),var(--navy-800));
@@ -589,8 +603,6 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>Projects</a>
     <button type="button" class="ag-hist-tab" data-view="favorites">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01z"/></svg>Favorites</button>
-    <button type="button" class="ag-hist-tab" data-view="domains">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 0 1 0 18 15 15 0 0 1 0-18z"/></svg>Domains</button>
     <button type="button" class="ag-hist-tab" data-view="stats">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/></svg>Stats</button>
     <button type="button" class="ag-hist-tab" data-view="settings">
@@ -605,10 +617,6 @@
 
   <div class="ag-hist-view" id="viewFavorites">
     <div class="ag-hist-list" id="agFavList"><div class="ag-hist-loading">Loading…</div></div>
-  </div>
-
-  <div class="ag-hist-view" id="viewDomains">
-    <div class="ag-dom-list" id="agDomList"><div class="ag-hist-loading">Loading…</div></div>
   </div>
 
   <div class="ag-hist-view" id="viewStats">
@@ -681,7 +689,7 @@
     </div>
     <form class="ag-composer" id="agForm" autocomplete="off">
       <div class="ag-box">
-        <textarea id="agInput" rows="1" aria-label="Message the agent" placeholder="Build a landing page for…"></textarea>
+        <textarea id="agInput" rows="1" aria-label="Message the agent" placeholder="Make a"></textarea>
         <div class="ag-brow">
           <button type="button" class="ag-attach" id="agAttach" aria-label="Attach a logo or image" title="Attach a logo or image">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
@@ -721,6 +729,12 @@
             <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1.3"/><rect x="14" y="3" width="7" height="7" rx="1.3"/><rect x="3" y="14" width="7" height="7" rx="1.3"/><rect x="14" y="14" width="7" height="7" rx="1.3"/></svg></span>Portfolio</button>
           <button type="button" class="ag-tile" data-type="mobile" role="radio" aria-checked="false" title="A mobile-first layout. Every build is installable to a home screen and works offline — this option just biases the design for a phone screen, it's not a native app.">
             <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></svg></span>Mobile</button>
+          <button type="button" class="ag-tile" data-type="landing" role="radio" aria-checked="false">
+            <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M8 14h8"/></svg></span>Landing Page</button>
+          <button type="button" class="ag-tile" data-type="blog" role="radio" aria-checked="false">
+            <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 4h16v16H4z"/><path d="M8 8h8M8 12h8M8 16h5"/></svg></span>Blog</button>
+          <button type="button" class="ag-tile" data-type="ecommerce" role="radio" aria-checked="false">
+            <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="21" r="1.4"/><circle cx="18" cy="21" r="1.4"/><path d="M2 3h2l2.6 12.4a2 2 0 0 0 2 1.6h8.8a2 2 0 0 0 2-1.6L21 7H6"/></svg></span>Store</button>
         </div>
         <button type="button" class="ag-tiles-arrow" id="agTilesNext" aria-label="Scroll right">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
@@ -851,17 +865,46 @@
   // of the hint text (found live: a prefix baked in here landed inside the
   // server's prompt.slice(0,60) title/slug logic, ahead of anything the
   // user actually typed).
-  agTypeRow.addEventListener("click", (e) => {
-    const btn = e.target.closest(".ag-tile"); if (!btn) return;
+  function selectTile(btn) {
     selectedType = btn.dataset.type;
     agTypeRow.querySelectorAll(".ag-tile").forEach((b) => {
       const on = b === btn; b.classList.toggle("on", on); b.setAttribute("aria-checked", on ? "true" : "false");
     });
+    btn.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "smooth" });
+    btn.focus();
+  }
+  agTypeRow.addEventListener("click", (e) => {
+    const btn = e.target.closest(".ag-tile"); if (!btn) return;
+    selectTile(btn);
+  });
+  // Arrow-key navigation between tiles — the markup already declares
+  // role="radiogroup"/role="radio" (screen readers expect this), but
+  // nothing actually wired the arrow keys those roles promise until now.
+  agTypeRow.addEventListener("keydown", (e) => {
+    if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
+    const tiles = Array.prototype.slice.call(agTypeRow.querySelectorAll(".ag-tile"));
+    const i = tiles.indexOf(document.activeElement);
+    if (i === -1) return;
+    e.preventDefault();
+    const next = e.key === "ArrowRight" ? tiles[Math.min(i + 1, tiles.length - 1)] : tiles[Math.max(i - 1, 0)];
+    selectTile(next);
   });
 
-  const agTilesTrack = $("agTilesTrack");
-  $("agTilesPrev").addEventListener("click", () => agTilesTrack.scrollBy({ left: -180, behavior: "smooth" }));
-  $("agTilesNext").addEventListener("click", () => agTilesTrack.scrollBy({ left: 180, behavior: "smooth" }));
+  const agTilesTrack = $("agTilesTrack"), agTilesPrev = $("agTilesPrev"), agTilesNext = $("agTilesNext");
+  agTilesPrev.addEventListener("click", () => agTilesTrack.scrollBy({ left: -180, behavior: "smooth" }));
+  agTilesNext.addEventListener("click", () => agTilesTrack.scrollBy({ left: 180, behavior: "smooth" }));
+  // Real disabled state, not just a click handler that quietly does
+  // nothing when the 5 tiles already fit (found live: on desktop they
+  // never overflow, so the arrows looked broken rather than simply
+  // having nothing to do). 2px slack absorbs sub-pixel scroll rounding.
+  function updateTilesArrows() {
+    const max = agTilesTrack.scrollWidth - agTilesTrack.clientWidth;
+    agTilesPrev.disabled = agTilesTrack.scrollLeft <= 2;
+    agTilesNext.disabled = agTilesTrack.scrollLeft >= max - 2;
+  }
+  agTilesTrack.addEventListener("scroll", updateTilesArrows);
+  window.addEventListener("resize", updateTilesArrows);
+  updateTilesArrows();
 
   // Example prompts — a small pool, three shown at a time, "shuffle" swaps
   // in a fresh three rather than cycling a fixed set in order.
@@ -1088,6 +1131,12 @@
     if (building) return;
     building = true;
     agSend.disabled = true;
+    // Replit's own behavior during an active agent turn: the sidebar
+    // collapses so the conversation gets the full width, then comes back
+    // once the turn is over (see the finally block below) — reopened
+    // unconditionally there, not only on success, so a failed build never
+    // leaves the rail stuck closed with no obvious way back.
+    agHistory.classList.add("focus");
     sayUser(prompt);
     const startedAt = Date.now();
     const handles = {};
@@ -1204,6 +1253,7 @@
     } finally {
       building = false;
       agSend.disabled = agInput.value.trim().length === 0;
+      agHistory.classList.remove("focus");
     }
   }
 
@@ -1435,7 +1485,7 @@
   }
   wireProjectList(agHistList);
 
-  let histLoaded = false, favLoaded = false, domLoaded = false, statsLoaded = false, settingsLoaded = false;
+  let histLoaded = false, favLoaded = false, statsLoaded = false, settingsLoaded = false;
   async function loadHistory() {
     if (histLoaded) return;
     histLoaded = true;
@@ -1466,69 +1516,8 @@
     }
   }
 
-  const agDomList = $("agDomList");
-  async function loadDomains() {
-    if (domLoaded) return;
-    domLoaded = true;
-    try {
-      const res = await fetch("/api/projects?kind=code&limit=50");
-      const rows = ((await res.json()).projects || []).filter((p) => p.published);
-      if (!rows.length) {
-        agDomList.innerHTML = '<div class="ag-hist-empty">Publish a build first, then connect a domain to it here.</div>';
-        return;
-      }
-      agDomList.innerHTML = rows.map((p) => (
-        '<div class="ag-dom-card" data-slug="' + esc(p.slug) + '">'
-        + '<div class="t">' + esc(p.title || "Untitled app") + '</div>'
-        + '<div class="ag-dom-row"><input type="text" placeholder="app.yourbrand.com" class="dom-input" value="">'
-        + '<button type="button" class="dom-connect">Connect</button></div>'
-        + '<div class="ag-dom-status" hidden></div></div>'
-      )).join("");
-      // fetch each card's current domain/status without blocking the list render
-      agDomList.querySelectorAll(".ag-dom-card").forEach(async (card) => {
-        try {
-          const r = await fetch("/api/codeagent/" + encodeURIComponent(card.dataset.slug) + "/domain/status");
-          const d = await r.json();
-          if (d.domain) card.querySelector(".dom-input").value = d.domain;
-          setDomStatus(card, d.domain, d.live);
-        } catch (e) { /* leave blank — not fatal */ }
-      });
-    } catch (e) {
-      agDomList.innerHTML = '<div class="ag-hist-empty">Couldn\'t load your published builds.</div>';
-      domLoaded = false;
-    }
-  }
-  function setDomStatus(card, domain, live) {
-    const el = card.querySelector(".ag-dom-status");
-    if (!domain) { el.hidden = true; return; }
-    el.hidden = false;
-    el.classList.toggle("live", !!live);
-    el.innerHTML = '<span class="d"></span>' + (live ? "Live" : "Waiting for DNS — point a CNAME at " + esc(location.hostname));
-  }
-  agDomList.addEventListener("click", async (e) => {
-    const btn = e.target.closest(".dom-connect"); if (!btn) return;
-    const card = btn.closest(".ag-dom-card");
-    const input = card.querySelector(".dom-input");
-    const domain = input.value.trim();
-    btn.disabled = true; btn.textContent = "…";
-    try {
-      const res = await fetch("/api/codeagent/" + encodeURIComponent(card.dataset.slug) + "/domain", {
-        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ domain })
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Couldn't connect that domain");
-      setDomStatus(card, data.domain, false);
-    } catch (err) {
-      setDomStatus(card, domain, false);
-      card.querySelector(".ag-dom-status").innerHTML = '<span class="d" style="background:#b3261e"></span>' + esc(err.message);
-      card.querySelector(".ag-dom-status").hidden = false;
-    } finally {
-      btn.disabled = false; btn.textContent = "Connect";
-    }
-  });
-
   const agStatGrid = $("agStatGrid"), agStatTypes = $("agStatTypes");
-  const TYPE_LABEL = { website: "Website", webapp: "Web App", dashboard: "Dashboard", portfolio: "Portfolio", mobile: "Mobile" };
+  const TYPE_LABEL = { website: "Website", webapp: "Web App", dashboard: "Dashboard", portfolio: "Portfolio", mobile: "Mobile", landing: "Landing Page", blog: "Blog", ecommerce: "Store" };
   async function loadStats() {
     if (statsLoaded) return;
     statsLoaded = true;
@@ -1567,7 +1556,7 @@
     }
   }
 
-  const HIST_LOADERS = { home: loadHistory, favorites: loadFavorites, domains: loadDomains, stats: loadStats, settings: loadSettings };
+  const HIST_LOADERS = { home: loadHistory, favorites: loadFavorites, stats: loadStats, settings: loadSettings };
   /* Settings is the one tab that opens the full overlay instead of a
      drawer view — it's a whole page's worth of UI (profile, theme,
      history, security) that never fit in 340px. Everything else stays
