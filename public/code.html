@@ -84,16 +84,17 @@
      one is sent), so this only ever centers the "what do you want to
      make?" greeting, never a real conversation, which should read
      top-down like any normal chat log, not float in the middle. */
-  /* safe center, not plain center — the same footgun the tile-scroll
-     arrows were built to avoid (see .ag-tiles-track above), hit for real
-     here: once "Your recent Projects" has actual cards, the whole
-     greeting+composer+extras block is taller than .ag-log's own box, and
-     plain center clips the TOP (the greeting, the header context) off
-     the scrollable range with no way to scroll up to it — found live,
-     "the header isn't showing" was this exact bug. safe center keeps the
-     centering when everything fits and falls back to flex-start (normal,
-     scrollable top-anchored flow) the moment it doesn't. */
-  .ag-log:has(#agEmptyState){justify-content:safe center}
+  /* Deliberately NOT centered. A "safe center" attempt lived here and
+     still clipped the header on a real account with actual recent
+     projects — the greeting sits inside .ag-log, but the tall content
+     that pushes past the viewport (composer, tiles, examples, recent
+     projects) are ITS SIBLINGS, not its children, so centering .ag-log's
+     own content couldn't account for their combined height and the
+     "safe" fallback didn't reliably save it. Plain top-anchored flow has
+     no way to clip anything above the fold: the header is always
+     wherever .ag's scroll starts (the top, by definition), and
+     everything below — recent projects included — is reached by
+     scrolling down normally, which is what was actually asked for. */
   .ag-log::-webkit-scrollbar{width:8px}
   .ag-log::-webkit-scrollbar-thumb{background:rgba(18,32,46,.14);border-radius:8px}
   .ag-log::-webkit-scrollbar-thumb:hover{background:rgba(18,32,46,.24)}
@@ -254,6 +255,8 @@
   .ag-recent-head button:hover{color:var(--ink)}
   .ag-recent-head button svg{width:15px;height:15px}
   .ag-recent-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px}
+  .ag-recent-empty{grid-column:1/-1;padding:30px 16px;color:var(--mut);font-size:.86rem;text-align:center;line-height:1.5;
+    border:1px dashed var(--line);border-radius:14px}
   .ag-recent-card{display:block;text-align:left;border:1px solid var(--line);background:var(--card);border-radius:14px;
     overflow:hidden;cursor:pointer;transition:.15s}
   .ag-recent-card:hover{border-color:#c6dbe7;box-shadow:0 6px 18px -10px rgba(11,22,38,.25);transform:translateY(-1px)}
@@ -1464,8 +1467,11 @@
   function loadRecentProjects() {
     fetch("/api/projects?kind=code&limit=6").then((r) => r.json()).then((d) => {
       const rows = d.projects || [];
-      if (!rows.length) return;
-      $("agRecentGrid").innerHTML = rows.map((p) => {
+      // Always shown once loaded, never silently hidden — an empty
+      // account is a real, expected state (found live: with zero
+      // projects the whole section just vanished, which read as the
+      // page being broken rather than as "you haven't built anything").
+      $("agRecentGrid").innerHTML = rows.length ? rows.map((p) => {
         const title = p.title || "Untitled app";
         const color = TYPE_COLOR[p.buildType] || "#8b98a5";
         const meta = p.published
@@ -1475,7 +1481,7 @@
           + '<span class="ag-recent-thumb" style="background:' + color + '">' + esc(title.charAt(0).toUpperCase() || "A") + '</span>'
           + '<span class="ag-recent-body"><span class="t">' + esc(title) + '</span>'
           + '<span class="m">' + meta + ' · ' + esc(timeAgo(p.updatedAt)) + '</span></span></a>';
-      }).join("");
+      }).join("") : '<div class="ag-recent-empty">No recent projects yet — what you build will show up here.</div>';
       $("agRecent").hidden = false;
     }).catch(() => { /* the rest of the new-chat screen still works without it */ });
   }
