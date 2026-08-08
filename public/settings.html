@@ -283,6 +283,8 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20h16"/><path d="M12 4v10"/><path d="m7.5 9.5 4.5-5 4.5 5"/></svg>Customization</button>
       <button type="button" data-p="history">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 3v6h6"/><path d="M3.5 9a9 9 0 1 0 2.1-3.4L3 9"/><path d="M12 7v5l4 2"/></svg>Build History</button>
+      <button type="button" data-p="integrations">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 2 9 5-9 5-9-5 9-5z"/><path d="m3 12 9 5 9-5"/><path d="m3 17 9 5 9-5"/></svg>Integrations</button>
       <button type="button" data-p="security">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/></svg>Security</button>
 
@@ -291,8 +293,12 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 12l4-2.5"/><path d="M12 7v5"/></svg>Usage</button>
       <button type="button" data-p="billing">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>Billing</button>
+
+      <div class="grp">User</div>
       <button type="button" data-p="profile">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-7 8-7s8 3 8 7"/></svg>Profile</button>
+      <button type="button" data-p="promotions">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="8" width="18" height="4" rx="1"/><path d="M12 8v13M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/><path d="M12 8S9.5 3 7.5 3a2.5 2.5 0 0 0 0 5M12 8s2.5-5 4.5-5a2.5 2.5 0 0 1 0 5"/></svg>Promotions &amp; Referrals</button>
     </nav>
   </div>
 
@@ -351,6 +357,53 @@
     </section>
 
     <!-- Billing -->
+    <!-- Integrations. Deliberately NOT a wall of third-party logos with
+         "Unlock 400+ integrations" — we have no integrations platform, and
+         a grid of Slack/Drive/HubSpot marks implying otherwise would be
+         advertising something that doesn't exist. These four are what a
+         generated app can genuinely use today (or, where marked, what is
+         honestly not built yet). -->
+    <section class="panel" id="pIntegrations">
+      <div class="panel-head"><h2>Integrations</h2></div>
+      <div class="sec">
+        <h3>Available to your apps</h3>
+        <p>What Souqi Code can wire into an app it builds for you.</p>
+        <div class="srow">
+          <span class="txt"><span class="t">Custom domains</span><span class="d">Point your own domain at a published app.</span></span>
+          <span class="pill live">Available</span>
+        </div>
+        <div class="srow">
+          <span class="txt"><span class="t">Installable app (PWA)</span><span class="d">Every build ships a manifest and service worker, so it installs to a home screen.</span></span>
+          <span class="pill live">Available</span>
+        </div>
+        <div class="srow">
+          <span class="txt"><span class="t">Stripe payments</span><span class="d">Take real payments inside a generated app.</span></span>
+          <span class="pill">Not built yet</span>
+        </div>
+        <div class="srow">
+          <span class="txt"><span class="t">Hosted database</span><span class="d">Persistent storage an app can read and write.</span></span>
+          <span class="pill">Not built yet</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel" id="pPromotions">
+      <div class="panel-head"><h2>Promotions &amp; Referrals</h2></div>
+      <div class="sec">
+        <h3>Referrals</h3>
+        <p>There's no referral programme yet. When there is, your invite link and any credit you've earned will appear here.</p>
+      </div>
+      <div class="sec">
+        <h3>Promo code</h3>
+        <p>Have a code? Apply it to your workspace.</p>
+        <div class="copyrow">
+          <input type="text" id="promoInput" placeholder="Enter a promo code" autocomplete="off">
+          <button type="button" class="btn-primary" id="promoApply">Apply</button>
+        </div>
+        <div class="note" id="promoNote" hidden></div>
+      </div>
+    </section>
+
     <section class="panel" id="pBilling">
       <div class="panel-head"><h2>Billing</h2></div>
       <div class="sec">
@@ -534,6 +587,15 @@
     var want = document.querySelector('#snav button[data-p="' + location.hash.slice(1).replace(/[^a-z]/gi, "") + '"]');
     if (want) want.click();
   }
+
+  /* There is no promo-code backend, so this says so rather than
+     pretending to validate and silently doing nothing. */
+  $("promoApply").addEventListener("click", function () {
+    var v = $("promoInput").value.trim();
+    note($("promoNote"), v
+      ? "Promo codes aren't active yet — nothing was applied."
+      : "Enter a code first.", false);
+  });
 
   /* ---- account ---- */
   var signedIn = false;

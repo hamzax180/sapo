@@ -79,22 +79,24 @@
      lets it actually shrink inside the flex column instead of pushing the
      composer off the bottom. */
   .ag-log{flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:4px;padding-bottom:20px}
-  /* Scoped to :has(#agEmptyState) specifically — that placeholder exists
-     ONLY before the first message (clearEmpty() removes it the instant
-     one is sent), so this only ever centers the "what do you want to
-     make?" greeting, never a real conversation, which should read
-     top-down like any normal chat log, not float in the middle. */
-  /* Deliberately NOT centered. A "safe center" attempt lived here and
-     still clipped the header on a real account with actual recent
-     projects — the greeting sits inside .ag-log, but the tall content
-     that pushes past the viewport (composer, tiles, examples, recent
-     projects) are ITS SIBLINGS, not its children, so centering .ag-log's
-     own content couldn't account for their combined height and the
-     "safe" fallback didn't reliably save it. Plain top-anchored flow has
-     no way to clip anything above the fold: the header is always
-     wherever .ag's scroll starts (the top, by definition), and
-     everything below — recent projects included — is reached by
-     scrolling down normally, which is what was actually asked for. */
+  /* The new-chat "hero": greeting + composer + tiles/examples centered as
+     ONE group. Three earlier attempts tried to do this with
+     justify-content on .ag-log alone and all of them clipped the
+     greeting off the top, because those three are SIBLINGS — centering
+     any one of them can't account for the others' height. This wrapper
+     is the fix: it's a real box containing all three, so centering it
+     centers the group, and it can't clip anything because it grows with
+     its own content.
+
+     display:contents in the default (conversation) state means the
+     wrapper contributes NO layout at all there — .ag-log/.ag-composer
+     behave exactly as they did before, log scrolling under a sticky
+     composer. Only .ag.is-new turns it into a real flex container. */
+  .ag-hero{display:contents}
+  .ag.is-new .ag-hero{display:flex;flex-direction:column;justify-content:center;min-height:100%}
+  /* .ag-log's flex:1 would eat all the free space and defeat the
+     centering — in new-chat state it's just the greeting, sized to it. */
+  .ag.is-new .ag-log{flex:0 0 auto;overflow:visible}
   .ag-log::-webkit-scrollbar{width:8px}
   .ag-log::-webkit-scrollbar-thumb{background:rgba(18,32,46,.14);border-radius:8px}
   .ag-log::-webkit-scrollbar-thumb:hover{background:rgba(18,32,46,.24)}
@@ -247,25 +249,34 @@
     padding:8px 12px;font-size:.82rem;font-weight:400;cursor:pointer;transition:.15s}
   .ag-ex-chip:hover{border-color:#b8cdd7;background:var(--paper-2)}
 
-  .ag-recent{margin-top:44px;padding-top:24px;border-top:1px solid var(--line)}
-  .ag-recent-head{display:flex;align-items:center;margin-bottom:16px}
-  .ag-recent-head h3{font-size:1.05rem;font-weight:600}
-  .ag-recent-head button{margin-inline-start:auto;display:flex;align-items:center;gap:3px;border:0;background:none;
-    color:var(--ink-2);font-size:.85rem;font-weight:500;cursor:pointer;padding:4px 2px;transition:.15s}
-  .ag-recent-head button:hover{color:var(--ink)}
-  .ag-recent-head button svg{width:15px;height:15px}
-  .ag-recent-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px}
+  /* Recent projects — matched to Replit's own cards: a large neutral
+     thumbnail area holding one dark rounded tile (NOT a full-bleed
+     coloured panel with a giant letter, which is what this was), a
+     "View All" pill button rather than a bare text link, and body type at
+     regular weight in the UI font. */
+  .ag-recent{margin-top:56px;padding-top:0;border-top:0}
+  .ag-recent-head{display:flex;align-items:center;margin-bottom:18px}
+  .ag-recent-head h3{font-family:var(--body);font-size:1.16rem;font-weight:400;letter-spacing:-.01em;color:var(--ink)}
+  .ag-recent-head button{margin-inline-start:auto;display:flex;align-items:center;gap:7px;border:0;
+    background:var(--paper-2);color:var(--ink);font-size:.92rem;font-weight:400;cursor:pointer;
+    padding:9px 15px;border-radius:9px;transition:.15s}
+  .ag-recent-head button:hover{background:#e7e1d7}
+  .ag-recent-head button svg{width:16px;height:16px}
+  .ag-recent-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(258px,1fr));gap:20px}
   .ag-recent-empty{grid-column:1/-1;padding:30px 16px;color:var(--mut);font-size:.86rem;text-align:center;line-height:1.5;
     border:1px dashed var(--line);border-radius:14px}
-  .ag-recent-card{display:block;text-align:left;border:1px solid var(--line);background:var(--card);border-radius:14px;
+  .ag-recent-card{display:block;text-align:left;border:1px solid var(--line);background:var(--card);border-radius:12px;
     overflow:hidden;cursor:pointer;transition:.15s}
-  .ag-recent-card:hover{border-color:#c6dbe7;box-shadow:0 6px 18px -10px rgba(11,22,38,.25);transform:translateY(-1px)}
-  .ag-recent-thumb{height:110px;display:grid;place-items:center;font-family:var(--disp);font-weight:700;
-    font-size:1.6rem;color:#fff}
-  .ag-recent-body{padding:11px 13px}
-  .ag-recent-body .t{font-size:.9rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .ag-recent-body .m{display:flex;align-items:center;gap:5px;font-size:.78rem;color:var(--mut);margin-top:3px}
-  .ag-recent-body .m svg{width:12px;height:12px;flex:none}
+  .ag-recent-card:hover{border-color:#c6dbe7;box-shadow:0 6px 18px -10px rgba(11,22,38,.25)}
+  .ag-recent-thumb{height:172px;display:grid;place-items:center;background:var(--paper-2)}
+  /* The dark tile is the inner square; the letter sits inside IT, so the
+     per-type colour reads as an accent rather than flooding the card. */
+  .ag-recent-thumb i{width:76px;height:76px;border-radius:16px;display:grid;place-items:center;
+    font-family:var(--body);font-style:normal;font-weight:600;font-size:1.7rem;color:#fff;background:#12202e}
+  .ag-recent-body{padding:14px 16px 16px}
+  .ag-recent-body .t{font-size:.98rem;font-weight:400;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ag-recent-body .m{display:flex;align-items:center;gap:6px;font-size:.85rem;color:var(--mut);margin-top:6px}
+  .ag-recent-body .m svg{width:13px;height:13px;flex:none}
 
   /* No own height/sticky — the app shell (html/body/.ag-main, below) is
      fixed to the viewport and this just fills its grid cell. It used to be
@@ -442,28 +453,34 @@
   /* Workspace pill + the two action buttons above the nav — Replit's
      "Create something new" / "Import" pair. */
   .ag-ws{display:flex;align-items:center;gap:9px;width:100%;border:1px solid var(--line);background:var(--card);
-    border-radius:999px;padding:6px 11px 6px 6px;margin:4px 12px 12px;width:calc(100% - 24px);cursor:pointer;text-align:left}
-  .ag-ws .av{width:26px;height:26px;border-radius:50%;flex:none;display:grid;place-items:center;color:#fff;
-    background:linear-gradient(135deg,var(--accent),var(--accent-2));font-weight:600;font-size:.78rem}
-  .ag-ws .nm{flex:1;min-width:0;font-size:.88rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    border-radius:999px;padding:5px 10px 5px 5px;margin:2px 12px 9px;width:calc(100% - 24px);cursor:pointer;text-align:left}
+  .ag-ws .av{width:24px;height:24px;border-radius:50%;flex:none;display:grid;place-items:center;color:#fff;
+    background:linear-gradient(135deg,var(--accent),var(--accent-2));font-weight:600;font-size:.74rem}
+  .ag-ws .nm{flex:1;min-width:0;font-size:.87rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .ag-ws svg{width:15px;height:15px;flex:none;color:var(--ink-2)}
-  .ag-act{display:flex;align-items:center;justify-content:flex-start;gap:8px;margin:0 12px 8px;padding:10px 12px;
-    border:1px solid var(--line);background:var(--card);border-radius:10px;color:var(--ink);
-    font-size:.9rem;font-weight:500;cursor:pointer;transition:.15s;width:calc(100% - 24px);text-align:left}
+  .ag-act{display:flex;align-items:center;justify-content:flex-start;gap:8px;margin:0 12px 6px;padding:8px 11px;
+    border:1px solid var(--line);background:var(--card);border-radius:9px;color:var(--ink);
+    font-size:.87rem;font-weight:400;cursor:pointer;transition:.15s;width:calc(100% - 24px);text-align:left}
   .ag-act:hover{background:var(--paper-2)}
-  .ag-act svg{width:16px;height:16px}
+  .ag-act svg{width:15px;height:15px}
 
-  /* Plan block pinned to the bottom, Replit-style */
-  .ag-hist-foot{margin-top:auto;padding:14px 12px 12px;border-top:1px solid var(--line)}
-  .ag-hist-foot .ttl{font-size:.88rem;font-weight:600;padding:0 4px;margin-bottom:10px}
-  .ag-meter-row{display:flex;align-items:center;gap:10px;padding:5px 4px}
-  .ag-meter-row svg{width:17px;height:17px;flex:none;color:var(--ink-2)}
-  .ag-meter-row .lab{flex:1;min-width:0;font-size:.82rem}
-  .ag-meter-row .lab i{display:block;font-style:normal;color:var(--mut);font-size:.76rem;margin-top:1px}
-  .ag-meter{width:64px;height:5px;border-radius:3px;background:var(--paper-2);overflow:hidden;flex:none}
+  /* Plan block pinned to the bottom, Replit-style. flex:none is what
+     actually keeps the Upgrade button on screen: with the nav grown to
+     nine items plus the help group, the rail's content exceeds its
+     height, and a shrinkable footer was being squeezed until the button
+     fell off the bottom entirely — the scrollable region above it
+     (.ag-hist-tabs / .ag-hist-view) absorbs the overflow instead.
+     No border-top: the reference separates this with space, not a rule. */
+  .ag-hist-foot{margin-top:auto;flex:none;padding:10px 12px 10px}
+  .ag-hist-foot .ttl{font-size:.87rem;font-weight:600;padding:0 4px;margin-bottom:6px}
+  .ag-meter-row{display:flex;align-items:center;gap:10px;padding:3px 4px}
+  .ag-meter-row svg{width:16px;height:16px;flex:none;color:var(--ink-2)}
+  .ag-meter-row .lab{flex:1;min-width:0;font-size:.8rem}
+  .ag-meter-row .lab i{display:block;font-style:normal;color:var(--mut);font-size:.75rem;margin-top:1px}
+  .ag-meter{width:60px;height:5px;border-radius:3px;background:var(--paper-2);overflow:hidden;flex:none}
   .ag-meter i{display:block;height:100%;background:var(--accent)}
-  .ag-upgrade{display:flex;align-items:center;justify-content:center;gap:8px;margin-top:12px;padding:11px;
-    border:0;border-radius:10px;background:var(--accent);color:#fff;font-size:.92rem;font-weight:600;
+  .ag-upgrade{display:flex;align-items:center;justify-content:center;gap:8px;margin-top:9px;padding:10px;
+    border:0;border-radius:9px;background:var(--accent);color:#fff;font-size:.9rem;font-weight:600;
     cursor:pointer;width:100%;text-decoration:none;transition:.15s}
   .ag-upgrade:hover{background:var(--accent-2)}
   .ag-upgrade svg{width:15px;height:15px}
@@ -502,6 +519,32 @@
   .ag-hist-tab:hover{background:var(--paper-2)}
   .ag-hist-tab.on{background:var(--paper-2);font-weight:500}
   .ag-hist-tab.on svg{color:var(--ink)}
+  /* Visual break between the main nav and the help group, matching the
+     reference — a gap, not a rule. */
+  .ag-hist-gap{height:26px}
+
+  /* Projects hover flyout. Anchored to the row (position:relative on the
+     hoverable row, not on the scroll container) so it tracks the row if
+     the nav ever scrolls. */
+  .ag-hist-hoverable{position:relative}
+  .ag-flyout{position:absolute;left:calc(100% + 8px);top:-6px;z-index:80;width:248px;
+    background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 10px 8px;
+    box-shadow:0 16px 40px -16px rgba(11,22,38,.4);
+    opacity:0;visibility:hidden;transform:translateX(-4px);transition:opacity .14s,transform .14s,visibility .14s;
+    display:flex;flex-direction:column;gap:2px;cursor:default}
+  .ag-hist-hoverable:hover .ag-flyout,.ag-flyout:hover{opacity:1;visibility:visible;transform:none}
+  .ag-flyout-h{font-size:.8rem;color:var(--mut);font-weight:500;padding:0 8px 6px}
+  .ag-flyout-list{display:flex;flex-direction:column;gap:1px}
+  .ag-flyout-item{display:flex;align-items:center;gap:10px;padding:8px;border-radius:8px;
+    font-size:.9rem;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:.13s}
+  .ag-flyout-item:hover{background:var(--paper-2)}
+  .ag-flyout-item i{width:26px;height:26px;flex:none;border-radius:7px;background:#12202e;color:#fff;
+    display:grid;place-items:center;font-style:normal;font-weight:600;font-size:.8rem}
+  .ag-flyout-item span{overflow:hidden;text-overflow:ellipsis}
+  .ag-flyout-empty{padding:6px 8px 10px;font-size:.85rem;color:var(--mut)}
+  /* No room to fly out beside a 290px drawer on a phone — and it would
+     sit under the finger that opened it. */
+  @media (max-width:900px){ .ag-flyout{display:none} }
 
   .ag-hist-view{flex:1;overflow-y:auto;display:none}
   .ag-hist-view.on{display:block}
@@ -515,7 +558,11 @@
   .ag-hist-item:hover{background:var(--card);border-color:var(--line);box-shadow:0 2px 8px -4px rgba(11,22,38,.18)}
   .ag-hist-item.current{background:var(--tint-2);border-color:#cbe7f6}
   .ag-hist-item .hi-main{flex:1;min-width:0;display:flex;align-items:center;gap:10px;padding:8px 4px 8px 8px;cursor:pointer;background:none;border:0;text-align:left;font:inherit;color:inherit}
-  .ag-hist-ic{width:32px;height:32px;border-radius:9px;flex:none;display:grid;place-items:center;color:#fff;font-family:var(--disp);font-weight:700;font-size:.86rem}
+  /* var(--body), not var(--disp) — the sidebar is UI chrome, and Replit
+     sets all of it in one neutral sans with weight doing the work. A
+     display face here was the last thing in the rail still reading as a
+     different typeface. */
+  .ag-hist-ic{width:32px;height:32px;border-radius:9px;flex:none;display:grid;place-items:center;color:#fff;font-family:var(--body);font-weight:600;font-size:.86rem}
   .ag-hist-item .meta{display:flex;flex-direction:column;min-width:0;flex:1}
   .ag-hist-item .t{font-size:.89rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .ag-hist-item .w{font-size:.74rem;color:var(--mut);margin-top:1px}
@@ -611,14 +658,41 @@
   <div class="ag-hist-tabs" id="agHistTabs" role="tablist">
     <button type="button" class="ag-hist-tab on" data-view="home">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg>Home</button>
-    <a class="ag-hist-tab" href="/projects">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>Projects</a>
+    <!-- Hovering Projects reveals recent ones, as in the reference. The
+         flyout is a CHILD of the row so moving the pointer from the row
+         into the panel never crosses un-hovered ground (a gap there is
+         the classic reason these close on the way to them). -->
+    <a class="ag-hist-tab ag-hist-hoverable" href="/projects">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>Projects
+      <span class="ag-flyout" id="agProjFlyout">
+        <span class="ag-flyout-h">Recent Projects</span>
+        <span class="ag-flyout-list" id="agProjFlyoutList"><span class="ag-flyout-empty">Nothing built yet</span></span>
+      </span>
+    </a>
     <button type="button" class="ag-hist-tab" data-view="favorites">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01z"/></svg>Favorites</button>
     <button type="button" class="ag-hist-tab" data-view="stats">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/></svg>Stats</button>
+    <!-- These three open the Settings overlay on a specific section
+         (data-panel), the same way Replit's own sidebar routes its
+         Integrations and Security items into its Settings modal. -->
+    <button type="button" class="ag-hist-tab" data-view="panel" data-panel="integrations">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m12 2 9 5-9 5-9-5 9-5z"/><path d="m3 12 9 5 9-5"/><path d="m3 17 9 5 9-5"/></svg>Integrations</button>
+    <button type="button" class="ag-hist-tab" data-view="panel" data-panel="security">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/></svg>Security</button>
+    <button type="button" class="ag-hist-tab" data-view="panel" data-panel="promotions">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="8" width="18" height="4" rx="1"/><path d="M12 8v13M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/><path d="M12 8S9.5 3 7.5 3a2.5 2.5 0 0 0 0 5M12 8s2.5-5 4.5-5a2.5 2.5 0 0 1 0 5"/></svg>Promotions</button>
     <button type="button" class="ag-hist-tab" data-view="settings">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Settings</button>
+
+    <!-- Separated help group, as in the reference. Real destinations
+         only — these point at pages that actually exist rather than
+         inventing a docs site we don't have. -->
+    <div class="ag-hist-gap"></div>
+    <a class="ag-hist-tab" href="/home">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7V18h8v-3.3A7 7 0 0 0 12 2z"/></svg>Learn</a>
+    <a class="ag-hist-tab" href="/terms">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4h7a3 3 0 0 1 3 3v13a2.5 2.5 0 0 0-2.5-2.5H2z"/><path d="M22 4h-7a3 3 0 0 0-3 3v13a2.5 2.5 0 0 1 2.5-2.5H22z"/></svg>Documentation</a>
   </div>
 
   <div class="ag-hist-view on" id="viewHome">
@@ -694,6 +768,13 @@
       <b>Souqi Code</b>
       <button type="button" class="ag-new" id="agNew">New build</button>
     </div>
+    <!-- Hero wrapper: greeting + composer + tiles/examples as ONE group.
+         This exists purely so the new-chat screen can be centered — the
+         three previous attempts all failed because these are SIBLINGS,
+         and no amount of justify-content on any one of them can center
+         the group. It's display:contents during a real conversation, so
+         it has zero layout effect there (see .ag-hero in the CSS). -->
+    <div class="ag-hero" id="agHero">
     <div class="ag-log" id="agLog" aria-live="polite">
       <div class="ag-empty" id="agEmptyState">
         <h2 id="agGreeting">What do you want to make?</h2>
@@ -760,16 +841,22 @@
         <div class="ag-ex-row" id="agExRow"></div>
       </div>
 
-      <!-- Populated from the SAME /api/projects the sidebar's Home view
-           already fetches — hidden entirely when there's nothing to
-           show, rather than an empty grid with nothing in it. -->
-      <div class="ag-recent" id="agRecent" hidden>
-        <div class="ag-recent-head">
-          <h3>Your recent Projects</h3>
-          <button type="button" id="agRecentViewAll">View All<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></button>
-        </div>
-        <div class="ag-recent-grid" id="agRecentGrid"></div>
+    </div>
+    </div><!-- /.ag-hero -->
+
+    <!-- Deliberately OUTSIDE .ag-hero: the hero is min-height:100% of the
+         scroll area in new-chat state, so this always begins below the
+         fold and is reached by scrolling down — which is the actual
+         requested behaviour, and is also why it can never push the
+         greeting off the top the way it did when it lived inside.
+         Populated from the SAME /api/projects the sidebar's Home view
+         already fetches. -->
+    <div class="ag-recent" id="agRecent" hidden>
+      <div class="ag-recent-head">
+        <h3>Your recent Projects</h3>
+        <button type="button" id="agRecentViewAll">View All<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></button>
       </div>
+      <div class="ag-recent-grid" id="agRecentGrid"></div>
     </div>
   </section>
 
@@ -847,6 +934,11 @@
     agPvGateStart = $("agPvGateStart"), agPvGatePass2 = $("agPvGatePass2"), agPvGateCountry = $("agPvGateCountry"),
     agPvGateTitle = $("agPvGateTitle"), agPvGateSub = $("agPvGateSub");
   const agTabs = $("agTabs"), agTabChat = $("agTabChat"), agTabPreview = $("agTabPreview"), agPreview = $("agPreview"), agSection = document.querySelector(".ag");
+  // New-chat screen until proven otherwise: the greeting is in the markup,
+  // so the centered hero layout is the correct starting state. Cleared by
+  // clearEmpty() on the first message, and by boot() when resuming an
+  // existing project (which replays a real conversation instead).
+  agSection.classList.add("is-new");
   const agTypeRow = $("agTypeRow");
   const agHistOpen = $("agHistOpen"), agHistClose = $("agHistClose"), agHistBackdrop = $("agHistBackdrop"),
     agHistory = $("agHistory"), agHistList = $("agHistList"), agHistNew = $("agHistNew");
@@ -1001,6 +1093,12 @@
     // them, which left them sitting under an in-progress conversation.
     const extras = $("agNewExtras");
     if (extras) extras.hidden = true;
+    // Same for recent projects (now a sibling of the hero, not inside
+    // extras) — and dropping .is-new returns .ag-hero to display:contents,
+    // restoring the normal scrolling-log-under-sticky-composer layout.
+    const recent = $("agRecent");
+    if (recent) recent.hidden = true;
+    agSection.classList.remove("is-new");
   }
 
   function el(cls, html) { const d = document.createElement("div"); d.className = cls; if (html != null) d.innerHTML = html; return d; }
@@ -1478,11 +1576,23 @@
           ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 0 1 0 18 15 15 0 0 1 0-18z"/></svg>Published'
           : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>Private';
         return '<a class="ag-recent-card" href="/agent/' + esc(p.slug) + '">'
-          + '<span class="ag-recent-thumb" style="background:' + color + '">' + esc(title.charAt(0).toUpperCase() || "A") + '</span>'
+          + '<span class="ag-recent-thumb"><i style="color:' + color + '">' + esc(title.charAt(0).toUpperCase() || "A") + '</i></span>'
           + '<span class="ag-recent-body"><span class="t">' + esc(title) + '</span>'
           + '<span class="m">' + meta + ' · ' + esc(timeAgo(p.updatedAt)) + '</span></span></a>';
       }).join("") : '<div class="ag-recent-empty">No recent projects yet — what you build will show up here.</div>';
       $("agRecent").hidden = false;
+
+      // Same rows feed the sidebar's Projects hover flyout — one fetch,
+      // both surfaces, so they can never disagree about what exists.
+      $("agProjFlyoutList").innerHTML = rows.length
+        ? rows.slice(0, 5).map((p) => {
+            const t = p.title || "Untitled app";
+            const c = TYPE_COLOR[p.buildType] || "#8b98a5";
+            return '<a class="ag-flyout-item" href="/agent/' + esc(p.slug) + '">'
+              + '<i style="color:' + c + '">' + esc(t.charAt(0).toUpperCase() || "A") + '</i>'
+              + '<span>' + esc(t) + '</span></a>';
+          }).join("")
+        : '<span class="ag-flyout-empty">Nothing built yet</span>';
     }).catch(() => { /* the rest of the new-chat screen still works without it */ });
   }
   loadRecentProjects();
@@ -1583,10 +1693,15 @@
      history, security) that never fit in 340px. Everything else stays
      in the drawer. */
   const agSetOverlay = $("agSetOverlay"), agSetFrame = $("agSetFrame");
-  function openSettings() {
-    // Assigned on open, not in the markup, so the settings page isn't
-    // fetched for every visitor who never opens it.
-    if (agSetFrame.getAttribute("src") !== "/settings") agSetFrame.setAttribute("src", "/settings");
+  // `panel` targets one of settings.html's sub-nav sections by name; it
+  // reads location.hash on load and honours it, so this is just a URL.
+  // Re-set unconditionally when a panel is named, since navigating an
+  // iframe to a URL differing only in hash won't reload it — the settings
+  // page listens for hashchange too, but assigning src is what makes the
+  // FIRST open land on the right panel.
+  function openSettings(panel) {
+    const src = "/settings" + (panel ? "#" + panel : "");
+    if (agSetFrame.getAttribute("src") !== src) agSetFrame.setAttribute("src", src);
     agSetOverlay.hidden = false;
   }
   function closeSettings() { agSetOverlay.hidden = true; }
@@ -1601,6 +1716,10 @@
     const tab = e.target.closest(".ag-hist-tab"); if (!tab) return;
     const view = tab.dataset.view;
     if (!view) return; // a real link (Projects) — let it navigate, nothing to toggle
+    // Items that live in the settings overlay rather than as a drawer
+    // view — Replit routes these the same way (its sidebar Security and
+    // Integrations open the Settings modal on that section).
+    if (tab.dataset.panel) { openSettings(tab.dataset.panel); return; }
     if (view === "settings") { openSettings(); return; }
     $("agHistTabs").querySelectorAll(".ag-hist-tab").forEach((t) => t.classList.toggle("on", t === tab));
     document.querySelectorAll(".ag-hist-view").forEach((v) => v.classList.toggle("on", v.id === "view" + view.charAt(0).toUpperCase() + view.slice(1)));
@@ -1666,7 +1785,11 @@
       if (!res.ok) throw new Error("gone");
       const data = await res.json();
       projectId = data.project.id; projectSlug = data.project.slug;
-      $("agNewExtras").hidden = true; // an existing project — the new-chat screen only applies before a first build
+      // An existing project — the new-chat screen only applies before a
+      // first build, so drop the whole hero state, not just the tiles.
+      $("agNewExtras").hidden = true;
+      $("agRecent").hidden = true;
+      agSection.classList.remove("is-new");
 
       (data.turns || []).forEach((t) => {
         if (t.role === "user") { sayUser(t.body); return; }
