@@ -1,12 +1,11 @@
 /* =================================================================
-   WeboCloud — REST + auth + AI proxy backend (Multi-Database Support)
+   Souqi — REST + auth + AI proxy backend (Multi-Database Support)
    -----------------------------------------------------------------
-   Implements exactly the contract the front-end Store expects,
-   but dynamically routes all CRUD operations to either MongoDB
-   or PostgreSQL depending on headers:
-     x-workspace-id
-     x-workspace-db-type (mongodb / postgres / neon)
-     x-workspace-db-uri
+   Implements exactly the contract the front-end Store expects.
+   Workspace/DB context is resolved SERVER-SIDE from the signed JWT
+   session (via tenantScope middleware) for authenticated requests,
+   or from the :wsId path param for public portal routes.
+   Client headers never select which database is used.
    ================================================================= */
 const path = require("path");
 // Explicit path, not the default require("dotenv").config() — that
@@ -77,6 +76,26 @@ const visitLimiter = rateLimit({ windowMs: 60 * 1000, max: 120, key: (req) => re
 
 // home.html is the public entry point — the marketing page, not login.
 app.get("/", (req, res) => res.sendFile(path.join(__dirname, "..", "public", "home.html")));
+
+// WebContainers require Cross-Origin Isolation (SharedArrayBuffer).
+// These headers ONLY apply to the builder page, not globally — setting
+// them site-wide would break third-party embeds on portal/storefront
+// pages.
+//
+// /agent and /agent/:slug are in this list because THEY are the routes a
+// user actually lands on; both sendFile code.html. Without them the page
+// loads fine, SharedArrayBuffer is undefined, and WebContainer.boot()
+// fails — a build that dies for a reason nothing on the page explains.
+// (/code and /code.html stay listed: they serve the same document, so
+// isolating one entry point and not the others would just move the bug.)
+function crossOriginIsolate(req, res, next) {
+  res.setHeader("Cross-Origin-Embedder-Policy", "require-corp");
+  res.setHeader("Cross-Origin-Opener-Policy", "same-origin");
+  next();
+}
+app.use("/agent", crossOriginIsolate);
+app.use("/code", crossOriginIsolate);
+app.use("/code.html", crossOriginIsolate);
 
 app.use(express.static(path.join(__dirname, "..", "public")));
 
@@ -360,8 +379,8 @@ app.post("/api/admin/ws/:id/plan", adminGuard, async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
-/* ---- dynamic db connection testing ---- */
-app.post("/api/db/test", async (req, res) => {
+/* ---- dynamic db connection testing (auth required) ---- */
+app.post("/api/db/test", requireSession, async (req, res) => {
   try {
     const { dbType, dbUri } = req.body || {};
     if (!dbType || !dbUri) return res.status(400).json({ error: "dbType and dbUri are required" });
@@ -373,8 +392,8 @@ app.post("/api/db/test", async (req, res) => {
   }
 });
 
-/* ---- dynamic db seeding/provisioning ---- */
-app.post("/api/db/seed", async (req, res) => {
+/* ---- dynamic db seeding/provisioning (auth required) ---- */
+app.post("/api/db/seed", requireSession, async (req, res) => {
   try {
     const { workspaceId, dbType, dbUri } = req.body || {};
     if (!workspaceId || !dbType || !dbUri) return res.status(400).json({ error: "workspaceId, dbType, and dbUri are required" });
@@ -1853,7 +1872,7 @@ app.post("/api/projects/:key/micro-claim", microClaimLimiter, validateBody(micro
 const codeAgentRuntimeReg = require("./lib/codeagent/runtime");
 const daytonaRuntimeModule = require("./lib/codeagent/runtimes/daytona-runtime"); // registers "daytona"
 const { makeTools: makeCodeAgentTools } = require("./lib/codeagent/tools");
-const { proposeWithRepair, assessPrompt } = require("./lib/codeagent/model-loop");
+const { proposeWithRepair, proposeWithClientBuild, assessPrompt } = require("./lib/codeagent/model-loop");
 const codeAgentUsage = require("./lib/codeagent/usage");
 codeAgentUsage.init({ getMasterDb });
 
@@ -1911,6 +1930,11 @@ async function codeAgentLive(project) {
   return live;
 }
 const codeAgentLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 10, key: (req) => req.ip || "" });
+
+// WebContainers flow: the SSE handler proposes files and waits for the client
+// to build them in the browser. This map holds pending promises keyed by a
+// unique buildId — the build-feedback endpoint resolves them.
+const pendingBuildResults = new Map(); // buildId -> { resolve, timer }
 
 // The platform-wide AI_MONTHLY_BUDGET_USD (lib/ai/client.js) stops total
 // spend across BOTH product lines from running away — but it's a shared
@@ -2303,6 +2327,23 @@ app.post("/api/codeagent/:key/micro-claim", microClaimLimiter, validateBody(micr
 });
 
 /**
+ * POST /api/codeagent/build-feedback
+ * Body: { buildId, ok, errors?, raw? }
+ * Called by code.html after the browser's WebContainer finishes a build.
+ * Resolves the pending promise in the SSE handler's repair loop.
+ */
+app.post("/api/codeagent/build-feedback", express.json({ limit: "1mb" }), (req, res) => {
+  const { buildId, ok, errors, raw } = req.body || {};
+  if (!buildId) return res.status(400).json({ error: "buildId required" });
+  const pending = pendingBuildResults.get(buildId);
+  if (!pending) return res.status(404).json({ error: "unknown or expired buildId" });
+  pendingBuildResults.delete(buildId);
+  clearTimeout(pending.timer);
+  pending.resolve({ ok: !!ok, errors: errors || [], raw: raw || "" });
+  res.json({ received: true });
+});
+
+/**
  * POST /api/codeagent/build
  * Body: { prompt, projectId? }   SSE only.
  *
@@ -2375,7 +2416,7 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
     if (!sessionUser) {
       sseFrame(res, "authRequired", {
         message: "Sign in (it's free) to keep editing this build.",
-        loginUrl: "/login", signupUrl: "/signup"
+        loginUrl: "/login", signupUrl: "/login"
       });
       sseFrame(res, "done", {});
       return res.end();
@@ -2457,82 +2498,55 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
     }
   }
 
-  // A registry entry existing is NOT the same claim as the sandbox being
-  // alive — Daytona's own autoStopInterval can kill it out from under this
-  // process at any time, and nothing notifies us when that happens (found
-  // live: it silently killed a real follow-up with "not found: sandbox ...
-  // has been deleted" instead of resuming). codeAgentLive() health-checks
-  // for exactly that case, and also re-attaches by persisted sandboxId when
-  // this instance never ran the original build.
-  const live = await codeAgentLive(project);
-
-  const runtime = codeAgentRuntimeReg.createRuntime("daytona");
-  let ws = null, tools = null;
-  const ownsSandbox = !live; // only the creator destroys it on failure — a follow-up must not tear down a build the user is still looking at
-
+  // ---- WebContainers flow: server proposes files, client builds ----
   try {
-    if (live) {
-      ws = live.ws; tools = live.tools;
-      sseFrame(res, "stage", { id: "sandbox", state: "done", detail: "Using your existing sandbox" });
-    } else {
-      sseFrame(res, "stage", { id: "sandbox", state: "start", detail: project ? "Resuming your sandbox" : "Creating a sandbox" });
-      ws = await runtime.create();
-      tools = makeCodeAgentTools(runtime, ws);
-      sseFrame(res, "stage", { id: "sandbox", state: "done", detail: "Sandbox ready" });
-
-      sseFrame(res, "stage", { id: "install", state: "start", detail: "Installing dependencies" });
-      const install = await tools.run("npm install", 180000);
-      if (install.code !== 0) {
-        sseFrame(res, "error", { error: "could not set up the project environment" });
-        await runtime.destroy(ws);
-        return res.end();
-      }
-      await tools.run("git init", 10000);
-      await tools.run('git config user.email "agent@souqi.local"', 5000);
-      await tools.run('git config user.name "Souqi Code"', 5000);
-      sseFrame(res, "stage", { id: "install", state: "done", detail: "Dependencies installed" });
-
-      // Resume: the project has a prior revision but no live sandbox (server
-      // restarted, or the last one auto-stopped) — re-materialize its last
-      // known files onto this fresh sandbox BEFORE writing anything new, so
-      // a follow-up edits the real prior state instead of the bare scaffold.
-      if (project) {
-        const head = await projects.head(project.id);
-        const files = head && head.config && head.config.files;
-        if (files) {
-          for (const [path, content] of Object.entries(files)) await tools.write_file(path, content);
-          sseFrame(res, "stage", { id: "resume", state: "done", detail: "Restored your previous files" });
-        }
-      }
-    }
-
     sseFrame(res, "stage", { id: "propose", state: "start", detail: project ? "Making the change" : "Writing your app" });
     let effectivePrompt = prompt;
     if (!project) {
       const buildType = String((req.body && req.body.buildType) || "");
       effectivePrompt = prompt + (CODEAGENT_TYPE_HINT[buildType] || "");
-      effectivePrompt += await attachLogoIfPresent(req, tools, runtime, ws);
+      // Logo attachment: with WebContainers, the logo is written client-side.
+      // Append the hint if a logo was provided so the model references it.
+      const logo = req.body && req.body.logo;
+      if (logo && typeof logo.dataUrl === "string" && LOGO_MIME_RE.test(logo.dataUrl)) {
+        effectivePrompt += " An image has already been uploaded and saved at src/assets/logo.png" +
+          " — import and use it as the site's logo/brand mark (e.g. in the header) instead of inventing a placeholder.";
+      }
     }
     if (project) {
+      // For follow-ups, include the current App.tsx content from the last revision
+      const head = await projects.head(project.id);
+      const files = head && head.config && head.config.files;
       let currentApp = "";
-      try { currentApp = await tools.read_file("src/App.tsx"); } catch (e) { /* nothing written yet */ }
+      if (files && files["src/App.tsx"]) currentApp = files["src/App.tsx"];
       effectivePrompt = "The current src/App.tsx is:\n\n" + currentApp + "\n\nChange request: " + prompt;
     }
 
-    const result = await proposeWithRepair({
-      userPrompt: effectivePrompt, tools, maxRounds: 3,
+    const result = await proposeWithClientBuild({
+      userPrompt: effectivePrompt, maxRounds: 3,
+      onFiles: async (calls) => {
+        // Send proposed files to the client for WebContainer build
+        const filesObj = {};
+        for (const c of calls) filesObj[c.path] = c.content;
+        const buildId = crypto.randomBytes(16).toString("hex");
+        return new Promise((resolve) => {
+          const timer = setTimeout(() => {
+            pendingBuildResults.delete(buildId);
+            resolve({ ok: false, errors: [{ file: "", line: 0, col: 0, code: "", message: "build timed out (client did not respond in 3 minutes)" }], raw: "" });
+          }, 180000);
+          pendingBuildResults.set(buildId, { resolve, timer });
+          sseFrame(res, "files", { buildId, files: filesObj });
+        });
+      },
       onRound: (r) => {
         sseFrame(res, "stage", {
           id: "round-" + r.round, state: "done",
-          detail: r.ok ? "Build succeeded" : ("Fixing " + r.errors.length + " issue(s)")
+          detail: r.ok ? "Build succeeded" : ("Fixing " + (r.errors ? r.errors.length : 0) + " issue(s)")
         });
       }
     });
 
-    // Recorded regardless of outcome — a failed repair loop still spent real
-    // model tokens getting there, and both the per-owner cap above and the
-    // platform-wide one in lib/ai/client.js need the true total, not just
-    // what successful builds cost.
+    // Record spend regardless of outcome
     await codeAgentUsage.recordSpend(owner, result.costUsd || 0);
     const masterDbForAudit = getMasterDb();
     if (masterDbForAudit) {
@@ -2547,7 +2561,6 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
     if (!result.ok) {
       sseFrame(res, "stage", { id: "propose", state: "done", detail: "Could not finish" });
       sseFrame(res, "error", { error: result.reason || "the agent could not produce a working build" });
-      if (ownsSandbox) await runtime.destroy(ws);
       return res.end();
     }
     sseFrame(res, "stage", {
@@ -2555,28 +2568,10 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
       detail: result.repaired ? "Fixed it after " + result.rounds + " tries" : "Wrote it in one try"
     });
 
-    sseFrame(res, "stage", { id: "preview", state: "start", detail: "Starting your preview" });
-    const preview = await runtime.startPreview(ws, 20000);
-    if (!preview.ok) {
-      sseFrame(res, "error", { error: "the build succeeded but the preview server did not start: " + preview.reason });
-      return res.end();
-    }
-    // The RAW Daytona URL — kept for the revision's own record, but never
-    // sent to the client (see serveCodeAgentPreview's header for why).
-    const rawPreviewUrl = await runtime.getPublicPreviewUrl(ws, daytonaRuntimeModule.PREVIEW_PORT, 1800);
-    sseFrame(res, "stage", { id: "preview", state: "done", detail: "Preview ready" });
-
-    // Checkpoint (Phase 7, §6): a commit per turn, session-scoped — this
-    // does not survive the sandbox on its own, the Mongo write below does.
-    await tools.run("git add -A", 10000);
-    await tools.run('git commit -m "' + gitSafeMessage((project ? "Follow-up: " : "Initial build: ") + prompt) + '" --allow-empty', 10000);
-
-    // Durable checkpoint: full current file content, so a reload or a dead
-    // sandbox can be answered from Mongo instead of losing the build.
-    const allFiles = await tools.list_files();
+    // Collect file contents from the last successful proposal for persistence
     const fileContents = {};
-    for (const path of allFiles) fileContents[path] = await tools.read_file(path);
-    const srcFiles = allFiles.filter((f) => f.startsWith("src/"));
+    for (const c of result.calls) fileContents[c.path] = c.content;
+    const srcFiles = result.calls.map((c) => c.path).filter((f) => f.startsWith("src/"));
 
     if (!project) {
       const createdBuildType = String((req.body && req.body.buildType) || "website");
@@ -2585,7 +2580,7 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
     await projects.addTurn(project.id, { role: "user", kind: "text", body: prompt });
     const revision = await projects.addRevision(
       project.id,
-      { files: fileContents, previewUrl: rawPreviewUrl, sandboxId: ws.id },
+      { files: fileContents },
       result.repaired ? "Fixed after " + result.rounds + " tries" : (isFollowUp ? "Follow-up" : "First build")
     );
     await projects.addTurn(project.id, {
@@ -2594,11 +2589,10 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
     await projects.ensureIndexes();
     await codeAgentUsage.ensureIndexes();
 
-    codeBuilds.set(project.id, { ws, runtime, tools, createdAt: Date.now() });
-
+    // Tell the client to start preview (client-side WebContainer handles this)
     sseFrame(res, "result", {
       projectId: project.id, slug: project.slug, files: srcFiles,
-      previewUrl: "/api/codeagent/preview/" + encodeURIComponent(project.slug),
+      previewUrl: "__webcontainer__", // signal to client: use local WebContainer preview
       repaired: !!result.repaired, rounds: result.rounds, costUsd: result.costUsd || 0
     });
     sseFrame(res, "done", {});
@@ -2606,7 +2600,6 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
   } catch (e) {
     console.error("codeagent build error:", e.message);
     try { sseFrame(res, "error", { error: "build failed" }); } catch (e2) { /* response may already be gone */ }
-    if (ws && ownsSandbox) { try { await runtime.destroy(ws); } catch (e2) { /* best effort */ } }
     try { res.end(); } catch (e3) { /* already ended */ }
   }
 });
@@ -2663,54 +2656,10 @@ app.get("/api/codeagent/:key", async (req, res, next) => {
  * Owner-gated exactly like every other project read — knowing a slug is
  * not authorisation, same rule as everywhere else this session.
  */
-async function serveCodeAgentPreview(req, res, subPath) {
-  try {
-    const owner = anon.ownerOf(req, res);
-    const project = await resolveProject(req.params.key, owner);
-    if (!project) return res.status(404).send("Not found");
-    if (!projects.owns(project, owner)) return res.status(403).send("Forbidden");
-
-    const live = await codeAgentLive(project);
-    if (!live) return res.status(503).send("This preview isn't running right now — send a message to the agent and I'll pick up where this left off.");
-
-    let baseUrl;
-    try {
-      baseUrl = await live.runtime.getPublicPreviewUrl(live.ws, daytonaRuntimeModule.PREVIEW_PORT, 1800);
-    } catch (e) {
-      return res.status(503).send("This preview isn't running right now — send a message to the agent and I'll pick up where this left off.");
-    }
-
-    const qsIdx = req.url.indexOf("?");
-    const qs = qsIdx >= 0 ? req.url.slice(qsIdx) : "";
-    const targetUrl = baseUrl.replace(/\/$/, "") + "/" + subPath + qs;
-
-    const upstream = await fetch(targetUrl, { signal: AbortSignal.timeout(15000) });
-    const contentType = upstream.headers.get("content-type") || "application/octet-stream";
-    res.status(upstream.status);
-
-    if (contentType.indexOf("text/html") >= 0) {
-      let html = await upstream.text();
-      // Root-relative asset URLs (Vite's default output) need to resolve
-      // back through THIS proxy path, not the origin the browser thinks
-      // it's on — a <base> tag is the one-line way to redirect every
-      // relative URL on the page without parsing/rewriting each one.
-      const base = "/api/codeagent/preview/" + encodeURIComponent(req.params.key) + "/";
-      html = /<head[^>]*>/i.test(html)
-        ? html.replace(/<head([^>]*)>/i, "<head$1><base href=\"" + base + "\">")
-        : "<base href=\"" + base + "\">" + html;
-      res.setHeader("Content-Type", "text/html; charset=utf-8");
-      return res.send(html);
-    }
-
-    res.setHeader("Content-Type", contentType);
-    res.send(Buffer.from(await upstream.arrayBuffer()));
-  } catch (e) {
-    console.error("codeagent preview proxy error:", e.message);
-    res.status(502).send("Preview unavailable");
-  }
-}
-app.get("/api/codeagent/preview/:key", (req, res) => serveCodeAgentPreview(req, res, ""));
-app.get("/api/codeagent/preview/:key/*", (req, res) => serveCodeAgentPreview(req, res, req.params[0]));
+// Preview proxy removed — WebContainers serve previews locally in the browser.
+// Kept as a stub to avoid 404s from old bookmarks.
+app.get("/api/codeagent/preview/:key", (req, res) => res.status(410).send("Preview is now served locally by WebContainers. Open the project in Souqi Code."));
+app.get("/api/codeagent/preview/:key/*", (req, res) => res.status(410).send("Preview is now served locally by WebContainers. Open the project in Souqi Code."));
 
 // Total base64 payload kept comfortably under Mongo's 16MB document cap —
 // dist/ is model-written text plus whatever assets it references, and
@@ -2729,53 +2678,19 @@ const PUBLISH_MAX_BYTES = 12 * 1024 * 1024;
  * does. Once published the site is served by servePublishedSite() below
  * with NO sandbox involved — the whole point of Phase 8.
  */
-app.post("/api/codeagent/:key/publish", codeAgentLimiter, async (req, res, next) => {
-  // `registered` (not just ownsSandbox) is what gates cleanup-on-error: once
-  // codeBuilds.set() below runs, the sandbox is a legitimate live resource a
-  // later, unrelated failure (e.g. the Mongo write) must NOT tear down —
-  // that would kill a perfectly good sandbox out from under the user for a
-  // problem that has nothing to do with it.
-  let ws = null, runtime = null, ownsSandbox = false, registered = false;
+app.post("/api/codeagent/:key/publish", codeAgentLimiter, express.json({ limit: "12mb" }), async (req, res, next) => {
   try {
     const owner = anon.ownerOf(req, res);
     const project = await resolveProject(req.params.key, owner);
     if (!project) return res.status(404).json({ error: "project not found" });
     if (!projects.owns(project, owner)) return res.status(403).json({ error: "not your project" });
 
-    const live = await codeAgentLive(project);
-
-    runtime = codeAgentRuntimeReg.createRuntime("daytona");
-    let tools;
-    ownsSandbox = !live;
-    if (live) {
-      ws = live.ws; tools = live.tools;
-    } else {
-      ws = await runtime.create();
-      tools = makeCodeAgentTools(runtime, ws);
-      const install = await tools.run("npm install", 180000);
-      if (install.code !== 0) return res.status(502).json({ error: "could not set up the project environment" });
-      await tools.run("git init", 10000);
-      await tools.run('git config user.email "agent@souqi.local"', 5000);
-      await tools.run('git config user.name "Souqi Code"', 5000);
-
-      const head = await projects.head(project.id);
-      const files = head && head.config && head.config.files;
-      if (!files) return res.status(409).json({ error: "nothing has been built yet" });
-      for (const [path, content] of Object.entries(files)) await tools.write_file(path, content);
-
-      codeBuilds.set(project.id, { ws, runtime, tools, createdAt: Date.now() });
-      registered = true;
+    const distFiles = req.body && req.body.dist;
+    if (!Array.isArray(distFiles) || !distFiles.length) {
+      return res.status(400).json({ error: "dist files required — build the project first" });
     }
 
-    const build = await tools.build(180000);
-    if (!build.ok) {
-      const first = build.errors && build.errors[0];
-      return res.status(502).json({ error: "the current build has an error and can't be published" + (first ? ": " + first.message : "") });
-    }
-
-    const distFiles = await daytonaRuntimeModule.readDist(ws);
-    if (!distFiles.length) return res.status(502).json({ error: "build produced no output" });
-    const totalBytes = distFiles.reduce((n, f) => n + f.size, 0);
+    const totalBytes = distFiles.reduce((n, f) => n + (f.size || 0), 0);
     if (totalBytes > PUBLISH_MAX_BYTES) {
       return res.status(413).json({ error: "this app's build is too large to publish (" + (totalBytes / 1024 / 1024).toFixed(1) + " MB) — trim large assets and try again" });
     }
@@ -2792,11 +2707,138 @@ app.post("/api/codeagent/:key/publish", codeAgentLimiter, async (req, res, next)
     res.json({ ok: true, url: "/s/" + publicSlug + "/" });
   } catch (e) {
     console.error("codeagent publish error:", e.message);
-    if (ws && ownsSandbox && !registered) { try { await runtime.destroy(ws); } catch (e2) { /* best effort */ } }
     next(e);
   }
 });
 
+/**
+ * POST /api/codeagent/:key/export-android
+ * Generates a downloadable Capacitor-wrapped Android project ZIP from
+ * the published dist/ files. No Android SDK needed on the server — the
+ * ZIP contains everything the user needs to build locally with
+ * `npx cap sync && npx cap open android` or on CI with Gradle.
+ */
+app.post("/api/codeagent/:key/export-android", codeAgentLimiter, async (req, res, next) => {
+  try {
+    const owner = anon.ownerOf(req, res);
+    const project = await resolveProject(req.params.key, owner);
+    if (!project) return res.status(404).json({ error: "project not found" });
+    if (!projects.owns(project, owner)) return res.status(403).json({ error: "not your project" });
+    if (!project.published || !project.published.files) {
+      return res.status(409).json({ error: "publish this project first, then export as an app" });
+    }
+
+    const archiver = require("archiver");
+    const appName = project.title || "Souqi App";
+    const appId = "com.souqi.app." + (project.slug || "app").replace(/[^a-z0-9]/gi, "").toLowerCase().slice(0, 30);
+
+    res.setHeader("Content-Type", "application/zip");
+    res.setHeader("Content-Disposition", 'attachment; filename="' + (project.slug || "app") + '-android.zip"');
+
+    const archive = archiver("zip", { zlib: { level: 6 } });
+    archive.pipe(res);
+
+    // package.json with Capacitor deps
+    archive.append(JSON.stringify({
+      name: appId,
+      version: "1.0.0",
+      private: true,
+      scripts: {
+        "cap:init": "npx cap sync android",
+        "cap:open": "npx cap open android",
+        "cap:build": "cd android && ./gradlew assembleDebug"
+      },
+      dependencies: {
+        "@capacitor/core": "^6.0.0",
+        "@capacitor/android": "^6.0.0",
+        "@capacitor/cli": "^6.0.0"
+      }
+    }, null, 2), { name: "package.json" });
+
+    // capacitor.config.ts
+    archive.append(`import type { CapacitorConfig } from '@capacitor/cli';
+
+const config: CapacitorConfig = {
+  appId: '${appId}',
+  appName: ${JSON.stringify(appName)},
+  webDir: 'dist',
+  server: {
+    androidScheme: 'https'
+  },
+  plugins: {
+    SplashScreen: {
+      launchAutoHide: true,
+      backgroundColor: '#1aa6df',
+      showSpinner: false
+    }
+  }
+};
+
+export default config;
+`, { name: "capacitor.config.ts" });
+
+    // tsconfig.json for capacitor.config.ts
+    archive.append(JSON.stringify({
+      compilerOptions: { target: "ES2020", module: "ESNext", moduleResolution: "node", esModuleInterop: true }
+    }, null, 2), { name: "tsconfig.json" });
+
+    // README with build instructions
+    archive.append(`# ${appName} — Android App
+
+This is a Capacitor-wrapped Android project generated by Souqi Code.
+
+## Prerequisites
+
+- **Node.js** 18+ (https://nodejs.org)
+- **Android Studio** (https://developer.android.com/studio)
+- **Java JDK 17** (usually bundled with Android Studio)
+
+## Quick Start
+
+\`\`\`bash
+# 1. Install dependencies
+npm install
+
+# 2. Add the Android platform
+npx cap add android
+
+# 3. Sync web assets to Android
+npx cap sync android
+
+# 4. Open in Android Studio (build + run from there)
+npx cap open android
+\`\`\`
+
+## Build APK from Command Line
+
+\`\`\`bash
+cd android
+./gradlew assembleDebug
+\`\`\`
+
+The APK will be at: \`android/app/build/outputs/apk/debug/app-debug.apk\`
+
+## Build Release APK
+
+1. Generate a keystore: \`keytool -genkey -v -keystore release.keystore -alias app -keyalg RSA -keysize 2048\`
+2. Build: \`cd android && ./gradlew assembleRelease\`
+
+---
+Generated by [Souqi Code](https://souqi.site)
+`, { name: "README.md" });
+
+    // Write the published dist/ files (decode from base64)
+    const pubFiles = project.published.files;
+    for (const [filePath, base64Content] of Object.entries(pubFiles)) {
+      archive.append(Buffer.from(base64Content, "base64"), { name: "dist/" + filePath });
+    }
+
+    await archive.finalize();
+  } catch (e) {
+    console.error("codeagent export-android error:", e.message);
+    if (!res.headersSent) next(e);
+  }
+});
 /**
  * POST /api/codeagent/:key/domain
  * Body: { domain: "app.yourbrand.com" | "" }

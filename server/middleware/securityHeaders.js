@@ -16,13 +16,33 @@
 "use strict";
 const isProd = process.env.NODE_ENV === "production";
 
+// WebContainers (the builder page) need three things this policy did not
+// previously allow, and each failure looked like an unexplained build
+// error rather than a CSP problem:
+//   - the @webcontainer/api module itself, loaded from jsdelivr;
+//   - blob: workers — WebContainer runs its virtual Node in Web Workers
+//     created from blob URLs, so worker-src blob: is mandatory;
+//   - a frame source for the preview: the running client app is served
+//     either same-origin via a service worker or from
+//     *.webcontainer-api.io, and it renders inside an iframe.
+// Named hosts, not wildcards: this widens the policy by three specific
+// origins rather than relaxing it.
+const WEBCONTAINER_CDN = "https://cdn.jsdelivr.net";
+// The runtime frames stackblitz.com for its own licensing/credential
+// handshake before it will boot, and serves the running client app from
+// *.webcontainer-api.io. Both are required for a preview to appear.
+const WEBCONTAINER_HOST = "https://*.webcontainer-api.io https://stackblitz.com";
+
 const CSP = [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+  "script-src 'self' 'unsafe-inline' 'unsafe-eval' " + WEBCONTAINER_CDN,
+  "worker-src 'self' blob:",
+  "child-src 'self' blob: " + WEBCONTAINER_HOST,
+  "frame-src 'self' blob: " + WEBCONTAINER_HOST,
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' https://fonts.gstatic.com",
   "img-src 'self' data: blob: https:",
-  "connect-src 'self' https:",
+  "connect-src 'self' https: blob: data:",
   "frame-ancestors 'self'",
   "base-uri 'self'",
   "form-action 'self'",
