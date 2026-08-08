@@ -554,7 +554,15 @@
      stacked vertically has no such ceiling. */
   /* Plain icon + label rows, no chips or indicator bars — Replit's nav is
      quiet, with a light fill on the active row and nothing else. */
-  .ag-hist-tabs{display:flex;flex-direction:column;gap:1px;padding:2px 12px 10px}
+  /* flex:0 1 auto + min-height:0 is what lets this SHRINK. It was rigid,
+     and with the nav grown to nine items plus the help group it simply
+     pushed the footer past the bottom of a short viewport — which is why
+     Build budget and Upgrade were missing on a phone. Now the nav gives
+     up space (scrolling internally) instead of the footer being pushed
+     out; .ag-hist-foot's flex:none makes sure it's the nav that yields. */
+  .ag-hist-tabs{display:flex;flex-direction:column;gap:1px;padding:2px 12px 10px;
+    flex:0 1 auto;min-height:0;overflow-y:auto;scrollbar-width:none}
+  .ag-hist-tabs::-webkit-scrollbar{display:none}
   .ag-hist-tab{width:100%;display:flex;align-items:center;gap:11px;border:0;background:none;color:var(--ink);cursor:pointer;
     padding:9px 10px;border-radius:8px;font-size:.92rem;font-weight:400;text-align:left;transition:.14s}
   .ag-hist-tab svg{width:18px;height:18px;flex:none;color:var(--ink-2)}
@@ -588,7 +596,41 @@
      sit under the finger that opened it. */
   @media (max-width:900px){ .ag-flyout{display:none} }
 
-  .ag-hist-view{flex:1;overflow-y:auto;display:none}
+  /* Mobile density pass — the whole rail has to FIT a phone with no
+     internal scrolling. At desktop metrics the nav alone is ~382px of a
+     ~600px screen, which pushed the plan block and Upgrade below the
+     fold. Everything here is a height reduction.
+
+     Placed at the END of the sidebar CSS on purpose: these selectors are
+     no more specific than the base rules they override, so source order
+     decides. An identical block sitting ABOVE them did nothing at all —
+     .ag-hist-new kept its display:flex and the rows kept desktop
+     padding. Same trap as .ag-hist-close earlier in this file. */
+  @media (max-width:900px){
+    .ag-hist-head{padding:9px 12px 2px}
+    .ag-ws{margin:2px 10px 6px;width:calc(100% - 20px);padding:4px 9px 4px 4px}
+    .ag-ws .av{width:22px;height:22px;font-size:.7rem}
+    .ag-ws .nm{font-size:.84rem}
+    .ag-act{margin:0 10px 5px;width:calc(100% - 20px);padding:7px 10px;font-size:.85rem}
+    .ag-act svg{width:14px;height:14px}
+    .ag-hist-tabs{padding:0 10px 2px;gap:0;flex:0 0 auto;overflow:visible}
+    .ag-hist-tab{padding:5px 9px;font-size:.85rem;gap:10px}
+    .ag-hist-tab svg{width:16px;height:16px}
+    .ag-hist-gap{height:8px}
+    /* The builds list would claim the space the plan block needs; the
+       nav above it already links to the same thing. */
+    .ag-hist-view{flex:0 1 auto;min-height:0}
+    .ag-hist-foot{padding:5px 10px 7px}
+    .ag-hist-foot .ttl{font-size:.82rem;margin-bottom:2px}
+    .ag-meter-row{padding:2px 4px;gap:8px}
+    .ag-meter-row svg{width:15px;height:15px}
+    .ag-meter-row .lab{font-size:.76rem}
+    .ag-meter-row .lab i{font-size:.71rem}
+    .ag-upgrade{margin-top:5px;padding:8px;font-size:.86rem}
+    .ag-hist-links{margin-top:5px;font-size:.71rem}
+  }
+
+  .ag-hist-view{flex:1 1 auto;min-height:0;overflow-y:auto;display:none}
   .ag-hist-view.on{display:block}
   .ag-hist-view::-webkit-scrollbar{width:8px}
   .ag-hist-view::-webkit-scrollbar-thumb{background:rgba(18,32,46,.14);border-radius:8px}
@@ -621,6 +663,11 @@
   .ag-hist-new svg{width:15px;height:15px}
   .ag-hist-new:hover{transform:translateY(-1px);box-shadow:0 6px 18px -5px rgba(26,166,223,.75)}
   .ag-hist-new:active{transform:translateY(0)}
+  /* Hidden on phones: "Create something new" directly above does the same
+     thing, and one of the two is pure height on a small screen. Must sit
+     AFTER .ag-hist-new's own display:flex — an override placed earlier
+     lost on source order and the button stayed visible. */
+  @media (max-width:900px){ .ag-hist-new{display:none} }
 
   /* Stats view */
   .ag-stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:14px}
