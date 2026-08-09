@@ -1563,8 +1563,14 @@
       }
       worked(Math.max(1, Math.round((Date.now() - startedAt) / 1000)));
 
-      showPreview(result.previewUrl);
+      showPreview(result.previewUrl, result.fileContents);
     } catch (err) {
+      // Clean up any in-flight thinking/stage spinners so the UI doesn't show "Thinking..." and "Error" simultaneously
+      Object.keys(handles).forEach(function(k) {
+        if (handles[k] && typeof handles[k].done === "function") {
+          try { handles[k].done("Failed"); } catch(e) {}
+        }
+      });
       say(esc(err.message), "err");
     } finally {
       building = false;
@@ -1573,7 +1579,7 @@
     }
   }
 
-  function showPreview(url) {
+  function showPreview(url, fileContents) {
     $("agentView").classList.add("has-preview");
     agPvFrame.hidden = false;
     agPvEmpty.style.display = "none";
@@ -1582,7 +1588,7 @@
     $("agPvExportAndroid").disabled = false;
 
     if (url === "__webcontainer__") {
-      // WebContainer preview: start vite preview inside the browser
+      // WebContainer preview: start vite preview inside the browser (desktop)
       agPvLabel.textContent = "Starting preview…";
       const wc = window.__wc;
       if (wc && wc.isBooted()) {
@@ -1595,6 +1601,34 @@
             agPvLabel.textContent = "Preview failed";
           }
         });
+      } else if (fileContents && fileContents["src/App.tsx"]) {
+        // Standalone Mobile preview fallback: render React app directly via CDN inside iframe srcdoc
+        const appCode = (fileContents["src/App.tsx"] || "")
+          .replace(/import\s+.*?from\s+['"].*?['"];?/g, '')
+          .replace(/export\s+default\s+function\s+App\b/, 'function App()')
+          .replace(/export\s+default\s+App;?/, '');
+
+        const html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.24.7/babel.min.js"></script>
+  <style>body { margin: 0; font-family: system-ui, sans-serif; }</style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+    ${appCode}
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>`;
+        agPvIframe.srcdoc = html;
+        agPvLabel.textContent = "Live preview";
       } else {
         agPvLabel.textContent = "Preview unavailable";
       }

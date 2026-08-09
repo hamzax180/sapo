@@ -2669,10 +2669,10 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
     await projects.ensureIndexes();
     await codeAgentUsage.ensureIndexes();
 
-    // Tell the client to start preview (client-side WebContainer handles this)
+    // Tell the client to start preview (client-side WebContainer handles this, or standalone mobile fallback)
     sseFrame(res, "result", {
-      projectId: project.id, slug: project.slug, files: srcFiles,
-      previewUrl: "__webcontainer__", // signal to client: use local WebContainer preview
+      projectId: project.id, slug: project.slug, files: srcFiles, fileContents: fileContents,
+      previewUrl: "__webcontainer__", // signal to client: use local WebContainer preview or mobile srcdoc
       note: result.note || "", // the model's own explanation, shown in the chat
       repaired: !!result.repaired, rounds: result.rounds, costUsd: result.costUsd || 0
     });
