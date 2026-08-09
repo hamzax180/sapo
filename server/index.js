@@ -2620,16 +2620,18 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
     }
 
     // Record spend regardless of outcome
-    await codeAgentUsage.recordSpend(owner, result.costUsd || 0);
-    const masterDbForAudit = getMasterDb();
-    if (masterDbForAudit) {
-      await writeMasterAudit(masterDbForAudit, {
-        requestId: req.id, actor: owner.userId || owner.anonId || "anon",
-        action: "codeagent.build", entityId: project ? project.id : null,
-        summary: (result.ok ? "Build" : "Failed build") + " — $" + (result.costUsd || 0).toFixed(4),
-        meta: { costUsd: result.costUsd || 0, ok: result.ok, rounds: result.rounds, isFollowUp }
-      });
-    }
+    try { await codeAgentUsage.recordSpend(owner, result.costUsd || 0); } catch(e) {}
+    try {
+      const masterDbForAudit = getMasterDb();
+      if (masterDbForAudit) {
+        await writeMasterAudit(masterDbForAudit, {
+          requestId: req.id, actor: owner.userId || owner.anonId || "anon",
+          action: "codeagent.build", entityId: project ? project.id : null,
+          summary: (result.ok ? "Build" : "Failed build") + " — $" + (result.costUsd || 0).toFixed(4),
+          meta: { costUsd: result.costUsd || 0, ok: result.ok, rounds: result.rounds, isFollowUp }
+        });
+      }
+    } catch(e) {}
 
     if (!result.ok) {
       sseFrame(res, "stage", { id: "propose", state: "done", detail: "Could not finish" });
@@ -2666,8 +2668,8 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
       body: result.note ? result.note + "\n\n" + buildSummary : buildSummary,
       revisionId: revision.id
     });
-    await projects.ensureIndexes();
-    await codeAgentUsage.ensureIndexes();
+    try { await projects.ensureIndexes(); } catch(e) {}
+    try { await codeAgentUsage.ensureIndexes(); } catch(e) {}
 
     // Tell the client to start preview (client-side WebContainer handles this, or standalone mobile fallback)
     sseFrame(res, "result", {
@@ -2680,7 +2682,7 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
     res.end();
   } catch (e) {
     console.error("codeagent build error:", e.message);
-    try { sseFrame(res, "error", { error: "build failed" }); } catch (e2) { /* response may already be gone */ }
+    try { sseFrame(res, "error", { error: e.message || "build failed" }); } catch (e2) { /* response may already be gone */ }
     try { res.end(); } catch (e3) { /* already ended */ }
   }
 });
