@@ -69,6 +69,208 @@ function clearCache() { cache.clear(); }
 
 function getFallbackAppCode(userPrompt) {
   const p = String(userPrompt || "").toLowerCase();
+  if (p.includes("game") || p.includes("2d") || p.includes("arcade") || p.includes("play")) {
+    return `import React, { useState, useEffect, useRef } from 'react';
+
+export default function App() {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [score, setScore] = useState(0);
+  const [highScore, setHighScore] = useState(0);
+  const [gameOver, setGameOver] = useState(false);
+  const [gameStarted, setGameStarted] = useState(false);
+  const [health, setHealth] = useState(100);
+
+  const gameState = useRef({
+    player: { x: 180, y: 340, width: 30, height: 30, speed: 6 },
+    bullets: [] as { x: number; y: number; speed: number }[],
+    enemies: [] as { x: number; y: number; width: number; height: number; speed: number; color: string }[],
+    keys: { ArrowLeft: false, ArrowRight: false },
+    score: 0,
+    health: 100,
+    active: false,
+  });
+
+  const startGame = () => {
+    gameState.current = {
+      player: { x: 180, y: 340, width: 30, height: 30, speed: 6 },
+      bullets: [],
+      enemies: [],
+      keys: { ArrowLeft: false, ArrowRight: false },
+      score: 0,
+      health: 100,
+      active: true,
+    };
+    setScore(0);
+    setHealth(100);
+    setGameOver(false);
+    setGameStarted(true);
+  };
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.code === 'ArrowLeft' || e.code === 'KeyA') gameState.current.keys.ArrowLeft = true;
+      if (e.code === 'ArrowRight' || e.code === 'KeyD') gameState.current.keys.ArrowRight = true;
+      if (e.code === 'Space') {
+        e.preventDefault();
+        if (gameState.current.active) {
+          gameState.current.bullets.push({
+            x: gameState.current.player.x + 13,
+            y: gameState.current.player.y,
+            speed: 9,
+          });
+        }
+      }
+    };
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.code === 'ArrowLeft' || e.code === 'KeyA') gameState.current.keys.ArrowLeft = false;
+      if (e.code === 'ArrowRight' || e.code === 'KeyD') gameState.current.keys.ArrowRight = false;
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
+  }, []);
+
+  useEffect(() => {
+    let animId: number;
+    let lastEnemyTime = Date.now();
+
+    const loop = () => {
+      const cvs = canvasRef.current;
+      if (!cvs) return;
+      const ctx = cvs.getContext('2d');
+      if (!ctx) return;
+
+      ctx.fillStyle = '#0f172a';
+      ctx.fillRect(0, 0, cvs.width, cvs.height);
+
+      if (gameState.current.active) {
+        const state = gameState.current;
+
+        if (state.keys.ArrowLeft && state.player.x > 0) state.player.x -= state.player.speed;
+        if (state.keys.ArrowRight && state.player.x < cvs.width - state.player.width) state.player.x += state.player.speed;
+
+        if (Date.now() - lastEnemyTime > 800) {
+          state.enemies.push({
+            x: Math.random() * (cvs.width - 30),
+            y: -30,
+            width: 28,
+            height: 28,
+            speed: 2 + Math.random() * 2.5,
+            color: ['#ef4444', '#f59e0b', '#ec4899'][Math.floor(Math.random() * 3)],
+          });
+          lastEnemyTime = Date.now();
+        }
+
+        ctx.fillStyle = '#38bdf8';
+        for (let i = state.bullets.length - 1; i >= 0; i--) {
+          const b = state.bullets[i];
+          b.y -= b.speed;
+          ctx.fillRect(b.x, b.y, 4, 10);
+          if (b.y < -10) state.bullets.splice(i, 1);
+        }
+
+        for (let i = state.enemies.length - 1; i >= 0; i--) {
+          const enemy = state.enemies[i];
+          enemy.y += enemy.speed;
+          ctx.fillStyle = enemy.color;
+          ctx.beginPath();
+          ctx.arc(enemy.x + 14, enemy.y + 14, 14, 0, Math.PI * 2);
+          ctx.fill();
+
+          for (let j = state.bullets.length - 1; j >= 0; j--) {
+            const b = state.bullets[j];
+            if (
+              b.x >= enemy.x &&
+              b.x <= enemy.x + enemy.width &&
+              b.y >= enemy.y &&
+              b.y <= enemy.y + enemy.height
+            ) {
+              state.enemies.splice(i, 1);
+              state.bullets.splice(j, 1);
+              state.score += 10;
+              setScore(state.score);
+              break;
+            }
+          }
+
+          if (enemy.y > cvs.height) {
+            state.enemies.splice(i, 1);
+            state.health -= 15;
+            setHealth(Math.max(0, state.health));
+          }
+        }
+
+        ctx.fillStyle = '#3b82f6';
+        ctx.beginPath();
+        ctx.moveTo(state.player.x + 15, state.player.y);
+        ctx.lineTo(state.player.x, state.player.y + 30);
+        ctx.lineTo(state.player.x + 30, state.player.y + 30);
+        ctx.closePath();
+        ctx.fill();
+
+        if (state.health <= 0) {
+          state.active = false;
+          setGameOver(true);
+          setHighScore((prev) => Math.max(prev, state.score));
+        }
+      }
+
+      animId = requestAnimationFrame(loop);
+    };
+
+    animId = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(animId);
+  }, []);
+
+  return (
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center justify-center p-4">
+      <div className="w-full max-w-lg bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-2xl space-y-4 text-center">
+        <div className="flex justify-between items-center border-b border-slate-800 pb-3">
+          <div>
+            <h1 className="text-2xl font-black tracking-wider text-sky-400">2D SPACE DEFENDER</h1>
+            <p className="text-xs text-slate-400">Use ◀ ▶ or A/D to move, SPACE to shoot</p>
+          </div>
+          <div className="text-right">
+            <div className="text-xs text-slate-400">HIGH SCORE</div>
+            <div className="text-lg font-bold text-amber-400">{highScore}</div>
+          </div>
+        </div>
+
+        <div className="flex justify-between text-sm font-semibold px-2">
+          <span>Score: <strong className="text-sky-400">{score}</strong></span>
+          <span>Shield: <strong className={health > 30 ? "text-emerald-400" : "text-rose-500"}>{health}%</strong></span>
+        </div>
+
+        <div className="relative mx-auto rounded-xl overflow-hidden border-2 border-slate-800 bg-slate-900">
+          <canvas ref={canvasRef} width={400} height={400} className="block w-full h-[400px]" />
+
+          {(!gameStarted || gameOver) && (
+            <div className="absolute inset-0 bg-slate-950/90 backdrop-blur flex flex-col items-center justify-center space-y-4 p-6">
+              <h2 className="text-3xl font-extrabold text-white">
+                {gameOver ? "GAME OVER 💥" : "READY TO PLAY? 🚀"}
+              </h2>
+              {gameOver && <p className="text-slate-300">Final Score: {score}</p>}
+              <button
+                onClick={startGame}
+                className="bg-sky-500 hover:bg-sky-400 text-slate-950 font-black px-8 py-3 rounded-xl transition transform active:scale-95 shadow-lg shadow-sky-500/20"
+              >
+                {gameOver ? "PLAY AGAIN" : "START GAME"}
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+`;
+  }
+
   if (p.includes("coffee") || p.includes("cafe") || p.includes("roast")) {
     return `import React, { useState } from 'react';
 

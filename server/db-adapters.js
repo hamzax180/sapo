@@ -83,7 +83,7 @@ async function getDbClient(workspace) {
     // every tenant into one shared database (breaking isolation).
     let dbName = dbUri.split("/").pop().split("?")[0];
     if (!dbName || dbName.includes(":") || dbName === "localhost" || dbName.startsWith("mongodb")) {
-      dbName = `webo_${workspaceId}`;
+      dbName = workspaceId === "default" && process.env.DB_NAME ? process.env.DB_NAME : `webo_${workspaceId}`;
     }
     const db = client.db(dbName);
     const connObj = { type: "mongodb", db, client };

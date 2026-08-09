@@ -1047,14 +1047,16 @@
   // Boot + install in the background — don't block page load
   (async () => {
     try {
-      await wc.boot((line) => console.log('[wc]', line));
-      console.log('[wc] Booted, starting npm install...');
-      const install = await wc.install((line) => console.log('[wc]', line));
+      await wc.boot();
+      const install = await wc.install();
       if (install.ok) {
-        console.log('[wc] npm install done');
+        console.log('[wc] Ready.');
         window.__wcReady = true;
       } else {
-        console.error('[wc] npm install failed');
+        console.error('[wc] npm install failed:', install.output);
+        // Set __wcError so any waiting build() call fails fast instead of
+        // hanging for the full 120s timeout.
+        window.__wcError = 'npm install failed — ' + (install.output || '').slice(-200);
       }
     } catch (e) {
       console.error('[wc] Boot failed:', e.message);
@@ -1450,10 +1452,13 @@
           if (!em || !dm) continue;
           const payload = JSON.parse(dm[1]);
           if (em[1] === "files") {
-            // WebContainers flow: server sent proposed files, we build them locally
+            // WebContainers flow: server sent proposed files, we build them locally.
+            // We must wait for __wcReady (npm install complete), not just isBooted()
+            // (container started). A build that runs before node_modules exists always
+            // fails — vite/react/tailwind are all in node_modules.
             const wc = window.__wc;
-            if (!wc || !wc.isBooted()) {
-              // WC not ready — wait for it
+            if (!wc || !window.__wcReady) {
+              // WC not ready yet — wait for npm install to finish
               const waitStart = Date.now();
               while (!window.__wcReady && !window.__wcError && Date.now() - waitStart < 120000) {
                 await new Promise(r => setTimeout(r, 500));
@@ -1470,7 +1475,7 @@
             // Write the AI-proposed files into the WebContainer
             await wc.writeFiles(payload.files);
             // Run the build
-            const buildResult = await wc.build((line) => console.log('[wc:build]', line));
+            const buildResult = await wc.build();
             const errors = buildResult.ok ? [] : window.__parseBuildErrors(buildResult.stdout + "\n" + buildResult.stderr);
             // Report build result back to server
             await fetch("/api/codeagent/build-feedback", {

@@ -89,7 +89,11 @@ app.get("/", (req, res) => res.sendFile(path.join(__dirname, "..", "public", "ho
 // (/code and /code.html stay listed: they serve the same document, so
 // isolating one entry point and not the others would just move the bug.)
 function crossOriginIsolate(req, res, next) {
-  res.setHeader("Cross-Origin-Embedder-Policy", "require-corp");
+  // credentialless (not require-corp): SharedArrayBuffer is enabled, and
+  // cross-origin resources that don't set CORP headers (e.g. CDN-hosted
+  // @webcontainer/api on jsdelivr) can still load. require-corp blocks
+  // them entirely, which silently kills WebContainer.boot().
+  res.setHeader("Cross-Origin-Embedder-Policy", "credentialless");
   res.setHeader("Cross-Origin-Opener-Policy", "same-origin");
   next();
 }
