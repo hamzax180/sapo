@@ -2568,26 +2568,23 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
 
     // canBuild: false means the client is on mobile or a browser that does not
     // support WebContainers (no SharedArrayBuffer). In that case, skip the
-    // client-build loop and use proposeWithRepair, which validates files
-    // server-side against the scaffold TypeScript compiler via a Daytona/local
-    // sandbox rather than a browser WebContainer.
+    // client-build loop entirely and use proposeChanges (single AI call, no
+    // sandbox or build step needed). The files are returned directly and the
+    // client stores + previews them via the project's published URL.
     const canBuild = req.body && req.body.canBuild !== false; // default true if omitted (desktop)
 
     let result;
     if (!canBuild) {
-      // ---- Mobile / server-side build path ----
-      // proposeWithRepair generates files and optionally verifies them
-      // without needing a browser WebContainer. We surface each round
-      // as a stage event so the UI progress looks identical to desktop.
-      result = await proposeWithRepair({
-        userPrompt: effectivePrompt, maxRounds: 2,
-        onRound: (r) => {
-          sseFrame(res, "stage", {
-            id: "round-" + r.round, state: "done",
-            detail: r.ok ? "Build succeeded" : ("Fixing " + (r.errors ? r.errors.length : 0) + " issue(s)")
-          });
-        }
-      });
+      // ---- Mobile / no-build path ----
+      // Single AI call — generates files without any build verification.
+      // proposeWithRepair needs a tools.build() sandbox which we don't have
+      // on mobile. proposeChanges just returns the proposed writes directly.
+      const attempt = await proposeChanges(effectivePrompt);
+      if (!attempt.ok) {
+        result = { ok: false, reason: attempt.reason, rounds: 1, costUsd: attempt.costUsd || 0 };
+      } else {
+        result = { ok: true, calls: attempt.calls, note: attempt.note, rounds: 1, repaired: false, costUsd: attempt.costUsd || 0 };
+      }
     } else {
       // ---- Desktop / WebContainers build path ----
       // 2, not 3: each round is a FULL regeneration of the file (the tool

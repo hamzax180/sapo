@@ -13,3 +13,10 @@ node_modules/
 # Tests and docs never need to reach a deployment
 server/tests/
 docs/
+
+# Scaffold template src files — these are WebContainer templates with their
+# own package.json/tsconfig; they aren't compiled by Vercel and their
+# react/vite imports aren't installed at the repo root, causing spurious
+# TS2307 warnings in every Vercel build log.
+server/lib/codeagent/scaffold/src/
+server/lib/codeagent/scaffold/vite.config.ts
