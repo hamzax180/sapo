@@ -1603,20 +1603,40 @@
         });
       } else if (fileContents && fileContents["src/App.tsx"]) {
         // Standalone Mobile preview fallback: render React app directly via CDN inside iframe srcdoc
-        const appCode = (fileContents["src/App.tsx"] || "")
-          .replace(/import\s+.*?from\s+['"].*?['"];?/g, '')
-          .replace(/export\s+default\s+function\s+App\b/, 'function App()')
-          .replace(/export\s+default\s+App;?/, '');
+        let appCode = (fileContents["src/App.tsx"] || "");
+
+        // Convert lucide-react imports to destructuring from Lucide global
+        appCode = appCode.replace(/import\s+\{([^}]+)\}\s+from\s+['"]lucide-react['"];?/g, function(match, icons) {
+          return 'const {' + icons + '} = window.LucideReact || window.lucide || {};';
+        });
+
+        // Convert react imports to destructuring from React global
+        appCode = appCode.replace(/import\s+React\s*,?\s*(\{[\s\S]*?\})?\s*from\s+['"]react['"];?/g, function(match, destructured) {
+          if (destructured) return 'const ' + destructured + ' = React;';
+          return '';
+        });
+
+        // Remove any other external package imports (css, components, etc.)
+        appCode = appCode.replace(/import\s+[\s\S]*?from\s+['"][^./][^'"]*['"];?/g, '');
+        appCode = appCode.replace(/import\s+['"].*?\.css['"];?/g, '');
+
+        // Make export default function App work inside inline Babel script
+        appCode = appCode.replace(/export\s+default\s+function\s+App\b/, 'function App()');
+        appCode = appCode.replace(/export\s+default\s+App;?/, '');
 
         const html = '<!DOCTYPE html><html><head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />' +
           '<script src="https://cdn.tailwindcss.com"><' + '/script>' +
           '<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"><' + '/script>' +
           '<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"><' + '/script>' +
           '<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.24.7/babel.min.js"><' + '/script>' +
-          '<style>body { margin: 0; font-family: system-ui, sans-serif; }</style>' +
+          '<script src="https://unpkg.com/lucide-react@0.395.0/dist/umd/lucide-react.min.js"><' + '/script>' +
+          '<style>body { margin: 0; font-family: system-ui, -apple-system, sans-serif; }</style>' +
           '</head><body><div id="root"></div>' +
-          '<script type="text/babel">\n' + appCode + '\nReactDOM.createRoot(document.getElementById("root")).render(<App />);\n<' + '/script>' +
-          '</body></html>';
+          '<script type="text/babel" data-presets="react,typescript">\n' +
+          'const { useState, useEffect, useRef, useMemo, useCallback } = React;\n' +
+          appCode + '\n' +
+          'ReactDOM.createRoot(document.getElementById("root")).render(<App />);\n' +
+          '<' + '/script></body></html>';
         agPvIframe.srcdoc = html;
         agPvLabel.textContent = "Live preview";
       } else {
