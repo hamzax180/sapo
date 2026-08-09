@@ -406,7 +406,7 @@
   .ag-pv-frame iframe{width:100%;height:100%;border:0;display:block;border-radius:2px}
   .ag-pv-frame.mobile iframe{border-radius:36px}
   .ag-pv-frame.tablet iframe{border-radius:16px}
-  .ag-pv-empty{margin:auto;text-align:center;color:var(--mut);font-size:.94rem;max-width:26ch}
+  .ag-pv-empty{position:absolute;inset:0;margin:auto;display:flex;align-items:center;justify-content:center;text-align:center;color:var(--mut);font-size:.94rem;padding:24px;max-width:28ch;z-index:5;background:#fff;pointer-events:none}
 
   /* Preview paywall — the built app is real and running the moment the
      first build finishes, but its PIXELS stay blurred until the visitor
@@ -1014,7 +1014,7 @@
   <section class="ag-preview tab-hidden" id="agPreview">
     <div class="ag-pv-bar">
       <span class="label" id="agPvLabel">Preview</span>
-      <div class="ag-pv-devices" id="agPvDevices" role="group" aria-label="Preview device size" aria-disabled="true">
+      <div class="ag-pv-devices" id="agPvDevices" role="group" aria-label="Preview device size">
         <button type="button" class="on" data-size="desktop" aria-label="Desktop">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="13" rx="1.5"/><path d="M8 21h8M12 17v4"/></svg></button>
         <button type="button" data-size="tablet" aria-label="Tablet">
@@ -1027,8 +1027,10 @@
       <button type="button" class="ag-pv-open" id="agPvOpen" disabled>Open in new tab</button>
     </div>
     <div class="ag-pv-stage">
-      <div class="ag-pv-empty" id="agPvEmpty">Your app will show up here once it's built.</div>
-      <div class="ag-pv-frame" id="agPvFrame" hidden><iframe id="agPvIframe" title="Live preview"></iframe></div>
+      <div class="ag-pv-frame" id="agPvFrame">
+        <div class="ag-pv-empty" id="agPvEmpty">Your app will show up here once it's built.</div>
+        <iframe id="agPvIframe" title="Live preview"></iframe>
+      </div>
       <div class="ag-pv-gate" id="agPvGate" hidden>
         <h3 id="agPvGateTitle">Your app is ready</h3>
         <p id="agPvGateSub">Sign up free to view it and keep editing.</p>
@@ -1839,10 +1841,9 @@
 
   agPvDevices.querySelectorAll("button").forEach((btn) => {
     btn.addEventListener("click", () => {
-      if (agPvDevices.getAttribute("aria-disabled") === "true") return;
       agPvDevices.querySelectorAll("button").forEach((b) => b.classList.remove("on"));
       btn.classList.add("on");
-      agPvFrame.classList.remove("tablet", "mobile");
+      agPvFrame.classList.remove("tablet", "mobile", "desktop");
       if (btn.dataset.size !== "desktop") agPvFrame.classList.add(btn.dataset.size);
     });
   });
