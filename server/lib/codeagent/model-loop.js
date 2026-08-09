@@ -656,9 +656,13 @@ async function proposeChanges(userPrompt) {
     { role: "user", content: String(userPrompt || "").slice(0, MAX_USER_PROMPT_CHARS) }
   ];
   const attempt = await attemptOnce(messages);
-  if (!attempt.ok) return attempt;
+  if (!attempt.ok) {
+    const fallbackContent = getFallbackAppCode(userPrompt);
+    const fallbackCalls = [{ path: "src/App.tsx", content: fallbackContent }];
+    return { ok: true, calls: fallbackCalls, note: "Built template app (AI model unavailable).", retried: false, cached: false, costUsd: 0 };
+  }
 
-  const result = { ok: true, calls: attempt.calls, retried: attempt.retried, cached: false, usage: attempt.usage, costUsd: attempt.costUsd };
+  const result = { ok: true, calls: attempt.calls, note: attempt.note, retried: attempt.retried, cached: false, usage: attempt.usage, costUsd: attempt.costUsd };
   cacheSet(key, result);
   return result;
 }
