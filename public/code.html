@@ -384,23 +384,23 @@
     z-index: 20; pointer-events: none;
   }
 
-  /* 3. MOBILE (iPhone 15 Pro with Dynamic Island & Home Bar) */
+  /* 3. MOBILE (iPhone 15 Pro Titanium Mockup with Dynamic Island & Home Bar) */
   .ag-pv-frame.mobile {
-    width: 390px; max-width: 100%; height: 100%; max-height: 780px;
-    border: 14px solid #1a1a1e; border-top: 14px solid #1a1a1e;
-    border-radius: 50px;
-    box-shadow: 0 30px 75px -12px rgba(0,0,0,0.45), 0 0 0 1px rgba(255,255,255,0.15) inset;
+    width: 380px; max-width: 95vw; height: 100%; max-height: 760px;
+    border: 14px solid #1c1c1e; border-top: 14px solid #1c1c1e;
+    border-radius: 52px;
+    box-shadow: 0 0 0 2px #2c2c2e, 0 30px 80px -10px rgba(0,0,0,0.55), inset 0 0 0 1px rgba(255,255,255,0.15);
   }
   .ag-pv-frame.mobile::before {
-    content: ""; position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
-    width: 96px; height: 26px; background: #000; border-radius: 20px;
-    box-shadow: 0 0 0 1px rgba(255,255,255,0.06), inset 0 1px 3px rgba(255,255,255,0.1);
-    z-index: 20; pointer-events: none;
+    content: ""; position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
+    width: 108px; height: 28px; background: #000; border-radius: 20px;
+    box-shadow: 0 0 0 1px rgba(255,255,255,0.08), inset 0 1px 3px rgba(255,255,255,0.12);
+    z-index: 30; pointer-events: none;
   }
   .ag-pv-frame.mobile::after {
     content: ""; position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%);
-    width: 125px; height: 4px; background: rgba(0,0,0,0.3); border-radius: 4px;
-    z-index: 20; pointer-events: none;
+    width: 130px; height: 5px; background: rgba(0,0,0,0.35); border-radius: 4px;
+    z-index: 30; pointer-events: none;
   }
 
   .ag-pv-frame iframe{width:100%;height:100%;border:0;display:block;border-radius:2px}
@@ -1627,6 +1627,15 @@
     agPvDevices.removeAttribute("aria-disabled");
     agPvPublish.disabled = false;
     $("agPvExportAndroid").disabled = false;
+
+    // Auto-select iPhone/mobile mode on small screens or mobile devices
+    if (window.innerWidth < 650 || !window.__wcSupported) {
+      agPvDevices.querySelectorAll("button").forEach((b) => b.classList.remove("on"));
+      const mobBtn = agPvDevices.querySelector('button[data-size="mobile"]');
+      if (mobBtn) mobBtn.classList.add("on");
+      agPvFrame.classList.remove("tablet", "desktop");
+      agPvFrame.classList.add("mobile");
+    }
 
     if (url === "__webcontainer__") {
       // WebContainer preview: start vite preview inside the browser (desktop)
