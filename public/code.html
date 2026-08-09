@@ -1438,7 +1438,7 @@
 
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
-      let buf = "", errorMsg = "", result = null, clarifyReply = null, chitchat = null, gate = null;
+      let buf = "", errorMsg = "", result = null, clarifyReply = null, chitchat = null, gate = null, publishRequested = false;
       for (;;) {
         const chunk = await reader.read();
         if (chunk.done) break;
@@ -1483,6 +1483,7 @@
           else if (em[1] === "result") result = payload;
           else if (em[1] === "needsAnswer") clarifyReply = payload.reply;
           else if (em[1] === "chitchat") chitchat = payload.reply;
+          else if (em[1] === "publishRequest") publishRequested = true;
           else if (em[1] === "authRequired") gate = { kind: "auth", message: payload.message, loginUrl: payload.loginUrl, signupUrl: payload.signupUrl };
           else if (em[1] === "subscribeRequired") gate = { kind: "subscribe", message: payload.message, pricingUrl: payload.pricingUrl };
           else if (em[1] === "error") errorMsg = payload.error || "That didn't work";
@@ -1494,6 +1495,13 @@
         // Not a build — just a friendly reply, no file card, no preview
         // change, no cost beyond a regex match.
         say('<span class="muted">' + esc(chitchat) + '</span>');
+        return;
+      }
+      if (publishRequested) {
+        // The agent acting on "publish it" — same routine the Publish
+        // button runs, since the built files only exist in this browser.
+        say('<span class="muted">Publishing your app…</span>');
+        await runPublish();
         return;
       }
       if (gate) {
@@ -1650,7 +1658,12 @@
   });
 
   let publishing = false;
-  agPvPublish.addEventListener("click", async () => {
+  // One implementation, two callers: the Publish button and the agent
+  // acting on "publish it" (see the publishRequest SSE event). The build
+  // output only exists inside this browser's WebContainer, so publishing
+  // is necessarily client-driven — the server receives dist, it cannot
+  // produce it.
+  async function runPublish() {
     if (publishing || !projectId) return;
     publishing = true;
     agPvPublish.disabled = true;
@@ -1686,7 +1699,8 @@
       $("agPvExportAndroid").disabled = false;
       publishing = false;
     }
-  });
+  }
+  agPvPublish.addEventListener("click", runPublish);
 
   $("agPvExportAndroid").addEventListener("click", async () => {
     if (!projectId) return;

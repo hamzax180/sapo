@@ -45,7 +45,10 @@ const client = require("../ai/client");
    is folded into the key so editing SYSTEM_PROMPT or the tool schema
    invalidates every entry at once rather than serving stale designs
    against a prompt that no longer matches what generated them. */
-const PROMPT_VERSION = "v1";
+// Bumped whenever SYSTEM_PROMPT or the tool schema changes — the key
+// folds this in, so an old entry can't serve a design generated under
+// instructions that no longer apply. v2: engineer voice + size guidance.
+const PROMPT_VERSION = "v2";
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 const cache = new Map();
 
@@ -104,8 +107,8 @@ Rules:
 - src/App.tsx must have a default export and must compile under TypeScript strict mode.
 - Do not write index.html, package.json, vite.config.ts, tailwind.config.js, or tsconfig.json — those are fixed and already correct.
 - Do not fetch external images by URL you are unsure exists; prefer CSS gradients, solid colors, or emoji over broken <img> tags.
-- Keep it to one or two files unless the request clearly needs more.
-- Build something that looks considered — real spacing, hierarchy and empty states, not a bare wireframe. Use realistic sample data, never lorem ipsum.`;
+- Keep it to ONE file (src/App.tsx) unless the request clearly needs more. Every extra file is another full generation the user waits for.
+- Aim for roughly 120-200 lines. Make it look considered — real spacing, hierarchy, an empty state — with realistic sample data, never lorem ipsum. Do NOT pad it out: no long hardcoded data arrays, no repeated near-identical blocks, no commentary comments. Concise, complete, and fast to generate beats exhaustive.`;
 
 /**
  * The model's own words alongside its tool calls — trimmed to something

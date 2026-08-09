@@ -2015,6 +2015,26 @@ const CODEAGENT_CHITCHAT_RE = /^(thanks?( you)?|thx|ty|cool|nice|great|awesome|p
 function isCodeAgentChitChat(message) {
   return CODEAGENT_CHITCHAT_RE.test(message.trim());
 }
+/**
+ * "Publish this" as a whole message — the user asking to deploy, not
+ * asking for a change that happens to mention the word.
+ *
+ * Detected here rather than given to the model as a tool, because the
+ * server CANNOT publish: with WebContainers the built dist/ only exists
+ * in the user's browser, so publishing is necessarily client-driven (see
+ * POST /:key/publish, which receives dist from the client). A tool the
+ * model could call but the server could not execute would be a lie in
+ * the tool schema. This routes to the client's existing publish path
+ * instead — the same one the Publish button already uses.
+ *
+ * Whole-message only, same discipline as chit-chat above: "add a footer
+ * and then publish it" is a real change request and must still build.
+ */
+const CODEAGENT_PUBLISH_RE = /^(please\s+)?(publish|deploy|ship|go\s+live|make\s+(it|this)\s+live|put\s+(it|this)\s+online)(\s+(it|this|the\s+)?(app|site|project|page)?)?[\s.!]*$/i;
+function isCodeAgentPublishRequest(message) {
+  return CODEAGENT_PUBLISH_RE.test(String(message || "").trim());
+}
+
 const CODEAGENT_CHITCHAT_REPLIES = [
   "Glad it's working! Tell me what to change whenever you're ready.",
   "You're welcome — happy to keep going whenever you have another change.",
@@ -2402,6 +2422,17 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
     return res.end();
   }
 
+  // "Publish it" — hand straight back to the client, which owns the
+  // built files. Placed with the chit-chat gate and BEFORE the edit /
+  // spend gates on purpose: publishing an already-built project is not
+  // an edit, so it should not consume a free edit, hit the subscribe
+  // wall, or spend a single token on a model call.
+  if (isFollowUp && isCodeAgentPublishRequest(prompt)) {
+    sseFrame(res, "publishRequest", { projectId: project.id });
+    sseFrame(res, "done", {});
+    return res.end();
+  }
+
   // Edit gate: the first build stays free and anonymous, exactly like
   // today — this only applies to a follow-up (an actual edit request).
   // Two steps, checked before any sandbox/model cost is incurred:
@@ -2489,7 +2520,16 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
   // and there's real context (the current files) a follow-up can lean on
   // that a first prompt doesn't have. No sandbox, no project, no cost
   // beyond one cheap model call for a question nobody asked to see built.
-  if (!isFollowUp) {
+  // ...and only for a prompt short enough to plausibly BE vague. This
+  // gate exists to catch "hello" or "build me something cool", and those
+  // are always short. Running it on "i want you to build a phone tracker
+  // with call history" spends a whole model call — real seconds the user
+  // waits — to confirm something already obvious. Word count is a crude
+  // signal but it is free and it fails in the safe direction: a long
+  // prompt that IS vague just gets built, which is the same outcome
+  // assessPrompt has when it fails open (see its own fail-open cases).
+  const promptWords = prompt.trim().split(/\s+/).length;
+  if (!isFollowUp && promptWords < 5) {
     const assessment = await assessPrompt(prompt);
     if (!assessment.clear) {
       sseFrame(res, "needsAnswer", { reply: assessment.reply });
@@ -2522,8 +2562,15 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
       effectivePrompt = "The current src/App.tsx is:\n\n" + currentApp + "\n\nChange request: " + prompt;
     }
 
+    // 2, not 3: each round is a FULL regeneration of the file (the tool
+    // writes whole files, not diffs), so every extra round adds another
+    // 4000-token completion — tens of seconds the user sits watching a
+    // spinner. Measured live at 3 rounds: a build that needed one repair
+    // ran past 200s. Two attempts still recover the common case (one
+    // typo/type error), and a build that fails twice usually needs the
+    // user to say something, not a third identical retry.
     const result = await proposeWithClientBuild({
-      userPrompt: effectivePrompt, maxRounds: 3,
+      userPrompt: effectivePrompt, maxRounds: 2,
       onFiles: async (calls) => {
         // Send proposed files to the client for WebContainer build
         const filesObj = {};
