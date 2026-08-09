@@ -86,19 +86,44 @@ const TOOLS_SCHEMA = [
 // DeepSeek's prefix cache can actually discount (docs/AI-PROVIDER-PLAN.md
 // §4.2 / CODE-AGENT-PLAN.md §8). Never interpolate anything per-request
 // (a business name, a timestamp) above this point.
-const SYSTEM_PROMPT = `You write React components for a fixed, pre-installed stack. You do not choose the stack.
+const SYSTEM_PROMPT = `You are a senior front-end engineer building an app WITH someone, not a code generator handing back files. Talk to them the way a good colleague would: briefly, plainly, and like a person.
 
-Stack (already installed — do not import anything outside this list):
+Alongside your file writes, write a short message (1-3 sentences) in your reply text:
+- Say what you built or changed, in plain language — "Added a monthly total and a category filter", not "Implemented requested functionality".
+- If you made a judgement call they didn't specify, say so in a few words: what you chose and why. ("I grouped expenses by month since you mentioned tracking over time — easy to switch to weekly.")
+- If something in the request is genuinely ambiguous and the choice would be hard to undo, ask ONE specific question instead of guessing. Ask about the thing that actually matters, not trivia.
+- No preamble, no "Certainly!", no restating their request back at them, no bullet-point summaries of every file you touched. Never claim you tested or verified something you did not.
+
+You are not choosing the stack — it is fixed and already installed:
 - React 18 + TypeScript, function components with hooks only
 - Tailwind CSS utility classes for ALL styling — no separate .css files, no styled-components, no inline style objects
 - The app's entry point is src/main.tsx, which renders src/App.tsx — you only ever need to write/overwrite src/App.tsx and, optionally, new files under src/components/ that App.tsx imports
 
 Rules:
-- Call write_file for every file you create or change. One call per file.
+- Call write_file for every file you create or change. One call per file. Always write at least one file unless you are asking a clarifying question.
 - src/App.tsx must have a default export and must compile under TypeScript strict mode.
 - Do not write index.html, package.json, vite.config.ts, tailwind.config.js, or tsconfig.json — those are fixed and already correct.
 - Do not fetch external images by URL you are unsure exists; prefer CSS gradients, solid colors, or emoji over broken <img> tags.
-- Keep it to one or two files unless the request clearly needs more.`;
+- Keep it to one or two files unless the request clearly needs more.
+- Build something that looks considered — real spacing, hierarchy and empty states, not a bare wireframe. Use realistic sample data, never lorem ipsum.`;
+
+/**
+ * The model's own words alongside its tool calls — trimmed to something
+ * safe to render as a chat line.
+ *
+ * Capped and stripped rather than passed through: `content` is free-form
+ * model output, and this ends up in the transcript and the UI. Fenced
+ * code blocks are dropped because the files themselves are already the
+ * output — a model that also pastes the component into prose would
+ * double the message for no added information.
+ */
+function modelNote(message) {
+  let text = (message && typeof message.content === "string") ? message.content : "";
+  if (!text) return "";
+  text = text.replace(/```[\s\S]*?```/g, "").replace(/[ \t]+\n/g, "\n").trim();
+  if (!text) return "";
+  return text.length > 600 ? text.slice(0, 600).trimEnd() + "…" : text;
+}
 
 function validateWriteFileArgs(args) {
   if (!args || typeof args !== "object") throw new Error("tool call arguments were not an object");
@@ -136,7 +161,7 @@ function parseToolCalls(message) {
 // indistinguishable from "malformed output" without this context). 8000 is
 // headroom, not the expected size — a real single-file page runs well
 // under it in practice.
-const MAX_TOKENS = 8000;
+const MAX_TOKENS = 4000;
 const TEMPERATURE = 0.3;
 const CALL_TIMEOUT_MS = 60000;
 
@@ -185,14 +210,18 @@ const MAX_USER_PROMPT_CHARS = 30000;
 // identical doomed one; an actually-malformed completion (finishReason
 // "stop"/"tool_calls") still just retries once at the normal size, since
 // more tokens wouldn't fix a real syntax mistake.
-const RETRY_MAX_TOKENS = 16000;
+const RETRY_MAX_TOKENS = 8000;
 
 async function attemptOnce(messages) {
   const res = await client.chat({ route: "json", messages, tools: TOOLS_SCHEMA, maxTokens: MAX_TOKENS, temperature: TEMPERATURE, timeoutMs: CALL_TIMEOUT_MS });
   if (!res.ok) return { ok: false, reason: res.reason || "model call failed", disabled: res.disabled, breakerOpen: res.breakerOpen, budgetExceeded: res.budgetExceeded };
 
   const parsed = parseToolCalls(res.message);
-  if (parsed.ok) return { ok: true, calls: parsed.calls, message: res.message, retried: false, usage: res.usage, costUsd: res.costUsd };
+  // `note` is the model's own prose alongside its tool calls — what it
+  // built and why, or a judgement call it made. It was being discarded
+  // entirely (only .calls was ever read), which is why the agent could
+  // never say anything and every build landed as a silent wall of files.
+  if (parsed.ok) return { ok: true, calls: parsed.calls, note: modelNote(res.message), message: res.message, retried: false, usage: res.usage, costUsd: res.costUsd };
 
   const truncated = res.finishReason === "length";
   const retryMaxTokens = truncated ? RETRY_MAX_TOKENS : MAX_TOKENS;
@@ -306,7 +335,7 @@ async function proposeWithRepair({ userPrompt, tools, maxRounds, onRound }) {
     if (onRound) onRound({ round, ok: build.ok, calls: attempt.calls, errors: build.ok ? undefined : build.errors });
 
     if (build.ok) {
-      return { ok: true, calls: attempt.calls, round, rounds: round + 1, repaired: round > 0, costUsd: totalCost, jsonRetries };
+      return { ok: true, calls: attempt.calls, note: attempt.note, round, rounds: round + 1, repaired: round > 0, costUsd: totalCost, jsonRetries };
     }
     if (round === cap) {
       return { ok: false, reason: "build still failing after " + (cap + 1) + " attempt(s)", round, rounds: round + 1, lastErrors: build.errors, costUsd: totalCost };
@@ -319,6 +348,78 @@ async function proposeWithRepair({ userPrompt, tools, maxRounds, onRound }) {
       role: "tool", tool_call_id: c.id, content: "File written, but the build failed — see the next message for the errors."
     }));
     const errorSummary = build.errors.slice(0, 8)
+      .map((e) => (e.file ? e.file + ":" + e.line + " — " + e.message : e.message))
+      .join("\n");
+    messages = messages.concat([attempt.message], toolResponses, [
+      { role: "user", content: "The build failed with these errors:\n" + errorSummary + "\n\nFix them. Call write_file again with the corrected file(s) — rewrite the WHOLE file, not a diff." }
+    ]);
+  }
+}
+
+/**
+ * Like proposeWithRepair, but delegates build execution to the caller.
+ * Used for WebContainer builds where the client runs the build.
+ *
+ * @param {object} opts
+ * @param {string} opts.userPrompt
+ * @param {number} [opts.maxRounds=3]
+ * @param {function} opts.onFiles - async (files: {path,content}[]) => {ok, errors: [{file,line,col,code,message}], raw?}
+ *   Called with proposed files. Caller writes + builds them and returns build result.
+ * @param {function} [opts.onRound] - (info) => void, same shape as proposeWithRepair
+ * @returns {Promise<{ok, calls?, round?, rounds, repaired?, costUsd, reason?}>}
+ */
+async function proposeWithClientBuild({ userPrompt, maxRounds, onFiles, onRound }) {
+  const cap = (maxRounds !== null && maxRounds !== undefined) ? maxRounds : 3;
+  let messages = [
+    { role: "system", content: SYSTEM_PROMPT },
+    { role: "user", content: String(userPrompt || "").slice(0, MAX_USER_PROMPT_CHARS) }
+  ];
+  let totalCost = 0;
+  let jsonRetries = 0;
+
+  const key = cacheKey(userPrompt);
+  const cached = cacheGet(key);
+
+  if (cached) {
+    const build = await onFiles(cached.calls);
+    if (onRound) onRound({ round: 0, ok: build.ok, calls: cached.calls, errors: build.ok ? undefined : build.errors });
+    if (build.ok) {
+      return Object.assign({}, cached, { round: 0, rounds: 1, repaired: false, cached: true, costUsd: 0, jsonRetries: 0 });
+    }
+    // If cached design fails to build, we continue to a fresh round 0 to get the `message` needed for the repair loop.
+  }
+
+  for (let round = 0; round <= cap; round++) {
+    const attempt = await attemptOnce(messages);
+    if (!attempt.ok) {
+      return {
+        ok: false, reason: attempt.reason, round, rounds: round + 1, costUsd: totalCost,
+        disabled: attempt.disabled, breakerOpen: attempt.breakerOpen, budgetExceeded: attempt.budgetExceeded
+      };
+    }
+    totalCost += attempt.costUsd || 0;
+    if (attempt.retried) jsonRetries += 1;
+
+    if (round === 0) {
+      cacheSet(key, { ok: true, calls: attempt.calls, retried: attempt.retried, cached: false, usage: attempt.usage, costUsd: attempt.costUsd });
+    }
+
+    const build = await onFiles(attempt.calls);
+
+    if (onRound) onRound({ round, ok: build.ok, calls: attempt.calls, errors: build.ok ? undefined : build.errors });
+
+    if (build.ok) {
+      return { ok: true, calls: attempt.calls, note: attempt.note, round, rounds: round + 1, repaired: round > 0, costUsd: totalCost, jsonRetries };
+    }
+    if (round === cap) {
+      return { ok: false, reason: "build still failing after " + (cap + 1) + " attempt(s)", round, rounds: round + 1, lastErrors: build.errors, costUsd: totalCost };
+    }
+
+    const toolResponses = (attempt.message.tool_calls || []).map((c) => ({
+      role: "tool", tool_call_id: c.id, content: "File written, but the build failed — see the next message for the errors."
+    }));
+    const errorsToReport = build.errors || [];
+    const errorSummary = errorsToReport.slice(0, 8)
       .map((e) => (e.file ? e.file + ":" + e.line + " — " + e.message : e.message))
       .join("\n");
     messages = messages.concat([attempt.message], toolResponses, [
@@ -370,6 +471,6 @@ async function assessPrompt(userPrompt) {
 }
 
 module.exports = {
-  proposeChanges, proposeWithRepair, assessPrompt, TOOLS_SCHEMA, SYSTEM_PROMPT,
+  proposeChanges, proposeWithRepair, proposeWithClientBuild, assessPrompt, TOOLS_SCHEMA, SYSTEM_PROMPT,
   parseToolCalls, validateWriteFileArgs, cacheKey, clearCache
 };

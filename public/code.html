@@ -6,9 +6,9 @@
 <meta name="theme-color" content="#faf7f2">
 <meta name="robots" content="noindex">
 <link rel="icon" type="image/png" href="/assets/logo.png">
-<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Jost:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Jost:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" crossorigin>
 <title>Souqi Code</title>
 <style>
   /* Same visual system as agent.html (docs/CODE-AGENT-PLAN.md Phase 6:
@@ -424,7 +424,13 @@
        actually trying to say. */
     .ag-split{flex-direction:column;min-height:auto}
     .ag{border-right:0}
-    .ag-log{overflow-y:visible} /* one page scroll on mobile, not a nested one */
+    /* One scroll on mobile (.ag's), not a nested one — but overflow:visible
+       alone was not enough. .ag-log kept flex:1 + min-height:0, so its BOX
+       stayed short while its content spilled out and painted straight over
+       the composer below it: the input rendered mid-conversation with
+       messages appearing underneath it. It has to size to its content for
+       the composer to sit after it, so flex and min-height are reset too. */
+    .ag-log{overflow-y:visible;flex:0 0 auto;min-height:auto}
     .ag-tabs{display:flex;gap:6px;padding:10px clamp(14px,4vw,24px) 0}
     .ag-tabs button{flex:1;border:1px solid var(--line);background:var(--card);color:var(--ink-2);border-radius:10px;padding:9px;font-size:.88rem;font-weight:500;cursor:pointer}
     .ag-tabs button.on{background:var(--ink);color:#fff;border-color:var(--ink)}
@@ -976,6 +982,7 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></svg></button>
       </div>
       <button type="button" class="ag-pv-open" id="agPvPublish" disabled>Publish</button>
+      <button id="agPvExportAndroid" class="ag-pv-btn" disabled title="Download as Android app">📱 Android</button>
       <button type="button" class="ag-pv-open" id="agPvOpen" disabled>Open in new tab</button>
     </div>
     <div class="ag-pv-stage">
@@ -1027,6 +1034,34 @@
 </div>
 </div>
 
+<script type="module">
+  import { WCRuntime } from '/js/codeagent/wc-runtime.js';
+  import { parseBuildErrors } from '/js/codeagent/build-parser-client.js';
+
+  // Boot WebContainer early (before user interacts) so npm install has a head start.
+  // Exposed on window so the non-module IIFE below can access it.
+  const wc = new WCRuntime();
+  window.__wc = wc;
+  window.__parseBuildErrors = parseBuildErrors;
+
+  // Boot + install in the background — don't block page load
+  (async () => {
+    try {
+      await wc.boot((line) => console.log('[wc]', line));
+      console.log('[wc] Booted, starting npm install...');
+      const install = await wc.install((line) => console.log('[wc]', line));
+      if (install.ok) {
+        console.log('[wc] npm install done');
+        window.__wcReady = true;
+      } else {
+        console.error('[wc] npm install failed');
+      }
+    } catch (e) {
+      console.error('[wc] Boot failed:', e.message);
+      window.__wcError = e.message;
+    }
+  })();
+</script>
 <script>
 (function () {
   "use strict";
@@ -1414,6 +1449,36 @@
           const em = /event: (.+)/.exec(raw), dm = /data: (.+)/.exec(raw);
           if (!em || !dm) continue;
           const payload = JSON.parse(dm[1]);
+          if (em[1] === "files") {
+            // WebContainers flow: server sent proposed files, we build them locally
+            const wc = window.__wc;
+            if (!wc || !wc.isBooted()) {
+              // WC not ready — wait for it
+              const waitStart = Date.now();
+              while (!window.__wcReady && !window.__wcError && Date.now() - waitStart < 120000) {
+                await new Promise(r => setTimeout(r, 500));
+              }
+              if (window.__wcError || !window.__wcReady) {
+                // Report failure to server
+                await fetch("/api/codeagent/build-feedback", {
+                  method: "POST", headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ buildId: payload.buildId, ok: false, errors: [{ file: "", line: 0, col: 0, code: "", message: "WebContainer failed to initialize: " + (window.__wcError || "timeout") }], raw: "" })
+                });
+                continue;
+              }
+            }
+            // Write the AI-proposed files into the WebContainer
+            await wc.writeFiles(payload.files);
+            // Run the build
+            const buildResult = await wc.build((line) => console.log('[wc:build]', line));
+            const errors = buildResult.ok ? [] : window.__parseBuildErrors(buildResult.stdout + "\n" + buildResult.stderr);
+            // Report build result back to server
+            await fetch("/api/codeagent/build-feedback", {
+              method: "POST", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ buildId: payload.buildId, ok: buildResult.ok, errors: errors, raw: buildResult.ok ? "" : (buildResult.stdout + buildResult.stderr).slice(-4000) })
+            });
+            continue;
+          }
           if (em[1] === "stage") onStage(payload.id, payload.state, payload.detail);
           else if (em[1] === "result") result = payload;
           else if (em[1] === "needsAnswer") clarifyReply = payload.reply;
@@ -1463,8 +1528,17 @@
         $("agNewExtras").hidden = true; // the whole new-chat screen — only meaningful before there's a project to edit
         attachedImage = null; agAttachInput.value = ""; agAttachChip.hidden = true; $("agAttach").hidden = false;
       }
+      // What the agent actually said about the work, before the file
+      // list — the files are the evidence, the note is the answer.
+      if (result.note) say(esc(result.note).replace(/\n/g, "<br>"));
       renderCard(result.files, result.costUsd);
-      say('<span class="muted">Tell me what to change and I\'ll update it.</span>');
+      // Only prompt for a next step when the agent hasn't already ended
+      // on a question of its own — following "Should this group by week
+      // or month?" with "Tell me what to change" reads like nobody's
+      // listening.
+      if (!/\?\s*$/.test(result.note || "")) {
+        say('<span class="muted">Tell me what to change and I\'ll update it.</span>');
+      }
       worked(Math.max(1, Math.round((Date.now() - startedAt) / 1000)));
 
       showPreview(result.previewUrl);
@@ -1478,18 +1552,37 @@
   }
 
   function showPreview(url) {
-    // Flips the split from the centred "new chat" screen (.ag alone,
-    // capped at 720px) into the editor+preview layout — the one CSS
-    // transition (flex-basis) drives both panels resizing at once.
     $("agentView").classList.add("has-preview");
-    agPvIframe.src = url;
     agPvFrame.hidden = false;
     agPvEmpty.style.display = "none";
-    agPvOpen.disabled = false;
-    agPvOpen.onclick = () => window.open(url, "_blank", "noopener");
-    agPvLabel.textContent = "Live preview";
     agPvDevices.removeAttribute("aria-disabled");
     agPvPublish.disabled = false;
+    $("agPvExportAndroid").disabled = false;
+
+    if (url === "__webcontainer__") {
+      // WebContainer preview: start vite preview inside the browser
+      agPvLabel.textContent = "Starting preview…";
+      const wc = window.__wc;
+      if (wc && wc.isBooted()) {
+        wc.startPreview(agPvIframe).then((p) => {
+          if (p.ok) {
+            agPvLabel.textContent = "Live preview";
+            agPvOpen.disabled = false;
+            agPvOpen.onclick = () => window.open(p.url, "_blank", "noopener");
+          } else {
+            agPvLabel.textContent = "Preview failed";
+          }
+        });
+      } else {
+        agPvLabel.textContent = "Preview unavailable";
+      }
+    } else {
+      // Legacy/reload preview URL
+      agPvIframe.src = url;
+      agPvOpen.disabled = false;
+      agPvOpen.onclick = () => window.open(url, "_blank", "noopener");
+      agPvLabel.textContent = "Live preview";
+    }
   }
 
   // The first build is always shown unblurred — same rule the backend's
@@ -1563,7 +1656,24 @@
     agPvPublish.disabled = true;
     agPvPublish.textContent = "Publishing…";
     try {
-      const res = await fetch("/api/codeagent/" + encodeURIComponent(projectId) + "/publish", { method: "POST" });
+      const wc = window.__wc;
+      if (!wc || !wc.isBooted()) throw new Error("WebContainer not ready");
+
+      // Build fresh for publish
+      agPvPublish.textContent = "Building…";
+      const buildResult = await wc.build();
+      if (!buildResult.ok) throw new Error("Build failed — fix errors before publishing");
+
+      // Read dist/ files
+      agPvPublish.textContent = "Uploading…";
+      const dist = await wc.readDist();
+      if (!dist.length) throw new Error("Build produced no output");
+
+      const res = await fetch("/api/codeagent/" + encodeURIComponent(projectId) + "/publish", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dist: dist })
+      });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || "Could not publish");
       const fullUrl = location.origin + data.url;
@@ -1573,7 +1683,35 @@
     } finally {
       agPvPublish.textContent = "Publish";
       agPvPublish.disabled = false;
+      $("agPvExportAndroid").disabled = false;
       publishing = false;
+    }
+  });
+
+  $("agPvExportAndroid").addEventListener("click", async () => {
+    if (!projectId) return;
+    const btn = $("agPvExportAndroid");
+    btn.disabled = true;
+    btn.textContent = "Exporting…";
+    try {
+      const res = await fetch("/api/codeagent/" + encodeURIComponent(projectId) + "/export-android", { method: "POST" });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Could not export");
+      }
+      // Download the ZIP
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = (projectSlug || "app") + "-android.zip";
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
+      say('<span class="muted">Android project downloaded! Open the ZIP and follow the README to build your APK.</span>');
+    } catch (err) {
+      say(esc(err.message), "err");
+    } finally {
+      btn.textContent = "\uD83D\uDCF1 Android";
+      btn.disabled = false;
     }
   });
 
@@ -1929,11 +2067,12 @@
       });
       if (data.files && data.files.length) renderCard(data.files, 0);
 
-      if (data.previewUrl) {
-        showPreview(data.previewUrl);
-        if (!data.sandboxAlive) {
-          say('<span class="muted">This sandbox has gone idle — send a message and I\'ll pick up right where this left off.</span>');
-        }
+      // Resume: restore files into WebContainer from the last revision
+      if (data.files && data.files.length) {
+        // Fetch full file contents from the revision to restore into WC
+        // The files array only has filenames; the full content is in the revision.
+        // For now, show a message that the preview is ready when they send a message.
+        say('<span class="muted">Send a message and I\'ll pick up right where this left off. Your previous files are saved.</span>');
       } else {
         say('<span class="muted">Tell me what to change and I\'ll update it.</span>');
       }

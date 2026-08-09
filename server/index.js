@@ -2583,8 +2583,15 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
       { files: fileContents },
       result.repaired ? "Fixed after " + result.rounds + " tries" : (isFollowUp ? "Follow-up" : "First build")
     );
+    // The model's own explanation leads the turn when there is one, with
+    // the mechanical file count after it — that ordering is what makes a
+    // replayed transcript read like a conversation rather than a build
+    // log. Falls back to the summary alone if the model said nothing.
+    const buildSummary = summariseCodeBuild(srcFiles.length, result.repaired, result.rounds);
     await projects.addTurn(project.id, {
-      role: "agent", kind: "result", body: summariseCodeBuild(srcFiles.length, result.repaired, result.rounds), revisionId: revision.id
+      role: "agent", kind: "result",
+      body: result.note ? result.note + "\n\n" + buildSummary : buildSummary,
+      revisionId: revision.id
     });
     await projects.ensureIndexes();
     await codeAgentUsage.ensureIndexes();
@@ -2593,6 +2600,7 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
     sseFrame(res, "result", {
       projectId: project.id, slug: project.slug, files: srcFiles,
       previewUrl: "__webcontainer__", // signal to client: use local WebContainer preview
+      note: result.note || "", // the model's own explanation, shown in the chat
       repaired: !!result.repaired, rounds: result.rounds, costUsd: result.costUsd || 0
     });
     sseFrame(res, "done", {});
