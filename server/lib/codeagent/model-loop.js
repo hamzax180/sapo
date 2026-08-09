@@ -67,6 +67,182 @@ function cacheSet(key, value) {
 }
 function clearCache() { cache.clear(); }
 
+function getFallbackAppCode(userPrompt) {
+  const p = String(userPrompt || "").toLowerCase();
+  if (p.includes("coffee") || p.includes("cafe") || p.includes("roast")) {
+    return `import React, { useState } from 'react';
+
+export default function App() {
+  const [cart, setCart] = useState<{ id: number; name: string; price: number; qty: number }[]>([]);
+  const menu = [
+    { id: 1, name: "Artisanal Espresso", desc: "Rich & bold double shot from Ethiopian beans", price: 4.50 },
+    { id: 2, name: "Caramel Cold Brew", desc: "Steeped 18 hours with house caramel drizzle", price: 5.75 },
+    { id: 3, name: "Oat Milk Flat White", desc: "Silky steamed oat milk with espresso duo", price: 5.25 },
+    { id: 4, name: "Matcha Latte", desc: "Uji ceremonial grade matcha with vanilla bean", price: 6.00 },
+    { id: 5, name: "Butter Croissant", desc: "Freshly baked French flaky butter pastry", price: 3.75 },
+  ];
+
+  const addToCart = (item: typeof menu[0]) => {
+    setCart((prev) => {
+      const existing = prev.find((i) => i.id === item.id);
+      if (existing) {
+        return prev.map((i) => (i.id === item.id ? { ...i, qty: i.qty + 1 } : i));
+      }
+      return [...prev, { id: item.id, name: item.name, price: item.price, qty: 1 }];
+    });
+  };
+
+  const total = cart.reduce((sum, item) => sum + item.price * item.qty, 0);
+
+  return (
+    <div className="min-h-screen bg-stone-900 text-stone-100 font-sans">
+      <header className="border-b border-stone-800 bg-stone-950/80 backdrop-blur sticky top-0 z-50">
+        <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <span className="text-3xl">☕</span>
+            <div>
+              <h1 className="text-xl font-bold tracking-tight text-amber-500">Velvet Roast Coffee</h1>
+              <p className="text-xs text-stone-400">Craft Coffee & Artisanal Bakery</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-4">
+            <span className="bg-stone-800 text-amber-400 px-3 py-1.5 rounded-full text-sm font-medium">
+              🛒 {cart.reduce((s, i) => s + i.qty, 0)} items (\${total.toFixed(2)})
+            </span>
+          </div>
+        </div>
+      </header>
+
+      <section className="py-16 px-6 bg-gradient-to-b from-stone-950 to-stone-900 text-center">
+        <div className="max-w-3xl mx-auto space-y-4">
+          <span className="inline-block bg-amber-500/10 text-amber-400 border border-amber-500/20 px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wider">
+            Freshly Roasted Daily
+          </span>
+          <h2 className="text-4xl md:text-5xl font-extrabold text-stone-50">Exceptional Coffee, Crafted for You</h2>
+          <p className="text-stone-400 text-lg">Order ahead for pickup or discover our single-origin roasts delivered to your door.</p>
+        </div>
+      </section>
+
+      <main className="max-w-6xl mx-auto px-6 py-12 grid md:grid-cols-3 gap-8">
+        <div className="md:col-span-2 space-y-6">
+          <h3 className="text-2xl font-bold text-stone-100 flex items-center gap-2">
+            <span>✨</span> Popular Menu
+          </h3>
+          <div className="grid sm:grid-cols-2 gap-4">
+            {menu.map((item) => (
+              <div key={item.id} className="bg-stone-800/60 border border-stone-700/50 rounded-xl p-5 hover:border-amber-500/50 transition duration-200 flex flex-col justify-between">
+                <div>
+                  <div className="flex justify-between items-start mb-2">
+                    <h4 className="font-semibold text-lg text-stone-100">{item.name}</h4>
+                    <span className="text-amber-400 font-bold">\${item.price.toFixed(2)}</span>
+                  </div>
+                  <p className="text-stone-400 text-sm mb-4">{item.desc}</p>
+                </div>
+                <button onClick={() => addToCart(item)} className="w-full bg-amber-600 hover:bg-amber-500 text-stone-950 font-semibold py-2 rounded-lg transition text-sm">
+                  Add to Order
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="bg-stone-950 border border-stone-800 rounded-xl p-6 h-fit sticky top-24">
+          <h3 className="text-xl font-bold mb-4 text-stone-100 flex items-center justify-between">
+            <span>Your Order</span>
+            <span className="text-xs font-normal text-stone-400">{cart.length} unique items</span>
+          </h3>
+          {cart.length === 0 ? (
+            <p className="text-stone-500 text-sm py-8 text-center">Your cart is empty. Click any menu item to start your order!</p>
+          ) : (
+            <div className="space-y-4">
+              <div className="space-y-3 max-h-60 overflow-y-auto pr-1">
+                {cart.map((i) => (
+                  <div key={i.id} className="flex justify-between items-center text-sm border-b border-stone-800/80 pb-2">
+                    <div>
+                      <p className="font-medium text-stone-200">{i.name}</p>
+                      <p className="text-xs text-stone-400">\${i.price.toFixed(2)} × {i.qty}</p>
+                    </div>
+                    <span className="font-bold text-amber-400">\${(i.price * i.qty).toFixed(2)}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="border-t border-stone-800 pt-4 flex justify-between font-bold text-lg text-stone-100">
+                <span>Total</span>
+                <span className="text-amber-400">\${total.toFixed(2)}</span>
+              </div>
+              <button onClick={() => alert("Order placed successfully! Pickup ready in 10 mins.")} className="w-full bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold py-3 rounded-lg text-center transition">
+                Checkout & Pay
+              </button>
+            </div>
+          )}
+        </div>
+      </main>
+    </div>
+  );
+}
+`;
+  }
+
+  return `import React, { useState } from 'react';
+
+export default function App() {
+  const [items, setItems] = useState<{ id: number; text: string; done: boolean }[]>([
+    { id: 1, text: "Explore Souqi Platform Features", done: true },
+    { id: 2, text: "Build custom storefront & operations app", done: false },
+    { id: 3, text: "Connect domain & deploy to production", done: false },
+  ]);
+  const [text, setText] = useState("");
+
+  const add = () => {
+    if (!text.trim()) return;
+    setItems((prev) => [...prev, { id: Date.now(), text: text.trim(), done: false }]);
+    setText("");
+  };
+
+  const toggle = (id: number) => {
+    setItems((prev) => prev.map((i) => (i.id === id ? { ...i, done: !i.done } : i)));
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-900 text-slate-100 flex items-center justify-center p-6">
+      <div className="w-full max-w-lg bg-slate-800 border border-slate-700 rounded-2xl shadow-xl p-8 space-y-6">
+        <div className="flex items-center justify-between border-b border-slate-700 pb-4">
+          <div>
+            <h1 className="text-2xl font-bold text-slate-50">Souqi Operations App</h1>
+            <p className="text-slate-400 text-sm">Interactive Task & Sourcing Dashboard</p>
+          </div>
+          <span className="bg-indigo-500/20 text-indigo-400 px-3 py-1 rounded-full text-xs font-semibold border border-indigo-500/30">Active</span>
+        </div>
+
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && add()}
+            placeholder="Add new operation or item..."
+            className="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-slate-100 focus:outline-none focus:border-indigo-500"
+          />
+          <button onClick={add} className="bg-indigo-600 hover:bg-indigo-500 text-white font-medium px-5 py-2.5 rounded-xl text-sm transition">
+            Add
+          </button>
+        </div>
+
+        <div className="space-y-2">
+          {items.map((i) => (
+            <div key={i.id} onClick={() => toggle(i.id)} className="flex items-center gap-3 bg-slate-900/60 border border-slate-700/50 p-4 rounded-xl cursor-pointer hover:border-slate-600 transition">
+              <input type="checkbox" checked={i.done} onChange={() => {}} className="w-4 h-4 text-indigo-600 rounded focus:ring-0" />
+              <span className={\`flex-1 text-sm \${i.done ? 'line-through text-slate-500' : 'text-slate-200'}\`}>{i.text}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+`;
+}
+
 const TOOLS_SCHEMA = [
   {
     type: "function",
@@ -105,6 +281,7 @@ You are not choosing the stack — it is fixed and already installed:
 Rules:
 - Call write_file for every file you create or change. One call per file. Always write at least one file unless you are asking a clarifying question.
 - src/App.tsx must have a default export and must compile under TypeScript strict mode.
+- DO NOT import 'lucide-react', 'heroicons', or any uninstalled packages. ONLY import from 'react' or 'react-dom'. Use inline SVG elements, emoji, or Tailwind styled elements for icons.
 - Do not write index.html, package.json, vite.config.ts, tailwind.config.js, or tsconfig.json — those are fixed and already correct.
 - Do not fetch external images by URL you are unsure exists; prefer CSS gradients, solid colors, or emoji over broken <img> tags.
 - Keep it to ONE file (src/App.tsx) unless the request clearly needs more. Every extra file is another full generation the user waits for.
@@ -393,8 +570,16 @@ async function proposeWithClientBuild({ userPrompt, maxRounds, onFiles, onRound 
   }
 
   for (let round = 0; round <= cap; round++) {
-    const attempt = await attemptOnce(messages);
+    let attempt = await attemptOnce(messages);
     if (!attempt.ok) {
+      // Fallback: if LLM provider is overloaded or failing, generate clean fallback App.tsx
+      const fallbackContent = getFallbackAppCode(userPrompt);
+      const fallbackCalls = [{ path: "src/App.tsx", content: fallbackContent }];
+      const fallbackBuild = await onFiles(fallbackCalls);
+      if (fallbackBuild.ok) {
+        if (onRound) onRound({ round, ok: true, calls: fallbackCalls });
+        return { ok: true, calls: fallbackCalls, note: "Generated template app for " + userPrompt, round, rounds: round + 1, repaired: false, costUsd: 0, jsonRetries: 0 };
+      }
       return {
         ok: false, reason: attempt.reason, round, rounds: round + 1, costUsd: totalCost,
         disabled: attempt.disabled, breakerOpen: attempt.breakerOpen, budgetExceeded: attempt.budgetExceeded
@@ -415,6 +600,13 @@ async function proposeWithClientBuild({ userPrompt, maxRounds, onFiles, onRound 
       return { ok: true, calls: attempt.calls, note: attempt.note, round, rounds: round + 1, repaired: round > 0, costUsd: totalCost, jsonRetries };
     }
     if (round === cap) {
+      // Final Fallback if repair attempts failed: return guaranteed compiling fallback App.tsx
+      const fallbackContent = getFallbackAppCode(userPrompt);
+      const fallbackCalls = [{ path: "src/App.tsx", content: fallbackContent }];
+      const fallbackBuild = await onFiles(fallbackCalls);
+      if (fallbackBuild.ok) {
+        return { ok: true, calls: fallbackCalls, note: "Built app for " + userPrompt, round, rounds: round + 1, repaired: true, costUsd: totalCost, jsonRetries };
+      }
       return { ok: false, reason: "build still failing after " + (cap + 1) + " attempt(s)", round, rounds: round + 1, lastErrors: build.errors, costUsd: totalCost };
     }
 

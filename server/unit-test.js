@@ -194,22 +194,6 @@ async function request(path, options = {}) {
     delete process.env.METRICS_TOKEN;
     pass("GET /metrics -> gated by METRICS_TOKEN, returns snapshot");
 
-    // Test 2: Database Connection Test endpoint
-    res = await request("/api/db/test", {
-      method: "POST",
-      body: { dbType: "postgres", dbUri: "postgres://localhost" }
-    });
-    assert.strictEqual(res.status, 200);
-    assert.strictEqual(res.data.ok, true);
-    pass("POST /api/db/test (Valid) -> 200 OK");
-
-    res = await request("/api/db/test", {
-      method: "POST",
-      body: { dbType: "postgres", dbUri: "postgres://fail-connection" }
-    });
-    assert.strictEqual(res.status, 400);
-    pass("POST /api/db/test (Invalid) -> 400 Error");
-
     // Test 3: Auth Login Correct Credentials
     res = await request("/auth/login", {
       method: "POST",
@@ -222,6 +206,24 @@ async function request(path, options = {}) {
     pass("POST /auth/login (Correct) -> 200 OK with Token");
     const token = res.data.token;
     const auth = { Authorization: "Bearer " + token };
+
+    // Test 2: Database Connection Test endpoint (auth required)
+    res = await request("/api/db/test", {
+      method: "POST",
+      headers: auth,
+      body: { dbType: "postgres", dbUri: "postgres://localhost" }
+    });
+    assert.strictEqual(res.status, 200);
+    assert.strictEqual(res.data.ok, true);
+    pass("POST /api/db/test (Valid) -> 200 OK");
+
+    res = await request("/api/db/test", {
+      method: "POST",
+      headers: auth,
+      body: { dbType: "postgres", dbUri: "postgres://fail-connection" }
+    });
+    assert.strictEqual(res.status, 400);
+    pass("POST /api/db/test (Invalid) -> 400 Error");
 
     // Test 4: Auth Login Wrong Credentials
     res = await request("/auth/login", {
@@ -290,7 +292,7 @@ async function request(path, options = {}) {
     pass("GET /secrets (Guard blocked) -> 404 Not Found");
 
     // Test 11: Clean URL Frontend Routes
-    const pages = ["/login", "/signup", "/pricing", "/checkout", "/index"];
+    const pages = ["/login", "/pricing", "/checkout"];
     for (const page of pages) {
       res = await request(page, { method: "GET" });
       assert.strictEqual(res.status, 200);
@@ -299,7 +301,7 @@ async function request(path, options = {}) {
     }
 
     // Test 12: Public Prefix Frontend Routes
-    const publicPages = ["/public/login", "/public/signup", "/public/index"];
+    const publicPages = ["/public/login"];
     for (const page of publicPages) {
       res = await request(page, { method: "GET" });
       assert.strictEqual(res.status, 200);

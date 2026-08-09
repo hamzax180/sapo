@@ -1,17 +1,16 @@
 /* =================================================================
-   MERVEKS SAP — runtime configuration
+   Souqi — runtime configuration
    -----------------------------------------------------------------
    The system runs in two modes:
 
-   • DEMO mode  (default) — when API_BASE is empty, the SAP runs fully
+   • DEMO mode  (default) — when API_BASE is empty, the app runs fully
      in the browser using seeded demo data persisted in localStorage.
      Everything is editable and every action is recorded to the audit
      history, but nothing leaves the device.
 
-   • LIVE mode — set API_BASE to your backend root (e.g.
-     "https://api.merveks.com/sap"). On boot the app probes
-     `${API_BASE}/health`; if it answers, the SAP switches to LIVE and
-     reads/writes through the REST endpoints instead of demo data.
+   • LIVE mode — set API_BASE to your backend root. On boot the app
+     probes `${API_BASE}/health`; if it answers, it switches to LIVE
+     and reads/writes through the REST endpoints instead of demo data.
      If the probe fails, it falls back to DEMO so the UI never breaks.
 
    The connection state is shown in the top bar and can also be changed
@@ -21,18 +20,16 @@ window.SAP_CONFIG = {
   // Backend REST root. Leave "" to run on demo data.
   API_BASE: "",
 
-  // Marketing site the SAP belongs to (linked from the sidebar).
-  SITE_URL: "https://www.merveks.com/en/main-page/",
+  // Marketing site (linked from the sidebar).
+  SITE_URL: "https://souqi.site",
 
   // Company identity shown across the console.
-  COMPANY: "MERVEKS",
-  TAGLINE: "Logistics & Trade",
+  COMPANY: "Souqi",
+  TAGLINE: "Smart Commerce & Operations",
 
   // --- AI Accounting (Google Gemini) ---
-  // Paste a Google Gemini API key to enable the live AI Accountant in
-  // Finance. Leave blank to use the built-in offline analysis engine.
-  // (You can also set this at runtime in Settings → AI Accounting.)
-  GEMINI_API_KEY: "",
+  // The Gemini API key is kept server-side only (GEMINI_API_KEY in
+  // server/.env). The client uses the /ai/chat proxy endpoint.
   GEMINI_MODEL: "gemini-2.0-flash",
 
   // Expected shape of REST endpoints when LIVE (per collection):

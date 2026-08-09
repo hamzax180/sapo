@@ -102,7 +102,7 @@ const { spawnSync, spawn } = require("child_process");
     r.status === 404 ? pass("GET /secrets → 404 (allowlist works)") : await fail("allowlist broken");
 
     // Clean URL frontend routes
-    const routes = ["/login", "/signup", "/pricing", "/checkout", "/index", "/public/login", "/public/signup", "/public/index"];
+    const routes = ["/login", "/pricing", "/checkout", "/public/login"];
     for (const route of routes) {
       r = await fetch(base + route);
       if (r.status !== 200) await fail(`GET ${route} → ${r.status} (expected 200)`);

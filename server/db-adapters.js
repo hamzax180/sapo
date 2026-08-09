@@ -141,6 +141,7 @@ function loadSeedData() {
   const code = fs.readFileSync(seedPath, "utf8");
   const sandbox = { window: {} };
   try {
+    // eslint-disable-next-line no-new-func
     new Function("window", code)(sandbox.window);
     if (typeof sandbox.window.SEED_DATA === "function") {
       return sandbox.window.SEED_DATA();
