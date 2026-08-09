@@ -1038,31 +1038,40 @@
   import { WCRuntime } from '/js/codeagent/wc-runtime.js';
   import { parseBuildErrors } from '/js/codeagent/build-parser-client.js';
 
-  // Boot WebContainer early (before user interacts) so npm install has a head start.
-  // Exposed on window so the non-module IIFE below can access it.
-  const wc = new WCRuntime();
-  window.__wc = wc;
-  window.__parseBuildErrors = parseBuildErrors;
+  // Detect WebContainer support: requires SharedArrayBuffer (cross-origin
+  // isolated) and is unavailable on mobile browsers (iOS Safari, Android
+  // WebView) and some desktop Firefox builds.
+  const wcSupported = typeof SharedArrayBuffer !== 'undefined'
+    && typeof WebAssembly !== 'undefined'
+    && !/iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+  window.__wcSupported = wcSupported;
 
-  // Boot + install in the background — don't block page load
-  (async () => {
-    try {
-      await wc.boot();
-      const install = await wc.install();
-      if (install.ok) {
-        console.log('[wc] Ready.');
-        window.__wcReady = true;
-      } else {
-        console.error('[wc] npm install failed:', install.output);
-        // Set __wcError so any waiting build() call fails fast instead of
-        // hanging for the full 120s timeout.
-        window.__wcError = 'npm install failed — ' + (install.output || '').slice(-200);
+  if (!wcSupported) {
+    console.log('[wc] WebContainers not supported on this device — server-side build will be used.');
+  } else {
+    // Boot WebContainer early (before user interacts) so npm install has a head start.
+    const wc = new WCRuntime();
+    window.__wc = wc;
+    window.__parseBuildErrors = parseBuildErrors;
+
+    // Boot + install in the background — don't block page load
+    (async () => {
+      try {
+        await wc.boot();
+        const install = await wc.install();
+        if (install.ok) {
+          console.log('[wc] Ready.');
+          window.__wcReady = true;
+        } else {
+          console.error('[wc] npm install failed:', install.output);
+          window.__wcError = 'npm install failed — ' + (install.output || '').slice(-200);
+        }
+      } catch (e) {
+        console.error('[wc] Boot failed:', e.message);
+        window.__wcError = e.message;
       }
-    } catch (e) {
-      console.error('[wc] Boot failed:', e.message);
-      window.__wcError = e.message;
-    }
-  })();
+    })();
+  }
 </script>
 <script>
 (function () {
@@ -1434,7 +1443,7 @@
       const res = await fetch("/api/codeagent/build", {
         method: "POST",
         headers: { "Content-Type": "application/json", "Accept": "text/event-stream" },
-        body: JSON.stringify({ prompt: effectivePrompt, projectId: projectId || undefined, buildType: buildType, logo: logo })
+        body: JSON.stringify({ prompt: effectivePrompt, projectId: projectId || undefined, buildType: buildType, logo: logo, canBuild: !!window.__wcSupported })
       });
       if (!res.ok || !res.body) throw new Error("That didn't work");
 

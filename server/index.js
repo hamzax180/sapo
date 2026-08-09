@@ -2566,36 +2566,61 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
       effectivePrompt = "The current src/App.tsx is:\n\n" + currentApp + "\n\nChange request: " + prompt;
     }
 
-    // 2, not 3: each round is a FULL regeneration of the file (the tool
-    // writes whole files, not diffs), so every extra round adds another
-    // 4000-token completion — tens of seconds the user sits watching a
-    // spinner. Measured live at 3 rounds: a build that needed one repair
-    // ran past 200s. Two attempts still recover the common case (one
-    // typo/type error), and a build that fails twice usually needs the
-    // user to say something, not a third identical retry.
-    const result = await proposeWithClientBuild({
-      userPrompt: effectivePrompt, maxRounds: 2,
-      onFiles: async (calls) => {
-        // Send proposed files to the client for WebContainer build
-        const filesObj = {};
-        for (const c of calls) filesObj[c.path] = c.content;
-        const buildId = crypto.randomBytes(16).toString("hex");
-        return new Promise((resolve) => {
-          const timer = setTimeout(() => {
-            pendingBuildResults.delete(buildId);
-            resolve({ ok: false, errors: [{ file: "", line: 0, col: 0, code: "", message: "build timed out (client did not respond in 3 minutes)" }], raw: "" });
-          }, 180000);
-          pendingBuildResults.set(buildId, { resolve, timer });
-          sseFrame(res, "files", { buildId, files: filesObj });
-        });
-      },
-      onRound: (r) => {
-        sseFrame(res, "stage", {
-          id: "round-" + r.round, state: "done",
-          detail: r.ok ? "Build succeeded" : ("Fixing " + (r.errors ? r.errors.length : 0) + " issue(s)")
-        });
-      }
-    });
+    // canBuild: false means the client is on mobile or a browser that does not
+    // support WebContainers (no SharedArrayBuffer). In that case, skip the
+    // client-build loop and use proposeWithRepair, which validates files
+    // server-side against the scaffold TypeScript compiler via a Daytona/local
+    // sandbox rather than a browser WebContainer.
+    const canBuild = req.body && req.body.canBuild !== false; // default true if omitted (desktop)
+
+    let result;
+    if (!canBuild) {
+      // ---- Mobile / server-side build path ----
+      // proposeWithRepair generates files and optionally verifies them
+      // without needing a browser WebContainer. We surface each round
+      // as a stage event so the UI progress looks identical to desktop.
+      result = await proposeWithRepair({
+        userPrompt: effectivePrompt, maxRounds: 2,
+        onRound: (r) => {
+          sseFrame(res, "stage", {
+            id: "round-" + r.round, state: "done",
+            detail: r.ok ? "Build succeeded" : ("Fixing " + (r.errors ? r.errors.length : 0) + " issue(s)")
+          });
+        }
+      });
+    } else {
+      // ---- Desktop / WebContainers build path ----
+      // 2, not 3: each round is a FULL regeneration of the file (the tool
+      // writes whole files, not diffs), so every extra round adds another
+      // 4000-token completion — tens of seconds the user sits watching a
+      // spinner. Measured live at 3 rounds: a build that needed one repair
+      // ran past 200s. Two attempts still recover the common case (one
+      // typo/type error), and a build that fails twice usually needs the
+      // user to say something, not a third identical retry.
+      result = await proposeWithClientBuild({
+        userPrompt: effectivePrompt, maxRounds: 2,
+        onFiles: async (calls) => {
+          // Send proposed files to the client for WebContainer build
+          const filesObj = {};
+          for (const c of calls) filesObj[c.path] = c.content;
+          const buildId = crypto.randomBytes(16).toString("hex");
+          return new Promise((resolve) => {
+            const timer = setTimeout(() => {
+              pendingBuildResults.delete(buildId);
+              resolve({ ok: false, errors: [{ file: "", line: 0, col: 0, code: "", message: "build timed out (client did not respond in 3 minutes)" }], raw: "" });
+            }, 180000);
+            pendingBuildResults.set(buildId, { resolve, timer });
+            sseFrame(res, "files", { buildId, files: filesObj });
+          });
+        },
+        onRound: (r) => {
+          sseFrame(res, "stage", {
+            id: "round-" + r.round, state: "done",
+            detail: r.ok ? "Build succeeded" : ("Fixing " + (r.errors ? r.errors.length : 0) + " issue(s)")
+          });
+        }
+      });
+    }
 
     // Record spend regardless of outcome
     await codeAgentUsage.recordSpend(owner, result.costUsd || 0);
