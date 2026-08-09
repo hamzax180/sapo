@@ -6,6 +6,9 @@
   "engines": {
     "node": ">=20"
   },
+  "scripts": {
+    "build": "echo 'No build step required'"
+  },
   "dependencies": {
     "@daytona/sdk": "^0.203.0",
     "archiver": "^7.0.1",

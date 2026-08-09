@@ -1,0 +1,9 @@
+{
+  "compilerOptions": {
+    "noEmit": true
+  },
+  "exclude": [
+    "server/lib/codeagent/scaffold/**/*",
+    "node_modules"
+  ]
+}
