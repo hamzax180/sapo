@@ -382,7 +382,7 @@
     overflow:hidden;
   }
   /* iframe fills the screen wrapper or frame directly */
-  .ag-pv-frame iframe{
+  .ip-screen iframe, .ag-pv-frame iframe{
     position:absolute;inset:0;
     width:100%;height:100%;
     border:0;display:block;
@@ -496,17 +496,22 @@
     100% { opacity: 1; transform: scale(1.03); }
   }
   .ios-progress-bar {
-    width: 140px; height: 4px; background: rgba(255,255,255,0.22);
+    width: 135px; height: 3.5px; background: rgba(255, 255, 255, 0.22);
     border-radius: 4px; overflow: hidden; position: relative;
   }
   .ios-progress-fill {
     height: 100%; background: #ffffff; border-radius: 4px;
-    animation: iosBootProgress 2.2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+    box-shadow: 0 0 6px rgba(255, 255, 255, 0.6);
+    width: 0%;
+    animation: iosRealBootFill 2.6s cubic-bezier(0.12, 0.8, 0.3, 1) forwards;
   }
-  @keyframes iosBootProgress {
-    0% { width: 5%; transform: translateX(0); }
-    50% { width: 65%; }
-    100% { width: 100%; transform: translateX(0); }
+  @keyframes iosRealBootFill {
+    0% { width: 0%; }
+    15% { width: 14%; }
+    40% { width: 42%; }
+    70% { width: 76%; }
+    92% { width: 94%; }
+    100% { width: 100%; }
   }
 
   /* 2. TABLET (iPad Pro Mockup) */
@@ -1627,7 +1632,11 @@
     building = true;
     agSend.disabled = true;
     const bootEl = $("agPvBoot");
-    if (bootEl) bootEl.classList.remove("hidden");
+    if (bootEl) {
+      bootEl.classList.remove("hidden");
+      const fill = bootEl.querySelector(".ios-progress-fill");
+      if (fill) { fill.style.animation = "none"; void fill.offsetWidth; fill.style.animation = ""; }
+    }
     // Replit's own behavior during an active agent turn: the sidebar
     // collapses so the conversation gets the full width, then comes back
     // once the turn is over (see the finally block below) — reopened

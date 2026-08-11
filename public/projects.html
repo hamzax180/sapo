@@ -11,6 +11,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Jost:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <title>Projects — Souqi</title>
 <style>
+<style>
   /* Same warm-cream system as code.html/home.html — this is a builder
      page (a wider view of the sidebar's own Home list), not a settings
      surface, so it keeps the product's real palette rather than
@@ -26,12 +27,40 @@
     --ease:cubic-bezier(.16,1,.3,1);
   }
   html{background:var(--paper)}
-  body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--body);-webkit-font-smoothing:antialiased}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--body);-webkit-font-smoothing:antialiased;display:flex;min-height:100vh}
   a{color:inherit;text-decoration:none}
   button{font:inherit}
   h1,h2{font-family:var(--disp);font-weight:700;letter-spacing:-.02em;margin:0}
 
-  .nav{display:flex;align-items:center;gap:20px;padding:14px clamp(18px,4vw,40px);border-bottom:1px solid var(--line)}
+  .ag-main{flex:1;min-width:0;display:flex;flex-direction:column}
+  .ag-history{position:sticky;top:0;align-self:flex-start;height:100vh;flex:0 0 auto;
+    width:0;max-width:88vw;overflow:visible;background:var(--paper);
+    border-right:0 solid var(--line);transition:width .26s var(--ease);
+    display:flex;flex-direction:column;z-index:5}
+  .ag-history.on{width:290px;border-right:1px solid var(--line)}
+  .ag-hist-head,.ag-hist-tabs,.ag-hist-foot{width:290px}
+  .ag-hist-head{display:flex;align-items:center;gap:10px;padding:14px 14px 8px}
+  .ag-hist-mark{width:24px;height:24px;border-radius:7px;background:var(--accent);display:grid;place-items:center;flex:none}
+  .ag-hist-mark svg{width:13px;height:13px;color:#fff}
+  .ag-hist-close{margin-inline-start:auto;border:0;background:none;color:var(--ink-2);cursor:pointer;width:30px;height:30px;border-radius:8px;display:grid;place-items:center}
+  .ag-ws{display:flex;align-items:center;gap:9px;border:1px solid var(--line);background:var(--card);border-radius:999px;padding:5px 10px 5px 5px;margin:4px 12px 9px;width:calc(100% - 24px);cursor:pointer;text-align:left}
+  .ag-ws .av{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;color:#fff;background:linear-gradient(135deg,var(--accent),var(--accent-2));font-weight:600;font-size:.74rem}
+  .ag-ws .nm{flex:1;min-width:0;font-size:.87rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ag-act{display:flex;align-items:center;gap:8px;margin:0 12px 10px;padding:8px 11px;border:1px solid var(--line);background:var(--card);border-radius:9px;color:var(--ink);font-size:.87rem;cursor:pointer;width:calc(100% - 24px)}
+  .ag-hist-tabs{display:flex;flex-direction:column;gap:2px;padding:2px 12px 10px;flex:1}
+  .ag-hist-tab{width:100%;display:flex;align-items:center;gap:11px;border:0;background:none;color:var(--ink);cursor:pointer;padding:9px 10px;border-radius:8px;font-size:.92rem;font-weight:400;text-align:left;transition:.14s}
+  .ag-hist-tab svg{width:18px;height:18px;flex:none;color:var(--ink-2)}
+  .ag-hist-tab:hover,.ag-hist-tab.on{background:var(--paper-2);font-weight:500}
+  .ag-hist-btn{border:1px solid var(--line);background:var(--card);color:var(--ink-2);width:34px;height:34px;border-radius:9px;display:grid;place-items:center;cursor:pointer;transition:.15s}
+  .ag-hist-btn:hover{border-color:#c6dbe7;color:var(--ink)}
+  .ag-hist-btn svg{width:17px;height:17px}
+  .ag-hist-backdrop{position:fixed;inset:0;background:rgba(11,22,38,.4);opacity:0;pointer-events:none;transition:opacity .2s;z-index:70}
+  .ag-hist-backdrop.on{opacity:1;pointer-events:auto}
+  @media (max-width:900px){
+    .ag-history{position:fixed;top:0;left:0;bottom:0;z-index:71}
+  }
+
+  .nav{display:flex;align-items:center;gap:16px;padding:14px clamp(18px,4vw,40px);border-bottom:1px solid var(--line)}
   .brand{display:flex;align-items:center;gap:10px;font-family:var(--disp);font-weight:800;font-size:1.1rem}
   .brand img{width:26px;height:26px;object-fit:contain;border-radius:4px}
   .nav .sp{margin-left:auto}
@@ -40,7 +69,7 @@
   .btn-d{padding:9px 17px;border-radius:10px;background:var(--accent);color:#fff;font-size:.86rem;font-weight:600;transition:.16s}
   .btn-d:hover{background:var(--accent-2)}
 
-  .wrap{max-width:1180px;margin:0 auto;padding:clamp(26px,5vw,46px) clamp(18px,4vw,40px) 80px}
+  .wrap{max-width:1180px;margin:0 auto;padding:clamp(26px,5vw,46px) clamp(18px,4vw,40px) 80px;width:100%}
   .phead{display:flex;align-items:center;gap:10px;margin-bottom:20px}
   .phead svg.ic{width:22px;height:22px;color:var(--ink)}
   .phead h1{font-size:clamp(1.5rem,3vw,1.9rem)}
@@ -93,7 +122,7 @@
   .row{display:flex;align-items:center;gap:12px;padding:12px 14px;border-bottom:1px solid var(--line);cursor:pointer;transition:.15s}
   .row:last-child{border-bottom:0}
   .row:hover{background:var(--paper-2)}
-  .row .tile{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;flex:none;
+  .row .tile{width:34px;height:34px;border-radius:99px;display:grid;place-items:center;flex:none;
     font-family:var(--disp);font-weight:700;font-size:.95rem;color:#fff}
   .row .t{flex:1;min-width:0;font-size:.9rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .row .m{display:flex;align-items:center;gap:5px;font-size:.79rem;color:var(--mut);flex:none}
@@ -113,12 +142,49 @@
 </head>
 <body>
 
-<header class="nav">
-  <a class="brand" href="/agent"><img src="/assets/logo.png" alt="Souqi"><span>Souqi</span></a>
-  <span class="sp"></span>
-  <a class="btn-g" href="/agent">Back to builder</a>
-  <a class="btn-d" href="/pricing">See plans</a>
-</header>
+<div class="ag-hist-backdrop" id="agHistBackdrop"></div>
+<aside class="ag-history on" id="agHistory" aria-label="Your account">
+  <div class="ag-hist-head">
+    <span class="ag-hist-mark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 16 4-4-4-4M6 8l-4 4 4 4M14.5 4l-5 16"/></svg></span>
+    <b style="font-family:var(--disp);font-weight:700">Souqi Code</b>
+    <button type="button" class="ag-hist-close" id="agHistClose" aria-label="Close">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+    </button>
+  </div>
+
+  <button type="button" class="ag-ws" onclick="location.href='/agent'">
+    <span class="av">S</span>
+    <span class="nm">Your Workspace</span>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg>
+  </button>
+
+  <button type="button" class="ag-act" onclick="location.href='/agent'">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Create something new</button>
+
+  <div class="ag-hist-tabs" role="tablist">
+    <a class="ag-hist-tab" href="/agent">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg>Home</a>
+    <a class="ag-hist-tab on" href="/projects">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>Projects</a>
+    <a class="ag-hist-tab" href="/agent#favorites">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01z"/></svg>Favorites</a>
+    <a class="ag-hist-tab" href="/agent#stats">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/></svg>Stats</a>
+    <a class="ag-hist-tab" href="/agent#settings">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Settings</a>
+  </div>
+</aside>
+
+<div class="ag-main">
+  <header class="nav">
+    <button type="button" class="ag-hist-btn" id="agHistOpen" aria-label="Your builds">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h10M4 18h16"/></svg>
+    </button>
+    <a class="brand" href="/agent"><img src="/assets/logo.png" alt="Souqi"><span>Souqi</span></a>
+    <span class="sp"></span>
+    <a class="btn-g" href="/agent">Back to builder</a>
+    <a class="btn-d" href="/pricing">See plans</a>
+  </header>
 
 <div class="wrap">
   <div class="phead">
@@ -155,20 +221,43 @@
     </div>
   </div>
   <div id="body"><div class="loading">Loading…</div></div>
-</div>
+</div><!-- /.ag-main -->
 
 <script>
 (function () {
   "use strict";
   var $ = function (id) { return document.getElementById(id); };
   function esc(t) { var d = document.createElement("span"); d.textContent = t == null ? "" : t; return d.innerHTML; }
+
+  // Sidebar toggle
+  var sb = $("agHistory"), bd = $("agHistBackdrop");
+  var openBtn = $("agHistOpen"), closeBtn = $("agHistClose");
+  if (openBtn) {
+    openBtn.addEventListener("click", function() {
+      if (sb) sb.classList.toggle("on");
+      if (bd) bd.classList.toggle("on");
+    });
+  }
+  if (closeBtn) {
+    closeBtn.addEventListener("click", function() {
+      if (sb) sb.classList.remove("on");
+      if (bd) bd.classList.remove("on");
+    });
+  }
+  if (bd) {
+    bd.addEventListener("click", function() {
+      if (sb) sb.classList.remove("on");
+      if (bd) bd.classList.remove("on");
+    });
+  }
+
   var TYPE_COLOR = { website: "#1aa6df", webapp: "#7c5cff", dashboard: "#f59e0b", portfolio: "#ec4899", mobile: "#10b981" };
   function timeAgo(iso) {
     var s = (Date.now() - new Date(iso)) / 1000;
     if (s < 3600) return Math.max(1, Math.round(s / 60)) + "m ago";
     if (s < 86400) return Math.round(s / 3600) + "h ago";
     if (s < 86400 * 30) return Math.round(s / 86400) + "d ago";
-    return new Date(iso).toLocaleDateString();
+    return Math.round(s / (86400 * 30)) + "mo ago";
   }
 
   var all = [];
