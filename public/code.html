@@ -502,25 +502,25 @@
     .ag-tabs button{flex:1;border:1px solid var(--line);background:var(--card);color:var(--ink-2);border-radius:10px;padding:9px;font-size:.88rem;font-weight:500;cursor:pointer}
     .ag-tabs button.on{background:var(--ink);color:#fff;border-color:var(--ink)}
     .ag.tab-hidden,.ag-preview.tab-hidden{display:none !important}
-    /* Preview stage on mobile: full viewport height minus top bar */
+    /* Preview stage: centers the device mockup */
     .ag-pv-stage{
-      padding:8px 4px;
+      padding:12px 0;
       min-height:calc(100svh - 110px);
       display:flex;align-items:center;justify-content:center;
     }
-    /* iPhone fills full mobile viewport */
+    /* Real iPhone 15 Pro proportions — 9:19.5 aspect ratio, scaled to
+       fit the viewport height while remaining a realistic phone shape.
+       Height-driven: the phone is as tall as the viewport allows, and
+       its width follows from the real aspect ratio. */
     .ag-pv-frame.mobile{
-      width:calc(100vw - 24px);
+      /* Height fills the available space */
       height:calc(100svh - 128px);
-      max-width:none;
       max-height:none;
-      aspect-ratio:unset;
-      border-width:12px;
-      border-radius:40px;
+      /* Width follows from the real iPhone 15 Pro aspect ratio */
+      width:auto;
+      max-width:calc(100vw - 32px);
+      aspect-ratio: 9 / 19.5;
     }
-    .ag-pv-frame.mobile::before{width:90px;height:24px;top:8px}
-    .ag-pv-frame.mobile::after{bottom:6px;width:110px}
-    .ag-pv-frame.mobile iframe{border-radius:26px}
     .ag-pv-frame.tablet{width:100%;height:calc(100svh - 128px);max-height:none}
     .ag-pv-frame.desktop{width:100%;height:calc(100svh - 128px);max-height:none}
     .ag-preview{position:static;height:auto}
