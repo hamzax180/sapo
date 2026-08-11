@@ -45,14 +45,24 @@
   .btn-d:hover{background:var(--accent-2);transform:translateY(-1px)}
   .ag-pv-toggle-btn {
     margin-inline-start: auto;
-    display: inline-flex; align-items: center; gap: 7px;
-    border: 1px solid var(--line); background: var(--card); color: var(--ink-2);
+    display: inline-flex; align-items: center; gap: 8px;
+    border: 1px solid var(--line); background: var(--card); color: var(--ink);
     border-radius: 9px; padding: 6px 14px; height: 34px; font-size: 0.85rem; font-weight: 600;
     cursor: pointer; transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-    box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.03);
   }
-  .ag-pv-toggle-btn:hover { color: var(--ink); border-color: var(--accent); background: var(--tint-2); transform: translateY(-1px); }
-  .ag-pv-toggle-btn.on { background: var(--ink); color: #fff; border-color: var(--ink); box-shadow: 0 4px 12px rgba(18,32,46,0.25); }
+  .ag-pv-toggle-btn:hover { border-color: #cbd5e1; background: var(--paper-2); color: var(--ink); }
+  .ag-pv-toggle-btn.on {
+    background: var(--card); color: var(--ink); border-color: var(--ink);
+    box-shadow: 0 0 0 1px var(--ink);
+  }
+  .ag-pv-toggle-btn .pane-right {
+    transition: fill 0.2s ease;
+    fill: transparent;
+  }
+  .ag-pv-toggle-btn.on .pane-right {
+    fill: var(--ink);
+  }
   .ag-pv-toggle-btn svg { width: 16px; height: 16px; flex: none; }
   @media (max-width:640px){ .nav{gap:6px;padding:11px 12px} .brand{font-size:1rem;gap:6px} }
 
@@ -677,7 +687,7 @@
     border-right:0 solid var(--line);
     transition:width .26s var(--ease),border-color .26s var(--ease);
     display:flex;flex-direction:column;z-index:5}
-  .ag-history.on{width:290px;border-right-color:var(--line);border-right-width:1px}
+  .ag-history.on{width:290px;border-right-color:var(--line);border-right-width:1px;overflow:visible}
   .ag-hist-head,.ag-hist-tabs,.ag-hist-view,.ag-hist-foot{width:290px}
 
   @media (max-width:900px){
@@ -766,7 +776,7 @@
      up space (scrolling internally) instead of the footer being pushed
      out; .ag-hist-foot's flex:none makes sure it's the nav that yields. */
   .ag-hist-tabs{display:flex;flex-direction:column;gap:1px;padding:2px 12px 10px;
-    flex:0 1 auto;min-height:0;overflow-y:auto;scrollbar-width:none}
+    flex:0 1 auto;min-height:0;overflow:visible;scrollbar-width:none}
   .ag-hist-tabs::-webkit-scrollbar{display:none}
   .ag-hist-tab{width:100%;display:flex;align-items:center;gap:11px;border:0;background:none;color:var(--ink);cursor:pointer;
     padding:9px 10px;border-radius:8px;font-size:.92rem;font-weight:400;text-align:left;transition:.14s}
@@ -782,12 +792,12 @@
      hoverable row, not on the scroll container) so it tracks the row if
      the nav ever scrolls. */
   .ag-hist-hoverable{position:relative}
-  .ag-flyout{position:absolute;left:calc(100% + 8px);top:-6px;z-index:80;width:248px;
+  .ag-flyout{position:absolute;left:calc(100% - 10px);top:-6px;z-index:1000;width:250px;
     background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 10px 8px;
-    box-shadow:0 16px 40px -16px rgba(11,22,38,.4);
-    opacity:0;visibility:hidden;transform:translateX(-4px);transition:opacity .14s,transform .14s,visibility .14s;
-    display:flex;flex-direction:column;gap:2px;cursor:default}
-  .ag-hist-hoverable:hover .ag-flyout,.ag-flyout:hover{opacity:1;visibility:visible;transform:none}
+    box-shadow:0 16px 40px -12px rgba(11,22,38,.25);
+    opacity:0;visibility:hidden;transform:translateX(6px);transition:opacity .16s ease,transform .16s ease,visibility .16s ease;
+    display:flex;flex-direction:column;gap:2px;cursor:default;pointer-events:none}
+  .ag-hist-hoverable:hover .ag-flyout,.ag-flyout:hover{opacity:1;visibility:visible;transform:none;pointer-events:auto}
   .ag-flyout-h{font-size:.8rem;color:var(--mut);font-weight:500;padding:0 8px 6px}
   .ag-flyout-list{display:flex;flex-direction:column;gap:1px}
   .ag-flyout-item{display:flex;align-items:center;gap:10px;padding:8px;border-radius:8px;
@@ -1061,7 +1071,11 @@
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h10M4 18h16"/></svg>
   </button>
   <button type="button" class="ag-pv-toggle-btn" id="agDeskPreviewToggle" title="Show / Hide Preview panel">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M15 3v18"/></svg>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="3" y="3" width="18" height="18" rx="3.5"/>
+      <path d="M15 3v18"/>
+      <rect class="pane-right" x="15" y="3.8" width="5.2" height="16.4" rx="1" fill="transparent" stroke="none"/>
+    </svg>
     <span>Preview</span>
   </button>
 </header>
