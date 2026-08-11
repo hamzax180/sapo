@@ -353,8 +353,23 @@
     padding:0 12px;height:30px;font-size:.82rem;font-weight:500;cursor:pointer;transition:.15s;white-space:nowrap}
   .ag-pv-open:hover{color:var(--ink);border-color:#c6dbe7}
   .ag-pv-open:disabled{opacity:.5;cursor:default}
-  .ag-pv-stage{position:relative;flex:1;min-height:0;display:flex;align-items:center;justify-content:center;padding:clamp(16px,3vw,32px);overflow:auto}
-  .ag-pv-frame{position:relative;background:#fff;overflow:hidden;transition:all .3s cubic-bezier(0.16,1,0.3,1);flex:none;box-sizing:border-box}
+  .ag-pv-stage{position:relative;flex:1;min-height:0;display:flex;align-items:center;justify-content:center;padding:clamp(8px,2vw,32px);overflow:auto;background:var(--paper)}
+  .ag-pv-frame{
+    position:relative;overflow:hidden;
+    transition:all .3s cubic-bezier(0.16,1,0.3,1);
+    flex:none;box-sizing:border-box;
+    /* iframe must be clipped INSIDE the border — isolate stacking context */
+    isolation:isolate;
+  }
+  /* Ensure iframe never bleeds outside the device border */
+  .ag-pv-frame iframe{
+    position:absolute;inset:0;
+    width:100%;height:100%;
+    border:0;display:block;
+  }
+  .ag-pv-frame.mobile iframe{border-radius:36px}
+  .ag-pv-frame.tablet iframe{border-radius:16px}
+  .ag-pv-frame.desktop iframe{border-radius:2px}
 
   /* 1. DESKTOP / LAPTOP (MacBook Pro Mockup) */
   .ag-pv-frame.desktop {
@@ -362,6 +377,7 @@
     border: 12px solid #1e1f23; border-top: 24px solid #1e1f23;
     border-radius: 14px 14px 4px 4px;
     box-shadow: 0 25px 65px -15px rgba(0,0,0,0.38), 0 0 0 1px rgba(255,255,255,0.08) inset;
+    background: #fff;
   }
   .ag-pv-frame.desktop::before {
     content: ""; position: absolute; top: -16px; left: 50%; transform: translateX(-50%);
@@ -373,9 +389,10 @@
   /* 2. TABLET (iPad Pro Mockup) */
   .ag-pv-frame.tablet {
     width: 768px; max-width: 100%; height: 100%; max-height: 920px;
-    border: 18px solid #242528; border-top: 18px solid #242528;
+    border: 18px solid #242528;
     border-radius: 34px;
     box-shadow: 0 25px 60px -10px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.1) inset;
+    background: #fff;
   }
   .ag-pv-frame.tablet::before {
     content: ""; position: absolute; top: -12px; left: 50%; transform: translateX(-50%);
@@ -384,31 +401,38 @@
     z-index: 20; pointer-events: none;
   }
 
-  /* 3. MOBILE (iPhone 15 Pro Titanium Mockup with Dynamic Island & Home Bar) */
+  /* 3. MOBILE — iPhone 15 Pro Titanium Mockup with Dynamic Island & Home Bar.
+     On mobile viewports (< 900px) this frame fills most of the viewport;
+     on desktop the default 375 × 740 size is used. */
   .ag-pv-frame.mobile {
-    width: 375px; max-width: 90vw;
-    height: 740px; max-height: calc(100vh - 140px);
+    width: 375px; max-width: calc(100vw - 24px);
+    height: 740px; max-height: calc(100svh - 130px);
     aspect-ratio: 9 / 18.5;
-    border: 14px solid #1c1c1e; border-top: 14px solid #1c1c1e;
+    border: 14px solid #1c1c1e;
     border-radius: 52px;
-    box-shadow: 0 0 0 2px #2c2c2e, 0 30px 80px -10px rgba(0,0,0,0.55), inset 0 0 0 1px rgba(255,255,255,0.15);
+    box-shadow:
+      0 0 0 2px #3a3a3c,
+      0 0 0 3px #1c1c1e,
+      0 30px 80px -10px rgba(0,0,0,0.6),
+      inset 0 0 0 1px rgba(255,255,255,0.14);
+    background: #000;
   }
+  /* Dynamic Island */
   .ag-pv-frame.mobile::before {
     content: ""; position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
-    width: 108px; height: 28px; background: #000; border-radius: 20px;
-    box-shadow: 0 0 0 1px rgba(255,255,255,0.08), inset 0 1px 3px rgba(255,255,255,0.12);
+    width: 110px; height: 30px; background: #000; border-radius: 20px;
+    box-shadow: 0 0 0 1px rgba(255,255,255,0.07);
     z-index: 30; pointer-events: none;
   }
+  /* Home Indicator */
   .ag-pv-frame.mobile::after {
-    content: ""; position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%);
-    width: 130px; height: 5px; background: rgba(0,0,0,0.35); border-radius: 4px;
+    content: ""; position: absolute; bottom: 7px; left: 50%; transform: translateX(-50%);
+    width: 130px; height: 5px; background: rgba(255,255,255,0.25); border-radius: 4px;
     z-index: 30; pointer-events: none;
   }
 
-  .ag-pv-frame iframe{width:100%;height:100%;border:0;display:block;border-radius:2px}
-  .ag-pv-frame.mobile iframe{border-radius:36px}
-  .ag-pv-frame.tablet iframe{border-radius:16px}
   .ag-pv-empty{position:absolute;inset:0;margin:auto;display:flex;align-items:center;justify-content:center;text-align:center;color:var(--mut);font-size:.94rem;padding:24px;max-width:28ch;z-index:5;background:#fff;pointer-events:none}
+  .ag-pv-frame.mobile .ag-pv-empty{border-radius:36px;background:#fff}
 
   /* Preview paywall — the built app is real and running the moment the
      first build finishes, but its PIXELS stay blurred until the visitor
@@ -478,10 +502,27 @@
     .ag-tabs button{flex:1;border:1px solid var(--line);background:var(--card);color:var(--ink-2);border-radius:10px;padding:9px;font-size:.88rem;font-weight:500;cursor:pointer}
     .ag-tabs button.on{background:var(--ink);color:#fff;border-color:var(--ink)}
     .ag.tab-hidden,.ag-preview.tab-hidden{display:none !important}
-    .ag-pv-stage{min-height:calc(100svh - 120px);padding:16px 8px;display:flex;align-items:center;justify-content:center}
-    .ag-pv-frame.mobile{width:min(375px,90vw);height:min(740px,calc(100svh - 140px));aspect-ratio:9 / 18.5}
-    .ag-pv-frame.tablet{width:100%;height:min(720px,calc(100svh - 140px))}
-    .ag-pv-frame.desktop{width:100%;height:min(600px,calc(100svh - 140px))}
+    /* Preview stage on mobile: full viewport height minus top bar */
+    .ag-pv-stage{
+      padding:8px 4px;
+      min-height:calc(100svh - 110px);
+      display:flex;align-items:center;justify-content:center;
+    }
+    /* iPhone fills full mobile viewport */
+    .ag-pv-frame.mobile{
+      width:calc(100vw - 24px);
+      height:calc(100svh - 128px);
+      max-width:none;
+      max-height:none;
+      aspect-ratio:unset;
+      border-width:12px;
+      border-radius:40px;
+    }
+    .ag-pv-frame.mobile::before{width:90px;height:24px;top:8px}
+    .ag-pv-frame.mobile::after{bottom:6px;width:110px}
+    .ag-pv-frame.mobile iframe{border-radius:26px}
+    .ag-pv-frame.tablet{width:100%;height:calc(100svh - 128px);max-height:none}
+    .ag-pv-frame.desktop{width:100%;height:calc(100svh - 128px);max-height:none}
     .ag-preview{position:static;height:auto}
   }
   @media (max-width:640px){
