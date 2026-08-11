@@ -426,19 +426,66 @@
     box-shadow:1px 0 2px rgba(0,0,0,0.4);
   }
 
-  /* 1. DESKTOP / LAPTOP (MacBook Pro Mockup) */
+  /* 1. DESKTOP / LAPTOP (MacBook Pro Mockup with Physical Lid Opening Animation) */
   .ag-pv-frame.desktop {
-    width: 100%; max-width: 1080px; height: 100%; max-height: 700px;
-    border: 12px solid #1e1f23; border-top: 24px solid #1e1f23;
-    border-radius: 14px 14px 4px 4px;
-    box-shadow: 0 25px 65px -15px rgba(0,0,0,0.38), 0 0 0 1px rgba(255,255,255,0.08) inset;
-    background: #fff;
+    width: 100%; max-width: 1000px; height: 100%; max-height: 640px;
+    border: 14px solid #1e1f23; border-top: 22px solid #1e1f23; border-bottom: 18px solid #1e1f23;
+    border-radius: 16px 16px 4px 4px;
+    box-shadow: 0 30px 80px -15px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.12) inset;
+    background: #0f1012;
+    position: relative;
+    transform-origin: bottom center;
+    transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1), filter 0.6s ease;
   }
-  .ag-pv-frame.desktop::before {
-    content: ""; position: absolute; top: -16px; left: 50%; transform: translateX(-50%);
-    width: 7px; height: 7px; background: #0b0c0e; border-radius: 50%;
-    box-shadow: 0 0 0 1px rgba(255,255,255,0.1), inset 0 0 2px rgba(255,255,255,0.3);
-    z-index: 20; pointer-events: none;
+  .ag-pv-frame.desktop.opening {
+    animation: macLidOpen 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+  @keyframes macLidOpen {
+    0% { transform: perspective(1000px) rotateX(22deg) scale(0.96); opacity: 0.75; filter: brightness(0.4); }
+    100% { transform: perspective(1000px) rotateX(0deg) scale(1); opacity: 1; filter: brightness(1); }
+  }
+  /* MacBook Base Lip & Trackpad Notch */
+  .macbook-base {
+    display: none; position: absolute; bottom: -22px; left: -2%; width: 104%; height: 18px;
+    background: linear-gradient(180deg, #2c2d32 0%, #1a1b1e 60%, #121315 100%);
+    border-radius: 0 0 12px 12px; box-shadow: 0 12px 30px rgba(0,0,0,0.6);
+    z-index: 40; pointer-events: none;
+  }
+  .macbook-notch {
+    position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+    width: 70px; height: 5px; background: #0c0d0e; border-radius: 0 0 4px 4px;
+  }
+  .ag-pv-frame.desktop .macbook-base { display: block; }
+
+  /* Apple Boot Loading Screen for iPhone & Mobile Preview */
+  .ag-pv-boot {
+    position: absolute; inset: 0; background: #000;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 28px; z-index: 35; transition: opacity 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+    pointer-events: none; border-radius: inherit;
+  }
+  .ag-pv-boot.hidden { opacity: 0; visibility: hidden; }
+  .ag-pv-boot .apple-logo {
+    width: 58px; height: 58px; color: #ffffff;
+    filter: drop-shadow(0 0 12px rgba(255,255,255,0.35));
+    animation: applePulse 2s ease-in-out infinite alternate;
+  }
+  @keyframes applePulse {
+    0% { opacity: 0.8; transform: scale(0.97); }
+    100% { opacity: 1; transform: scale(1.03); }
+  }
+  .ios-progress-bar {
+    width: 140px; height: 4px; background: rgba(255,255,255,0.22);
+    border-radius: 4px; overflow: hidden; position: relative;
+  }
+  .ios-progress-fill {
+    height: 100%; background: #ffffff; border-radius: 4px;
+    animation: iosBootProgress 2.2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  }
+  @keyframes iosBootProgress {
+    0% { width: 5%; transform: translateX(0); }
+    50% { width: 65%; }
+    100% { width: 100%; transform: translateX(0); }
   }
 
   /* 2. TABLET (iPad Pro Mockup) */
@@ -1129,7 +1176,14 @@
         <i class="ib ib-volup"></i>
         <i class="ib ib-voldn"></i>
         <i class="ib ib-power"></i>
+        <div class="macbook-base"><div class="macbook-notch"></div></div>
         <div class="ip-screen">
+          <div class="ag-pv-boot hidden" id="agPvBoot">
+            <svg class="apple-logo" viewBox="0 0 170 170" fill="currentColor">
+              <path d="M150.37 130.25c-2.45 5.66-5.35 10.87-8.71 15.66-4.58 6.53-8.33 11.05-11.22 13.56-4.48 4.12-9.28 6.23-14.42 6.35-3.69 0-8.14-1.05-13.32-3.18-5.19-2.12-9.97-3.17-14.34-3.17-4.58 0-9.49 1.05-14.75 3.17-5.26 2.13-9.5 3.24-12.74 3.35-4.34.13-9.16-1.9-14.49-6.1-3.32-2.73-7.2-7.39-11.66-13.97-6.27-9.28-11.22-19.74-14.86-31.39-3.64-11.65-5.46-22.9-5.46-33.74 0-14.61 3.59-26.65 10.77-36.13 7.18-9.48 16.27-14.31 27.27-14.48 4.67 0 9.87 1.25 15.58 3.75 5.71 2.5 9.77 3.75 12.18 3.75 2.01 0 6.03-1.25 12.06-3.75 6.03-2.5 11.03-3.65 15-3.45 10.63.53 19.38 4.4 26.25 11.63-9.52 5.75-14.18 13.82-14 24.2 0 8.04 3.01 14.85 9.03 20.43 6.02 5.58 13.25 8.65 21.69 9.21-2.01 6.18-4.71 12.39-8.1 18.63zM119.22 31.84c0-6.85 2.45-13.37 7.35-19.56 4.9-6.19 11.03-9.87 18.39-11.04.14 1.15.21 2.05.21 2.7 0 6.94-2.45 13.48-7.35 19.63-4.9 6.15-11.08 9.86-18.54 11.13-.07-.72-.06-1.68-.06-2.86z"/>
+            </svg>
+            <div class="ios-progress-bar"><div class="ios-progress-fill"></div></div>
+          </div>
           <div class="ag-pv-empty" id="agPvEmpty">Your app will show up here once it's built.</div>
           <iframe id="agPvIframe" title="Live preview"></iframe>
         </div>
@@ -1543,6 +1597,8 @@
     if (building) return;
     building = true;
     agSend.disabled = true;
+    const bootEl = $("agPvBoot");
+    if (bootEl) bootEl.classList.remove("hidden");
     // Replit's own behavior during an active agent turn: the sidebar
     // collapses so the conversation gets the full width, then comes back
     // once the turn is over (see the finally block below) — reopened
@@ -1794,6 +1850,8 @@
           '<' + '/script></body></html>';
         agPvIframe.srcdoc = html;
         agPvLabel.textContent = "Live preview";
+        const bootEl = $("agPvBoot");
+        if (bootEl) { setTimeout(() => bootEl.classList.add("hidden"), 400); }
       } else {
         agPvLabel.textContent = "Preview unavailable";
       }
@@ -1946,8 +2004,13 @@
     btn.addEventListener("click", () => {
       agPvDevices.querySelectorAll("button").forEach((b) => b.classList.remove("on"));
       btn.classList.add("on");
-      agPvFrame.classList.remove("tablet", "mobile", "desktop");
-      agPvFrame.classList.add(btn.dataset.size || "mobile");
+      agPvFrame.classList.remove("tablet", "mobile", "desktop", "opening");
+      const targetSize = btn.dataset.size || "mobile";
+      agPvFrame.classList.add(targetSize);
+      if (targetSize === "desktop") {
+        void agPvFrame.offsetWidth; // trigger CSS reflow for animation replay
+        agPvFrame.classList.add("opening");
+      }
     });
   });
 
