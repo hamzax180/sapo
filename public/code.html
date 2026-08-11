@@ -43,6 +43,17 @@
   .btn-g:hover{border-color:#c6dbe7;background:rgba(18,32,46,.05)}
   .btn-d{padding:9px 17px;border-radius:10px;background:var(--accent);color:#fff;font-size:.86rem;font-weight:700;transition:.16s}
   .btn-d:hover{background:var(--accent-2);transform:translateY(-1px)}
+  .ag-pv-toggle-btn {
+    margin-inline-start: auto;
+    display: inline-flex; align-items: center; gap: 7px;
+    border: 1px solid var(--line); background: var(--card); color: var(--ink-2);
+    border-radius: 9px; padding: 6px 14px; height: 34px; font-size: 0.85rem; font-weight: 600;
+    cursor: pointer; transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+  }
+  .ag-pv-toggle-btn:hover { color: var(--ink); border-color: var(--accent); background: var(--tint-2); transform: translateY(-1px); }
+  .ag-pv-toggle-btn.on { background: var(--ink); color: #fff; border-color: var(--ink); box-shadow: 0 4px 12px rgba(18,32,46,0.25); }
+  .ag-pv-toggle-btn svg { width: 16px; height: 16px; flex: none; }
   @media (max-width:640px){ .nav{gap:6px;padding:11px 12px} .brand{font-size:1rem;gap:6px} }
 
   /* Grid before Flexbox: grid-template-columns doesn't interpolate
@@ -1049,6 +1060,10 @@
   <button type="button" class="ag-hist-btn" id="agHistOpen" aria-label="Your builds" title="Your builds">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h10M4 18h16"/></svg>
   </button>
+  <button type="button" class="ag-pv-toggle-btn" id="agDeskPreviewToggle" title="Show / Hide Preview panel">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M15 3v18"/></svg>
+    <span>Preview</span>
+  </button>
 </header>
 
 <div class="ag-split" id="agentView">
@@ -1783,6 +1798,8 @@
 
   function showPreview(url, fileContents) {
     $("agentView").classList.add("has-preview");
+    const deskTgl = $("agDeskPreviewToggle");
+    if (deskTgl) deskTgl.classList.add("on");
     agPvFrame.hidden = false;
     agPvEmpty.style.display = "none";
     agPvDevices.removeAttribute("aria-disabled");
@@ -2013,6 +2030,18 @@
       }
     });
   });
+
+  const agDeskPreviewToggle = $("agDeskPreviewToggle");
+  if (agDeskPreviewToggle) {
+    agDeskPreviewToggle.addEventListener("click", () => {
+      const isShowing = $("agentView").classList.toggle("has-preview");
+      agDeskPreviewToggle.classList.toggle("on", isShowing);
+      if (isShowing) {
+        agPvFrame.hidden = false;
+        agPvDevices.removeAttribute("aria-disabled");
+      }
+    });
+  }
 
   agInput.addEventListener("input", () => {
     agSend.disabled = building || agInput.value.trim().length === 0;
