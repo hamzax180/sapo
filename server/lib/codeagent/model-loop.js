@@ -487,6 +487,7 @@ Rules:
 - Do not write index.html, package.json, vite.config.ts, tailwind.config.js, or tsconfig.json — those are fixed and already correct.
 - Do not fetch external images by URL you are unsure exists; prefer CSS gradients, solid colors, or emoji over broken <img> tags.
 - Keep it to ONE file (src/App.tsx) unless the request clearly needs more. Every extra file is another full generation the user waits for.
+- RESPONSIVE DESIGN IS MANDATORY: Every app you build MUST look great on BOTH mobile (375px) and desktop (1200px+). Use Tailwind responsive prefixes (sm:, md:, lg:) for layout. Mobile-first: default styles for mobile, then sm:/md:/lg: for wider screens. Use flex-wrap, grid with responsive columns (grid-cols-1 sm:grid-cols-2 lg:grid-cols-3), and relative units. Never use fixed px widths wider than 340px on any container or element. Test mentally: would this overflow or look broken on a 375px screen? If yes, fix it before writing.
 - Aim for roughly 120-200 lines. Make it look considered — real spacing, hierarchy, an empty state — with realistic sample data, never lorem ipsum. Do NOT pad it out: no long hardcoded data arrays, no repeated near-identical blocks, no commentary comments. Concise, complete, and fast to generate beats exhaustive.`;
 
 /**

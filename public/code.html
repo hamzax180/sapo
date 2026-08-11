@@ -1779,13 +1779,13 @@
         appCode = appCode.replace(/export\s+default\s+function\s+App\b/, 'function App()');
         appCode = appCode.replace(/export\s+default\s+App;?/, '');
 
-        const html = '<!DOCTYPE html><html><head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />' +
+        const html = '<!DOCTYPE html><html><head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />' +
           '<script src="https://cdn.tailwindcss.com"><' + '/script>' +
           '<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"><' + '/script>' +
           '<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"><' + '/script>' +
           '<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.24.7/babel.min.js"><' + '/script>' +
           '<script src="https://unpkg.com/lucide-react@0.395.0/dist/umd/lucide-react.min.js"><' + '/script>' +
-          '<style>body { margin: 0; font-family: system-ui, -apple-system, sans-serif; }</style>' +
+          '<style>*{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,sans-serif;overflow-x:hidden;width:100%;max-width:100vw}img,video,canvas,svg{max-width:100%;height:auto}</style>' +
           '</head><body><div id="root"></div>' +
           '<script type="text/babel" data-presets="react,typescript">\n' +
           'const { useState, useEffect, useRef, useMemo, useCallback } = React;\n' +
