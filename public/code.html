@@ -355,21 +355,76 @@
   .ag-pv-open:disabled{opacity:.5;cursor:default}
   .ag-pv-stage{position:relative;flex:1;min-height:0;display:flex;align-items:center;justify-content:center;padding:clamp(8px,2vw,32px);overflow:auto;background:var(--paper)}
   .ag-pv-frame{
-    position:relative;overflow:hidden;
+    position:relative;
     transition:all .3s cubic-bezier(0.16,1,0.3,1);
     flex:none;box-sizing:border-box;
-    /* iframe must be clipped INSIDE the border — isolate stacking context */
-    isolation:isolate;
+    overflow:hidden;
   }
-  /* Ensure iframe never bleeds outside the device border */
+  /* iframe fills the screen wrapper or frame directly */
   .ag-pv-frame iframe{
     position:absolute;inset:0;
     width:100%;height:100%;
     border:0;display:block;
   }
-  .ag-pv-frame.mobile iframe{border-radius:36px}
   .ag-pv-frame.tablet iframe{border-radius:16px}
   .ag-pv-frame.desktop iframe{border-radius:2px}
+
+  /* ---------- iPhone Screen Wrapper ---------- */
+  .ip-screen{
+    position:relative;width:100%;height:100%;overflow:hidden;
+    border-radius:2px; /* default for desktop/tablet fallback */
+  }
+  .ag-pv-frame.mobile .ip-screen{
+    border-radius:42px;
+    background:#000;
+    box-shadow:inset 0 0 0 0.5px rgba(255,255,255,0.06);
+  }
+  .ag-pv-frame.tablet .ip-screen{border-radius:16px}
+  /* Dynamic Island — on the screen layer */
+  .ag-pv-frame.mobile .ip-screen::before{
+    content:"";position:absolute;top:12px;left:50%;transform:translateX(-50%);
+    width:120px;height:34px;background:#000;border-radius:20px;
+    box-shadow:0 0 0 3px rgba(0,0,0,0.85);
+    z-index:30;pointer-events:none;
+  }
+  /* Home Indicator — on the screen layer */
+  .ag-pv-frame.mobile .ip-screen::after{
+    content:"";position:absolute;bottom:8px;left:50%;transform:translateX(-50%);
+    width:135px;height:5px;background:rgba(255,255,255,0.3);border-radius:4px;
+    z-index:30;pointer-events:none;
+  }
+
+  /* ---------- iPhone Side Buttons ---------- */
+  .ib{display:none;position:absolute;pointer-events:none;z-index:40}
+  .ag-pv-frame.mobile .ib{display:block}
+  /* Action Button (left, near top) */
+  .ib-action{
+    left:-3px;top:17%;width:3px;height:32px;
+    background:linear-gradient(180deg,#5a5a5e,#3a3a3c 40%,#4a4a4e 60%,#3a3a3c);
+    border-radius:2px 0 0 2px;
+    box-shadow:-1px 0 2px rgba(0,0,0,0.4);
+  }
+  /* Volume Up (left) */
+  .ib-volup{
+    left:-3px;top:26%;width:3px;height:52px;
+    background:linear-gradient(180deg,#5a5a5e,#3a3a3c 30%,#4a4a4e 70%,#3a3a3c);
+    border-radius:2px 0 0 2px;
+    box-shadow:-1px 0 2px rgba(0,0,0,0.4);
+  }
+  /* Volume Down (left) */
+  .ib-voldn{
+    left:-3px;top:36%;width:3px;height:52px;
+    background:linear-gradient(180deg,#5a5a5e,#3a3a3c 30%,#4a4a4e 70%,#3a3a3c);
+    border-radius:2px 0 0 2px;
+    box-shadow:-1px 0 2px rgba(0,0,0,0.4);
+  }
+  /* Power / Side Button (right) */
+  .ib-power{
+    right:-3px;top:28%;width:3px;height:72px;
+    background:linear-gradient(180deg,#5a5a5e,#3a3a3c 30%,#4a4a4e 70%,#3a3a3c);
+    border-radius:0 2px 2px 0;
+    box-shadow:1px 0 2px rgba(0,0,0,0.4);
+  }
 
   /* 1. DESKTOP / LAPTOP (MacBook Pro Mockup) */
   .ag-pv-frame.desktop {
@@ -401,38 +456,36 @@
     z-index: 20; pointer-events: none;
   }
 
-  /* 3. MOBILE — iPhone 15 Pro Titanium Mockup with Dynamic Island & Home Bar.
-     On mobile viewports (< 900px) this frame fills most of the viewport;
-     on desktop the default 375 × 740 size is used. */
+  /* 3. MOBILE — iPhone 15 Pro Natural Titanium */
   .ag-pv-frame.mobile {
+    overflow:visible; /* side buttons extend outside */
     width: 375px; max-width: calc(100vw - 24px);
-    height: 740px; max-height: calc(100svh - 130px);
-    aspect-ratio: 9 / 18.5;
-    border: 14px solid #1c1c1e;
-    border-radius: 52px;
+    height: 812px; max-height: calc(100svh - 100px);
+    aspect-ratio: 9 / 19.5;
+    border: none;
+    padding: 11px;
+    border-radius: 56px;
+    background: linear-gradient(
+      145deg,
+      #3a3a3c 0%, #58585c 8%, #48484a 22%,
+      #3a3a3c 38%, #52525a 52%, #48484a 66%,
+      #3a3a3c 82%, #58585c 94%, #3a3a3c 100%
+    );
     box-shadow:
-      0 0 0 2px #3a3a3c,
-      0 0 0 3px #1c1c1e,
-      0 30px 80px -10px rgba(0,0,0,0.6),
-      inset 0 0 0 1px rgba(255,255,255,0.14);
-    background: #000;
+      inset 0 1px 0 rgba(255,255,255,0.15),
+      inset 0 -1px 0 rgba(0,0,0,0.25),
+      0 0 0 1.5px #1a1a1c,
+      0 0 0 2.5px #2c2c2e,
+      0 0 0 3.5px #1a1a1c,
+      0 30px 70px -8px rgba(0,0,0,0.55),
+      0 10px 25px -5px rgba(0,0,0,0.3);
   }
-  /* Dynamic Island */
-  .ag-pv-frame.mobile::before {
-    content: ""; position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
-    width: 110px; height: 30px; background: #000; border-radius: 20px;
-    box-shadow: 0 0 0 1px rgba(255,255,255,0.07);
-    z-index: 30; pointer-events: none;
-  }
-  /* Home Indicator */
-  .ag-pv-frame.mobile::after {
-    content: ""; position: absolute; bottom: 7px; left: 50%; transform: translateX(-50%);
-    width: 130px; height: 5px; background: rgba(255,255,255,0.25); border-radius: 4px;
-    z-index: 30; pointer-events: none;
-  }
+  /* Hide frame-level pseudo-elements for mobile — Dynamic Island
+     and Home Indicator are on .ip-screen instead */
+  .ag-pv-frame.mobile::before,.ag-pv-frame.mobile::after{display:none}
 
   .ag-pv-empty{position:absolute;inset:0;margin:auto;display:flex;align-items:center;justify-content:center;text-align:center;color:var(--mut);font-size:.94rem;padding:24px;max-width:28ch;z-index:5;background:#fff;pointer-events:none}
-  .ag-pv-frame.mobile .ag-pv-empty{border-radius:36px;background:#fff}
+  .ag-pv-frame.mobile .ag-pv-empty{border-radius:42px;background:#fff}
 
   /* Preview paywall — the built app is real and running the moment the
      first build finishes, but its PIXELS stay blurred until the visitor
@@ -502,27 +555,25 @@
     .ag-tabs button{flex:1;border:1px solid var(--line);background:var(--card);color:var(--ink-2);border-radius:10px;padding:9px;font-size:.88rem;font-weight:500;cursor:pointer}
     .ag-tabs button.on{background:var(--ink);color:#fff;border-color:var(--ink)}
     .ag.tab-hidden,.ag-preview.tab-hidden{display:none !important}
-    /* Preview stage: centers the device mockup */
     .ag-pv-stage{
-      padding:12px 0;
-      min-height:calc(100svh - 110px);
+      padding:4px 0;
+      min-height:calc(100svh - 90px);
       display:flex;align-items:center;justify-content:center;
     }
-    /* Real iPhone 15 Pro proportions — 9:19.5 aspect ratio, scaled to
-       fit the viewport height while remaining a realistic phone shape.
-       Height-driven: the phone is as tall as the viewport allows, and
-       its width follows from the real aspect ratio. */
+    .ag-pv-bar{padding:6px 12px}
     .ag-pv-frame.mobile{
-      /* Height fills the available space */
-      height:calc(100svh - 128px);
+      height:calc(100svh - 90px);
       max-height:none;
-      /* Width follows from the real iPhone 15 Pro aspect ratio */
       width:auto;
-      max-width:calc(100vw - 32px);
+      max-width:calc(100vw - 20px);
       aspect-ratio: 9 / 19.5;
+      padding:9px;
+      border-radius:46px;
     }
-    .ag-pv-frame.tablet{width:100%;height:calc(100svh - 128px);max-height:none}
-    .ag-pv-frame.desktop{width:100%;height:calc(100svh - 128px);max-height:none}
+    .ag-pv-frame.mobile .ip-screen{border-radius:36px}
+    .ag-pv-frame.mobile .ip-screen::before{width:100px;height:28px;top:10px}
+    .ag-pv-frame.tablet{width:100%;height:calc(100svh - 90px);max-height:none}
+    .ag-pv-frame.desktop{width:100%;height:calc(100svh - 90px);max-height:none}
     .ag-preview{position:static;height:auto}
   }
   @media (max-width:640px){
@@ -1074,8 +1125,14 @@
     </div>
     <div class="ag-pv-stage">
       <div class="ag-pv-frame mobile" id="agPvFrame">
-        <div class="ag-pv-empty" id="agPvEmpty">Your app will show up here once it's built.</div>
-        <iframe id="agPvIframe" title="Live preview"></iframe>
+        <i class="ib ib-action"></i>
+        <i class="ib ib-volup"></i>
+        <i class="ib ib-voldn"></i>
+        <i class="ib ib-power"></i>
+        <div class="ip-screen">
+          <div class="ag-pv-empty" id="agPvEmpty">Your app will show up here once it's built.</div>
+          <iframe id="agPvIframe" title="Live preview"></iframe>
+        </div>
       </div>
       <div class="ag-pv-gate" id="agPvGate" hidden>
         <h3 id="agPvGateTitle">Your app is ready</h3>
