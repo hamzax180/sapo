@@ -85,12 +85,23 @@
     cursor: pointer; transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
     box-shadow: 0 2px 6px rgba(0,0,0,0.03); outline: none !important;
   }
+  .nav { display: none !important; }
+  .ag-main { position: relative !important; }
   #agDeskSidebarToggle {
-    position: fixed !important;
-    top: 10px !important;
-    left: 10px !important;
-    z-index: 999999 !important;
-    padding: 5px 10px !important;
+    position: absolute !important;
+    top: 12px !important;
+    left: 12px !important;
+    z-index: 999 !important;
+    padding: 5px 12px !important;
+    height: 32px !important;
+    font-size: 0.82rem !important;
+  }
+  #agDeskPreviewToggle {
+    position: absolute !important;
+    top: 12px !important;
+    right: 12px !important;
+    z-index: 999 !important;
+    padding: 5px 12px !important;
     height: 32px !important;
     font-size: 0.82rem !important;
   }
@@ -98,19 +109,6 @@
     display: none !important;
     opacity: 0 !important;
     pointer-events: none !important;
-  }
-  #agDeskPreviewToggle {
-    position: fixed !important;
-    top: 10px !important;
-    right: 10px !important;
-    z-index: 999999 !important;
-    padding: 5px 12px !important;
-    height: 32px !important;
-    font-size: 0.82rem !important;
-    margin-inline-start: 0 !important;
-  }
-  .nav {
-    display: none !important;
   }
   @media (max-width: 900px) {
     .ag-history.on ~ #agDeskPreviewToggle,
@@ -2088,26 +2086,24 @@
   </div>
 </aside>
 
-<button type="button" class="ag-pv-toggle-btn on" id="agDeskSidebarToggle" title="Toggle Sidebar">
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-    <rect x="3" y="3" width="18" height="18" rx="3.5"/>
-    <path d="M9 3v18"/>
-    <rect class="pane-left" x="3.8" y="3.8" width="5.2" height="16.4" rx="1" fill="transparent" stroke="none"/>
-  </svg>
-  <span>Sidebar</span>
-</button>
-
-<button type="button" class="ag-pv-toggle-btn" id="agDeskPreviewToggle" title="Show / Hide Preview panel">
-  <svg id="agDeskPreviewToggleIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-    <rect x="3" y="3" width="18" height="18" rx="3.5"/>
-    <path d="M15 3v18"/>
-    <rect class="pane-right" x="15" y="3.8" width="5.2" height="16.4" rx="1" fill="transparent" stroke="none"/>
-  </svg>
-  <span id="agDeskPreviewToggleLabel">Preview</span>
-</button>
-
 <div class="ag-main" id="agMain">
-<header class="nav"></header>
+  <button type="button" class="ag-pv-toggle-btn on" id="agDeskSidebarToggle" title="Toggle Sidebar">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="3" y="3" width="18" height="18" rx="3.5"/>
+      <path d="M9 3v18"/>
+      <rect class="pane-left" x="3.8" y="3.8" width="5.2" height="16.4" rx="1" fill="transparent" stroke="none"/>
+    </svg>
+    <span>Sidebar</span>
+  </button>
+
+  <button type="button" class="ag-pv-toggle-btn" id="agDeskPreviewToggle" title="Show / Hide Preview panel">
+    <svg id="agDeskPreviewToggleIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="3" y="3" width="18" height="18" rx="3.5"/>
+      <path d="M15 3v18"/>
+      <rect class="pane-right" x="15" y="3.8" width="5.2" height="16.4" rx="1" fill="transparent" stroke="none"/>
+    </svg>
+    <span id="agDeskPreviewToggleLabel">Preview</span>
+  </button>
 
 <div class="ag-split" id="agentView">
 
@@ -2573,6 +2569,9 @@
 
   function showInterruptUnderUserMessage() {
     removeInterruptRow();
+    if (!building) return;
+    const lastUserMsg = agLog.querySelector(".ag-user:last-of-type");
+    if (!lastUserMsg) return;
     const row = el("ag-interrupt-row");
     row.id = "agInterruptRow";
     row.innerHTML =
@@ -2580,7 +2579,8 @@
         '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor"/></svg>' +
         '<span>Interrupt Agent</span>' +
       '</button>';
-    agLog.appendChild(row); toBottom();
+    lastUserMsg.after(row);
+    toBottom();
     const btn = row.querySelector("#agInterruptBtn");
     if (btn) {
       btn.addEventListener("click", () => {
