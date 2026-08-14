@@ -65,10 +65,27 @@
   .mhead{display:flex;align-items:center;gap:12px;padding:22px 26px 18px}
   .mhead svg.gear{width:24px;height:24px;color:var(--ink)}
   .mhead h1{font-size:1.75rem;font-weight:700;letter-spacing:-.02em}
-  .mclose{margin-left:auto;border:0;background:none;color:var(--ink-2);width:34px;height:34px;border-radius:8px;
-    display:grid;place-items:center;cursor:pointer;transition:.15s}
-  .mclose:hover{background:var(--paper-2);color:var(--ink)}
-  .mclose svg{width:20px;height:20px}
+  .ag-modal-x-btn {
+    margin-left: auto;
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+    border: 1px solid var(--line);
+    background: var(--paper-2);
+    color: var(--ink-2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  .ag-modal-x-btn:hover {
+    background: var(--card);
+    color: var(--ink);
+    border-color: var(--mut);
+    transform: scale(1.05);
+  }
+  .ag-modal-x-btn svg { width: 18px; height: 18px; }
   .mbody{display:grid;grid-template-columns:290px 1fr;min-height:min(74vh,660px)}
 
   ::-webkit-scrollbar { width: 6px; height: 6px; }
@@ -265,6 +282,9 @@
   <div class="mhead">
     <svg class="gear" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
     <h1>Settings</h1>
+    <button type="button" class="ag-modal-x-btn" id="mheadClose" aria-label="Close Settings" title="Close Settings">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+    </button>
   </div>
   <div class="mbody">
   <div class="side">
@@ -593,10 +613,9 @@
      leave the builder rendered inside its own iframe). Falls through to
      the plain href when opened as a standalone page. */
   var embedded = window.parent !== window;
-  var mc = document.getElementById("mclose");
+  var mc = document.getElementById("mheadClose");
   if (mc) {
     mc.addEventListener("click", function (e) {
-      if (!embedded) return;
       e.preventDefault();
       try { parent.postMessage("souqi:settings:close", "*"); } catch(err) {}
       try { if (parent.closeSettings) parent.closeSettings(); } catch(err) {}
