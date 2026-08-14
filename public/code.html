@@ -2015,30 +2015,9 @@
   .ag-set-overlay[hidden]{display:none !important;pointer-events:none !important;visibility:hidden !important}
   .ag-set-overlay iframe{width:min(1180px,96vw);height:min(820px,92vh);border:0;border-radius:14px;
     background:var(--card);box-shadow:0 30px 90px -28px rgba(0,0,0,.55)}
-  .ag-set-close-btn {
-    position: absolute !important;
-    top: 14px !important;
-    right: 14px !important;
-    z-index: 10000000 !important;
-    width: 38px !important;
-    height: 38px !important;
-    border-radius: 50% !important;
-    background: #0f172a !important;
-    color: #f8fafc !important;
-    border: 1px solid rgba(255, 255, 255, 0.25) !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    cursor: pointer !important;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4) !important;
-    transition: transform 0.15s, background 0.15s !important;
-  }
-  .ag-set-close-btn:hover { transform: scale(1.05); background: #1e293b !important; }
-  .ag-set-close-btn svg { width: 18px; height: 18px; }
   @media (max-width:900px){
     .ag-set-overlay{padding:0}
     .ag-set-overlay iframe{width:100%;height:100%;border-radius:0}
-    .ag-set-close-btn { top: 12px !important; right: 12px !important; }
   }
   @media (max-width: 650px) {
     .ag-tiles-track {
@@ -3908,8 +3887,6 @@
     agSetOverlay.hidden = false;
   }
   function closeSettings() { agSetOverlay.hidden = true; }
-  const agSetCloseBtn = $("agSetCloseBtn");
-  if (agSetCloseBtn) agSetCloseBtn.addEventListener("click", closeSettings);
   agSetOverlay.addEventListener("click", (e) => { if (e.target === agSetOverlay) closeSettings(); });
   // The settings page's own X is inside the iframe, so it can't reach this
   // handler directly — it posts up instead (see settings.html).
