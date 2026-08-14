@@ -2654,30 +2654,21 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
     // sandbox or build step needed). The files are returned directly and the
     // client stores + previews them via the project's published URL.
     const canBuild = req.body && req.body.canBuild !== false; // default true if omitted (desktop)
+    const agentMode = String((req.body && req.body.mode) || "economy").toLowerCase();
 
     let result;
     if (!canBuild) {
-      // ---- Mobile / no-build path ----
-      // Single AI call — generates files without any build verification.
-      // proposeWithRepair needs a tools.build() sandbox which we don't have
-      // on mobile. proposeChanges just returns the proposed writes directly.
-      const attempt = await proposeChanges(effectivePrompt);
+      const attempt = await proposeChanges(effectivePrompt, { mode: agentMode });
       if (!attempt.ok) {
         result = { ok: false, reason: attempt.reason, rounds: 1, costUsd: attempt.costUsd || 0 };
       } else {
         result = { ok: true, calls: attempt.calls, note: attempt.note, rounds: 1, repaired: false, costUsd: attempt.costUsd || 0 };
       }
     } else {
-      // ---- Desktop / WebContainers build path ----
-      // 2, not 3: each round is a FULL regeneration of the file (the tool
-      // writes whole files, not diffs), so every extra round adds another
-      // 4000-token completion — tens of seconds the user sits watching a
-      // spinner. Measured live at 3 rounds: a build that needed one repair
-      // ran past 200s. Two attempts still recover the common case (one
-      // typo/type error), and a build that fails twice usually needs the
-      // user to say something, not a third identical retry.
       result = await proposeWithClientBuild({
-        userPrompt: effectivePrompt, maxRounds: 2,
+        userPrompt: effectivePrompt,
+        mode: agentMode,
+        maxRounds: agentMode === "power" ? 3 : 2,
         onFiles: async (calls) => {
           // Send proposed files to the client for WebContainer build
           const filesObj = {};

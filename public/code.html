@@ -142,23 +142,13 @@
      that resizes into the split editor+preview layout once something's
      been built, not a snap). Flex-basis on plain pixel/percent values
      transitions everywhere. */
-  .ag-split{max-width:1440px;margin:0 auto;width:100%;display:flex;flex:1;min-height:0}
+  .ag-split{max-width:1440px;margin:0 auto;width:100%;display:flex;flex:1;min-height:0;height:calc(100vh - 56px);overflow:hidden}
   .ag-topbar{display:flex;align-items:center;width:100%;border-bottom:none;flex:none}
-  /* The horizontal padding floor is ALSO the composer glow's entire fade
-     budget: .ag carries overflow-x:hidden!important (see the html/body
-     rule near the top), and because its overflow-y is auto that clip can
-     never be reopened — per spec a `visible` on one axis computes to
-     `auto` when the other isn't visible, which would mean a horizontal
-     scrollbar on the chat column. So this padding is the only room the
-     glow has to fade out sideways before it hits a hard edge. Raised from
-     14px to 20px for exactly that reason; don't shrink it back. */
-  .ag{text-align:left;display:flex;flex-direction:column;min-width:0;min-height:0;
+  .ag{text-align:left;display:flex;flex-direction:column;min-width:0;min-height:0;height:100%;max-height:100%;
     padding:0 clamp(20px,2.4vw,28px);border-right:none;
     flex:1 1 100%;transition:flex-basis .4s var(--ease);
-    overflow-y:auto}
-  .ag::-webkit-scrollbar{width:8px}
-  .ag::-webkit-scrollbar-thumb{background:rgba(18,32,46,.14);border-radius:8px}
-  .ag::-webkit-scrollbar-thumb:hover{background:rgba(18,32,46,.24)}
+    overflow:hidden !important}
+  .ag::-webkit-scrollbar{width:0px;display:none}
   /* No build yet: .ag is the only visible column (.ag-preview collapses to
      0 below), so its own content is centred to a comfortable reading
      width instead of stretching edge-to-edge — the "new chat" screen.
@@ -178,7 +168,7 @@
   /* The one thing in the left column that scrolls. min-height:0 is what
      lets it actually shrink inside the flex column instead of pushing the
      composer off the bottom. */
-  .ag-log{flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:4px;padding-bottom:20px}
+  .ag-log{flex:1 1 auto;min-height:0;overflow-y:auto !important;overflow-x:hidden;display:flex;flex-direction:column;gap:4px;padding-bottom:20px}
   /* The new-chat "hero": greeting + composer + tiles/examples centered as
      ONE group. Three earlier attempts tried to do this with
      justify-content on .ag-log alone and all of them clipped the
@@ -193,11 +183,10 @@
      behave exactly as they did before, log scrolling under a sticky
      composer. Only .ag.is-new turns it into a real flex container. */
   .ag-hero{display:contents}
-  .ag.is-new .ag-hero{display:flex;flex-direction:column;justify-content:center;min-height:100%}
-  /* .ag-log's flex:1 would eat all the free space and defeat the
-     centering — in new-chat state it's just the greeting, sized to it. */
-  .ag.is-new .ag-log{flex:0 0 auto;overflow:visible}
-  .ag-log::-webkit-scrollbar{width:8px}
+  .ag.is-new .ag-hero{display:flex;flex-direction:column;justify-content:center;min-height:100%;overflow:hidden!important}
+  .ag.is-new, .ag.is-new .ag-log{flex:0 0 auto;overflow:hidden!important;overflow-y:hidden!important}
+  .ag.is-new .ag-log::-webkit-scrollbar{display:none;width:0}
+  .ag-log::-webkit-scrollbar{width:6px}
   .ag-log::-webkit-scrollbar-thumb{background:rgba(18,32,46,.14);border-radius:8px}
   .ag-log::-webkit-scrollbar-thumb:hover{background:rgba(18,32,46,.24)}
 
@@ -266,8 +255,14 @@
   .ag-say.warn{color:#b06d00}
 
   .ag-thinking{margin:2px 0 8px;opacity:0;animation:agIn .35s var(--ease) forwards}
-  .ag-th-head{display:flex;align-items:center;gap:10px;width:100%;border:0;background:none;cursor:pointer;padding:10px 2px;font:inherit;text-align:left;color:var(--ink-2);border-radius:8px;transition:background .15s}
-  .ag-th-head:hover{background:rgba(18,32,46,.04)}
+  .ag-th-head-row{display:flex;align-items:center;justify-space-between:space-between;width:100%}
+  .ag-th-head{display:flex;align-items:center;gap:10px;flex:1;border:0;background:none;cursor:pointer;padding:10px 2px;font:inherit;text-align:left;color:var(--ink-2);border-radius:8px;transition:background .15s}
+  .ag-interrupt-row{display:flex;align-items:center;justify-content:flex-end;width:100%;margin:2px 0 10px;opacity:0;animation:agIn .3s var(--ease) forwards}
+  .ag-interrupt-btn{display:inline-flex;align-items:center;gap:6px;background:rgba(239,68,68,0.1);color:#ef4444;border:1px solid rgba(239,68,68,0.3);border-radius:999px;padding:4px 12px;font-size:.78rem;font-weight:600;cursor:pointer;transition:all .16s ease;flex:none}
+  .ag-interrupt-btn:hover{background:#ef4444;color:#fff;border-color:#ef4444;box-shadow:0 4px 12px rgba(239,68,68,0.35)}
+  .ag-interrupt-btn svg{width:12px;height:12px;fill:currentColor}
+  .ag-queue-banner{display:flex;align-items:center;justify-content:space-between;background:rgba(59,130,246,0.12);border:1px solid rgba(59,130,246,0.3);color:var(--ink);border-radius:10px;padding:6px 14px;margin-bottom:8px;font-size:.82rem;font-weight:600}
+  .ag-queue-banner button{border:0;background:none;color:#ef4444;font-size:.78rem;font-weight:700;cursor:pointer;text-decoration:underline;padding:0;margin-left:10px}
   /* A glowing halo, not a flat scale/opacity blink — this is the one
      signal that a real turn is in flight, so it earns a proper pulse. */
   .ag-th-dot{width:8px;height:8px;border-radius:50%;background:var(--accent);flex:none;
@@ -307,7 +302,7 @@
   .ag-card .cost{font-size:.78rem;color:var(--mut)}
 
   ::-webkit-scrollbar-corner{background:transparent !important}
-  .ag-composer{position:sticky;bottom:0;background:linear-gradient(180deg,transparent,var(--paper) 22%);padding:0 0 calc(0 + env(safe-area-inset-bottom));overflow:visible}
+  .ag-composer{flex:0 0 auto;position:relative;bottom:0;z-index:10;background:var(--paper);padding:8px 0 calc(12px + env(safe-area-inset-bottom));overflow:visible}
   /* ---------------------------------------------------------------
      Composer treatment: an aurora bloom (::before) behind the box and a
      travelling light beam (::after) around its rim.
@@ -615,7 +610,19 @@
     .ag-send.sent svg{animation:none}
   }
 
-  .ag-empty{padding:40px 20px 32px;color:var(--ink-2);text-align:center}
+  .ag-empty{position:relative;padding:44px 20px 36px;color:var(--ink-2);text-align:center}
+  .ag-empty::before{
+    content:"";position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+    width:620px;height:320px;
+    background:radial-gradient(ellipse at center, rgba(192, 132, 252, 0.38) 0%, rgba(56, 189, 248, 0.32) 45%, rgba(167, 139, 250, 0.15) 75%, transparent 100%);
+    filter:blur(55px);pointer-events:none;z-index:-1;opacity:0.88;
+    animation:replitHeroGlow 8s ease-in-out infinite alternate;
+  }
+  @keyframes replitHeroGlow{
+    0%{transform:translate(-50%,-50%) scale(1) rotate(0deg);opacity:0.75}
+    50%{transform:translate(-48%,-52%) scale(1.08) rotate(4deg);opacity:0.95}
+    100%{transform:translate(-52%,-48%) scale(0.95) rotate(-3deg);opacity:0.8}
+  }
   /* Solid ink, NOT a gradient across the whole line. A full-width text
      gradient was what made this read as broken: the left half went
      near-black, the right went cyan, and the eye had nowhere to land.
@@ -2120,7 +2127,7 @@
     <div class="ag-log" id="agLog" aria-live="polite">
       <div class="ag-empty" id="agEmptyState">
         <h2 id="agGreeting">What are we <span class="hi">building</span> today?</h2>
-        <p class="ag-empty-sub">Describe it in a sentence — a real app comes back in one shot.</p>
+        <p class="ag-empty-sub">Describe your business in one sentence. Your first build is free — no card needed.</p>
       </div>
     </div>
     <form class="ag-composer" id="agForm" autocomplete="off">
@@ -2444,16 +2451,16 @@
   // Example prompts — a small pool, three shown at a time, "shuffle" swaps
   // in a fresh three rather than cycling a fixed set in order.
   const EXAMPLE_PROMPTS = [
-    "A budgeting app that tracks spending by category",
-    "A recipe finder with a saved favorites list",
-    "A habit tracker with a weekly streak view",
-    "A booking app for a hair salon",
-    "A portfolio site for a photographer",
-    "A dashboard tracking my team's tasks",
-    "A landing page for a coffee roastery",
+    "A landing page for a furniture workshop",
+    "A writing page for a coffee roastery",
     "A pomodoro timer with session stats",
     "An expense splitter for roommates",
-    "A markdown notes app with tags"
+    "A markdown notes app with tags",
+    "A portfolio site for a photographer",
+    "A booking app for a hair salon",
+    "A dashboard tracking my team's tasks",
+    "A budgeting app for roommates",
+    "A habit tracker with a weekly streak view"
   ];
   const agExRow = $("agExRow");
   function renderExamples() {
@@ -2470,6 +2477,8 @@
     agInput.dispatchEvent(new Event("input"));
     agInput.focus();
   });
+
+
 
   // Attach a logo/image for the agent to actually build from — read
   // client-side as a data URL and sent alongside the FIRST build only
@@ -2549,11 +2558,40 @@
     clock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>'
   };
 
-  function sayUser(text) {
+  function sayUser(text, isQueued) {
     clearEmpty();
     const row = el("ag-user");
-    row.innerHTML = '<div class="bubble">' + esc(text) + '</div><span class="when">Just now</span>';
+    const qBadge = isQueued ? ' <small class="muted" style="opacity:0.75; font-size:0.75rem; margin-left:6px;">(Queued)</small>' : '';
+    row.innerHTML = '<div class="bubble">' + esc(text) + qBadge + '</div><span class="when">Just now</span>';
     agLog.appendChild(row); toBottom();
+
+    if (building) {
+      showInterruptUnderUserMessage();
+    }
+    return row;
+  }
+
+  function showInterruptUnderUserMessage() {
+    removeInterruptRow();
+    const row = el("ag-interrupt-row");
+    row.id = "agInterruptRow";
+    row.innerHTML =
+      '<button class="ag-interrupt-btn" type="button" id="agInterruptBtn" title="Interrupt Agent turn">' +
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor"/></svg>' +
+        '<span>Interrupt Agent</span>' +
+      '</button>';
+    agLog.appendChild(row); toBottom();
+    const btn = row.querySelector("#agInterruptBtn");
+    if (btn) {
+      btn.addEventListener("click", () => {
+        cancelTurn();
+      });
+    }
+  }
+
+  function removeInterruptRow() {
+    const existing = $("agInterruptRow");
+    if (existing) existing.remove();
   }
   function think(label, container) {
     clearEmpty();
@@ -2637,7 +2675,7 @@
         const secs = Math.max(1, Math.round((Date.now() - t0) / 1000));
         wrap.classList.add("done");
         labelEl.textContent = "Thought for " + secs + (secs === 1 ? " second" : " seconds");
-        timeEl.remove();
+        if (timeEl) timeEl.remove();
         if (!userToggled) wrap.classList.add("collapsed");
       }
     };
@@ -2659,6 +2697,66 @@
 
   const STAGE_LABEL = { sandbox: "Creating a sandbox", install: "Installing dependencies", propose: "Writing your app", preview: "Starting your preview" };
 
+  let buildQueue = [];
+  let currentAbortController = null;
+
+  function cancelTurn() {
+    if (currentAbortController) {
+      try { currentAbortController.abort(); } catch(e) {}
+      currentAbortController = null;
+    }
+    removeInterruptRow();
+    if (building) {
+      building = false;
+      document.body.classList.remove("is-building");
+      say('<span class="muted">Agent turn cancelled. You can type a new prompt anytime.</span>', "warn");
+      updateComposerSendButton();
+      updateQueueBanner();
+    }
+  }
+
+  function updateQueueBanner() {
+    let qb = $("agQueueBanner");
+    if (buildQueue.length > 0) {
+      if (!qb) {
+        qb = document.createElement("div");
+        qb.id = "agQueueBanner";
+        qb.className = "ag-queue-banner";
+        agForm.insertBefore(qb, agForm.firstChild);
+      }
+      qb.innerHTML = '<span>' + buildQueue.length + (buildQueue.length === 1 ? ' prompt queued' : ' prompts queued') + ' — will run next</span><button type="button" id="agClearQueue">Cancel queue</button>';
+      const cq = $("agClearQueue");
+      if (cq) {
+        cq.onclick = function() {
+          buildQueue = [];
+          updateQueueBanner();
+        };
+      }
+    } else if (qb) {
+      qb.remove();
+    }
+  }
+
+  function updateComposerSendButton() {
+    if (!agSend || !agInput) return;
+    const isHasInput = agInput.value.trim().length > 0;
+    if (building) {
+      if (isHasInput) {
+        agSend.disabled = false;
+        agSend.title = "Queue prompt for next turn";
+        agSend.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>';
+      } else {
+        agSend.disabled = false;
+        agSend.title = "Cancel active Agent turn";
+        agSend.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor"/></svg>';
+      }
+    } else {
+      agSend.disabled = !isHasInput;
+      agSend.title = "Send";
+      agSend.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M6 11l6-6 6 6"/></svg>';
+    }
+  }
+
   function showQuestions(reply) {
     // The model's own words, rendered plainly — same as any other agent
     // line (say()), not a form. No hardcoded "Quick question:" label; a
@@ -2669,10 +2767,12 @@
   async function runTurn(prompt) {
     if (building) return;
     building = true;
-    agSend.disabled = true;
+    currentAbortController = new AbortController();
+    updateComposerSendButton();
     document.body.classList.add("is-building");
     agHistory.classList.add("focus");
     sayUser(prompt);
+    showInterruptUnderUserMessage();
     const startedAt = Date.now();
     const handles = {};
     let thinkPanel = null;
@@ -2758,6 +2858,7 @@
       const res = await fetch("/api/codeagent/build", {
         method: "POST",
         headers: { "Content-Type": "application/json", "Accept": "text/event-stream" },
+        signal: currentAbortController ? currentAbortController.signal : undefined,
         body: JSON.stringify({ prompt: effectivePrompt, projectId: projectId || undefined, buildType: buildType, logo: logo, canBuild: !!window.__wcSupported })
       });
       if (!res.ok || !res.body) throw new Error("That didn't work");
@@ -2776,19 +2877,15 @@
           if (!em || !dm) continue;
           const payload = JSON.parse(dm[1]);
           if (em[1] === "files") {
-            // WebContainers flow: server sent proposed files, we build them locally.
-            // We must wait for __wcReady (npm install complete), not just isBooted()
-            // (container started). A build that runs before node_modules exists always
-            // fails — vite/react/tailwind are all in node_modules.
             const wc = window.__wc;
             if (!wc || !window.__wcReady) {
-              // WC not ready yet — wait for npm install to finish
               const waitStart = Date.now();
               while (!window.__wcReady && !window.__wcError && Date.now() - waitStart < 120000) {
+                if (currentAbortController && currentAbortController.signal.aborted) break;
                 await new Promise(r => setTimeout(r, 500));
               }
+              if (currentAbortController && currentAbortController.signal.aborted) break;
               if (window.__wcError || !window.__wcReady) {
-                // Report failure to server
                 await fetch("/api/codeagent/build-feedback", {
                   method: "POST", headers: { "Content-Type": "application/json" },
                   body: JSON.stringify({ buildId: payload.buildId, ok: false, errors: [{ file: "", line: 0, col: 0, code: "", message: "WebContainer failed to initialize: " + (window.__wcError || "timeout") }], raw: "" })
@@ -2796,12 +2893,9 @@
                 continue;
               }
             }
-            // Write the AI-proposed files into the WebContainer
             await wc.writeFiles(payload.files);
-            // Run the build
             const buildResult = await wc.build();
             const errors = buildResult.ok ? [] : window.__parseBuildErrors(buildResult.stdout + "\n" + buildResult.stderr);
-            // Report build result back to server
             await fetch("/api/codeagent/build-feedback", {
               method: "POST", headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ buildId: payload.buildId, ok: buildResult.ok, errors: errors, raw: buildResult.ok ? "" : (buildResult.stdout + buildResult.stderr).slice(-4000) })
@@ -2817,8 +2911,6 @@
           else if (em[1] === "subscribeRequired") gate = { kind: "subscribe", message: payload.message, pricingUrl: payload.pricingUrl };
           else if (em[1] === "error") {
             errorMsg = payload.error || "That didn't work";
-            // DeepSeek sometimes returns a misleading "image input" error for
-            // unsupported request parameters — surface something meaningful.
             if (/image/i.test(errorMsg) && /does not support/i.test(errorMsg)) {
               errorMsg = "The AI model couldn't process this request. Try rephrasing your prompt.";
             }
@@ -2828,22 +2920,14 @@
       if (errorMsg) throw new Error(errorMsg);
 
       if (chitchat) {
-        // Not a build — just a friendly reply, no file card, no preview
-        // change, no cost beyond a regex match.
         say('<span class="muted">' + esc(chitchat) + '</span>');
         return;
       }
       if (publishRequested) {
-        // Publishing from chat isn't wired up client-side anymore — say so
-        // plainly rather than silently doing nothing.
         say('<span class="muted">Publishing isn\'t available from chat right now.</span>');
         return;
       }
       if (gate) {
-        // Blocked before any sandbox/model work happened — the prompt
-        // that triggered this is intentionally NOT kept as pendingPrompt:
-        // after signing in/subscribing elsewhere, the user comes back and
-        // just says it again, same as any other message.
         var links = gate.kind === "auth"
           ? '<a href="' + esc(gate.loginUrl) + '">Sign in</a> · <a href="' + esc(gate.signupUrl) + '">Sign up</a>'
           : '<a href="' + esc(gate.pricingUrl) + '">See plans</a>';
@@ -2851,9 +2935,6 @@
         return;
       }
       if (clarifyReply) {
-        // Not built yet, deliberately — no project, no sandbox, no cost
-        // beyond the one cheap assessment call. Keep the original ask
-        // around so the next message completes it instead of replacing it.
         pendingPrompt = effectivePrompt;
         showQuestions(clarifyReply);
         return;
@@ -2864,21 +2945,12 @@
       const isFirstBuild = !projectId;
       projectId = result.projectId; projectSlug = result.slug;
       if (isFirstBuild) {
-        // Claims this URL as the project's own — docs/CODE-AGENT-PLAN.md
-        // Phase 7: the moment a build survives a reload is the moment
-        // this became worth bookmarking.
         try { history.replaceState(null, "", "/agent/" + projectSlug); } catch (e) { /* non-fatal */ }
-        $("agNewExtras").hidden = true; // the whole new-chat screen — only meaningful before there's a project to edit
+        $("agNewExtras").hidden = true;
         attachedImage = null; agAttachInput.value = ""; agAttachChip.hidden = true; $("agAttach").hidden = false;
       }
-      // What the agent actually said about the work, before the file
-      // list — the files are the evidence, the note is the answer.
       if (result.note) say(esc(result.note).replace(/\n/g, "<br>"));
       renderCard(result.files, result.costUsd);
-      // Only prompt for a next step when the agent hasn't already ended
-      // on a question of its own — following "Should this group by week
-      // or month?" with "Tell me what to change" reads like nobody's
-      // listening.
       if (!/\?\s*$/.test(result.note || "")) {
         say('<span class="muted">Tell me what to change and I\'ll update it.</span>');
       }
@@ -2887,7 +2959,11 @@
 
       showPreview(result.previewUrl, result.fileContents);
     } catch (err) {
-      // Clean up any in-flight thinking/stage spinners so the UI doesn't show "Thinking..." and "Error" simultaneously
+      if (err.name === "AbortError") {
+        if (thinkPanel) thinkPanel.done();
+        say('<span class="muted">Agent turn cancelled. You can type a new prompt anytime.</span>', "warn");
+        return;
+      }
       Object.keys(handles).forEach(function(k) {
         if (handles[k] && typeof handles[k].done === "function") {
           try { handles[k].done("Failed"); } catch(e) {}
@@ -2897,10 +2973,18 @@
       say(esc(err.message), "err");
     } finally {
       building = false;
+      currentAbortController = null;
       document.body.classList.remove("is-building");
-      agSend.disabled = agInput.value.trim().length === 0;
       agHistory.classList.remove("focus");
-      // Boot screen stays visible until iframe loads — see agPvIframe.onload
+      removeInterruptRow();
+      updateComposerSendButton();
+      updateQueueBanner();
+
+      if (buildQueue.length > 0) {
+        const nextPrompt = buildQueue.shift();
+        updateQueueBanner();
+        setTimeout(() => runTurn(nextPrompt), 300);
+      }
     }
   }
 
@@ -3308,25 +3392,33 @@
       alert("Voice input is not supported in this browser. Please try Google Chrome or MS Edge.");
     });
   }
+  agInput.addEventListener("input", () => {
+    updateComposerSendButton();
+  });
   agInput.addEventListener("keydown", (e) => {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); agForm.requestSubmit(); }
   });
   agForm.addEventListener("submit", (e) => {
     e.preventDefault();
     const v = agInput.value.trim();
-    if (!v || building) return;
-    // Editing an existing build while signed out never reaches the server
-    // — intercepted here, before the input even clears, so a typo'd draft
-    // isn't lost and the ask (blur + "sign up to keep editing") is instant.
+    if (!v) {
+      if (building) { cancelTurn(); }
+      return;
+    }
     if (projectId && !signedIn) { lockForEdit(); return; }
 
-    // Send feedback: the arrow launches and the box flashes its focus
-    // ring. Both self-clean — the class is removed on animationend
-    // (once:true) rather than a setTimeout that could outlive the
-    // element or fire after a new send started.
+    if (building) {
+      buildQueue.push(v);
+      sayUser(v, true);
+      agInput.value = ""; agInput.style.height = "auto";
+      updateComposerSendButton();
+      updateQueueBanner();
+      return;
+    }
+
     const box = agForm.querySelector(".ag-box");
     agSend.classList.remove("sent");
-    void agSend.offsetWidth; // restart the animation if sending twice quickly
+    void agSend.offsetWidth;
     agSend.classList.add("sent");
     agSend.addEventListener("animationend", () => agSend.classList.remove("sent"), { once: true });
     if (box) {
@@ -3334,7 +3426,7 @@
       setTimeout(() => box.classList.remove("sending"), 260);
     }
 
-    agInput.value = ""; agInput.style.height = "auto"; agSend.disabled = true;
+    agInput.value = ""; agInput.style.height = "auto";
     runTurn(v);
   });
 
@@ -3720,6 +3812,29 @@
      docs/CODE-AGENT-PLAN.md Phase 7 — the actual point of persistence.
      /agent with no slug is the blank composer state already in the HTML;
      nothing to do there. */
+  (function checkHandoffPrompt() {
+    try {
+      const raw = sessionStorage.getItem("souqi_agent_prompt");
+      if (!raw) return;
+      sessionStorage.removeItem("souqi_agent_prompt");
+      const data = JSON.parse(raw);
+      if (data && data.prompt && (Date.now() - (data.at || 0) < 120000)) {
+        if (data.mode && typeof selectedType !== "undefined") {
+          selectedType = data.mode.toLowerCase();
+        }
+        setTimeout(() => {
+          if (typeof agInput !== "undefined" && agInput) {
+            agInput.value = data.prompt;
+            agInput.dispatchEvent(new Event("input"));
+          }
+          if (typeof runTurn === "function") {
+            runTurn(data.prompt);
+          }
+        }, 200);
+      }
+    } catch(e) {}
+  })();
+
   (async function boot() {
     const m = /^\/agent\/([a-z0-9-]{1,60})$/i.exec(location.pathname);
     if (!m) return;
