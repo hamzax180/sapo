@@ -202,27 +202,169 @@
   .mac-stat-col .up { font-size: 0.72rem; color: #4ade80; font-weight: 600; }
   .mac-mini-chart { width: 100px; height: 36px; }
 
-  .mac-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; flex: 1; }
-  .mac-code-box {
-    background: #090d16; border: 1px solid #1e293b; border-radius: 10px; padding: 10px;
-    font-family: monospace; font-size: 0.68rem; line-height: 1.6; color: #cbd5e1;
+  .macbook-hd-frame {
+    width: 100%;
+    height: calc(100% - 30px);
+    overflow: hidden;
+    position: relative;
+    background: #090d16;
   }
-  .mac-code-box .k { color: #c084fc; font-weight: 600; }
-  .mac-code-box .v { color: #38bdf8; }
-  .mac-code-box .f { color: #facc15; }
-  .mac-code-box .s { color: #4ade80; }
-  .mac-code-box .p { color: #fb7185; }
-  .mac-code-box .b { color: #60a5fa; }
+  .device-hd-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+  .iphone-hd-img {
+    border-radius: 32px;
+  }
 
-  .mac-preview-box {
-    background: #0f172a; border: 1px solid #1e293b; border-radius: 10px; padding: 10px;
-    display: flex; flex-direction: column; gap: 8px;
+  /* ============ Hero device screen scenes ============
+     Each device cycles through several fake "apps" so the mockups show
+     what the product makes, not one frozen screenshot. Built entirely
+     from DOM + CSS: the previous JPEG had no addressable parts, so it
+     could never show more than the single app baked into its pixels.
+     Only one .scene is .on at a time; the rest sit at opacity 0. */
+  .scene-stage{position:absolute;inset:0;overflow:hidden;background:#0b1220}
+  .scene{position:absolute;inset:0;opacity:0;pointer-events:none;
+    transition:opacity .5s var(--ease);font-size:9px;line-height:1.35}
+  .scene.on{opacity:1}
+  .scene-stage.phone .scene{font-size:8px}
+
+  /* ---- shared chrome ---- */
+  .sc-bar{height:14px;display:flex;align-items:center;gap:4px;padding:0 6px;
+    background:rgba(255,255,255,.06);border-bottom:1px solid rgba(255,255,255,.08)}
+  .sc-bar i{width:4px;height:4px;border-radius:50%;background:rgba(255,255,255,.25)}
+  .sc-bar b{margin-left:4px;font-weight:600;font-size:7px;color:rgba(255,255,255,.5);letter-spacing:.02em}
+  .sc-body{position:absolute;inset:14px 0 0;padding:8px 10px;color:#e8eef7}
+
+  /* ---- 1. company / SaaS landing page ---- */
+  .sc-hero-h{font-family:var(--disp);font-weight:700;font-size:15px;line-height:1.1;
+    background:linear-gradient(100deg,#fff,#7dd3fc);-webkit-background-clip:text;background-clip:text;color:transparent;
+    opacity:0;animation:scRise .5s var(--ease) .15s forwards}
+  .sc-hero-p{color:rgba(232,238,247,.6);margin-top:5px;max-width:70%;
+    opacity:0;animation:scRise .5s var(--ease) .3s forwards}
+  .sc-cta{display:inline-block;margin-top:8px;padding:4px 10px;border-radius:6px;
+    background:linear-gradient(180deg,#38bdf8,#0ea5e9);color:#04202e;font-weight:700;font-size:8px;
+    opacity:0;animation:scRise .5s var(--ease) .45s forwards}
+  .sc-cards{display:flex;gap:6px;margin-top:10px}
+  .sc-card{flex:1;height:34px;border-radius:6px;background:rgba(255,255,255,.06);
+    border:1px solid rgba(255,255,255,.09);opacity:0;animation:scRise .5s var(--ease) forwards}
+  .sc-card:nth-child(1){animation-delay:.55s}
+  .sc-card:nth-child(2){animation-delay:.65s}
+  .sc-card:nth-child(3){animation-delay:.75s}
+  @keyframes scRise{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:none}}
+
+  /* ---- 2. analytics dashboard: bars grow, line draws ---- */
+  .sc-kpis{display:flex;gap:6px}
+  .sc-kpi{flex:1;padding:5px 6px;border-radius:6px;background:rgba(255,255,255,.05);
+    border:1px solid rgba(255,255,255,.08)}
+  .sc-kpi u{display:block;text-decoration:none;font-size:6px;color:rgba(232,238,247,.45)}
+  .sc-kpi b{font-size:11px;font-weight:700;color:#7dd3fc}
+  .sc-chart{margin-top:8px;height:52px;border-radius:6px;background:rgba(255,255,255,.04);
+    border:1px solid rgba(255,255,255,.07);display:flex;align-items:flex-end;gap:4px;padding:6px}
+  .sc-chart i{flex:1;border-radius:2px 2px 0 0;background:linear-gradient(180deg,#38bdf8,#0369a1);
+    height:0;animation:scBar .7s var(--ease) forwards}
+  @keyframes scBar{to{height:var(--h)}}
+
+  /* ---- 3. storefront grid ---- */
+  .sc-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:6px}
+  .sc-tile{border-radius:6px;overflow:hidden;background:rgba(255,255,255,.05);
+    border:1px solid rgba(255,255,255,.08);opacity:0;animation:scRise .45s var(--ease) forwards}
+  .sc-tile s{display:block;height:26px;text-decoration:none;background:linear-gradient(135deg,var(--tc,#38bdf8),rgba(0,0,0,.35))}
+  .sc-tile em{display:block;font-style:normal;padding:3px 4px;font-size:6px;color:rgba(232,238,247,.7)}
+
+  /* ---- 4. THE 2D GAME ----
+     A side-scroller done with looping CSS transforms only: two parallax
+     layers translate on a linear loop, the ground tiles, and the hero
+     bounces. Nothing here allocates per-frame in JS except the score. */
+  .sc-game{position:absolute;inset:0;background:linear-gradient(180deg,#1b2a4a 0%,#2d4a7c 45%,#4a7ba8 100%);overflow:hidden}
+  .sc-sun{position:absolute;top:12%;right:14%;width:16px;height:16px;border-radius:50%;
+    background:#ffd97d;box-shadow:0 0 14px 5px rgba(255,217,125,.35)}
+  .sc-hills{position:absolute;left:0;bottom:22%;width:200%;height:34%;
+    background:radial-gradient(circle at 12% 100%,#1e3a5f 0 22%,transparent 22%),
+               radial-gradient(circle at 37% 100%,#1e3a5f 0 26%,transparent 26%),
+               radial-gradient(circle at 62% 100%,#1e3a5f 0 22%,transparent 22%),
+               radial-gradient(circle at 87% 100%,#1e3a5f 0 26%,transparent 26%);
+    animation:scScroll 5.5s linear infinite}
+  .sc-hills.back{bottom:30%;height:30%;opacity:.55;animation-duration:9s;filter:hue-rotate(-12deg)}
+  .sc-ground{position:absolute;left:0;bottom:0;width:200%;height:22%;
+    background:repeating-linear-gradient(90deg,#2f7d4f 0 14px,#276a43 14px 28px);
+    border-top:2px solid #3da065;animation:scScroll 1.7s linear infinite}
+  @keyframes scScroll{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+  .sc-hero-ch{position:absolute;left:18%;bottom:22%;width:11px;height:13px;border-radius:3px 3px 2px 2px;
+    background:linear-gradient(180deg,#ff8a5b,#f2542d);box-shadow:0 2px 0 rgba(0,0,0,.25);
+    animation:scHop 1.05s cubic-bezier(.3,.9,.4,1) infinite}
+  .sc-hero-ch::after{content:"";position:absolute;top:3px;right:1.5px;width:2.5px;height:2.5px;
+    border-radius:50%;background:#0b1220}
+  @keyframes scHop{0%,100%{transform:translateY(0) scaleY(1)}
+    12%{transform:translateY(0) scaleY(.86)}
+    45%{transform:translateY(-19px) scaleY(1.06)}
+    78%{transform:translateY(0) scaleY(.94)}}
+  .sc-ob{position:absolute;bottom:22%;width:7px;height:12px;border-radius:2px;
+    background:linear-gradient(180deg,#8b5cf6,#6d28d9);animation:scOb 2.4s linear infinite}
+  .sc-ob.b{animation-delay:1.2s;height:9px}
+  @keyframes scOb{from{left:104%}to{left:-12%}}
+  .sc-hud{position:absolute;top:6px;left:8px;right:8px;display:flex;justify-content:space-between;
+    font-weight:700;font-size:8px;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.5)}
+
+  /* ---- richer app layouts for the laptop ----
+     The first pass here was flat grey boxes at 9px, which read as a
+     wireframe rather than a finished app. These add a real sidebar, a
+     drawing line chart and a syntax-coloured editor so the screen looks
+     like software someone actually shipped. */
+  .sc-app{position:absolute;inset:14px 0 0;display:flex}
+  .sc-side{width:52px;flex:none;background:rgba(0,0,0,.28);border-right:1px solid rgba(255,255,255,.07);
+    padding:7px 5px;display:flex;flex-direction:column;gap:4px}
+  .sc-side u{display:flex;align-items:center;gap:4px;text-decoration:none;font-size:6px;
+    color:rgba(232,238,247,.5);padding:3px 4px;border-radius:4px}
+  .sc-side u:first-child{background:rgba(56,189,248,.16);color:#7dd3fc;font-weight:700}
+  .sc-side u s{width:5px;height:5px;border-radius:1.5px;background:currentColor;opacity:.7;text-decoration:none}
+  .sc-main{flex:1;min-width:0;padding:8px 10px;color:#e8eef7}
+  .sc-h{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:7px}
+  .sc-h b{font-family:var(--disp);font-size:12px;font-weight:700}
+  .sc-h u{text-decoration:none;font-size:6px;color:#34d399;font-weight:700}
+
+  /* drawing line chart */
+  .sc-line{width:100%;height:56px;display:block}
+  .sc-line path.ln{fill:none;stroke:#38bdf8;stroke-width:2;stroke-linecap:round;
+    stroke-dasharray:260;stroke-dashoffset:260;animation:scDraw 1.5s var(--ease) .2s forwards}
+  .sc-line path.ar{fill:url(#scGrad);opacity:0;animation:scFadeIn .7s ease 1s forwards}
+  @keyframes scDraw{to{stroke-dashoffset:0}}
+  @keyframes scFadeIn{to{opacity:1}}
+  .sc-dotmark{r:2.5;fill:#fff;opacity:0;animation:scFadeIn .3s ease 1.35s forwards}
+
+  /* syntax-coloured editor + live preview */
+  .sc-split{display:flex;gap:0;position:absolute;inset:14px 0 0}
+  .sc-code{flex:1.15;min-width:0;padding:7px 8px;font-family:ui-monospace,Menlo,Consolas,monospace;
+    font-size:6.5px;line-height:1.7;background:#0a0f1a;color:#93a4bd;overflow:hidden}
+  .sc-code div{white-space:pre;opacity:0;animation:scType .01s linear forwards}
+  @keyframes scType{to{opacity:1}}
+  .sc-code .k{color:#c792ea}.sc-code .s{color:#a5e075}.sc-code .f{color:#82aaff}.sc-code .c{color:#4b5b73}
+  .sc-caret{display:inline-block;width:3px;height:7px;background:#7dd3fc;vertical-align:-1px;
+    animation:scBlink .9s steps(1) infinite}
+  @keyframes scBlink{50%{opacity:0}}
+  .sc-live{flex:1;min-width:0;background:#0f1626;border-left:1px solid rgba(255,255,255,.08);
+    padding:7px 8px;display:flex;flex-direction:column;gap:5px}
+  .sc-live-tag{font-size:5.5px;letter-spacing:.14em;color:#34d399;font-weight:700}
+  .sc-live-h{font-family:var(--disp);font-size:11px;font-weight:700;color:#fff;line-height:1.15;
+    opacity:0;animation:scRise .5s var(--ease) 1.1s forwards}
+  .sc-live-btn{align-self:flex-start;padding:3px 8px;border-radius:5px;font-size:6.5px;font-weight:700;
+    background:linear-gradient(180deg,#38bdf8,#0ea5e9);color:#04202e;
+    opacity:0;animation:scRise .5s var(--ease) 1.35s forwards}
+  .sc-live-row{height:6px;border-radius:3px;background:rgba(255,255,255,.09);
+    opacity:0;animation:scRise .4s var(--ease) forwards}
+
+  /* ---- 5. chat / social feed ---- */
+  .sc-msg{max-width:78%;padding:4px 6px;border-radius:8px;margin-bottom:5px;
+    background:rgba(255,255,255,.08);opacity:0;animation:scRise .4s var(--ease) forwards}
+  .sc-msg.me{margin-left:auto;background:linear-gradient(180deg,#38bdf8,#0284c7);color:#04202e;font-weight:600}
+
+  @media (prefers-reduced-motion:reduce){
+    .scene *,.sc-game *{animation:none !important}
+    .sc-hero-h,.sc-hero-p,.sc-cta,.sc-card,.sc-tile,.sc-msg{opacity:1 !important;transform:none !important}
+    .sc-chart i{height:var(--h) !important}
   }
-  .prev-hdr { display: flex; gap: 6px; }
-  .prev-hdr div { height: 8px; background: #334155; border-radius: 4px; flex: 1; }
-  .prev-body { height: 40px; background: linear-gradient(135deg, #1e293b, #0f172a); border-radius: 8px; padding: 8px; }
-  .prev-body .pill { display: block; width: 40%; height: 6px; background: #38bdf8; border-radius: 4px; margin-bottom: 4px; }
-  .prev-body .bar { display: block; width: 70%; height: 4px; background: #475569; border-radius: 2px; }
 
   .macbook-base {
     height: 14px; background: linear-gradient(180deg, #334155, #1e293b); border-radius: 0 0 16px 16px;
@@ -273,6 +415,14 @@
   .island-cam { width: 10px; height: 10px; border-radius: 50%; background: #0f172a; border: 1px solid #1e293b; }
 
   .iphone-screen {
+    /* position:relative is load-bearing, not decoration. overflow:hidden
+       only clips an absolutely-positioned descendant when this element is
+       that descendant's containing block. While this was static, the
+       .scene-stage inside resolved against .iphone-bezel instead, escaped
+       the rounded clip entirely and painted square corners over the frame
+       edge. (.macbook-hd-frame already sets position:relative, which is
+       why only the phone showed the broken edge.) */
+    position: relative;
     background: #0f172a;
     color: #f8fafc;
     border-radius: 44px;
@@ -331,40 +481,20 @@
   .dock-item.on { opacity: 1; background: rgba(56, 189, 248, 0.2); border: 1px solid rgba(56, 189, 248, 0.4); }
 
   .bh-h1{font-size:clamp(2.5rem,7vw,4.6rem);font-weight:600}
-  /* A soft accent-tinted text-shadow, not a hard outline — layered same
-     as the composer's glow (tight + wide), so the subtext reads as lit
-     from behind rather than just "text with a shadow filter on it". */
+  /* Static, solid, always legible — deliberately plain.
+     This line used to rotate every 3.8s through a gradient-clipped,
+     8px-blurred, light-swept transition. Because the blur ran while
+     opacity was 0, the line spent roughly 10% of its life as an
+     illegible smudge, which is exactly what it looked like on screen.
+     The reference we were matching does none of that: measured with a
+     MutationObserver over 60+ seconds, its tagline never changes at all
+     — one static line, solid colour, no gradient, no blur, no sweep.
+     So this is one static line too.
+     .bh-sub keeps only its one-shot entrance. If a rotator is ever
+     wanted again, reserve the box with visibility:hidden sizer spans
+     first, or swapping strings will shift the layout under it. */
   .bh-sub{color:var(--ink-2);font-size:clamp(1.05rem,2.2vw,1.22rem);font-weight:500;margin:18px auto 0;max-width:650px;
-    opacity:0;animation:prodIn .5s var(--ease) .08s forwards;position:relative;overflow:hidden}
-  .bh-glow-word{
-    display:inline-block;color:var(--ink-2);font-weight:500;position:relative;white-space:nowrap;
-    opacity:1;transform:translateX(0);
-    transition:transform .48s var(--ease),opacity .48s var(--ease),filter .48s var(--ease),text-shadow .48s var(--ease);
-  }
-  .bh-glow-word.exiting{
-    opacity:0;transform:translateX(-32px);filter:blur(4px);
-  }
-  .bh-glow-word.entering{
-    opacity:0;transform:translateX(36px);filter:blur(4px);
-  }
-  .bh-glow-word::after{
-    content:"";position:absolute;top:-20%;bottom:-20%;left:-120%;width:60%;
-    background:linear-gradient(115deg,transparent 0%,rgba(255,255,255,0.4) 30%,#ffffff 50%,rgba(255,255,255,0.4) 70%,transparent 100%);
-    transform:skewX(-22deg);pointer-events:none;opacity:0;
-  }
-  .bh-glow-word.bling::after{
-    opacity:1;animation:luxuriousBling .75s var(--ease) forwards;
-  }
-  @keyframes luxuriousBling{
-    0%{left:-120%;opacity:0}
-    20%{opacity:1}
-    80%{opacity:1}
-    100%{left:220%;opacity:0}
-  }
-  .bh-glow-word.bling{
-    color:var(--ink);
-    text-shadow:0 0 14px rgba(255,255,255,0.95),0 0 28px rgba(56,189,248,0.85),0 0 45px rgba(167,139,250,0.75);
-  }
+    opacity:0;animation:prodIn .5s var(--ease) .08s forwards}
 
   /* composer */
   /* Composer treatment — the same three-part build as the Souqi Code chat
@@ -441,9 +571,15 @@
     --beam-a:225,29,72!important; --beam-b:251,113,133!important;
     border-color:rgba(225,29,72,.4)!important;
   }
-  .ag-model-pill.power-mode{
-    background:rgba(225,29,72,.12)!important;border-color:rgba(225,29,72,.4)!important;color:#f43f5e!important;
+  /* Crimson tint and border only — the LABEL stays var(--ink), the same
+     colour "Economy" uses. Tinting the text as well as the chrome made
+     "Power Agent" read as an error/warning state rather than a selected
+     mode, and it lost contrast against the tinted background. */
+  .ag-model-pill.power-mode, .bh-mode.power-mode {
+    background:rgba(225,29,72,.14)!important;border-color:rgba(225,29,72,.45)!important;
+    color:var(--ink)!important;
   }
+  .bh-mode.power-mode svg { stroke:#f43f5e!important; }
   .ag-box textarea, .bh-ta{
     width:100%!important;border:0!important;outline:0!important;resize:none!important;background:transparent!important;
     font-family:var(--body);font-size:.98rem;line-height:1.5;color:var(--ink);
@@ -560,8 +696,14 @@
     border-radius:16px;background:var(--card);color:var(--ink);transition:.18s}
   .bh-mode i svg{width:20px;height:20px}
   .bh-mode:hover i{border-color:#c6dbe7;transform:translateY(-2px)}
-  .bh-mode.sel i{background:var(--ink);border-color:var(--ink);color:#fff}
-  .bh-mode.sel{color:var(--ink)}
+  /* Accent, not var(--ink) — matches .ag-tile.on .ic on the agent page so
+     the two type pickers read as the same control. The old --ink fill
+     broke on the dark theme, where --ink is a light cream: the selected
+     tile became a near-white block with a white icon on it, so the icon
+     effectively vanished (which is what it looked like on screen). */
+  .bh-mode.sel i{background:var(--accent);border-color:var(--accent);color:#fff;
+    box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 16%,transparent),0 4px 14px -4px color-mix(in srgb,var(--accent) 65%,transparent)}
+  .bh-mode.sel{color:var(--ink);font-weight:600}
 
   /* examples */
   .bh-try{margin-top:30px;font-size:.88rem;color:var(--ink-2);display:inline-flex;align-items:center;gap:8px}
@@ -753,6 +895,23 @@
   .pline.active-engine .bar i::after{content:"";position:absolute;top:0;bottom:0;left:-100%;width:60%;
     background:linear-gradient(90deg,transparent,rgba(255,255,255,.95),transparent);animation:engineBeam 1.2s ease-in-out infinite}
   @keyframes engineBeam{0%{left:-100%}100%{left:200%}}
+  /* These rows hardcoded white backgrounds (rgba(255,255,255,.6), and #fff
+     when active) while their text stayed var(--ink). That is fine on the
+     light theme, but --ink is a near-white cream on dark, so the rows
+     rendered as white pills with cream text on them — effectively
+     unreadable. Tint from the state colour instead of painting white, so
+     the active/done states still read at a glance. */
+  :root[data-theme="dark"] .pline{
+    background:rgba(255,255,255,.05);border-color:rgba(255,255,255,.10)}
+  :root[data-theme="dark"] .pline.active-engine{
+    background:rgba(56,189,248,.12);border-color:rgba(56,189,248,.45);
+    box-shadow:0 4px 16px rgba(56,189,248,.16),0 0 0 1px rgba(56,189,248,.28)}
+  :root[data-theme="dark"] .pline.done-engine{
+    background:rgba(34,197,94,.10);border-color:rgba(34,197,94,.32)}
+  :root[data-theme="dark"] .pline .bar{background:rgba(255,255,255,.13)}
+  /* The sweep is a white gradient — at .95 it blows out over a dark row. */
+  :root[data-theme="dark"] .pline.active-engine .bar i::after{
+    background:linear-gradient(90deg,transparent,rgba(255,255,255,.55),transparent)}
 
   /* team avatars inside card D */
   .team{display:flex;margin-bottom:24px}
@@ -990,35 +1149,11 @@
           <div class="mac-url"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg> <b>https://</b>app.souqi.build/dashboard</div>
           <div class="mac-actions"><span></span><span></span></div>
         </div>
-        <div class="macbook-content">
-          <div class="mac-sidebar">
-            <div class="mac-side-item on"><span class="ic"></span><span class="txt"></span></div>
-            <div class="mac-side-item"><span class="ic"></span><span class="txt"></span></div>
-            <div class="mac-side-item"><span class="ic"></span><span class="txt"></span></div>
-            <div class="mac-side-item"><span class="ic"></span><span class="txt"></span></div>
-          </div>
-          <div class="mac-main">
-            <div class="mac-top-banner">
-              <div class="mac-stat-col">
-                <small>Total Revenue</small>
-                <b>$128,490 <span class="up">+28.4%</span></b>
-              </div>
-              <div class="mac-mini-chart">
-                <svg viewBox="0 0 100 36" fill="none"><path d="M0 30 Q25 15, 50 20 T100 5" stroke="#38bdf8" stroke-width="3" fill="none"/><path d="M0 30 Q25 15, 50 20 T100 5 L100 36 L0 36 Z" fill="url(#macChartGrad)" opacity="0.3"/><defs><linearGradient id="macChartGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#38bdf8"/><stop offset="100%" stop-color="#38bdf8" stop-opacity="0"/></linearGradient></defs></svg>
-              </div>
-            </div>
-            <div class="mac-grid">
-              <div class="mac-code-box">
-                <div class="code-line"><span class="k">const</span> <span class="v">app</span> = <span class="f">createSouqiApp</span>();</div>
-                <div class="code-line"><span class="v">app</span>.<span class="f">use</span>(<span class="s">'analytics'</span>);</div>
-                <div class="code-line"><span class="v">app</span>.<span class="f">deploy</span>({ <span class="p">live</span>: <span class="b">true</span> });</div>
-              </div>
-              <div class="mac-preview-box">
-                <div class="prev-hdr"><div></div><div></div></div>
-                <div class="prev-body"><span class="pill"></span><span class="bar"></span></div>
-              </div>
-            </div>
-          </div>
+        <div class="macbook-hd-frame">
+          <!-- Scenes are built by initHeroScenes() in the script below.
+               These used to be a flat JPEG, which cannot show more than one
+               app — the point here is to cycle through several. -->
+          <div class="scene-stage" id="macScenes"></div>
         </div>
       </div>
     </div>
@@ -1037,45 +1172,14 @@
         <div class="island-cam"></div>
       </div>
       <div class="iphone-screen">
-        <div class="iphone-status-bar">
-          <span class="ip-time">9:41</span>
-          <div class="ip-icons">
-            <svg class="ip-ic" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3c-4.97 0-9 4.03-9 9 0 2.12.74 4.07 1.97 5.61L4.35 21l3.39-.62C9.28 20.74 10.6 21 12 21c4.97 0 9-4.03 9-9s-4.03-9-9-9z"/></svg>
-            <span class="ip-bat"></span>
-          </div>
-        </div>
-        <div class="iphone-app">
-          <div class="ip-header">
-            <div class="ip-brand-wrap">
-              <span class="ip-logo">☕</span>
-              <div><b class="ip-title">Artisan Roast</b><small class="ip-sub">Coffee &amp; Bakery</small></div>
-            </div>
-            <span class="ip-badge">Live App</span>
-          </div>
-          <div class="ip-card">
-            <div class="ip-card-badge">★ 4.9 Rating</div>
-            <div class="ip-card-txt">Specialty Cold Brew</div>
-            <div class="ip-card-sub">Handcrafted in small batches</div>
-          </div>
-          <div class="ip-section-title">Popular Items</div>
-          <div class="ip-list">
-            <div class="ip-item"><span class="thumb t1"></span><div class="info"><b>Ethiopia Yirgacheffe</b><small>$18.50</small></div><span class="add-btn">+</span></div>
-            <div class="ip-item"><span class="thumb t2"></span><div class="info"><b>Caramel Macchiato</b><small>$6.50</small></div><span class="add-btn">+</span></div>
-          </div>
-          <div class="ip-dock">
-            <div class="dock-item on"><span>🏠</span></div>
-            <div class="dock-item"><span>🔍</span></div>
-            <div class="dock-item"><span>🛍️</span></div>
-            <div class="dock-item"><span>👤</span></div>
-          </div>
-        </div>
+        <div class="scene-stage phone" id="phoneScenes"></div>
       </div>
     </div>
   </div>
 
   <div class="wrap">
     <h1 class="bh-h1" data-t="What will you build?">What will you build?</h1>
-    <p class="bh-sub"><span class="bh-glow-word" id="bhGlowWord">Your first build is free — no card needed.</span></p>
+    <p class="bh-sub">You can always make changes later.</p>
 
     <form class="bh-composer" id="bhForm" autocomplete="off">
       <div class="ag-box" id="bhBox">
@@ -1150,6 +1254,8 @@
           <i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18"/></svg></i><span data-t="Website">Website</span></button>
         <button class="bh-mode" type="button" data-mode="Storefront">
           <i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 9l1.5-5h15L21 9"/><path d="M4 9v11h16V9"/><path d="M9 20v-6h6v6"/></svg></i><span data-t="Storefront">Storefront</span></button>
+        <button class="bh-mode" type="button" data-mode="Game">
+          <i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M6 12h4M8 10v4"/><circle cx="15.5" cy="11" r="1"/><circle cx="17.5" cy="14" r="1"/><path d="M17.7 6H6.3a4.3 4.3 0 0 0-4.24 3.6l-1 6A3.4 3.4 0 0 0 4.4 19.5c1 0 1.9-.45 2.5-1.2L8.4 16.5h7.2l1.5 1.8c.6.75 1.5 1.2 2.5 1.2a3.4 3.4 0 0 0 3.34-3.9l-1-6A4.3 4.3 0 0 0 17.7 6z"/></svg></i><span data-t="Game">Game</span></button>
         <button class="bh-mode" type="button" data-mode="Catalog">
           <i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></i><span data-t="Catalog">Catalog</span></button>
         <button class="bh-mode" type="button" data-mode="Booking">
@@ -1463,7 +1569,7 @@
 
   /* ---------- composer ---------- */
   let mode = "economy";
-  const ta = $("bhPrompt"), send = $("bhSend"), chip = $("bhChip"), chipName = $("bhChipName");
+  const ta = $("bhPrompt"), send = $("bhSend");
   /* Model Pill & Popover Menu */
   const bhModelPill = $("bhModelPill"), bhModelPopover = $("bhModelPopover");
   const bhModelPillLabel = $("bhModelPillLabel"), bhBox = $("bhBox");
@@ -1576,35 +1682,9 @@
     if (e.key === "Enter" && !e.shiftKey && !isTouch) { e.preventDefault(); $("bhForm").requestSubmit(); }
   });
 
-  /* Replit glowing subtext phrase rotator */
-  const GLOW_PHRASES = [
-    "Your first build is free — no card needed.",
-    "Build web apps, dashboards & games in seconds.",
-    "Turn any sentence into full-stack software.",
-    "Instant live preview & AI code generation.",
-    "Deploy to the web with one click."
-  ];
-  let glowIdx = 0;
-  const glowWord = $("bhGlowWord");
-  if (glowWord && !matchMedia("(prefers-reduced-motion:reduce)").matches) {
-    setInterval(() => {
-      glowWord.classList.add("exiting");
-      setTimeout(() => {
-        glowIdx = (glowIdx + 1) % GLOW_PHRASES.length;
-        glowWord.textContent = GLOW_PHRASES[glowIdx];
-        glowWord.classList.remove("exiting");
-        glowWord.classList.add("entering");
+  /* The hero subtext is static — see the .bh-sub comment in the stylesheet
+     for why the rotator that used to live here was removed. */
 
-        void glowWord.offsetWidth; // Force reflow
-
-        glowWord.classList.remove("entering");
-        glowWord.classList.add("bling");
-        setTimeout(() => {
-          glowWord.classList.remove("bling");
-        }, 750);
-      }, 440);
-    }, 4600);
-  }
   /* Live Engine Simulation inside Bento Card B */
   (function runLiveEngineSimulation() {
     const plines = document.querySelectorAll(".plines .pline");
@@ -1686,26 +1766,34 @@
   }
   if (!matchMedia("(prefers-reduced-motion:reduce)").matches) typeHomePlaceholder();
 
-  /* ---------- mode rail ---------- */
+  /* ---------- mode rail ----------
+     The selected-mode "chip" (#bhChip / #bhChipName / #bhChipX) no longer
+     exists in the markup, but its JS was still here — and
+     $("bhChipX").addEventListener() on a null threw, which aborted the
+     REST OF THIS SCRIPT. Everything defined below it never ran, including
+     the scroll-driven industries section, which is why that section
+     pinned but never advanced ("frozen"). The chip references are gone
+     now; the rail's own .sel state is what shows the selection. */
   const rail = $("bhRail");
   rail.addEventListener("click", (e) => {
     const b = e.target.closest(".bh-mode"); if (!b) return;
     const picked = b.dataset.mode;
     const already = b.classList.contains("sel");
     rail.querySelectorAll(".bh-mode").forEach((x) => x.classList.remove("sel"));
-    if (already) { mode = ""; chip.classList.remove("on"); }
-    else { b.classList.add("sel"); mode = picked; chipName.textContent = picked; chip.classList.add("on"); }
+    if (already) { mode = ""; }
+    else { b.classList.add("sel"); mode = picked; }
     syncSend(); ta.focus();
-  });
-  $("bhChipX").addEventListener("click", () => {
-    mode = ""; chip.classList.remove("on");
-    rail.querySelectorAll(".bh-mode").forEach((x) => x.classList.remove("sel"));
-    syncSend();
   });
   $("bhPrev").addEventListener("click", () => rail.scrollBy({ left: -180 }));
   $("bhNext").addEventListener("click", () => rail.scrollBy({ left: 180 }));
 
-  $("bhPlus").addEventListener("click", () => {
+  // The composer's "+" is #bhAttach — it was #bhPlus before this row was
+  // rebuilt on the agent-style .ag-brow markup, and the handler was left
+  // pointing at the old id. $("bhPlus") was therefore null, and calling
+  // .addEventListener on it threw and aborted the rest of this script
+  // (same failure as the removed chip handler above), which is what froze
+  // the scroll-driven industries section further down.
+  $("bhAttach").addEventListener("click", () => {
     // Phase 4: logo upload + palette extraction. Until then, point people
     // at the place that already accepts a logo.
     location.href = "/login";
@@ -1812,34 +1900,42 @@
       retrig(inxGrid,"swap");
       inxDots.querySelectorAll("button").forEach(function(b,k){b.classList.toggle("on",k===i);});
     }
-    if(reduce){ inx.classList.add("static"); paint(0); }
-    else {
-      paint(0);
-      var iTick=false;
-      function inxRender(){
-        var top=inx.getBoundingClientRect().top, span=inx.offsetHeight-window.innerHeight;
-        var p=Math.min(1,Math.max(0,-top/(span||1)));
-        paint(Math.min(INDX.length-1, Math.floor(p*INDX.length)));
-      }
-      function inxOnScroll(){ if(!iTick){ iTick=true; requestAnimationFrame(function(){ inxRender(); iTick=false; }); } }
-      inxRender();
-      window.addEventListener("scroll",inxOnScroll,{passive:true});
-      window.addEventListener("resize",inxRender);
-      inxDots.querySelectorAll("button").forEach(function(b){ b.addEventListener("click",function(){
-        var i=+b.dataset.i, span=inx.offsetHeight-window.innerHeight;
-        window.scrollTo({top:inx.offsetTop + (i+0.5)/INDX.length*span, behavior:"smooth"});
-      }); });
+    paint(0);
+    var iTick = false;
+    function inxRender() {
+      if (!inx) return;
+      var top = inx.getBoundingClientRect().top;
+      var span = inx.offsetHeight - window.innerHeight;
+      if (span <= 0) span = 1;
+      var p = Math.min(1, Math.max(0, -top / span));
+      paint(Math.min(INDX.length - 1, Math.floor(p * INDX.length)));
     }
+    function inxOnScroll() {
+      if (!iTick) {
+        iTick = true;
+        requestAnimationFrame(function () { inxRender(); iTick = false; });
+      }
+    }
+    inxRender();
+    window.addEventListener("scroll", inxOnScroll, { passive: true });
+    window.addEventListener("resize", inxRender, { passive: true });
+    inxDots.querySelectorAll("button").forEach(function (b) {
+      b.addEventListener("click", function () {
+        var i = +b.dataset.i, span = inx.offsetHeight - window.innerHeight;
+        window.scrollTo({ top: inx.offsetTop + (i + 0.5) / INDX.length * span, behavior: "smooth" });
+      });
+    });
 
     if (inxCta) {
       inxCta.addEventListener("click", function (e) {
         e.preventDefault();
         var currentItem = INDX[icur >= 0 ? icur : 0] || INDX[0];
-        var promptText = "Build a " + currentItem.n + ": " + currentItem.tag;
+        var promptText = "Build a " + currentItem.n.toLowerCase() + " with " + currentItem.tag.toLowerCase();
         try {
           sessionStorage.setItem("souqi_agent_prompt", JSON.stringify({
             prompt: promptText,
             mode: typeof mode !== "undefined" && mode ? mode : "economy",
+            autoRun: true,
             at: Date.now()
           }));
         } catch (err) {}
@@ -1868,6 +1964,162 @@
   $("qNext").addEventListener("click", () => { qi = (qi + 1) % QUOTES.length; drawQuote(); });
   $("qPrev").addEventListener("click", () => { qi = (qi - 1 + QUOTES.length) % QUOTES.length; drawQuote(); });
 
+  /* ---------- hero device screens ----------
+     Cycles each mockup through several fake apps so the devices show the
+     RANGE of what gets built, not one frozen screenshot. Each scene is
+     rebuilt as a fresh node on activation, which is what restarts its
+     entry keyframes — toggling a class on a kept node would only animate
+     the first time round the loop.
+     Desktop only: both devices are display:none below 1100px, so there is
+     no reason to run timers on a phone. */
+  (function initHeroScenes() {
+    const macStage = $("macScenes"), phoneStage = $("phoneScenes");
+    if (!macStage || !phoneStage) return;
+
+    const bar = (title) =>
+      '<div class="sc-bar"><i></i><i></i><i></i><b>' + title + '</b></div>';
+
+    // Bar heights for the dashboard chart, as CSS custom props so the
+    // grow animation has a target without any per-frame JS.
+    const chart = [38, 62, 45, 78, 55, 88, 70]
+      .map((h) => '<i style="--h:' + h + '%"></i>').join("");
+
+    const tiles = (labels, colors) => labels.map((l, i) =>
+      '<div class="sc-tile" style="animation-delay:' + (0.12 * i + 0.15) + 's">' +
+      '<s style="--tc:' + colors[i] + '"></s><em>' + l + '</em></div>').join("");
+
+    // The 2D game. Everything moves via looping CSS transforms — the only
+    // JS is the score, so this costs one timer rather than a game loop.
+    const game =
+      '<div class="sc-game">' +
+        '<div class="sc-sun"></div>' +
+        '<div class="sc-hills back"></div><div class="sc-hills"></div>' +
+        '<div class="sc-ob"></div><div class="sc-ob b"></div>' +
+        '<div class="sc-ground"></div>' +
+        '<div class="sc-hero-ch"></div>' +
+        '<div class="sc-hud"><span>SCORE <b data-score>0</b></span><span>&#9829;&#9829;&#9829;</span></div>' +
+      '</div>';
+
+    const nav = (items) => items.map((n) =>
+      '<u><s></s>' + n + '</u>').join("");
+
+    // Editor lines are revealed on a stagger so the code appears to type
+    // itself; the caret rides the last line.
+    const codeLines = [
+      '<span class="c">// app.tsx</span>',
+      '<span class="k">export default function</span> <span class="f">App</span>() {',
+      '  <span class="k">return</span> (',
+      '    &lt;<span class="f">Shell</span> title=<span class="s">"Northwind"</span>&gt;',
+      '      &lt;<span class="f">Hero</span> cta=<span class="s">"Get started"</span> /&gt;',
+      '      &lt;<span class="f">Pricing</span> plans={<span class="s">3</span>} /&gt;',
+      '    &lt;/<span class="f">Shell</span>&gt;',
+      '  );',
+      '}<span class="sc-caret"></span>',
+    ].map((l, i) => '<div style="animation-delay:' + (0.12 * i + 0.1) + 's">' + l + '</div>').join("");
+
+    const MAC = [
+      // 1. the product's own story: code on the left, live app on the right
+      bar("app.souqi.build/editor") +
+        '<div class="sc-split">' +
+          '<div class="sc-code">' + codeLines + '</div>' +
+          '<div class="sc-live">' +
+            '<div class="sc-live-tag">LIVE PREVIEW</div>' +
+            '<div class="sc-live-h">Northwind<br>Supply Co.</div>' +
+            '<div class="sc-live-btn">Get started</div>' +
+            '<div class="sc-live-row" style="animation-delay:1.5s"></div>' +
+            '<div class="sc-live-row" style="width:70%;animation-delay:1.6s"></div>' +
+            '<div class="sc-live-row" style="width:85%;animation-delay:1.7s"></div>' +
+          '</div>' +
+        '</div>',
+
+      // 2. analytics with a line that draws itself
+      bar("insights.souqi.site") +
+        '<div class="sc-app">' +
+          '<div class="sc-side">' + nav(["Overview", "Orders", "Customers", "Reports", "Settings"]) + '</div>' +
+          '<div class="sc-main">' +
+            '<div class="sc-h"><b>$48,210</b><u>&#9650; 28.4%</u></div>' +
+            '<svg class="sc-line" viewBox="0 0 200 56" preserveAspectRatio="none">' +
+              '<defs><linearGradient id="scGrad" x1="0" y1="0" x2="0" y2="1">' +
+                '<stop offset="0%" stop-color="#38bdf8" stop-opacity=".45"/>' +
+                '<stop offset="100%" stop-color="#38bdf8" stop-opacity="0"/>' +
+              '</linearGradient></defs>' +
+              '<path class="ar" d="M2,44 L30,36 L58,40 L86,24 L114,28 L142,14 L170,18 L198,6 L198,56 L2,56 Z"/>' +
+              '<path class="ln" d="M2,44 L30,36 L58,40 L86,24 L114,28 L142,14 L170,18 L198,6"/>' +
+              '<circle class="sc-dotmark" cx="198" cy="6"/>' +
+            '</svg>' +
+            '<div class="sc-kpis" style="margin-top:6px">' +
+              '<div class="sc-kpi"><u>Orders</u><b>1,284</b></div>' +
+              '<div class="sc-kpi"><u>Avg cart</u><b>$37.5</b></div>' +
+              '<div class="sc-kpi"><u>Uptime</u><b>99.9%</b></div>' +
+            '</div>' +
+          '</div>' +
+        '</div>',
+
+      // 3. storefront
+      bar("supply.souqi.site") +
+        '<div class="sc-app">' +
+          '<div class="sc-side">' + nav(["Shop", "New in", "Sale", "Orders", "Account"]) + '</div>' +
+          '<div class="sc-main">' +
+            '<div class="sc-h"><b>New this week</b><u>Free shipping</u></div>' +
+            '<div class="sc-grid">' +
+              tiles(["Oak chair", "Walnut desk", "Table lamp", "Wall shelf", "Bar stool", "Side table"],
+                    ["#38bdf8", "#f59e0b", "#ec4899", "#10b981", "#8b5cf6", "#f43f5e"]) +
+            '</div>' +
+          '</div>' +
+        '</div>',
+    ];
+
+    // The phone shows the 2D game and nothing else, by choice — it runs on
+    // looping CSS transforms so it never needs re-mounting, and holding one
+    // scene there keeps the eye on the laptop, which is the one that cycles.
+    const PHONE = [game];
+
+    // Swap by replacing the node so entry keyframes restart every cycle.
+    // Prunes SYNCHRONOUSLY down to the outgoing + incoming pair rather than
+    // trusting a delayed remove for every node: an earlier version relied
+    // only on a setTimeout and leaked a scene per cycle (12 stacked up in a
+    // minute), each still running its own CSS animations.
+    function mount(stage, html) {
+      const prev = stage.querySelector(".scene.on");
+      const next = document.createElement("div");
+      next.className = "scene";
+      next.innerHTML = html;
+      stage.appendChild(next);
+      // Anything that is neither leaving nor arriving is already stale.
+      [...stage.children].forEach((el) => {
+        if (el !== next && el !== prev) el.remove();
+      });
+      requestAnimationFrame(() => {
+        next.classList.add("on");
+        if (prev) prev.classList.remove("on");
+      });
+      if (prev) setTimeout(() => { if (prev.parentNode) prev.remove(); }, 700);
+      return next;
+    }
+
+    let mi = 0, pi = 0, scoreTimer = null;
+    function showMac() { mount(macStage, MAC[mi]); mi = (mi + 1) % MAC.length; }
+    function showPhone() {
+      const node = mount(phoneStage, PHONE[pi]);
+      pi = (pi + 1) % PHONE.length;
+      clearInterval(scoreTimer);
+      const score = node.querySelector("[data-score]");
+      if (score) {
+        let n = 0;
+        scoreTimer = setInterval(() => {
+          n += Math.floor(Math.random() * 7) + 3;
+          score.textContent = n;
+        }, 260);
+      }
+    }
+
+    showMac(); showPhone();
+    if (matchMedia("(prefers-reduced-motion:reduce)").matches) return;
+    // Only the laptop cycles — the phone holds the game (see PHONE above),
+    // so there is no second interval to offset against.
+    setInterval(showMac, 5200);
+  })();
+
   /* ---------- feedback toast ---------- */
   const toast = $("bhToast");
   if (!localStorage.getItem("souqi_home_vote")) {
@@ -1881,5 +2133,6 @@
 })();
 </script>
 
+<script src="js/nav-loading.js?v=1"></script>
 </body>
 </html>

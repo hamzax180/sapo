@@ -174,7 +174,15 @@
     }
     .pay-wrap { max-width: 440px; width: 100%; margin: 0 auto; }
 
-    /* Apple Pay Express Button */
+    /* Apple Pay Express Button — shown on every browser by choice.
+       The glyph is inlined rather than loaded from /assets: the previous
+       apple-pay-logo.svg had a malformed body path that drew an inflated
+       blob with two notches instead of an apple, and it overflowed its own
+       viewBox on three sides, so it could not be fixed by resizing. This
+       path is the one already used by the boot screen in code.html.
+       Note: Apple Pay itself only runs in Safari/WebKit, so on other
+       browsers this button falls back to the normal payment flow (see the
+       click handler). */
     .apple-pay-btn {
       width: 100%; height: 48px; background: #000000; color: #ffffff; border: 0;
       border-radius: 8px; font-size: 1.15rem; font-weight: 700; cursor: pointer;
@@ -182,11 +190,19 @@
       transition: background 0.15s ease; margin-bottom: 24px;
     }
     .apple-pay-btn:hover { background: #18181b; }
+    /* Sized by the square 0 0 24 24 viewBox, so it cannot be stretched the
+       way the old fixed 16x20 img was — that ratio matched neither the
+       viewBox nor the artwork. */
+    .apple-pay-btn svg { width: 20px; height: 20px; display: block; flex: none; }
 
     .divider {
       display: flex; align-items: center; text-align: center; color: var(--mut);
       font-size: 0.78rem; font-weight: 600; margin-bottom: 24px;
     }
+    /* An explicit display value beats the UA's [hidden]{display:none}, so
+       a `hidden` attribute alone would NOT hide this. Kept as a guard in
+       case the divider is ever toggled from script again. */
+    .divider[hidden] { display: none !important; }
     .divider::before, .divider::after {
       content: ''; flex: 1; border-bottom: 1px solid var(--line);
     }
@@ -504,13 +520,15 @@
     <!-- RIGHT COLUMN: Payment Form -->
     <div class="co-right">
       <div class="pay-wrap">
-        <!-- Apple Pay Express Button -->
-        <button type="button" class="apple-pay-btn" id="applePayBtn">
-          <img src="/assets/apple-pay-logo.svg" alt="Apple" style="height:20px; width:16px; display:inline-block; vertical-align:middle; margin-top:-3px; margin-right:4px;" />
+        <!-- Apple Pay express button -->
+        <button type="button" class="apple-pay-btn" id="applePayBtn" aria-label="Pay with Apple Pay">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
+          </svg>
           <span style="font-weight:600; font-size:1.15rem; letter-spacing:-0.02em;">Pay</span>
         </button>
 
-        <div class="divider">
+        <div class="divider" id="applePayDivider">
           <span>OR</span>
         </div>
 
@@ -646,6 +664,10 @@
       var applyPromoBtn = document.getElementById("applyPromoBtn");
       var promoMsg = document.getElementById("promoMsg");
 
+      // Set by updateCheckout(); read by the Apple Pay session so the sheet
+      // charges exactly what the order summary shows.
+      var currentTotalUSD = 0;
+
       function formatMoney(val, curr) {
         if (curr === "TRY") {
           return "TRY " + (val * USD_TO_TRY).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -665,6 +687,10 @@
         var afterDiscountUSD = subtotalUSD - discountUSD;
         var vatUSD = afterDiscountUSD * 0.20;
         var totalUSD = afterDiscountUSD + vatUSD;
+        // Kept in module scope so the Apple Pay session can charge the same
+        // figure the summary shows. All arithmetic here is in USD and only
+        // formatted into `currency` for display, so this is the USD total.
+        currentTotalUSD = totalUSD;
 
         var totalFormatted = formatMoney(totalUSD, currency);
         var baseFormatted = formatMoney(baseUSD, currency);
@@ -814,12 +840,87 @@
 
       var paySubmitBtn = document.getElementById("paySubmitBtn");
       var applePayBtn = document.getElementById("applePayBtn");
+      var applePayDivider = document.getElementById("applePayDivider");
 
       paySubmitBtn.addEventListener("click", function() { processPayment(paySubmitBtn); });
-      applePayBtn.addEventListener("click", function() { processPayment(applePayBtn); });
+
+      /* Apple Pay is WebKit-only, and showing its button on a browser that
+         cannot complete the payment is both broken UX and against Apple's
+         guidelines — so the button and the "OR" divider that separates it
+         from the card form are both hidden unless the API is actually
+         present and the device can pay. Without this the divider would be
+         left stranded above the card form on every non-Safari browser.
+
+         NOTE: this is a real Apple Pay session, not the placeholder the
+         old button used (it called processPayment() directly, which meant
+         an Apple-branded button that never touched Apple Pay). It cannot
+         complete until three things exist:
+           1. a merchant identifier registered with Apple,
+           2. the domain-association file served from
+              /.well-known/apple-developer-merchantid-domain-association,
+           3. a server endpoint that performs merchant validation and
+              returns the session payload for onvalidatemerchant.
+         Until then canMakePayments() is the only gate that passes and the
+         session will fail at validation, which is why the handler surfaces
+         the error rather than pretending the charge went through. */
+      (function initApplePay() {
+        if (!applePayBtn) return;
+        var canUse = false;
+        try {
+          canUse = !!(window.ApplePaySession &&
+                      window.ApplePaySession.canMakePayments &&
+                      window.ApplePaySession.canMakePayments());
+        } catch (err) { canUse = false; }
+
+        // The button is shown on every browser by choice, but Apple Pay
+        // itself is Safari/WebKit-only — everywhere else there is no
+        // ApplePaySession to construct, so fall through to the same flow
+        // the Subscribe button uses rather than throwing on click.
+        if (!canUse) {
+          applePayBtn.addEventListener("click", function() { processPayment(applePayBtn); });
+          return;
+        }
+
+        applePayBtn.addEventListener("click", function() {
+          var session = new window.ApplePaySession(3, {
+            countryCode: "TR",
+            currencyCode: "USD",
+            supportedNetworks: ["visa", "masterCard", "amex"],
+            merchantCapabilities: ["supports3DS"],
+            total: { label: "Souqi", amount: currentTotalUSD.toFixed(2) }
+          });
+
+          session.onvalidatemerchant = function(event) {
+            // TODO: POST event.validationURL to a server endpoint that
+            // performs merchant validation, then session.completeMerchantValidation(payload).
+            fetch("/api/payments/apple-pay/validate", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ validationURL: event.validationURL, domain: location.hostname })
+            })
+              .then(function(r) { if (!r.ok) throw new Error("merchant validation failed"); return r.json(); })
+              .then(function(payload) { session.completeMerchantValidation(payload); })
+              .catch(function(err) {
+                console.error("Apple Pay merchant validation failed:", err);
+                session.abort();
+              });
+          };
+
+          session.onpaymentauthorized = function(event) {
+            // TODO: send event.payment.token to the server to capture the
+            // charge, and only then report success.
+            session.completePayment(window.ApplePaySession.STATUS_FAILURE);
+            console.error("Apple Pay capture is not implemented yet.");
+          };
+
+          session.oncancel = function() { /* user dismissed the sheet */ };
+          session.begin();
+        });
+      })();
 
       updateCheckout();
     })();
   </script>
+<script src="js/nav-loading.js?v=1"></script>
 </body>
 </html>

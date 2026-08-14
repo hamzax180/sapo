@@ -155,6 +155,35 @@
      460px column is already under the 720px cap. */
   .ag-head,.ag-log,.ag-composer,.ag-newchat-extras{width:100%;max-width:720px;align-self:center}
   .ag-split.has-preview .ag{flex:0 0 clamp(340px,34vw,460px)}
+  /* The chat column flexes with the DEVICE being previewed. A phone
+     mockup is only ~270px wide, so a preview pane sized for a MacBook
+     left a few hundred px of empty stage next to it while the composer
+     stayed cramped. These hand that width back to the chat for the phone
+     and take it again for the iPad and MacBook. .ag-split gets the
+     pv-* class from syncPreviewPaneSize() in the script below.
+     Scoped to >900px: below that the layout is single-column tabs, so
+     there are no columns to balance. */
+  @media (min-width:901px){
+    /* Primary: read the frame's OWN class. "has-preview" is added from
+       four different places in the script, but syncPreviewPaneSize() only
+       runs from two of them — so on a first preview the .pv-* class below
+       was never set and the column fell back to the base width, which is
+       why the phone sat wrong until you switched to laptop and back.
+       Deriving straight from .ag-pv-frame removes the mirror entirely, so
+       there is nothing left to fall out of sync. */
+    .ag-split.has-preview:has(.ag-pv-frame.mobile)  .ag{flex:0 0 clamp(420px,50vw,760px)}
+    .ag-split.has-preview:has(.ag-pv-frame.tablet)  .ag{flex:0 0 clamp(360px,36vw,540px)}
+    .ag-split.has-preview:has(.ag-pv-frame.desktop) .ag{flex:0 0 clamp(340px,28vw,430px)}
+  }
+  @media (min-width:901px){
+    /* Fallback for engines without :has(). Kept as SEPARATE rules — an
+       unsupported :has() would invalidate the whole selector list if these
+       were combined with the ones above. syncPreviewPaneSize() still sets
+       these classes, so this path keeps working there. */
+    .ag-split.has-preview.pv-mobile  .ag{flex:0 0 clamp(420px,50vw,760px)}
+    .ag-split.has-preview.pv-tablet  .ag{flex:0 0 clamp(360px,36vw,540px)}
+    .ag-split.has-preview.pv-desktop .ag{flex:0 0 clamp(340px,28vw,430px)}
+  }
   .ag-head{display:none}
   .ag-head .mark{width:26px;height:26px;border-radius:7px;background:var(--accent);display:grid;place-items:center}
   .ag-head .mark svg{width:15px;height:15px;color:#fff}
@@ -228,7 +257,7 @@
      drop the travel and the pop. */
   @media (prefers-reduced-motion:reduce){
     .ag-user .bubble,.ag-think,.ag-say,.ag-thinking,.ag-card,
-    .ag-empty h2,.ag-empty-sub{animation-duration:.01ms!important;animation-delay:0s!important}
+    .ag-empty h2{animation-duration:.01ms!important;animation-delay:0s!important}
     .ag-think:not(.busy) .ic svg{animation:none}
     .ag-th-dot{animation:none!important}
     /* The composer bloom and rim beam keep their appearance but stop
@@ -641,8 +670,6 @@
      into the greeting too, so the whole hero reads as "armed" the moment
      the mode is picked, not just the composer. */
   body.power-mode .ag-empty h2 .hi{color:#e11d48}
-  .ag-empty-sub{color:var(--ink-2);font-size:clamp(.98rem,1.6vw,1.08rem);line-height:1.55;
-    max-width:44ch;margin:0 auto;opacity:0;animation:agIn .5s var(--ease) .09s forwards}
 
   /* New-chat-only extras: type tiles + example prompts, both hidden the
      moment a first turn lands (see isFirstBuild in runTurn()) — the same
@@ -916,8 +943,11 @@
      naturally push this box's centered content down on its own) — without
      it, the mockup centers through the toggle's own space on a shorter
      viewport and the two visibly collide. */
+  /* perspective is what makes the desktop frame's lid-open rotateX read
+     as a hinge instead of a vertical squash — see @keyframes macEnter. */
   .ag-pv-stage{position:relative;flex:1;min-height:0;display:flex;align-items:center;justify-content:center;
-    padding:clamp(12px,2.5vw,24px);padding-top:64px;overflow:hidden;background:var(--paper)}
+    padding:clamp(12px,2.5vw,24px);padding-top:64px;overflow:hidden;background:var(--paper);
+    perspective:1600px}
   .ag-pv-frame{
     position:relative;
     transition:all .3s cubic-bezier(0.16,1,0.3,1);
@@ -976,42 +1006,56 @@
   }
 
   /* ═══════════════════════════════════════════════════════════════════
-     1. DESKTOP — Apple Studio Display / iMac
+     1. DESKTOP — Space Black MacBook Pro
+     Matches the hero flank mockup on home.html (.macbook-lid /
+     .macbook-screen / .macbook-base there), so the marketing page and
+     the product preview show the same machine. This used to be a silver
+     Studio Display on a stem-and-foot stand; the frame IS the lid now,
+     and .mac-stand below is repurposed into the base — see the comment
+     on that rule for why the markup kept its old class names.
      ═══════════════════════════════════════════════════════════════════ */
   .ag-pv-frame.desktop {
     width: min(800px, calc(100% - 48px)); height: auto; max-height: calc(100% - 80px);
     aspect-ratio: 16 / 9;
     overflow: visible;
-    /* Silver aluminum enclosure */
-    background: linear-gradient(
-      165deg,
-      #d4d4d8 0%, #e0e0e5 8%, #c8c8ce 16%, #d8d8de 28%,
-      #bfbfc7 42%, #ceced4 55%, #c0c0c8 68%, #d0d0d6 80%,
-      #bebec6 90%, #ccccd2 100%
-    );
-    border: none;
-    padding: 10px;
-    border-radius: 6px;
+    /* A real MacBook reads as a BLACK bezel with only a thin silver
+       chassis edge showing around it — not a wide silver picture-frame,
+       which is what a thick light border looks like (and it looked like
+       cheap plastic). So: the border is the black bezel, and the silver
+       is a 2px box-shadow ring just outside it, with a brighter hairline
+       on top of that for the machined-edge highlight. */
+    background: #0a0a0c;
+    border: 10px solid #0b0b0d;
+    padding: 0;
+    /* Tight radius — MacBook display corners are subtle, not pill-like.
+       Square at the bottom so the lid meets the base flush. */
+    border-radius: 11px 11px 3px 3px;
     position: relative;
     transform-origin: bottom center;
     transition: transform 0.7s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.5s ease;
     box-shadow:
-      0 25px 70px -8px rgba(0,0,0,0.45),
-      0 8px 18px -4px rgba(0,0,0,0.3),
-      0 0 0 0.5px rgba(255,255,255,0.3);
+      0 0 0 2px #b4b4bd,                    /* silver chassis edge      */
+      0 0 0 2.5px rgba(255,255,255,0.55),   /* machined highlight       */
+      0 30px 60px -18px rgba(0,0,0,0.55),   /* cast shadow              */
+      0 6px 16px -6px rgba(0,0,0,0.35);
   }
   .ag-pv-frame.desktop::before {
-    /* Camera dot — top center bezel */
+    /* FaceTime camera, centred in the top bezel */
     content: "";
-    position: absolute; top: 3px; left: 50%; transform: translateX(-50%);
-    width: 3px; height: 3px; background: #1a1a1e; border-radius: 50%;
+    position: absolute; top: -9px; left: 50%; transform: translateX(-50%);
+    width: 5px; height: 5px; background: #2a2a30; border-radius: 50%;
+    border: 1px solid rgba(255,255,255,0.35);
     z-index: 40; pointer-events: none;
-    box-shadow: inset 0 0 1px rgba(0,180,80,0.3);
   }
   .ag-pv-frame.desktop::after { display: none; }
 
   .ag-pv-frame.desktop .ip-screen {
-    width: 100%; height: 100%; border-radius: 0;
+    /* MUST match the bezel's INNER radius, which is the frame's
+       border-radius minus its border-width (11px - 10px = 1px). When the
+       screen was rounded more than the bezel's inner curve, the chassis
+       showed through as a bright wedge in each corner — that was the
+       ugly "edges" artifact, not the bezel itself. */
+    width: 100%; height: 100%; border-radius: 2px;
     background: #020203; position: relative; overflow: hidden;
     box-shadow:
       inset 0 0 50px rgba(0,0,0,0.75),
@@ -1033,40 +1077,59 @@
   .ag-pv-frame.desktop .macbook-body,
   .ag-pv-frame.desktop .macbook-ports { display: none; }
 
-  /* ═══ Display Stand — Apple Studio Display foot ═══ */
+  /* ═══ MacBook base (the lower half + hinge) ═══
+     Still called .mac-stand in the markup because it used to be a Studio
+     Display stem-and-foot stand. Rather than churn the HTML and the JS
+     that walks it, the same two elements are restyled: .stem is now the
+     hinge notch, .foot is unused. Kept desktop-only, same as before. */
   .mac-stand {
     display: none;
     position: absolute;
-    bottom: -40px; left: 50%; transform: translateX(-50%);
+    /* An absolutely-positioned child is offset from its container's
+       PADDING box, which excludes the lid's border — so the offset has to
+       cover the border AND this element's own height for the base to sit
+       flush under the lid rather than overlapping it:
+       10px border + 11px .foot height = 21px. (Get this wrong and the
+       base sits INSIDE the lid — at -16px against a 13px border only 3px
+       of it showed.) left/right are -10px for the same reason: that
+       lands them exactly on the lid's outer edge. */
+    bottom: -21px; left: -10px; right: -10px;
     z-index: 32; pointer-events: none;
   }
   .ag-pv-frame.desktop .mac-stand { display: block; }
   .mac-stand .stem {
-    width: 28px; height: 30px; margin: 0 auto;
-    background: linear-gradient(90deg,
-      #d0d0d6 0%, #e2e2e8 25%, #c8c8ce 50%, #dcdce2 75%, #c4c4ca 100%
-    );
-    border-radius: 3px 3px 0 0;
-    box-shadow: inset 0 1px 0 rgba(255,255,255,0.2);
+    /* Hinge notch — the shallow cut-out centred on the front edge.
+       Darker than the base so it reads as a recess, not a raised tab. */
+    position: absolute; top: 0; left: 42%; width: 16%; height: 5px;
+    background: linear-gradient(180deg, #9a9aa2 0%, #b4b4bc 100%);
+    border-radius: 0 0 6px 6px;
+    z-index: 1;
   }
   .mac-stand .foot {
-    width: 70px; height: 8px;
-    background: linear-gradient(180deg,
-      #d8d8de 0%, #c0c0c8 40%, #b0b0b8 100%
-    );
-    border-radius: 3px 3px 6px 6px;
+    /* The base slab itself — same silver family as the lid, shaded
+       downward so it reads as sitting under the hinge. */
+    width: 100%; height: 15px;
+    background: linear-gradient(180deg, #d8d8de 0%, #c4c4cc 45%, #b0b0b8 100%);
+    border-radius: 0 0 17px 17px;
     box-shadow:
-      0 3px 10px rgba(0,0,0,0.3),
-      inset 0 1px 0 rgba(255,255,255,0.15);
+      inset 0 1px 0 rgba(255,255,255,0.5),
+      inset 0 -3px 6px rgba(0,0,0,0.18),
+      0 14px 26px -10px rgba(0,0,0,0.45);
   }
 
-  /* Entry animation — monitor appears from above */
+  /* Entry animation — the lid opens. transform-origin is already
+     bottom center on the frame, and .ag-pv-stage supplies the
+     perspective, so rotateX reads as a hinge rather than a squash. */
   .ag-pv-frame.desktop.entering {
-    animation: macEnter 0.8s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    animation: macEnter 0.85s cubic-bezier(0.22, 1, 0.36, 1) forwards;
   }
   @keyframes macEnter {
-    0%   { transform: translateY(-30px) scale(0.92); opacity: 0.15; }
-    100% { transform: translateY(0) scale(1); opacity: 1; }
+    0%   { transform: rotateX(-78deg) translateY(6px); opacity: 0.15; }
+    60%  { opacity: 1; }
+    100% { transform: rotateX(0deg) translateY(0); opacity: 1; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .ag-pv-frame.desktop.entering { animation: none; }
   }
 
   /* ═══════════════════════════════════════════════════════════════════
@@ -1444,6 +1507,33 @@
     }
     .ag.is-new .ag-hero {
       padding-top: 20px !important;
+    }
+    /* The Sidebar / Preview buttons are position:fixed at the top, but the
+       chat column scrolls the full height of the screen underneath them —
+       so message text slid up and showed through the gap between the two
+       buttons, which read as broken. This paints a solid band in the same
+       paper colour across that strip (just under the buttons' own
+       z-index), and .ag reserves matching room so nothing starts beneath
+       it either. The band is pointer-events:none so it can't swallow taps
+       meant for the buttons. */
+    .ag-main::before{
+      content:"";position:fixed;top:0;left:0;right:0;height:52px;
+      background:var(--paper);z-index:999998;pointer-events:none;
+    }
+    .ag{padding-top:52px}
+
+    /* Composer sits on the BOTTOM of the column once a conversation has
+       started. .ag-log is flex:0 0 auto here (it has to size to its own
+       content, see the note further down), so with a short conversation
+       there is leftover space in .ag and the composer was landing in the
+       middle of the screen with dead space under it. margin-top:auto
+       absorbs exactly that leftover space and does nothing once the log
+       is long enough to fill the column, so it can't push anything off.
+       Scoped to :not(.is-new) because on the new-chat screen .ag-hero is
+       a real flex container that deliberately CENTERS the greeting +
+       composer group — pushing the composer down there would break it. */
+    .ag:not(.is-new) .ag-composer {
+      margin-top: auto;
     }
     /* The device-size picker only means something once there's room to
        switch between iPhone/iPad/monitor shapes side by side — desktop
@@ -2088,7 +2178,11 @@
 </aside>
 
 <div class="ag-main" id="agMain">
-  <button type="button" class="ag-pv-toggle-btn on" id="agDeskSidebarToggle" title="Toggle Sidebar">
+  <!-- No "on" class here: the markup used to ship this button pre-lit while
+       .ag-history started closed, so on load it claimed the sidebar was
+       open when it wasn't. State is set by initSidebarState() in the
+       script and by toggleSidebar() thereafter — nowhere else. -->
+  <button type="button" class="ag-pv-toggle-btn" id="agDeskSidebarToggle" title="Toggle Sidebar">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
       <rect x="3" y="3" width="18" height="18" rx="3.5"/>
       <path d="M9 3v18"/>
@@ -2124,7 +2218,6 @@
     <div class="ag-log" id="agLog" aria-live="polite">
       <div class="ag-empty" id="agEmptyState">
         <h2 id="agGreeting">What are we <span class="hi">building</span> today?</h2>
-        <p class="ag-empty-sub">Describe your business in one sentence. Your first build is free — no card needed.</p>
       </div>
     </div>
     <form class="ag-composer" id="agForm" autocomplete="off">
@@ -2193,6 +2286,8 @@
             <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 0 1 0 18 15 15 0 0 1 0-18z"/></svg></span>Website</button>
           <button type="button" class="ag-tile" data-type="webapp" role="radio" aria-checked="false">
             <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18"/></svg></span>Web App</button>
+          <button type="button" class="ag-tile" data-type="game" role="radio" aria-checked="false">
+            <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M6 12h4M8 10v4"/><circle cx="15.5" cy="11" r="1"/><circle cx="17.5" cy="14" r="1"/><path d="M17.7 6H6.3a4.3 4.3 0 0 0-4.24 3.6l-1 6A3.4 3.4 0 0 0 4.4 19.5c1 0 1.9-.45 2.5-1.2L8.4 16.5h7.2l1.5 1.8c.6.75 1.5 1.2 2.5 1.2a3.4 3.4 0 0 0 3.34-3.9l-1-6A4.3 4.3 0 0 0 17.7 6z"/></svg></span>Game</button>
           <button type="button" class="ag-tile" data-type="dashboard" role="radio" aria-checked="false">
             <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg></span>Dashboard</button>
           <button type="button" class="ag-tile" data-type="portfolio" role="radio" aria-checked="false">
@@ -2570,7 +2665,14 @@
 
   function showInterruptUnderUserMessage() {
     removeInterruptRow();
-    if (!building) return;
+    // Only offer "Interrupt Agent" when something is actually WAITING on
+    // the current turn. It used to appear for every in-flight turn, so it
+    // showed on a normal single build where there is nothing queued behind
+    // it and interrupting just throws the turn away. Gated on the queue,
+    // it now means what it says: stop this turn so the queued prompt can
+    // run. updateQueueBanner() re-runs this whenever the queue changes, so
+    // it appears the moment something is queued and clears when it drains.
+    if (!building || buildQueue.length === 0) return;
     const lastUserMsg = agLog.querySelector(".ag-user:last-of-type");
     if (!lastUserMsg) return;
     const row = el("ag-interrupt-row");
@@ -2736,6 +2838,12 @@
     } else if (qb) {
       qb.remove();
     }
+    // The interrupt row is gated on the queue (see
+    // showInterruptUnderUserMessage), so it has to be re-evaluated on every
+    // queue change — both to show it when a prompt is queued mid-turn and
+    // to clear it when the queue is cancelled or drained.
+    if (building && buildQueue.length > 0) showInterruptUnderUserMessage();
+    else removeInterruptRow();
   }
 
   function updateComposerSendButton() {
@@ -2994,6 +3102,21 @@
   // reopened project (boot()/loadProjectPreview()) gets the same sensible
   // device framing a fresh build does, instead of whatever the static
   // markup happened to ship with.
+  // Mirrors the chosen device size onto .ag-split so the SPLIT can react,
+  // not just the mockup. A phone mockup is ~270px wide but the preview
+  // pane was always the same width, so previewing mobile wasted a few
+  // hundred px on empty stage while the chat column stayed cramped. The
+  // CSS keyed off .pv-mobile/.pv-tablet/.pv-desktop hands that width back
+  // to the chat when it isn't needed, and takes it again for the iPad and
+  // MacBook. Called from BOTH places that set the size class, or the two
+  // paths drift out of sync.
+  function syncPreviewPaneSize(size) {
+    const split = document.querySelector(".ag-split");
+    if (!split) return;
+    split.classList.remove("pv-mobile", "pv-tablet", "pv-desktop");
+    split.classList.add("pv-" + (size || "mobile"));
+  }
+
   function applyDeviceFrame() {
     if (!agPvDevices || !agPvFrame) return;
     if (window.innerWidth < 650 || !window.__wcSupported) {
@@ -3003,6 +3126,14 @@
       agPvFrame.classList.remove("tablet", "desktop", "entering", "opening");
       agPvFrame.classList.add("mobile");
     }
+    // Read back whichever size is actually on the frame — this function
+    // only forces "mobile" on small screens, otherwise it leaves the
+    // existing choice alone.
+    syncPreviewPaneSize(
+      agPvFrame.classList.contains("desktop") ? "desktop"
+        : agPvFrame.classList.contains("tablet") ? "tablet"
+        : "mobile"
+    );
     void agPvFrame.offsetWidth;
     agPvFrame.classList.add("entering");
   }
@@ -3202,6 +3333,7 @@
           agPvFrame.classList.remove("tablet", "mobile", "desktop", "entering", "opening");
           const targetSize = btn.dataset.size || "mobile";
           agPvFrame.classList.add(targetSize);
+          syncPreviewPaneSize(targetSize);
           void agPvFrame.offsetWidth;
           agPvFrame.classList.add("entering");
         }
@@ -3233,6 +3365,26 @@
   if (agDeskSidebarToggle) agDeskSidebarToggle.addEventListener("click", () => window.toggleSidebar());
   if (agHistCloseBtn) agHistCloseBtn.addEventListener("click", () => window.toggleSidebar(false));
   if (agHistBackdrop) agHistBackdrop.addEventListener("click", () => window.toggleSidebar(false));
+
+  // Sidebar opens by default on desktop and stays closed on mobile, where
+  // it covers the whole screen as a drawer. Routed through toggleSidebar()
+  // rather than adding classes directly, so the panel, the toggle button,
+  // the close button and the backdrop can never disagree — the markup used
+  // to ship the button pre-lit while the panel was closed, which is why it
+  // claimed the sidebar was open on load.
+  (function initSidebarState() {
+    const hist = document.querySelector(".ag-history");
+    if (!hist || typeof window.toggleSidebar !== "function") return;
+    const wide = window.matchMedia("(min-width:901px)").matches;
+    // Suppress the width transition for the first paint only, or the
+    // sidebar visibly slides in on every single page load, which reads as
+    // a glitch rather than an intentional animation.
+    const prev = hist.style.transition;
+    hist.style.transition = "none";
+    window.toggleSidebar(wide);
+    void hist.offsetWidth; // flush the no-transition state before restoring
+    hist.style.transition = prev;
+  })();
 
   const agDeskPreviewToggle = $("agDeskPreviewToggle");
   const agDeskPreviewToggleLabel = $("agDeskPreviewToggleLabel");
@@ -3465,7 +3617,7 @@
 
   /* ---------- account sidebar: Home / Favorites / Domains / Stats / Settings ---------- */
   const STAR = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01z"/></svg>';
-  const TYPE_COLOR = { website: "#1aa6df", webapp: "#7c5cff", dashboard: "#f59e0b", portfolio: "#ec4899", mobile: "#10b981" };
+  const TYPE_COLOR = { website: "#1aa6df", webapp: "#7c5cff", game: "#f43f5e", dashboard: "#f59e0b", portfolio: "#ec4899", mobile: "#10b981" };
   // A per-type glyph for the project tile, matching the reference's
   // coloured mark on a black square. Falls back to the title's first
   // letter for anything without a mapped type, so an older project
@@ -3476,7 +3628,8 @@
     webapp: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18"/></svg>',
     dashboard: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>',
     portfolio: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1.3"/><rect x="14" y="3" width="7" height="7" rx="1.3"/><rect x="3" y="14" width="7" height="7" rx="1.3"/><rect x="14" y="14" width="7" height="7" rx="1.3"/></svg>',
-    mobile: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></svg>'
+    mobile: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></svg>',
+    game: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 12h4M8 10v4"/><circle cx="15.5" cy="11" r="1"/><circle cx="17.5" cy="14" r="1"/><path d="M17.7 6H6.3a4.3 4.3 0 0 0-4.24 3.6l-1 6A3.4 3.4 0 0 0 4.4 19.5c1 0 1.9-.45 2.5-1.2L8.4 16.5h7.2l1.5 1.8c.6.75 1.5 1.2 2.5 1.2a3.4 3.4 0 0 0 3.34-3.9l-1-6A4.3 4.3 0 0 0 17.7 6z"/></svg>'
   };
   function timeAgo(iso) {
     const s = (Date.now() - new Date(iso)) / 1000;
@@ -3662,7 +3815,7 @@
   }
 
   const agStatGrid = $("agStatGrid"), agStatTypes = $("agStatTypes");
-  const TYPE_LABEL = { website: "Website", webapp: "Web App", dashboard: "Dashboard", portfolio: "Portfolio", mobile: "Mobile", landing: "Landing Page", blog: "Blog", ecommerce: "Store" };
+  const TYPE_LABEL = { website: "Website", webapp: "Web App", game: "Game", dashboard: "Dashboard", portfolio: "Portfolio", mobile: "Mobile", landing: "Landing Page", blog: "Blog", ecommerce: "Store" };
   async function loadStats() {
     if (statsLoaded) return;
     statsLoaded = true;
@@ -3807,34 +3960,41 @@
     if (!agSetOverlay.hidden) { closeSettings(); return; } // topmost layer first
     closeHistory();
   });
+  /* The greeting subtext and its rotator were removed from this page —
+     the line lives on the home hero now. The .bh-glow-word class it used
+     was never defined in this file anyway (it only exists in home.html's
+     stylesheet), so the exit/enter/sweep states silently did nothing
+     here; only the 3.8s textContent swap was ever visible. */
 
-
-  /* ---------- boot: /agent/<slug> replays a project on reload ----------
-     docs/CODE-AGENT-PLAN.md Phase 7 — the actual point of persistence.
-     /agent with no slug is the blank composer state already in the HTML;
-     nothing to do there. */
-  (function checkHandoffPrompt() {
+  function checkHandoffPrompt() {
     try {
       const raw = sessionStorage.getItem("souqi_agent_prompt");
       if (!raw) return;
       sessionStorage.removeItem("souqi_agent_prompt");
       const data = JSON.parse(raw);
-      if (data && data.prompt && (Date.now() - (data.at || 0) < 120000)) {
+      if (data && data.prompt && (Date.now() - (data.at || 0) < 300000)) {
         if (data.mode && typeof selectedType !== "undefined") {
           selectedType = data.mode.toLowerCase();
         }
-        setTimeout(() => {
-          if (typeof agInput !== "undefined" && agInput) {
-            agInput.value = data.prompt;
-            agInput.dispatchEvent(new Event("input"));
+        const doRun = () => {
+          const inp = document.getElementById("agInput");
+          if (inp) {
+            inp.value = data.prompt;
+            inp.dispatchEvent(new Event("input"));
           }
-          if (typeof runTurn === "function") {
+          if (typeof runTurn === "function" && (data.autoRun !== false)) {
             runTurn(data.prompt);
           }
-        }, 200);
+        };
+        if (document.readyState === "complete" || document.readyState === "interactive") {
+          setTimeout(doRun, 300);
+        } else {
+          window.addEventListener("DOMContentLoaded", () => setTimeout(doRun, 300));
+        }
       }
     } catch(e) {}
-  })();
+  }
+  checkHandoffPrompt();
 
   (async function boot() {
     const m = /^\/agent\/([a-z0-9-]{1,60})$/i.exec(location.pathname);
@@ -4030,5 +4190,6 @@ document.addEventListener("DOMContentLoaded", function() {
   }
 });
 </script>
+<script src="js/nav-loading.js?v=1"></script>
 </body>
 </html>
