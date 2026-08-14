@@ -127,111 +127,208 @@
     pointer-events: none;
     user-select: none;
     transition: transform 0.6s var(--ease), opacity 0.6s var(--ease);
-    filter: drop-shadow(0 28px 56px rgba(18, 32, 46, 0.22));
+    filter: drop-shadow(0 32px 64px rgba(15, 23, 42, 0.28));
   }
 
-  /* Left — MacBook Pro (Split 50% in half, 0 deg upright) */
+  /* Left — MacBook Pro Space Black (50% Split) */
   .hero-device-macbook {
-    left: -290px;
+    left: -300px;
     top: 50%;
     transform: translateY(-50%);
-    width: 580px;
-    opacity: 0.95;
+    width: 600px;
+    opacity: 0.96;
   }
   @media (max-width: 1400px) {
-    .hero-device-macbook { left: -250px; width: 500px; }
+    .hero-device-macbook { left: -260px; width: 520px; }
   }
   @media (max-width: 1100px) {
     .hero-device-macbook { display: none; }
   }
 
   .macbook-lid {
-    background: #1e293b;
-    border: 11px solid #0f172a;
-    border-radius: 22px 22px 4px 4px;
+    background: linear-gradient(145deg, #1e2430 0%, #0d1117 100%);
+    border: 12px solid #0f172a;
+    border-radius: 24px 24px 4px 4px;
     padding: 3px;
-    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18);
+    position: relative;
+    box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.2), 0 0 40px rgba(56, 189, 248, 0.12);
+  }
+  .macbook-camera {
+    position: absolute; top: 5px; left: 50%; transform: translateX(-50%);
+    width: 6px; height: 6px; background: #000; border-radius: 50%; border: 1px solid #334155; z-index: 10;
   }
   .macbook-screen {
-    background: #ffffff;
+    background: #0b0f19;
     border-radius: 12px;
-    height: 330px;
+    height: 350px;
     overflow: hidden;
     display: flex;
     flex-direction: column;
+    box-shadow: inset 0 0 20px rgba(0,0,0,0.8);
   }
   .macbook-header {
-    height: 28px; background: #f1f5f9; border-bottom: 1px solid #e2e8f0;
-    display: flex; align-items: center; gap: 7px; padding: 0 12px;
+    height: 30px; background: #131b2e; border-bottom: 1px solid #1e293b;
+    display: flex; align-items: center; justify-content: space-between; padding: 0 12px;
   }
+  .mac-dots { display: flex; align-items: center; gap: 6px; }
   .mac-dot { width: 9px; height: 9px; border-radius: 50%; }
   .mac-dot.red { background: #ef4444; }
   .mac-dot.yellow { background: #f59e0b; }
   .mac-dot.green { background: #22c55e; }
-  .mac-url { margin-left: auto; margin-right: auto; font-size: 0.74rem; color: #64748b; font-family: monospace; font-weight: 500; }
+  .mac-url {
+    font-size: 0.72rem; color: #94a3b8; font-family: monospace; font-weight: 500;
+    background: #0f172a; border: 1px solid #1e293b; border-radius: 6px; padding: 2px 14px;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .mac-url svg { width: 12px; height: 12px; color: #38bdf8; }
+  .mac-url b { color: #f8fafc; font-weight: 600; }
+  .mac-actions span { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #475569; margin-left: 4px; }
 
-  .macbook-content { display: flex; flex: 1; height: calc(100% - 28px); }
-  .mac-sidebar { width: 84px; background: #f8fafc; border-right: 1px solid #e2e8f0; padding: 12px 10px; display: flex; flex-direction: column; gap: 10px; }
-  .mac-sidebar div { height: 12px; border-radius: 5px; background: #cbd5e1; width: 100%; }
-  .mac-main { flex: 1; padding: 16px; display: flex; flex-direction: column; gap: 12px; background: #fafafa; }
-  .mac-hero-banner { height: 85px; background: linear-gradient(135deg, #0284c7, #7c3aed); border-radius: 10px; }
-  .mac-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; flex: 1; }
-  .mac-grid div { background: #f1f5f9; border-radius: 8px; border: 1px solid #e2e8f0; }
+  .macbook-content { display: flex; flex: 1; height: calc(100% - 30px); background: #0b0f19; color: #f8fafc; }
+  .mac-sidebar { width: 90px; background: #0f172a; border-right: 1px solid #1e293b; padding: 12px 10px; display: flex; flex-direction: column; gap: 10px; }
+  .mac-side-item { height: 16px; border-radius: 6px; background: #1e293b; display: flex; align-items: center; gap: 6px; padding: 0 6px; }
+  .mac-side-item.on { background: rgba(56, 189, 248, 0.2); border: 1px solid rgba(56, 189, 248, 0.4); }
+  .mac-side-item .ic { width: 8px; height: 8px; border-radius: 50%; background: #38bdf8; }
+  .mac-side-item .txt { flex: 1; height: 4px; background: rgba(255,255,255,0.3); border-radius: 2px; }
+
+  .mac-main { flex: 1; padding: 14px; display: flex; flex-direction: column; gap: 12px; background: #0b0f19; text-align: left; }
+  .mac-top-banner {
+    height: 75px; background: linear-gradient(135deg, rgba(14, 165, 233, 0.25), rgba(124, 58, 237, 0.25));
+    border: 1px solid rgba(56, 189, 248, 0.3); border-radius: 12px; padding: 12px 14px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .mac-stat-col small { display: block; font-size: 0.68rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.04em; }
+  .mac-stat-col b { display: block; font-size: 1.1rem; color: #f8fafc; font-weight: 700; margin-top: 2px; }
+  .mac-stat-col .up { font-size: 0.72rem; color: #4ade80; font-weight: 600; }
+  .mac-mini-chart { width: 100px; height: 36px; }
+
+  .mac-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; flex: 1; }
+  .mac-code-box {
+    background: #090d16; border: 1px solid #1e293b; border-radius: 10px; padding: 10px;
+    font-family: monospace; font-size: 0.68rem; line-height: 1.6; color: #cbd5e1;
+  }
+  .mac-code-box .k { color: #c084fc; font-weight: 600; }
+  .mac-code-box .v { color: #38bdf8; }
+  .mac-code-box .f { color: #facc15; }
+  .mac-code-box .s { color: #4ade80; }
+  .mac-code-box .p { color: #fb7185; }
+  .mac-code-box .b { color: #60a5fa; }
+
+  .mac-preview-box {
+    background: #0f172a; border: 1px solid #1e293b; border-radius: 10px; padding: 10px;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .prev-hdr { display: flex; gap: 6px; }
+  .prev-hdr div { height: 8px; background: #334155; border-radius: 4px; flex: 1; }
+  .prev-body { height: 40px; background: linear-gradient(135deg, #1e293b, #0f172a); border-radius: 8px; padding: 8px; }
+  .prev-body .pill { display: block; width: 40%; height: 6px; background: #38bdf8; border-radius: 4px; margin-bottom: 4px; }
+  .prev-body .bar { display: block; width: 70%; height: 4px; background: #475569; border-radius: 2px; }
 
   .macbook-base {
-    height: 14px; background: #94a3b8; border-radius: 0 0 16px 16px;
+    height: 14px; background: linear-gradient(180deg, #334155, #1e293b); border-radius: 0 0 16px 16px;
     margin-top: 1px; position: relative;
-    box-shadow: inset 0 -3px 6px rgba(0,0,0,0.25);
+    box-shadow: inset 0 -3px 6px rgba(0,0,0,0.3);
   }
-  .macbook-base::after {
-    content: ""; position: absolute; top: 0; left: 42%; width: 16%; height: 5px;
-    background: #64748b; border-radius: 0 0 5px 5px;
+  .macbook-notch {
+    position: absolute; top: 0; left: 42%; width: 16%; height: 5px;
+    background: #0f172a; border-radius: 0 0 5px 5px;
   }
 
-  /* Right — iPhone 16 Pro (Split 50% in half, 0 deg upright) */
+  /* Right — Titanium iPhone 16 Pro (50% Split) */
   .hero-device-iphone {
-    right: -150px;
+    right: -160px;
     top: 50%;
     transform: translateY(-50%);
-    width: 300px;
-    opacity: 0.95;
+    width: 320px;
+    opacity: 0.96;
   }
   @media (max-width: 1400px) {
-    .hero-device-iphone { right: -130px; width: 260px; }
+    .hero-device-iphone { right: -130px; width: 270px; }
   }
   @media (max-width: 1100px) {
     .hero-device-iphone { display: none; }
   }
 
+  .iphone-side-btn {
+    position: absolute; background: #334155; border-radius: 3px; z-index: 1;
+  }
+  .btn-vol-up { left: -4px; top: 110px; width: 4px; height: 38px; }
+  .btn-vol-dn { left: -4px; top: 160px; width: 4px; height: 38px; }
+  .btn-power { right: -4px; top: 130px; width: 4px; height: 56px; }
+
   .iphone-bezel {
-    background: #0f172a;
-    border: 10px solid #1e293b;
-    border-radius: 50px;
+    background: #0b0f19;
+    border: 11px solid #1e293b;
+    border-radius: 54px;
     padding: 8px;
     position: relative;
-    box-shadow: 0 28px 56px rgba(0,0,0,0.28), inset 0 0 0 1px rgba(255,255,255,0.18);
+    box-shadow: 0 32px 64px rgba(0,0,0,0.35), inset 0 0 0 1.5px rgba(255,255,255,0.22);
   }
   .iphone-island {
     position: absolute; top: 16px; left: 50%; transform: translateX(-50%);
-    width: 82px; height: 22px; background: #000000; border-radius: 20px; z-index: 10;
+    width: 86px; height: 24px; background: #000000; border-radius: 20px; z-index: 20;
+    display: flex; align-items: center; justify-content: flex-end; padding-right: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.6);
   }
+  .island-cam { width: 10px; height: 10px; border-radius: 50%; background: #0f172a; border: 1px solid #1e293b; }
+
   .iphone-screen {
-    background: #ffffff;
-    border-radius: 42px;
-    height: 480px;
+    background: #0f172a;
+    color: #f8fafc;
+    border-radius: 44px;
+    height: 500px;
     overflow: hidden;
-    padding-top: 44px;
+    padding-top: 14px;
     display: flex;
     flex-direction: column;
   }
-  .iphone-app { padding: 12px; display: flex; flex-direction: column; gap: 10px; height: 100%; text-align: left; }
-  .ip-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
-  .ip-title { font-size: 0.85rem; font-weight: 700; color: #0f172a; }
-  .ip-badge { font-size: 0.65rem; font-weight: 700; background: #22c55e; color: #fff; padding: 2px 7px; border-radius: 99px; }
-  .ip-card { height: 100px; background: linear-gradient(135deg, #0284c7, #38bdf8); border-radius: 16px; }
+  .iphone-status-bar {
+    height: 30px; display: flex; align-items: center; justify-content: space-between;
+    padding: 0 20px; font-size: 0.76rem; font-weight: 700; color: #f8fafc; z-index: 10;
+  }
+  .ip-icons { display: flex; align-items: center; gap: 6px; }
+  .ip-ic { width: 14px; height: 14px; color: #f8fafc; }
+  .ip-bat { width: 18px; height: 9px; border: 1.5px solid #f8fafc; border-radius: 3px; position: relative; }
+  .ip-bat::after { content:""; position: absolute; right: -3px; top: 2px; width: 2px; height: 3px; background: #f8fafc; border-radius: 0 1px 1px 0; }
+
+  .iphone-app { padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; height: 100%; text-align: left; }
+  .ip-header { display: flex; align-items: center; justify-content: space-between; }
+  .ip-brand-wrap { display: flex; align-items: center; gap: 8px; }
+  .ip-logo { width: 32px; height: 32px; background: linear-gradient(135deg, #f59e0b, #d97706); border-radius: 10px; display: grid; place-items: center; font-size: 1rem; }
+  .ip-title { display: block; font-size: 0.88rem; font-weight: 700; color: #f8fafc; }
+  .ip-sub { display: block; font-size: 0.68rem; color: #94a3b8; }
+  .ip-badge { font-size: 0.65rem; font-weight: 700; background: rgba(34, 197, 94, 0.2); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.4); padding: 3px 8px; border-radius: 99px; }
+
+  .ip-card {
+    height: 110px; background: linear-gradient(135deg, #0284c7, #38bdf8); border-radius: 18px;
+    padding: 14px; display: flex; flex-direction: column; justify-content: flex-end; position: relative; overflow: hidden;
+    box-shadow: 0 8px 20px rgba(2, 132, 199, 0.3);
+  }
+  .ip-card-badge { position: absolute; top: 12px; right: 12px; font-size: 0.65rem; font-weight: 700; background: rgba(0,0,0,0.3); color: #fff; padding: 2px 7px; border-radius: 99px; }
+  .ip-card-txt { font-size: 0.98rem; font-weight: 800; color: #ffffff; }
+  .ip-card-sub { font-size: 0.7rem; color: rgba(255,255,255,0.85); margin-top: 2px; }
+
+  .ip-section-title { font-size: 0.76rem; font-weight: 700; color: #cbd5e1; text-transform: uppercase; letter-spacing: 0.04em; margin-top: 4px; }
   .ip-list { display: flex; flex-direction: column; gap: 8px; flex: 1; }
-  .ip-list div { height: 32px; background: #f1f5f9; border-radius: 10px; }
-  .ip-btn { height: 38px; background: #0f172a; color: #ffffff; font-size: 0.8rem; font-weight: 600; border-radius: 12px; display: grid; place-items: center; margin-top: auto; }
+  .ip-item {
+    background: #1e293b; border: 1px solid #334155; border-radius: 14px; padding: 8px 10px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .ip-item .thumb { width: 34px; height: 34px; border-radius: 8px; flex: none; }
+  .ip-item .thumb.t1 { background: linear-gradient(135deg, #7c3aed, #c084fc); }
+  .ip-item .thumb.t2 { background: linear-gradient(135deg, #f59e0b, #fbbf24); }
+  .ip-item .info { flex: 1; }
+  .ip-item .info b { display: block; font-size: 0.78rem; font-weight: 700; color: #f8fafc; }
+  .ip-item .info small { display: block; font-size: 0.7rem; color: #38bdf8; font-weight: 600; }
+  .ip-item .add-btn { width: 26px; height: 26px; border-radius: 50%; background: #38bdf8; color: #0f172a; font-weight: 800; font-size: 1rem; display: grid; place-items: center; }
+
+  .ip-dock {
+    height: 48px; background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(12px);
+    border: 1px solid rgba(255,255,255,0.1); border-radius: 20px; margin-top: auto;
+    display: flex; align-items: center; justify-content: space-around; padding: 0 10px;
+  }
+  .dock-item { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; font-size: 1.1rem; opacity: 0.6; }
+  .dock-item.on { opacity: 1; background: rgba(56, 189, 248, 0.2); border: 1px solid rgba(56, 189, 248, 0.4); }
 
   .bh-h1{font-size:clamp(2.5rem,7vw,4.6rem);font-weight:600}
   /* A soft accent-tinted text-shadow, not a hard outline — layered same
@@ -883,38 +980,94 @@
 
 
 <section class="bh-hero">
-  <!-- Left Flank — Half MacBook Pro -->
+  <!-- Left Flank — Space Black MacBook Pro (50% Split) -->
   <div class="hero-device hero-device-macbook" aria-hidden="true">
     <div class="macbook-lid">
+      <div class="macbook-camera"></div>
       <div class="macbook-screen">
-        <div class="macbook-header"><span class="mac-dot red"></span><span class="mac-dot yellow"></span><span class="mac-dot green"></span><span class="mac-url">app.souqi.build</span></div>
+        <div class="macbook-header">
+          <div class="mac-dots"><span class="mac-dot red"></span><span class="mac-dot yellow"></span><span class="mac-dot green"></span></div>
+          <div class="mac-url"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg> <b>https://</b>app.souqi.build/dashboard</div>
+          <div class="mac-actions"><span></span><span></span></div>
+        </div>
         <div class="macbook-content">
-          <div class="mac-sidebar"><div></div><div></div><div></div></div>
+          <div class="mac-sidebar">
+            <div class="mac-side-item on"><span class="ic"></span><span class="txt"></span></div>
+            <div class="mac-side-item"><span class="ic"></span><span class="txt"></span></div>
+            <div class="mac-side-item"><span class="ic"></span><span class="txt"></span></div>
+            <div class="mac-side-item"><span class="ic"></span><span class="txt"></span></div>
+          </div>
           <div class="mac-main">
-            <div class="mac-hero-banner"></div>
-            <div class="mac-grid"><div></div><div></div><div></div></div>
+            <div class="mac-top-banner">
+              <div class="mac-stat-col">
+                <small>Total Revenue</small>
+                <b>$128,490 <span class="up">+28.4%</span></b>
+              </div>
+              <div class="mac-mini-chart">
+                <svg viewBox="0 0 100 36" fill="none"><path d="M0 30 Q25 15, 50 20 T100 5" stroke="#38bdf8" stroke-width="3" fill="none"/><path d="M0 30 Q25 15, 50 20 T100 5 L100 36 L0 36 Z" fill="url(#macChartGrad)" opacity="0.3"/><defs><linearGradient id="macChartGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#38bdf8"/><stop offset="100%" stop-color="#38bdf8" stop-opacity="0"/></linearGradient></defs></svg>
+              </div>
+            </div>
+            <div class="mac-grid">
+              <div class="mac-code-box">
+                <div class="code-line"><span class="k">const</span> <span class="v">app</span> = <span class="f">createSouqiApp</span>();</div>
+                <div class="code-line"><span class="v">app</span>.<span class="f">use</span>(<span class="s">'analytics'</span>);</div>
+                <div class="code-line"><span class="v">app</span>.<span class="f">deploy</span>({ <span class="p">live</span>: <span class="b">true</span> });</div>
+              </div>
+              <div class="mac-preview-box">
+                <div class="prev-hdr"><div></div><div></div></div>
+                <div class="prev-body"><span class="pill"></span><span class="bar"></span></div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
     </div>
-    <div class="macbook-base"></div>
+    <div class="macbook-base">
+      <div class="macbook-notch"></div>
+    </div>
   </div>
 
-  <!-- Right Flank — Half iPhone 16 Pro -->
+  <!-- Right Flank — Titanium iPhone 16 Pro (50% Split) -->
   <div class="hero-device hero-device-iphone" aria-hidden="true">
+    <div class="iphone-side-btn btn-vol-up"></div>
+    <div class="iphone-side-btn btn-vol-dn"></div>
+    <div class="iphone-side-btn btn-power"></div>
     <div class="iphone-bezel">
-      <div class="iphone-island"></div>
+      <div class="iphone-island">
+        <div class="island-cam"></div>
+      </div>
       <div class="iphone-screen">
+        <div class="iphone-status-bar">
+          <span class="ip-time">9:41</span>
+          <div class="ip-icons">
+            <svg class="ip-ic" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3c-4.97 0-9 4.03-9 9 0 2.12.74 4.07 1.97 5.61L4.35 21l3.39-.62C9.28 20.74 10.6 21 12 21c4.97 0 9-4.03 9-9s-4.03-9-9-9z"/></svg>
+            <span class="ip-bat"></span>
+          </div>
+        </div>
         <div class="iphone-app">
           <div class="ip-header">
-            <div class="ip-title">Coffee Roastery</div>
-            <div class="ip-badge">Live</div>
+            <div class="ip-brand-wrap">
+              <span class="ip-logo">☕</span>
+              <div><b class="ip-title">Artisan Roast</b><small class="ip-sub">Coffee &amp; Bakery</small></div>
+            </div>
+            <span class="ip-badge">Live App</span>
           </div>
-          <div class="ip-card"></div>
+          <div class="ip-card">
+            <div class="ip-card-badge">★ 4.9 Rating</div>
+            <div class="ip-card-txt">Specialty Cold Brew</div>
+            <div class="ip-card-sub">Handcrafted in small batches</div>
+          </div>
+          <div class="ip-section-title">Popular Items</div>
           <div class="ip-list">
-            <div></div><div></div><div></div>
+            <div class="ip-item"><span class="thumb t1"></span><div class="info"><b>Ethiopia Yirgacheffe</b><small>$18.50</small></div><span class="add-btn">+</span></div>
+            <div class="ip-item"><span class="thumb t2"></span><div class="info"><b>Caramel Macchiato</b><small>$6.50</small></div><span class="add-btn">+</span></div>
           </div>
-          <div class="ip-btn">Order Now</div>
+          <div class="ip-dock">
+            <div class="dock-item on"><span>🏠</span></div>
+            <div class="dock-item"><span>🔍</span></div>
+            <div class="dock-item"><span>🛍️</span></div>
+            <div class="dock-item"><span>👤</span></div>
+          </div>
         </div>
       </div>
     </div>
