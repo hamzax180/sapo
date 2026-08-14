@@ -115,9 +115,122 @@
   /* `overflow:clip` (not hidden) — the ::before glow bleeds 20% past each
      edge and would otherwise give the whole page a horizontal scrollbar,
      without turning the hero into a scroll container. */
-  .bh-hero{padding:clamp(48px,9vw,120px) 0 clamp(30px,5vw,60px);text-align:center;position:relative;background:var(--paper)}
+  .bh-hero{padding:clamp(48px,9vw,120px) 0 clamp(30px,5vw,60px);text-align:center;position:relative;background:var(--paper);overflow:hidden!important}
   .bh-hero::before{display:none!important}
-  .bh-hero .wrap{position:relative;z-index:1}
+  .bh-hero .wrap{position:relative;z-index:5}
+
+  /* 3D Flank Device Mockups */
+  .hero-device {
+    position: absolute;
+    top: 48%;
+    z-index: 2;
+    pointer-events: none;
+    user-select: none;
+    transition: transform 0.6s var(--ease), opacity 0.6s var(--ease);
+    filter: drop-shadow(0 24px 48px rgba(18, 32, 46, 0.16));
+  }
+
+  /* Left — MacBook Pro (half peek) */
+  .hero-device-macbook {
+    left: -110px;
+    transform: translateY(-46%) rotate(7deg) scale(0.92);
+    width: 440px;
+    opacity: 0.88;
+  }
+  @media (max-width: 1380px) {
+    .hero-device-macbook { left: -180px; transform: translateY(-46%) rotate(7deg) scale(0.78); }
+  }
+  @media (max-width: 1080px) {
+    .hero-device-macbook { display: none; }
+  }
+
+  .macbook-lid {
+    background: #1e293b;
+    border: 9px solid #0f172a;
+    border-radius: 18px 18px 4px 4px;
+    padding: 2px;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.15);
+  }
+  .macbook-screen {
+    background: #ffffff;
+    border-radius: 10px;
+    height: 250px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+  .macbook-header {
+    height: 24px; background: #f1f5f9; border-bottom: 1px solid #e2e8f0;
+    display: flex; align-items: center; gap: 6px; padding: 0 10px;
+  }
+  .mac-dot { width: 8px; height: 8px; border-radius: 50%; }
+  .mac-dot.red { background: #ef4444; }
+  .mac-dot.yellow { background: #f59e0b; }
+  .mac-dot.green { background: #22c55e; }
+  .mac-url { margin-left: auto; margin-right: auto; font-size: 0.68rem; color: #64748b; font-family: monospace; }
+
+  .macbook-content { display: flex; flex: 1; height: calc(100% - 24px); }
+  .mac-sidebar { width: 70px; background: #f8fafc; border-right: 1px solid #e2e8f0; padding: 10px 8px; display: flex; flex-direction: column; gap: 8px; }
+  .mac-sidebar div { height: 10px; border-radius: 4px; background: #cbd5e1; width: 100%; }
+  .mac-main { flex: 1; padding: 12px; display: flex; flex-direction: column; gap: 10px; background: #fafafa; }
+  .mac-hero-banner { height: 60px; background: linear-gradient(135deg, #0284c7, #7c3aed); border-radius: 8px; }
+  .mac-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; flex: 1; }
+  .mac-grid div { background: #f1f5f9; border-radius: 6px; border: 1px solid #e2e8f0; }
+
+  .macbook-base {
+    height: 12px; background: #94a3b8; border-radius: 0 0 14px 14px;
+    margin-top: 1px; position: relative;
+    box-shadow: inset 0 -2px 4px rgba(0,0,0,0.2);
+  }
+  .macbook-base::after {
+    content: ""; position: absolute; top: 0; left: 42%; width: 16%; height: 4px;
+    background: #64748b; border-radius: 0 0 4px 4px;
+  }
+
+  /* Right — iPhone 16 Pro (half peek) */
+  .hero-device-iphone {
+    right: -70px;
+    transform: translateY(-46%) rotate(-8deg) scale(0.95);
+    width: 240px;
+    opacity: 0.88;
+  }
+  @media (max-width: 1380px) {
+    .hero-device-iphone { right: -110px; transform: translateY(-46%) rotate(-8deg) scale(0.8); }
+  }
+  @media (max-width: 1080px) {
+    .hero-device-iphone { display: none; }
+  }
+
+  .iphone-bezel {
+    background: #0f172a;
+    border: 8px solid #1e293b;
+    border-radius: 42px;
+    padding: 6px;
+    position: relative;
+    box-shadow: 0 24px 48px rgba(0,0,0,0.25), inset 0 0 0 1px rgba(255,255,255,0.15);
+  }
+  .iphone-island {
+    position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
+    width: 70px; height: 18px; background: #000000; border-radius: 20px; z-index: 10;
+  }
+  .iphone-screen {
+    background: #ffffff;
+    border-radius: 36px;
+    height: 380px;
+    overflow: hidden;
+    padding-top: 36px;
+    display: flex;
+    flex-direction: column;
+  }
+  .iphone-app { padding: 12px; display: flex; flex-direction: column; gap: 10px; height: 100%; text-align: left; }
+  .ip-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+  .ip-title { font-size: 0.85rem; font-weight: 700; color: #0f172a; }
+  .ip-badge { font-size: 0.65rem; font-weight: 700; background: #22c55e; color: #fff; padding: 2px 7px; border-radius: 99px; }
+  .ip-card { height: 100px; background: linear-gradient(135deg, #0284c7, #38bdf8); border-radius: 16px; }
+  .ip-list { display: flex; flex-direction: column; gap: 8px; flex: 1; }
+  .ip-list div { height: 32px; background: #f1f5f9; border-radius: 10px; }
+  .ip-btn { height: 38px; background: #0f172a; color: #ffffff; font-size: 0.8rem; font-weight: 600; border-radius: 12px; display: grid; place-items: center; margin-top: auto; }
+
   .bh-h1{font-size:clamp(2.5rem,7vw,4.6rem);font-weight:600}
   /* A soft accent-tinted text-shadow, not a hard outline — layered same
      as the composer's glow (tight + wide), so the subtext reads as lit
@@ -767,8 +880,44 @@
 </header>
 
 
-<!-- ======================= HERO ======================= -->
 <section class="bh-hero">
+  <!-- Left Flank — Half MacBook Pro -->
+  <div class="hero-device hero-device-macbook" aria-hidden="true">
+    <div class="macbook-lid">
+      <div class="macbook-screen">
+        <div class="macbook-header"><span class="mac-dot red"></span><span class="mac-dot yellow"></span><span class="mac-dot green"></span><span class="mac-url">app.souqi.build</span></div>
+        <div class="macbook-content">
+          <div class="mac-sidebar"><div></div><div></div><div></div></div>
+          <div class="mac-main">
+            <div class="mac-hero-banner"></div>
+            <div class="mac-grid"><div></div><div></div><div></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="macbook-base"></div>
+  </div>
+
+  <!-- Right Flank — Half iPhone 16 Pro -->
+  <div class="hero-device hero-device-iphone" aria-hidden="true">
+    <div class="iphone-bezel">
+      <div class="iphone-island"></div>
+      <div class="iphone-screen">
+        <div class="iphone-app">
+          <div class="ip-header">
+            <div class="ip-title">Coffee Roastery</div>
+            <div class="ip-badge">Live</div>
+          </div>
+          <div class="ip-card"></div>
+          <div class="ip-list">
+            <div></div><div></div><div></div>
+          </div>
+          <div class="ip-btn">Order Now</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div class="wrap">
     <h1 class="bh-h1" data-t="What will you build?">What will you build?</h1>
     <p class="bh-sub"><span class="bh-glow-word" id="bhGlowWord">Your first build is free — no card needed.</span></p>
