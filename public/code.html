@@ -2009,15 +2009,51 @@
   /* Settings overlay (see the markup note at the top of <body>) —
      Replit's shape: a large centred modal over a dimmed scrim that
      covers the whole workspace, not a side panel. */
-  .ag-set-overlay{position:fixed;inset:0;z-index:120;background:rgba(11,22,38,.5);
+  .ag-set-overlay{position:fixed;inset:0;z-index:9999999 !important;background:rgba(11,22,38,.75);
     display:flex;align-items:center;justify-content:center;padding:clamp(8px,3.5vh,40px);
-    -webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px)}
+    -webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)}
   .ag-set-overlay[hidden]{display:none !important;pointer-events:none !important;visibility:hidden !important}
   .ag-set-overlay iframe{width:min(1180px,96vw);height:min(820px,92vh);border:0;border-radius:14px;
     background:var(--card);box-shadow:0 30px 90px -28px rgba(0,0,0,.55)}
+  .ag-set-close-btn {
+    position: absolute !important;
+    top: 14px !important;
+    right: 14px !important;
+    z-index: 10000000 !important;
+    width: 38px !important;
+    height: 38px !important;
+    border-radius: 50% !important;
+    background: #0f172a !important;
+    color: #f8fafc !important;
+    border: 1px solid rgba(255, 255, 255, 0.25) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    cursor: pointer !important;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4) !important;
+    transition: transform 0.15s, background 0.15s !important;
+  }
+  .ag-set-close-btn:hover { transform: scale(1.05); background: #1e293b !important; }
+  .ag-set-close-btn svg { width: 18px; height: 18px; }
   @media (max-width:900px){
     .ag-set-overlay{padding:0}
     .ag-set-overlay iframe{width:100%;height:100%;border-radius:0}
+    .ag-set-close-btn { top: 12px !important; right: 12px !important; }
+  }
+  @media (max-width: 650px) {
+    .ag-tiles-track {
+      max-width: 100% !important;
+      justify-content: flex-start !important;
+      overflow-x: auto !important;
+      scroll-snap-type: x mandatory !important;
+      -webkit-overflow-scrolling: touch !important;
+      touch-action: pan-x !important;
+      padding: 12px 14px 6px !important;
+    }
+    .ag-tile {
+      flex: 0 0 auto !important;
+      scroll-snap-align: start !important;
+    }
   }
 </style>
 </head>
@@ -2030,6 +2066,11 @@
      /settings still exists as a real page for direct links; this iframes
      it so there is one implementation of the settings UI, not two. -->
 <div class="ag-set-overlay" id="agSetOverlay" hidden>
+  <button type="button" class="ag-set-close-btn" id="agSetCloseBtn" aria-label="Close Settings" title="Close Settings">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M18 6L6 18M6 6l12 12"/>
+    </svg>
+  </button>
   <iframe id="agSetFrame" title="Settings" src="about:blank"></iframe>
 </div>
 
@@ -3870,17 +3911,15 @@
     const src = "/settings" + (panel ? "#" + panel : "");
     if (agSetFrame.getAttribute("src") !== src) agSetFrame.setAttribute("src", src);
     agSetOverlay.hidden = false;
-    if (agHistory) agHistory.classList.remove("on");
-    if (agDeskSidebarToggle) agDeskSidebarToggle.classList.remove("on");
-    if (agHistCloseBtn) agHistCloseBtn.classList.remove("on");
-    if (agHistBackdrop) agHistBackdrop.classList.remove("on");
   }
   function closeSettings() { agSetOverlay.hidden = true; }
+  const agSetCloseBtn = $("agSetCloseBtn");
+  if (agSetCloseBtn) agSetCloseBtn.addEventListener("click", closeSettings);
   agSetOverlay.addEventListener("click", (e) => { if (e.target === agSetOverlay) closeSettings(); });
   // The settings page's own X is inside the iframe, so it can't reach this
   // handler directly — it posts up instead (see settings.html).
   window.addEventListener("message", (e) => {
-    if (e.origin === location.origin && e.data === "souqi:settings:close") closeSettings();
+    if (e.data === "souqi:settings:close") closeSettings();
   });
 
   $("agHistTabs").addEventListener("click", (e) => {
