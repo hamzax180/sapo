@@ -10,6 +10,9 @@
 <link href="https://fonts.googleapis.com/css2?family=Jost:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <title>Souqi — What will you build?</title>
 <meta name="description" content="Describe your business in one sentence and Souqi builds your storefront, then hands it to a live editor you can click and change.">
+<script>
+(function(){var k="souqi-theme";try{var t=localStorage.getItem(k)||"light";document.documentElement.setAttribute("data-theme",t)}catch(e){}})();
+</script>
 <style>
   *,*::before,*::after{box-sizing:border-box}
   :root{
@@ -23,6 +26,13 @@
     --body:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
     --ease:cubic-bezier(.16,1,.3,1);
     --r-card:26px;
+  }
+  :root[data-theme="dark"]{
+    --paper:#1c1917; --paper-2:#24211e; --card:#2a2622;
+    --ink:#f0eadc; --ink-2:#a49e92; --mut:#7e766a;
+    --tint:#3d3428; --tint-2:#2d2420;
+    --stone:#2e2a26; --dark:#0a0908; --line:#3a352e; --navy-800:#0d0b0a;
+    --accent:#1aa6df; --accent-2:#118cc0; --accent-ink:#e6edf3;
   }
   /* NOTE: no `overflow-x` on <html>. Setting it (even to `clip`) forces the
      other axis to `auto`, which turns the root into a scroll container and
@@ -59,8 +69,8 @@
     transition:opacity .16s,transform .16s,visibility .16s;z-index:60}
   .ndrop:hover .npanel{opacity:1;visibility:visible;transform:none}
   .npanel a{display:block;padding:9px 11px;border-radius:9px;text-decoration:none;color:var(--ink);font-size:.88rem;font-weight:500;cursor:pointer}
-  .npanel a:hover{background:var(--paper-2);color:var(--navy-800)}
-  .npanel a b{display:block;font-size:.9rem;color:var(--navy-800);font-weight:700}
+  .npanel a:hover{background:var(--paper-2);color:var(--ink)}
+  .npanel a b{display:block;font-size:.9rem;color:var(--ink);font-weight:700}
   .npanel a small{display:block;font-size:.76rem;color:var(--mut);margin-top:1px;font-weight:400}
   .npanel.cols{display:grid;grid-template-columns:1fr 1fr;min-width:380px;gap:0 6px}
   .npanel.cols h5{font-size:.64rem;text-transform:uppercase;letter-spacing:.1em;color:var(--mut);font-weight:800;padding:8px 11px 4px;margin:0}
@@ -228,7 +238,7 @@
   .inx-card-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:14px}
   .inx-prod{border:1px solid var(--line);border-radius:9px;padding:9px;min-width:0}
   .inx-prod .ph{height:44px;border-radius:6px;background:color-mix(in srgb,var(--c) 15%,#fff);border:1px solid color-mix(in srgb,var(--c) 24%,#fff);transition:--c .7s var(--ease)}
-  .inx-prod .pn{font-size:.72rem;font-weight:600;color:var(--navy-800);margin-top:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .inx-prod .pn{font-size:.72rem;font-weight:600;color:var(--ink);margin-top:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .inx-prod .pp{font-size:.72rem;color:var(--c);font-weight:800;margin-top:2px;transition:--c .7s var(--ease)}
   .inx-card-grid.swap .inx-prod{animation:prodIn .5s var(--ease) both}
   .inx-card-grid.swap .inx-prod:nth-child(2){animation-delay:.07s}.inx-card-grid.swap .inx-prod:nth-child(3){animation-delay:.14s}
@@ -260,7 +270,7 @@
   .langs{min-height:70vh;display:flex;align-items:center;padding:clamp(40px,6vw,80px) 0;text-align:center;
     background:linear-gradient(180deg,var(--paper-2),var(--paper))}
   .langs .wrap{width:100%}
-  .speaks-h{font-family:var(--disp);font-weight:800;color:var(--navy-800);letter-spacing:-.025em;line-height:1;
+  .speaks-h{font-family:var(--disp);font-weight:800;color:var(--ink);letter-spacing:-.025em;line-height:1;
     font-size:clamp(2.4rem,6vw,4.8rem)}
   .speaks-word{display:block;margin-top:.06em;font-size:clamp(4rem,17vw,13rem);line-height:.86;color:var(--sw,var(--accent));
     letter-spacing:-.04em;will-change:transform,opacity;transition:color .3s var(--ease)}
@@ -281,7 +291,7 @@
   .pq-by{margin-top:22px;font-weight:700;color:#fff;font-size:1rem}
   .pq-role{margin-top:3px;color:var(--tint);font-size:.9rem}
   .plain-stats{padding:clamp(56px,8vw,100px) 0}
-  .plain-stats h2{font-size:clamp(2rem,4.4vw,3.3rem);color:var(--navy-800);font-weight:800}
+  .plain-stats h2{font-size:clamp(2rem,4.4vw,3.3rem);color:var(--ink);font-weight:800}
   .ps-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:44px}
   .ps-card{background:var(--tint-2);border:1px solid var(--tint);border-radius:18px;padding:40px 34px 44px}
   .ps-num{font-family:var(--disp);font-weight:700;font-size:clamp(2.1rem,4.4vw,3.3rem);color:var(--accent-2);letter-spacing:-.02em;line-height:1;margin-bottom:12px}
@@ -1152,5 +1162,6 @@
   });
 })();
 </script>
+
 </body>
 </html>

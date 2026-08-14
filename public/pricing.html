@@ -11,8 +11,11 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Jost:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/sap.css?v=28" />
-  <style>
+<link rel="stylesheet" href="css/sap.css?v=28" />
+<script>
+(function(){var k="souqi-theme";try{var t=localStorage.getItem(k)||"light";document.documentElement.setAttribute("data-theme",t)}catch(e){}})();
+</script>
+<style>
     /* ---- marketing top navigation — was an exact copy of login.html's
        DARK .nav; overridden here to the same warm cream as the body
        (#faf7f2, matching home.html/code.html) since a dark bar over a
@@ -60,6 +63,13 @@
 
     /* ---- marketing top navigation (shared with login) ---- */
     :root { --wcnav-h:64px; }
+  :root[data-theme="dark"]{
+    --paper:#1c1917; --paper-2:#24211e; --card:#2a2622;
+    --ink:#f0eadc; --ink-2:#a49e92; --mut:#7e766a;
+    --tint:#3d3428; --tint-2:#2d2420;
+    --stone:#2e2a26; --dark:#0a0908; --line:#3a352e; --navy-800:#0d0b0a;
+    --accent:#1aa6df; --accent-2:#118cc0; --accent-ink:#e6edf3;
+  }
     /* pricing.html still links the legacy sap.css corporate-navy design
        system (--bg/--surface-2 resolve to cool grays there) — home.html
        and code.html moved to a warm cream palette and pricing never
@@ -522,6 +532,7 @@
       });
     })();
   </script>
+
 </body>
 </html>
 

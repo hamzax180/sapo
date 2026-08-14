@@ -74,6 +74,16 @@ const indexHtml = `<!doctype html>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Souqi Code app</title>
+    <style>
+      /* This preview is framed as an iPhone/iPad/monitor mockup — a real
+         device doesn't show OS scrollbar chrome, so this shouldn't either.
+         Baked into the scaffold itself (not injected from the parent page)
+         because the WebContainer dev server is served from its own origin;
+         nothing outside this document can reach in to style it. Scrolling
+         still works via wheel/touch, only the bar is hidden. */
+      html, body, * { scrollbar-width: none; -ms-overflow-style: none; }
+      html::-webkit-scrollbar, body::-webkit-scrollbar, *::-webkit-scrollbar { display: none; width: 0; height: 0; }
+    </style>
   </head>
   <body>
     <div id="root"></div>

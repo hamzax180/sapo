@@ -11,4 +11,5 @@ node_modules/
 server/.env
 
 .vercel
+.kilo
 job_log.txt

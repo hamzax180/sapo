@@ -2098,6 +2098,12 @@ const CODEAGENT_TYPE_HINT = {
 // Checked once, at fresh-build time, so it costs nothing to enforce.
 const CODEAGENT_PLAN_APP_LIMITS = { pro: 1, max: 5 };
 
+// Admin emails bypass all limits — no app cap, no edit gate, unlimited builds.
+function isAdminEmail(email) {
+  const admins = String(process.env.ADMIN_EMAILS || "").split(",").map(s => s.trim().toLowerCase()).filter(Boolean);
+  return admins.includes(String(email || "").toLowerCase());
+}
+
 // data:image/<type>;base64,<data> -> ["png","jpeg","svg+xml","webp"] plus
 // the actual payload. Anything else (a non-image mime, no base64 marker,
 // malformed) is rejected rather than guessed at.
@@ -2252,6 +2258,70 @@ app.delete("/api/codeagent/history", async (req, res, next) => {
     const mine = (await projects.list(owner, 500)).filter((p) => (p.meta || {}).kind === "code");
     for (const p of mine) await projects.remove(p.id);
     res.json({ ok: true, deleted: mine.length });
+  } catch (e) { next(e); }
+});
+
+/**
+ * GET /api/codeagent/export
+ * Bulk-exports every Souqi Code app this owner has built as one ZIP, one
+ * folder per project (named by slug) holding its current source files —
+ * same per-project archiver pattern /api/codeagent/:key/export-android
+ * uses above, just walking every project instead of one already-published
+ * one. Requires sign-in (same reasoning as /api/codeagent/history: this
+ * is account-level, not something an anonymous cookie-only visitor should
+ * trigger) even though projects.list(owner) would already scope it
+ * correctly either way.
+ */
+app.get("/api/codeagent/export", async (req, res, next) => {
+  try {
+    const sessionUser = await codeAgentSessionUserVerified(req);
+    if (!sessionUser) return res.status(401).json({ error: "not signed in" });
+    const owner = anon.ownerOf(req, res);
+    const mine = (await projects.list(owner, 500)).filter((p) => (p.meta || {}).kind === "code");
+    if (!mine.length) return res.status(404).json({ error: "nothing built yet" });
+
+    const archiver = require("archiver");
+    res.setHeader("Content-Type", "application/zip");
+    res.setHeader("Content-Disposition", 'attachment; filename="souqi-code-export.zip"');
+    const archive = archiver("zip", { zlib: { level: 6 } });
+    archive.on("error", (e) => { try { res.status(500); } catch (e2) {} res.end(); });
+    archive.pipe(res);
+
+    for (const p of mine) {
+      const revision = await projects.head(p.id);
+      const files = (revision && revision.config && revision.config.files) || {};
+      const folder = (p.slug || p.id).replace(/[^a-z0-9-]/gi, "").slice(0, 60) || p.id;
+      for (const [path, content] of Object.entries(files)) {
+        archive.append(String(content), { name: folder + "/" + path });
+      }
+      archive.append(JSON.stringify({ title: p.title, slug: p.slug, buildType: (p.meta || {}).buildType, updatedAt: p.updatedAt }, null, 2), { name: folder + "/project.json" });
+    }
+    await archive.finalize();
+  } catch (e) { next(e); }
+});
+
+/**
+ * PATCH /api/account/workspace
+ * Renames the signed-in user's workspace (the "company" field on their
+ * masterDb workspace record — the same one /api/account/me already reads
+ * back as `company`). Separate from the unauthenticated /api/ws upsert
+ * above, which is signup-time provisioning with its own takeover guard —
+ * this is the ordinary authenticated "rename my workspace" action a
+ * signed-in owner performs from Settings.
+ */
+app.patch("/api/account/workspace", async (req, res, next) => {
+  try {
+    const sessionUser = await codeAgentSessionUserVerified(req);
+    if (!sessionUser) return res.status(401).json({ error: "not signed in" });
+    if (!sessionUser.wsId) return res.status(400).json({ error: "no workspace on this account" });
+    const name = String((req.body && req.body.company) || "").trim().slice(0, 120);
+    if (!name) return res.status(400).json({ error: "a workspace name is required" });
+
+    const masterDb = getMasterDb();
+    if (!masterDb) return res.status(503).json({ error: "Master DB not available" });
+    const result = await masterDb.collection("workspaces").updateOne({ id: sessionUser.wsId }, { $set: { company: name } });
+    if (!result.matchedCount) return res.status(404).json({ error: "workspace not found" });
+    res.json({ ok: true, company: name });
   } catch (e) { next(e); }
 });
 
@@ -2458,7 +2528,7 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
     }
     const priorTurns = await projects.listTurns(project.id);
     const editsUsed = Math.max(0, priorTurns.filter((t) => t.role === "user").length - 1);
-    if (editsUsed >= CODEAGENT_FREE_EDITS) {
+    if (editsUsed >= CODEAGENT_FREE_EDITS && !isAdminEmail(sessionUser.email)) {
       const masterDbForPlan = getMasterDb();
       let plan = "free";
       if (sessionUser && sessionUser.wsId && masterDbForPlan) {
@@ -2484,11 +2554,14 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
   // that one protects the whole platform's shared pool from running away in
   // aggregate; this one stops a single owner from being the reason it does.
   if (CODEAGENT_OWNER_MONTHLY_BUDGET_USD > 0) {
-    const spent = await codeAgentUsage.monthSpend(owner);
-    if (spent >= CODEAGENT_OWNER_MONTHLY_BUDGET_USD) {
-      sseFrame(res, "error", { error: "You've used this month's free build budget ($" + CODEAGENT_OWNER_MONTHLY_BUDGET_USD.toFixed(2) + "). It resets next month." });
-      sseFrame(res, "done", {});
-      return res.end();
+    const sessionUserForSpend = codeAgentSessionUser(req);
+    if (!sessionUserForSpend || !isAdminEmail(sessionUserForSpend.email)) {
+      const spent = await codeAgentUsage.monthSpend(owner);
+      if (spent >= CODEAGENT_OWNER_MONTHLY_BUDGET_USD) {
+        sseFrame(res, "error", { error: "You've used this month's free build budget ($" + CODEAGENT_OWNER_MONTHLY_BUDGET_USD.toFixed(2) + "). It resets next month." });
+        sseFrame(res, "done", {});
+        return res.end();
+      }
     }
   }
 
@@ -2498,7 +2571,7 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
   // up for, so this only ever applies to a signed-in paid owner.
   if (!isFollowUp) {
     const sessionUserForLimit = codeAgentSessionUser(req);
-    if (sessionUserForLimit && sessionUserForLimit.wsId) {
+    if (sessionUserForLimit && sessionUserForLimit.wsId && !isAdminEmail(sessionUserForLimit.email)) {
       const masterDbForLimit = getMasterDb();
       if (masterDbForLimit) {
         const wsForLimit = await masterDbForLimit.collection("workspaces").findOne({ id: sessionUserForLimit.wsId }, { projection: { plan: 1 } });
@@ -2524,16 +2597,17 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
   // and there's real context (the current files) a follow-up can lean on
   // that a first prompt doesn't have. No sandbox, no project, no cost
   // beyond one cheap model call for a question nobody asked to see built.
-  // ...and only for a prompt short enough to plausibly BE vague. This
-  // gate exists to catch "hello" or "build me something cool", and those
-  // are always short. Running it on "i want you to build a phone tracker
-  // with call history" spends a whole model call — real seconds the user
-  // waits — to confirm something already obvious. Word count is a crude
-  // signal but it is free and it fails in the safe direction: a long
-  // prompt that IS vague just gets built, which is the same outcome
-  // assessPrompt has when it fails open (see its own fail-open cases).
-  const promptWords = prompt.trim().split(/\s+/).length;
-  if (!isFollowUp && promptWords < 5) {
+  // This used to also skip the check on any prompt with 5+ words, on the
+  // theory that only short prompts can plausibly be vague — but "ARE YOU
+  // U SOUQI AGENT" is 5 words and isn't a build request at all; a length
+  // cutoff just moves the same failure to whatever phrase happens to sit
+  // on the other side of it. assessPrompt's own instructions already say
+  // to prefer {clear:true} the moment a prompt shows ANY real build
+  // indication, so a long genuine build request still resolves on the
+  // first pass — the only thing worth skipping this call for was never
+  // "long prompts" in general, it was "obviously-a-build prompts", and
+  // the model call itself is what actually tells those apart.
+  if (!isFollowUp) {
     const assessment = await assessPrompt(prompt);
     if (!assessment.clear) {
       sseFrame(res, "needsAnswer", { reply: assessment.reply });
@@ -2558,12 +2632,22 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
       }
     }
     if (project) {
-      // For follow-ups, include the current App.tsx content from the last revision
+      // For follow-ups, give the model the FULL current project code so it
+      // can make surgical edits. A one-file app gets its App.tsx; a multi-file
+      // app gets every source file. The model needs to see the whole app to
+      // change one part without breaking the rest.
       const head = await projects.head(project.id);
       const files = head && head.config && head.config.files;
-      let currentApp = "";
-      if (files && files["src/App.tsx"]) currentApp = files["src/App.tsx"];
-      effectivePrompt = "The current src/App.tsx is:\n\n" + currentApp + "\n\nChange request: " + prompt;
+      const fileEntries = files ? Object.entries(files).filter(([k]) => k.startsWith("src/")) : [];
+      if (fileEntries.length) {
+        let context = "";
+        for (const [path, content] of fileEntries) {
+          context += "File: " + path + "\n```\n" + String(content).slice(0, 8000) + "\n```\n\n";
+        }
+        effectivePrompt = "Here is the current codebase:\n\n" + context + "Change request: " + prompt;
+      } else {
+        effectivePrompt = prompt;
+      }
     }
 
     // canBuild: false means the client is on mobile or a browser that does not
@@ -2715,6 +2799,7 @@ app.get("/api/codeagent/:key", async (req, res, next) => {
       project: { id: project.id, slug: project.slug, title: project.title, prompt: project.prompt, createdAt: project.createdAt, updatedAt: project.updatedAt },
       turns: turns,
       files: revision && revision.config && revision.config.files ? Object.keys(revision.config.files).filter((f) => f.startsWith("src/")) : [],
+      fileContents: revision && revision.config ? revision.config.files : null,
       previewUrl: "/api/codeagent/preview/" + encodeURIComponent(project.slug), sandboxAlive: sandboxAlive
     });
   } catch (e) { next(e); }
@@ -2743,6 +2828,88 @@ app.get("/api/codeagent/:key", async (req, res, next) => {
 // Kept as a stub to avoid 404s from old bookmarks.
 app.get("/api/codeagent/preview/:key", (req, res) => res.status(410).send("Preview is now served locally by WebContainers. Open the project in Souqi Code."));
 app.get("/api/codeagent/preview/:key/*", (req, res) => res.status(410).send("Preview is now served locally by WebContainers. Open the project in Souqi Code."));
+
+/**
+ * GET /api/projects/:key/preview
+ * Returns a preview of the project — published HTML if available,
+ * otherwise source files + metadata. Used by the sidebar (code.html)
+ * and projects page (projects.html) for instant project previews
+ * without a full rebuild.
+ */
+app.get("/api/projects/:key/preview", async (req, res, next) => {
+  try {
+    const owner = anon.ownerOf(req, res);
+    const project = await resolveProject(req.params.key, owner);
+    if (!project) return res.status(404).json({ error: "project not found" });
+
+    const meta = project.meta || {};
+    const buildType = meta.buildType || "website";
+    const color = { website: "#1aa6df", dashboard: "#7c5ce7", webapp: "#e05a33", portfolio: "#2ea87a", mobile: "#e0a11a" }[buildType] || "#8b98a5";
+
+    // Published — serve compiled HTML from published snapshot
+    if (project.published && project.published.files) {
+      const htmlB64 = project.published.files["index.html"];
+      const cssB64 = project.published.files["style.css"] || project.published.files["styles.css"] || null;
+      const jsB64 = project.published.files["script.js"] || project.published.files["main.js"] || null;
+      if (htmlB64) {
+        let html = Buffer.from(htmlB64, "base64").toString("utf-8");
+        // Inject published CSS/JS inline if they aren't already
+        if (cssB64 && !html.includes("style.css") && !html.includes("styles.css")) {
+          html = html.replace("</head>", "<style>" + Buffer.from(cssB64, "base64").toString("utf-8") + "</style></head>");
+        }
+        res.setHeader("Content-Type", "text/html; charset=utf-8");
+        res.setHeader("Cache-Control", "public, max-age=3600");
+        return res.send(html);
+      }
+    }
+
+    // Not published — generate an HTML preview from the source files
+    const revision = await projects.head(project.id);
+    const files = revision && revision.config ? revision.config.files : null;
+
+    if (files) {
+      const htmlKey = Object.keys(files).find(k => /^index\.html?$/i.test(k) || k === "index.html");
+      const cssKeys = Object.keys(files).filter(k => k.endsWith(".css"));
+      const jsKeys = Object.keys(files).filter(k => k.endsWith(".js") || k.endsWith(".ts") || k.endsWith(".tsx"));
+
+      let html = files[htmlKey] || "";
+      if (!html) {
+        // No index.html — generate a minimal wrapper showing source files
+        const title = project.title || "Untitled app";
+        const cssInline = cssKeys.map(k => files[k]).join("\n");
+        html = "<!DOCTYPE html><html><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>" + escHtml(title) + "</title>";
+        if (cssInline) html += "<style>" + cssInline + "</style>";
+        html += "</head><body><div style=\"max-width:800px;margin:60px auto;padding:20px;font-family:system-ui,sans-serif;text-align:center\">";
+        html += "<h2 style=\"font-weight:700\">" + escHtml(title) + "</h2>";
+        html += "<p style=\"color:#666\">This project hasn't been published yet. Source files are available for editing.</p>";
+        html += "<ul style=\"text-align:left;list-style:none;padding:0;background:#f5f5f5;border-radius:8px;padding:16px\">";
+        for (const k of Object.keys(files).filter(f => !f.startsWith("node_modules/")).slice(0, 20)) {
+          html += "<li style=\"font-family:monospace;font-size:13px;padding:4px 0;border-bottom:1px solid #eee\">" + escHtml(k) + "</li>";
+        }
+        html += "</ul></div></body></html>";
+      } else {
+        // Has index.html — inject CSS inline so it renders standalone
+        const cssInline = cssKeys.map(k => "<style>/* " + k + " */\n" + files[k] + "\n</style>").join("\n");
+        if (cssInline) html = html.replace("</head>", cssInline + "</head>");
+      }
+
+      res.setHeader("Content-Type", "text/html; charset=utf-8");
+      res.setHeader("Cache-Control", "public, max-age=300");
+      return res.send(html);
+    }
+
+    // No files at all — fallback JSON
+    res.json({
+      ok: true, notPublished: true,
+      project: { id: project.id, slug: project.slug, title: project.title, buildType, color },
+      updatedAt: project.updatedAt
+    });
+  } catch (e) { next(e); }
+});
+
+function escHtml(s) {
+  return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
 
 // Total base64 payload kept comfortably under Mongo's 16MB document cap —
 // dist/ is model-written text plus whatever assets it references, and

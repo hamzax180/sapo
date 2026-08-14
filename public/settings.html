@@ -10,6 +10,9 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Jost:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <title>Settings — Souqi</title>
+<script>
+(function(){var k="souqi-theme";try{var t=localStorage.getItem(k)||"light";document.documentElement.setAttribute("data-theme",t)}catch(e){}})();
+</script>
 <style>
   /* Replit's settings pattern: a centered modal panel over a dimmed page,
      a left sub-nav grouped under small uppercase headings (Workspace /
@@ -33,9 +36,9 @@
      against variables precisely so this stays a ~15-line override rather
      than a second stylesheet that drifts from the first. */
   :root[data-theme="dark"]{
-    --paper:#0e0e0e; --paper-2:#1c1c1c; --card:#141414;
-    --ink:#ededed; --ink-2:#a1a1a1; --mut:#737373;
-    --tint-2:#0d2740; --line:#2a2a2a; --dark:#000000; --navy-800:#000000;
+    --paper:#1c1917; --paper-2:#24211e; --card:#2a2622;
+    --ink:#f0eadc; --ink-2:#a49e92; --mut:#7e766a;
+    --tint-2:#2d2420; --line:#3a352e; --dark:#0a0908; --navy-800:#0d0b0a;
     --danger:#f97066; --danger-bg:#2a1614; --danger-line:#4a2320;
   }
   html{background:var(--paper)}
@@ -307,12 +310,25 @@
     <section class="panel on" id="pOverview">
       <div class="panel-head"><h2>Workspace overview</h2></div>
       <div class="sec">
-        <h3 id="ovName">Your workspace</h3>
-        <p>Everything you build with Souqi Code lives in this workspace.</p>
-        <div class="stat3">
+        <h3>Workspace name</h3>
+        <p>Everything you build with Souqi Code lives in this workspace. This name is shown in the sidebar.</p>
+        <div class="copyrow">
+          <input type="text" id="ovNameInput" placeholder="Your workspace" maxlength="120" autocomplete="off">
+          <button type="button" class="btn-primary" id="ovNameSave">Save</button>
+        </div>
+        <div class="note" id="ovNameNote" hidden></div>
+        <div class="stat3" style="margin-top:18px">
           <div class="kv"><div class="k">Apps built</div><div class="v" id="ovApps">—</div></div>
           <div class="kv"><div class="k">Published live</div><div class="v" id="ovPub">—</div></div>
           <div class="kv"><div class="k">Plan</div><div class="v" id="ovPlan">—</div></div>
+        </div>
+      </div>
+      <div class="sec">
+        <h3>Export Apps</h3>
+        <p>Bulk-export every app you've built. One ZIP, one folder per app, with its current source files.</p>
+        <div class="srow">
+          <span class="txt"><span class="t" id="ovExportLabel">Export all apps</span><span class="d" id="ovExportD">Downloads immediately — no email, no waiting.</span></span>
+          <a class="btn" id="ovExport" href="/api/codeagent/export">Start Export</a>
         </div>
       </div>
       <!-- The by-type breakdown that used to live only in the sidebar's
@@ -487,7 +503,7 @@
       <div class="panel-head"><h2>Build History</h2></div>
       <div class="mid">
         <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 3v6h6"/><path d="M3.5 9a9 9 0 1 0 2.1-3.4L3 9"/><path d="M12 7v5l4 2"/></svg></div>
-        <h3>Build History<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m18 15-6-6-6 6"/></svg></h3>
+        <h3>Build History</h3>
         <p id="histCount">Manage the apps you've built with Souqi Code.</p>
         <button type="button" class="btn btn-danger" id="clearHist">Clear History</button>
         <div class="note" id="histNote" hidden></div>
@@ -557,6 +573,10 @@
     Array.prototype.forEach.call(document.querySelectorAll(".theme"), function (b) {
       b.classList.toggle("on", b.dataset.theme === name);
     });
+    // Set directly on the parent document (same origin, always works)
+    try { parent.document.documentElement.setAttribute("data-theme", name); } catch (e) {}
+    // Also notify via postMessage for any further listeners
+    try { parent.postMessage({ key: THEME_KEY, value: name }, "*"); } catch (e) {}
   }
   var current = "light";
   try { current = localStorage.getItem(THEME_KEY) || "light"; } catch (e) { /* ignore */ }
@@ -596,6 +616,24 @@
     if (want) want.click();
   }
 
+  $("ovNameSave").addEventListener("click", function () {
+    var name = $("ovNameInput").value.trim();
+    if (!name) { note($("ovNameNote"), "Enter a name first.", false); return; }
+    var b = $("ovNameSave"); b.disabled = true; b.textContent = "Saving…";
+    fetch("/api/account/workspace", {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ company: name })
+    })
+      .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+      .then(function (res) {
+        if (!res.ok) throw new Error(res.d.error || "Couldn't save that name");
+        $("wsNm").textContent = res.d.company;
+        note($("ovNameNote"), "Saved.", true);
+      })
+      .catch(function (err) { note($("ovNameNote"), err.message, false); })
+      .finally(function () { b.disabled = false; b.textContent = "Save"; });
+  });
+
   /* There is no promo-code backend, so this says so rather than
      pretending to validate and silently doing nothing. */
   $("promoApply").addEventListener("click", function () {
@@ -615,6 +653,13 @@
   fetch("/api/account/me").then(function (r) { return r.json(); }).then(function (d) {
     signedIn = !!d.signedIn;
     if (!signedIn) {
+      // Both hit authenticated endpoints — left pointing at /login instead
+      // of a real 401 JSON response a plain-link click would otherwise land on.
+      $("ovExport").href = "/login";
+      $("ovExportD").textContent = "Sign in to export your apps.";
+      $("ovNameSave").disabled = true;
+      $("ovNameInput").disabled = true;
+      $("ovNameInput").placeholder = "Sign in to name your workspace";
       signedOutPanel($("profileBody"), "see your profile and plan");
       return;
     }
@@ -623,7 +668,7 @@
     var wsName = d.company || (name + "'s Workspace");
     $("wsNm").textContent = wsName;
     $("wsAv").textContent = (name.charAt(0) || "S").toUpperCase();
-    $("ovName").textContent = wsName;
+    $("ovNameInput").value = wsName;
     $("ovPlan").textContent = plan;
     $("ovEmail").textContent = d.email || "";
     $("ovCountry").textContent = d.country ? "Country: " + d.country : "";

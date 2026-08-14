@@ -488,6 +488,7 @@ Rules:
 - Do not fetch external images by URL you are unsure exists; prefer CSS gradients, solid colors, or emoji over broken <img> tags.
 - Keep it to ONE file (src/App.tsx) unless the request clearly needs more. Every extra file is another full generation the user waits for.
 - RESPONSIVE DESIGN IS MANDATORY: Every app you build MUST look great on BOTH mobile (375px) and desktop (1200px+). Use Tailwind responsive prefixes (sm:, md:, lg:) for layout. Mobile-first: default styles for mobile, then sm:/md:/lg: for wider screens. Use flex-wrap, grid with responsive columns (grid-cols-1 sm:grid-cols-2 lg:grid-cols-3), and relative units. Never use fixed px widths wider than 340px on any container or element. Test mentally: would this overflow or look broken on a 375px screen? If yes, fix it before writing.
+- TEXT CONTRAST IS MANDATORY, on every background you use, dark ones included: never leave a text color at its default/unstated value against a dark or colored background — every heading and body text element needs an explicit color class chosen for that specific background. If the design uses dark surfaces (e.g. bg-slate-900, bg-gray-950) anywhere, pair them with light text classes (text-white, text-slate-100, text-slate-300) on everything sitting on top, not just the classes that happen to look right in a quick mental preview. If you add dark: variants for a theme toggle, every text-* class needs its own dark:text-* counterpart — a color that's only correct in one theme is a bug, not a starting point.
 - Aim for roughly 120-200 lines. Make it look considered — real spacing, hierarchy, an empty state — with realistic sample data, never lorem ipsum. Do NOT pad it out: no long hardcoded data arrays, no repeated near-identical blocks, no commentary comments. Concise, complete, and fast to generate beats exhaustive.`;
 
 /**
@@ -597,7 +598,13 @@ const RETRY_MAX_TOKENS = 8000;
 
 async function attemptOnce(messages) {
   const res = await client.chat({ route: "json", messages, tools: TOOLS_SCHEMA, maxTokens: MAX_TOKENS, temperature: TEMPERATURE, timeoutMs: CALL_TIMEOUT_MS });
-  if (!res.ok) return { ok: false, reason: res.reason || "model call failed", disabled: res.disabled, breakerOpen: res.breakerOpen, budgetExceeded: res.budgetExceeded };
+  if (!res.ok) {
+    const reason = (res.reason || "model call failed");
+    const sanitized = /image/i.test(reason) && /does not support/i.test(reason)
+      ? "The AI model is currently unavailable — please try again."
+      : reason;
+    return { ok: false, reason: sanitized, disabled: res.disabled, breakerOpen: res.breakerOpen, budgetExceeded: res.budgetExceeded };
+  }
 
   const parsed = parseToolCalls(res.message);
   // `note` is the model's own prose alongside its tool calls — what it
@@ -836,10 +843,11 @@ Respond with JSON only, no other text.
 
 If there is ANY indication of what to build — a subject, a purpose, a business, an app type — respond {"clear": true}. Prefer this. A short prompt like "a todo app" or "a bakery landing page" is enough; do not ask for polish (colors, exact wording, fonts) that a first draft can just take a reasonable guess at.
 
-Only if the request is genuinely a greeting, a test, small talk, or gives no indication AT ALL of what to build, respond {"clear": false, "reply": "..."}. The reply is what the user actually sees, so make it sound like a person: if they said hi, say hi back — don't ignore a greeting to interrogate them. Keep it short, warm, and end with an open, inviting question about what to build. Examples of the RIGHT tone:
+Only if the request is genuinely a greeting, a test, small talk, a question about YOU (who/what you are, whether you're really the agent, what you can do) rather than about something to build, or gives no indication AT ALL of what to build, respond {"clear": false, "reply": "..."}. The reply is what the user actually sees, so make it sound like a person: if they said hi, say hi back; if they asked who you are, just answer that — don't ignore either to interrogate them. Keep it short, warm, and end with an open, inviting question about what to build. Examples of the RIGHT tone:
   "hey" -> "Hey! 👋 What would you like me to build for you?"
   "test" -> "All set and ready to go — what should I build?"
   "yo whats up" -> "Not much, just waiting to build something for you! What did you have in mind?"
+  "are you the souqi agent" -> "Yep, that's me! 🙂 What should I build for you?"
 Do NOT write "Quick question before I build:" or anything that sounds like a support ticket.`;
 
 /**
@@ -859,7 +867,7 @@ async function assessPrompt(userPrompt) {
     { role: "user", content: String(userPrompt || "").slice(0, MAX_USER_PROMPT_CHARS) }
   ];
   const res = await client.chat({
-    route: "json", messages, responseFormat: { type: "json_object" },
+    route: "json", messages,
     maxTokens: 200, temperature: 0.4, timeoutMs: 15000
   });
   if (!res.ok || !res.message || typeof res.message.content !== "string") return { clear: true };

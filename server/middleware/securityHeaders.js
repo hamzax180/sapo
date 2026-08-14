@@ -32,10 +32,19 @@ const WEBCONTAINER_CDN = "https://cdn.jsdelivr.net";
 // handshake before it will boot, and serves the running client app from
 // *.webcontainer-api.io. Both are required for a preview to appear.
 const WEBCONTAINER_HOST = "https://*.webcontainer-api.io https://stackblitz.com";
+// The device-mockup preview has a second render path, used whenever
+// WebContainers aren't booted yet (every reopened project, briefly, while
+// npm install runs) or aren't supported at all (no SharedArrayBuffer —
+// most mobile browsers): a CDN-script srcdoc fallback built in code.html's
+// showPreview()/renderAppPreview(), which loads Tailwind, React, Babel and
+// lucide-react from these three hosts. Missing here, every one of those
+// script tags was silently blocked — the preview mockup just stayed
+// blank, with no error visible anywhere but the browser console.
+const PREVIEW_FALLBACK_CDN = "https://cdn.tailwindcss.com https://cdnjs.cloudflare.com https://unpkg.com";
 
 const CSP = [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-inline' 'unsafe-eval' " + WEBCONTAINER_CDN,
+  "script-src 'self' 'unsafe-inline' 'unsafe-eval' " + WEBCONTAINER_CDN + " " + PREVIEW_FALLBACK_CDN,
   "worker-src 'self' blob:",
   "child-src 'self' blob: " + WEBCONTAINER_HOST,
   "frame-src 'self' blob: " + WEBCONTAINER_HOST,
