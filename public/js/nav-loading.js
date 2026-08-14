@@ -102,12 +102,13 @@
   }
 
   document.addEventListener("click", function (e) {
-    if (e.defaultPrevented || e.button !== 0) return;
+    if (e.button !== 0) return;
     if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return; // new tab / download
     var a = e.target && e.target.closest ? e.target.closest("a[href]") : null;
     if (!a) return;
     if (a.target && a.target !== "_self") return;
     if (a.hasAttribute("download")) return;
+    if (a.hasAttribute("onclick") || a.getAttribute("onclick")) return; // modal or JS trigger
     var href = a.getAttribute("href") || "";
     // In-page anchors, and any scheme that doesn't navigate the document
     if (!href || href.charAt(0) === "#") return;
@@ -115,8 +116,10 @@
     if (!sameOrigin(a)) return;
     // Same URL — the browser won't navigate, so a bar would hang forever
     if (a.href === location.href) return;
-    show();
-  }, true);
+    setTimeout(function () {
+      if (!e.defaultPrevented) show();
+    }, 0);
+  }, false);
 
   document.addEventListener("submit", function (e) {
     var f = e.target;

@@ -4188,6 +4188,7 @@
 <script>
 window.openUpgradeModal = function(e) {
   if (e && e.preventDefault) e.preventDefault();
+  if (window.SouqiLoading) window.SouqiLoading.hide();
   var modal = document.getElementById("agUpgradeModal");
   if (modal) modal.classList.add("open");
 };
