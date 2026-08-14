@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#121214" />
+  <meta name="description" content="Souqi Mobile — Vibe code from your phone." />
+  <title>Souqi Mobile — Vibe code from your phone</title>
+  <link rel="icon" type="image/png" href="assets/logo.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body {
+      margin: 0; padding: 0; min-height: 100vh;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      -webkit-font-smoothing: antialiased; background: #121214; color: #f4f4f5;
+    }
+
+    /* TOP NAVIGATION HEADER (EXACT REPLIT STYLING) */
+    .mob-nav {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 16px 40px; background: #ffffff; color: #1c1c1e;
+      border-bottom: 1px solid #eaeaea; position: sticky; top: 0; z-index: 100;
+    }
+    .mob-brand {
+      display: flex; align-items: center; gap: 10px; text-decoration: none; color: #1c1c1e;
+      font-weight: 700; font-size: 1.35rem; letter-spacing: -0.02em;
+    }
+    .mob-brand img { width: 30px; height: 30px; object-fit: contain; }
+
+    .mob-menu {
+      display: flex; align-items: center; gap: 24px; list-style: none; margin: 0; padding: 0;
+    }
+    .mob-menu a {
+      text-decoration: none; color: #52525b; font-size: 0.92rem; font-weight: 500;
+      transition: color 0.15s ease; display: inline-flex; align-items: center; gap: 4px;
+    }
+    .mob-menu a:hover { color: #2563eb; }
+    .agent-badge {
+      background: #2563eb; color: #ffffff; font-size: 0.76rem; font-weight: 700;
+      padding: 3px 10px; border-radius: 99px; display: inline-flex; align-items: center; gap: 4px;
+    }
+
+    .mob-actions { display: flex; align-items: center; gap: 18px; }
+    .mob-actions a { text-decoration: none; font-size: 0.92rem; font-weight: 500; color: #52525b; transition: color 0.15s; }
+    .mob-actions a:hover { color: #1c1c1e; }
+    .btn-create-acc {
+      border: 1px solid #2563eb; color: #2563eb !important; padding: 8px 20px;
+      border-radius: 99px; font-weight: 600 !important; transition: all 0.15s ease;
+    }
+    .btn-create-acc:hover { background: #2563eb; color: #ffffff !important; }
+
+    /* HERO SECTION (CLEAN BLUE ACCENT BACKGROUND) */
+    .hero-sec {
+      background: #f8fafc; color: #0f172a; padding: 40px 0 0; text-align: center;
+      position: relative; overflow: hidden; min-height: 580px;
+    }
+
+    /* Organic Ambient Blue Blob Shapes */
+    .hero-organic-blob-1 {
+      position: absolute; top: -60px; left: 50%; transform: translateX(-50%);
+      width: 950px; height: 520px;
+      background: radial-gradient(ellipse at center, rgba(56, 189, 248, 0.45) 0%, rgba(37, 99, 235, 0.18) 45%, transparent 70%);
+      filter: blur(70px); pointer-events: none;
+    }
+
+    /* Top 3D App Icon Cards */
+    .top-3d-icons {
+      display: flex; justify-content: center; gap: 24px; margin-bottom: 32px; position: relative; z-index: 5;
+    }
+    .icon-card-3d {
+      width: 86px; height: 86px; border-radius: 24px;
+      box-shadow: 0 12px 30px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.9);
+      display: flex; align-items: center; justify-content: center; position: relative;
+      border: 1px solid rgba(255,255,255,0.8);
+    }
+    .icon-card-1 { background: linear-gradient(135deg, #7dd3fc, #38bdf8); color: #fff; }
+    .icon-card-2 { background: linear-gradient(135deg, #ffffff, #f0f9ff); color: #0284c7; }
+    .icon-card-3 { background: linear-gradient(135deg, #fef08a, #facc15); color: #713f12; }
+
+    .hero-center {
+      max-width: 580px; margin: 0 auto; padding: 0 20px; position: relative; z-index: 10;
+    }
+
+    /* Replit's Exact H1 Font Styling (Weight 500-600, Clean Medium) */
+    .hero-h1 {
+      font-size: clamp(2.4rem, 4.8vw, 3.6rem); font-weight: 500; line-height: 1.15;
+      letter-spacing: -0.025em; margin: 0 0 20px; color: #1c1c1e;
+    }
+    .hero-sub {
+      font-size: 1.1rem; color: #1c1c1e; line-height: 1.5;
+      max-width: 500px; margin: 0 auto 36px; font-weight: 400;
+    }
+
+    /* Store Buttons */
+    .store-btns {
+      display: flex; align-items: center; justify-content: center; gap: 14px; flex-wrap: wrap; margin-bottom: 48px;
+    }
+    .store-btn {
+      display: inline-flex; align-items: center; gap: 10px; background: #000000; color: #ffffff;
+      padding: 12px 24px; border-radius: 12px; text-decoration: none; transition: transform 0.15s;
+    }
+    .store-btn:hover { transform: translateY(-2px); }
+    .store-btn svg { width: 24px; height: 24px; fill: currentColor; }
+    .store-text { text-align: left; }
+    .store-text .top { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.05em; opacity: 0.8; display: block; }
+    .store-text .bot { font-size: 1rem; font-weight: 600; display: block; line-height: 1.2; }
+
+    /* Left & Right Giant Phone Artwork */
+    .hero-side-phone-left {
+      position: absolute; top: 60px; left: -80px; width: 340px; height: 520px;
+      background: #09090b; border: 5px solid #d49c6e; border-radius: 44px;
+      box-shadow: 0 24px 60px rgba(0,0,0,0.12); overflow: hidden; padding: 24px 18px;
+      text-align: left; color: #fff; z-index: 2;
+    }
+    .hero-side-phone-right {
+      position: absolute; top: 60px; right: -80px; width: 320px; height: 520px;
+      background: #27272a; border: 5px solid #3f3f46; border-radius: 44px;
+      box-shadow: 0 24px 60px rgba(0,0,0,0.12); overflow: hidden; padding: 24px 18px;
+      text-align: left; color: #fff; z-index: 2;
+    }
+    @media (max-width: 1040px) {
+      .hero-side-phone-left, .hero-side-phone-right { display: none; }
+    }
+
+    /* SHOWCASE SECTION (DARK #121214) */
+    .showcase-sec {
+      background: #121214; padding: 90px 0 50px; text-align: center; overflow: hidden;
+    }
+    .showcase-title {
+      font-size: clamp(2.1rem, 4.2vw, 3.2rem); font-weight: 600; letter-spacing: -0.025em; margin: 0 0 14px; color: #ffffff;
+    }
+    .showcase-sub { font-size: 1.1rem; color: #a1a1aa; margin: 0 0 56px; font-weight: 400; }
+
+    /* PHONE TRACK */
+    .phone-track {
+      display: flex; gap: 28px; overflow-x: auto; padding: 20px 40px 70px;
+      scroll-behavior: smooth; scrollbar-width: none; align-items: center; justify-content: center;
+    }
+    .phone-track::-webkit-scrollbar { display: none; }
+
+    /* BRONZE IPHONE MOCKUP */
+    .phone-mockup {
+      width: 260px; height: 510px; background: #09090b; border: 5px solid #d49c6e;
+      border-radius: 44px; flex: none; box-shadow: 0 24px 60px rgba(0,0,0,0.8);
+      position: relative; overflow: hidden; display: flex; flex-direction: column;
+    }
+    .phone-mockup.tall {
+      width: 280px; height: 550px; border-width: 6px; border-color: #e5b083;
+    }
+    .phone-notch {
+      width: 90px; height: 24px; background: #000; border-radius: 0 0 14px 14px;
+      margin: 0 auto; position: absolute; top: 0; left: 50%; transform: translateX(-50%); z-index: 10;
+    }
+    .phone-screen {
+      flex: 1; padding: 36px 16px 20px; display: flex; flex-direction: column; justify-content: space-between;
+      font-size: 0.82rem; text-align: left;
+    }
+
+    /* WEB BANNER SECTION */
+    .web-banner-sec {
+      background: #121214; border-top: 1px solid #27272a; padding: 90px 24px; text-align: center;
+    }
+    .web-banner-wrap { max-width: 760px; margin: 0 auto; }
+    .web-banner-wrap h2 { font-size: clamp(2rem, 4vw, 2.8rem); font-weight: 600; margin: 0 0 20px; letter-spacing: -0.025em; color: #ffffff; }
+    .web-banner-wrap p { font-size: 1.08rem; color: #a1a1aa; line-height: 1.6; margin: 0; font-weight: 400; }
+
+    /* FAQ ACCORDION SECTION */
+    .faq-sec { padding: 90px 24px; max-width: 840px; margin: 0 auto; }
+    .faq-title { font-size: 2.5rem; font-weight: 600; text-align: center; margin-bottom: 48px; letter-spacing: -0.025em; color: #ffffff; }
+
+    .faq-item { border-bottom: 1px solid #27272a; padding: 22px 0; }
+    .faq-q {
+      font-size: 1.2rem; font-weight: 600; cursor: pointer; display: flex;
+      justify-content: space-between; align-items: center; user-select: none; color: #ffffff;
+    }
+    .faq-q .chev { font-size: 1.2rem; color: #71717a; transition: transform 0.2s ease; }
+    .faq-a { font-size: 1rem; color: #a1a1aa; line-height: 1.6; margin-top: 16px; display: none; }
+    .faq-item.open .faq-a { display: block; }
+    .faq-item.open .chev { transform: rotate(180deg); color: #2563eb; }
+
+    /* HOME FOOTER SECTION */
+    .footer-sec {
+      background: #0d0d0e; border-top: 1px solid #27272a; padding: 80px 40px 44px; color: #a1a1aa;
+    }
+    .footer-container { max-width: 1200px; margin: 0 auto; }
+    .footer-grid {
+      display: grid; grid-template-columns: 2fr repeat(3, 1fr); gap: 48px; margin-bottom: 64px;
+    }
+    @media (max-width: 860px) {
+      .footer-grid { grid-template-columns: 1fr 1fr; }
+      .mob-menu { display: none; }
+    }
+    @media (max-width: 540px) {
+      .footer-grid { grid-template-columns: 1fr; }
+    }
+
+    .footer-brand-col { display: flex; flex-direction: column; gap: 14px; }
+    .footer-logo { display: flex; align-items: center; gap: 10px; color: #fff; font-weight: 700; font-size: 1.4rem; text-decoration: none; }
+    .footer-logo img { width: 30px; height: 30px; }
+    .footer-slogan { font-size: 0.92rem; color: #71717a; max-width: 280px; line-height: 1.5; }
+
+    .footer-col h4 { color: #ffffff; font-size: 0.98rem; font-weight: 600; margin: 0 0 20px; }
+    .footer-col ul { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 12px; }
+    .footer-col a { color: #a1a1aa; text-decoration: none; font-size: 0.92rem; transition: color 0.15s; }
+    .footer-col a:hover { color: #ffffff; }
+
+    .footer-bot {
+      border-top: 1px solid #27272a; padding-top: 32px; display: flex;
+      justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; font-size: 0.88rem;
+    }
+    .social-links { display: flex; gap: 18px; }
+    .social-links a { color: #a1a1aa; text-decoration: none; font-size: 1.15rem; transition: color 0.15s; }
+    .social-links a:hover { color: #ffffff; }
+  </style>
+</head>
+<body>
+
+  <!-- TOP NAVIGATION HEADER -->
+  <header class="mob-nav">
+    <a href="/agent" class="mob-brand">
+      <img src="assets/logo.png" alt="Souqi Logo" />
+      <span>Souqi</span>
+    </a>
+
+    <ul class="mob-menu">
+      <li><a href="#">Products <span>⌄</span></a></li>
+      <li><a href="#">For Work <span>⌄</span></a></li>
+      <li><a href="#">Resources <span>⌄</span></a></li>
+      <li><a href="#">Security</a></li>
+      <li><a href="/pricing">Pricing</a></li>
+      <li><a href="#">Careers</a></li>
+      <li><a href="/agent" class="agent-badge">Agent <span>4</span></a></li>
+    </ul>
+
+    <div class="mob-actions">
+      <a href="/contact" style="display:none;">Contact sales</a>
+      <a href="/login">Log in</a>
+      <a href="/login" class="btn-create-acc">Create account</a>
+    </div>
+  </header>
+
+  <!-- HERO SECTION -->
+  <section class="hero-sec">
+    <div class="hero-organic-blob-1"></div>
+
+    <!-- Left Giant Side Phone Artwork -->
+    <div class="hero-side-phone-left">
+      <div style="font-weight:600; color:#a1a1aa; margin-bottom:12px; font-size:0.9rem;">Hello, Alex</div>
+      <div style="background:#18181b; padding:14px; border-radius:16px; margin-bottom:12px;">
+        <div style="color:#71717a; font-size:0.75rem;">Daily Activity</div>
+        <div style="font-size:1.8rem; font-weight:700; color:#38bdf8;">1,840 kcal</div>
+      </div>
+      <div style="background:#18181b; padding:14px; border-radius:16px;">
+        <div style="color:#71717a; font-size:0.75rem;">Steps Target</div>
+        <div style="font-size:1.8rem; font-weight:700; color:#a855f7;">4,521 steps</div>
+      </div>
+    </div>
+
+    <!-- Right Giant Side Piano Synth Artwork -->
+    <div class="hero-side-phone-right">
+      <div style="font-weight:600; margin-bottom:12px; font-size:0.9rem; color:#a1a1aa;">Synthesizer Synth</div>
+      <div style="display:flex; gap:6px; height:120px; background:#000; padding:8px; border-radius:12px; margin-bottom:16px;">
+        <div style="background:#fff; flex:1; border-radius:4px;"></div>
+        <div style="background:#fff; flex:1; border-radius:4px;"></div>
+        <div style="background:#fff; flex:1; border-radius:4px;"></div>
+        <div style="background:#fff; flex:1; border-radius:4px;"></div>
+      </div>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+        <div style="background:#27272a; padding:10px; border-radius:10px; font-size:0.75rem; text-align:center;">REVERB</div>
+        <div style="background:#27272a; padding:10px; border-radius:10px; font-size:0.75rem; text-align:center;">VIBRATO</div>
+      </div>
+    </div>
+
+    <!-- Center Hero Text & Downloads -->
+    <div class="hero-center">
+      <!-- 3D Top Floating Icons -->
+      <div class="top-3d-icons">
+        <div class="icon-card-3d icon-card-1">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+        </div>
+        <div class="icon-card-3d icon-card-2">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="10" r="3"/><path d="M12 21S3 14.5 3 10a9 9 0 1 1 18 0c0 4.5-9 11-9 11z"/></svg>
+        </div>
+        <div class="icon-card-3d icon-card-3">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 21h18M5 21V10l7-5 7 5v11"/></svg>
+        </div>
+      </div>
+
+      <h1 class="hero-h1">Vibe code from your phone.<br />Join 50M+ builders on Souqi.</h1>
+      <p class="hero-sub">Create, share, and publish web apps all from the palm of your hand. Download the app on Android or iOS.</p>
+
+      <div class="store-btns">
+        <a href="#" class="store-btn">
+          <svg viewBox="0 0 24 24"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M15.97 6.64c.66-.8 1.11-1.92.99-3.04-.96.04-2.12.64-2.8 1.44-.61.71-1.14 1.86-.99 2.97 1.07.08 2.15-.55 2.8-1.37z"/></svg>
+          <div class="store-text">
+            <span class="top">Download on the</span>
+            <span class="bot">App Store</span>
+          </div>
+        </a>
+
+        <a href="#" class="store-btn">
+          <svg viewBox="0 0 24 24"><path d="M3 20.5v-17l14.5 8.5L3 20.5zm2-14.3v11.6l9.9-5.8L5 6.2z"/></svg>
+          <div class="store-text">
+            <span class="top">GET IT ON</span>
+            <span class="bot">Google Play</span>
+          </div>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- SHOWCASE SECTION (DARK #121214) -->
+  <section class="showcase-sec">
+    <h2 class="showcase-title">Experience what's being built with Souqi</h2>
+    <p class="showcase-sub">Real apps, created in Souqi</p>
+
+    <!-- HORIZONTAL PHONE MOCKUPS TRACK -->
+    <div class="phone-track">
+      <!-- Mockup 1: Alex's Fitness App -->
+      <div class="phone-mockup">
+        <div class="phone-notch"></div>
+        <div class="phone-screen">
+          <div style="display:flex; justify-content:space-between; margin-bottom:12px; font-weight:600; color:#a1a1aa;">
+            <span>Hello, Alex</span>
+            <span>⚡</span>
+          </div>
+          <div style="background:#18181b; padding:14px; border-radius:14px; margin-bottom:10px;">
+            <div style="color:#71717a; font-size:0.75rem;">Daily Activity</div>
+            <div style="font-size:1.6rem; font-weight:700; color:#38bdf8;">1,840 kcal</div>
+          </div>
+          <div style="background:#18181b; padding:14px; border-radius:14px;">
+            <div style="color:#71717a; font-size:0.75rem;">Steps Target</div>
+            <div style="font-size:1.6rem; font-weight:700; color:#a855f7;">4,521 steps</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Mockup 2: Doodle Jump Arcade Game -->
+      <div class="phone-mockup">
+        <div class="phone-notch"></div>
+        <div class="phone-screen" style="background:#0b1329;">
+          <div style="display:flex; justify-content:space-between; font-weight:700; font-size:1.2rem; color:#4ade80;">
+            <span>226</span>
+            <span>⚙️</span>
+          </div>
+          <div style="position:relative; height:280px; margin:20px 0;">
+            <div style="position:absolute; top:30px; left:40px; width:44px; height:8px; background:#22c55e; border-radius:4px;"></div>
+            <div style="position:absolute; top:100px; left:110px; width:44px; height:8px; background:#22c55e; border-radius:4px;"></div>
+            <div style="position:absolute; top:170px; left:30px; width:44px; height:8px; background:#22c55e; border-radius:4px;"></div>
+            <div style="position:absolute; top:130px; left:120px; font-size:1.6rem;">🐸</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Mockup 3: Falling Blocks Game (Center Hero Phone) -->
+      <div class="phone-mockup tall">
+        <div class="phone-notch"></div>
+        <div class="phone-screen" style="background:#050b14;">
+          <div style="display:flex; justify-content:space-between; font-weight:700; font-size:1.3rem; color:#ffffff;">
+            <span>326</span>
+            <span>⏸</span>
+          </div>
+          <div style="position:relative; height:360px;">
+            <div style="position:absolute; top:30px; left:30px; width:24px; height:24px; background:#ef4444; border-radius:4px;"></div>
+            <div style="position:absolute; top:80px; left:140px; width:54px; height:8px; background:#22c55e; border-radius:4px;"></div>
+            <div style="position:absolute; top:160px; left:60px; width:54px; height:8px; background:#22c55e; border-radius:4px;"></div>
+            <div style="position:absolute; top:240px; left:120px; width:54px; height:8px; background:#22c55e; border-radius:4px;"></div>
+            <div style="position:absolute; top:210px; left:130px; font-size:1.6rem;">🐸</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Mockup 4: Match-3 Gummy Candy Game -->
+      <div class="phone-mockup">
+        <div class="phone-notch"></div>
+        <div class="phone-screen" style="background:#ffffff; color:#18181b;">
+          <div style="display:flex; justify-content:space-between; font-weight:700;">
+            <span>Level 1</span>
+            <span style="color:#e11d48;">Score: 0</span>
+          </div>
+          <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:8px; margin:auto 0; text-align:center; font-size:1.4rem;">
+            <span>🍬</span> <span>🍇</span> <span>🍊</span> <span>🍓</span>
+            <span>🍊</span> <span>🍬</span> <span>🍓</span> <span>🍇</span>
+            <span>🍇</span> <span>🍊</span> <span>🍬</span> <span>🍬</span>
+          </div>
+          <div style="background:#f43f5e; color:#fff; padding:10px; text-align:center; border-radius:12px; font-weight:600;">
+            Shuffle +3D
+          </div>
+        </div>
+      </div>
+
+      <!-- Mockup 5: Vegan Food Macro Details -->
+      <div class="phone-mockup">
+        <div class="phone-notch"></div>
+        <div class="phone-screen" style="background:#18181b;">
+          <div>
+            <div style="font-weight:700; font-size:1.1rem; margin-bottom:8px;">🥗 Vegan Buddha Bowl</div>
+            <div style="background:#27272a; padding:12px; border-radius:12px; margin-bottom:12px;">
+              <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+                <span>Protein</span> <span>45g</span>
+              </div>
+              <div style="display:flex; justify-content:space-between;">
+                <span>Carbs</span> <span>60g</span>
+              </div>
+            </div>
+          </div>
+          <button type="button" style="background:#22c55e; color:#fff; border:0; padding:12px; border-radius:10px; font-weight:600; cursor:pointer;">Track Meal</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- WEB BANNER SECTION -->
+  <section class="web-banner-sec">
+    <div class="web-banner-wrap">
+      <h2>Building a native iOS app? Open Souqi on the web.</h2>
+      <p>The Souqi mobile app is built for vibe coding websites and web apps. To build a native iOS app and submit it to the App Store, open Souqi on the web — you'll get the full mobile app workflow with Agent, Expo Go previews, and guided App Store submission.</p>
+    </div>
+  </section>
+
+  <!-- FAQ SECTION -->
+  <section class="faq-sec">
+    <h2 class="faq-title">Frequently asked questions</h2>
+
+    <div class="faq-item open">
+      <div class="faq-q"><span>Is there a Souqi mobile app?</span> <span class="chev">⌄</span></div>
+      <div class="faq-a">Yes! Souqi Mobile is available on both iOS (App Store) and Android (Google Play Store), letting you vibe code and deploy full web applications right from your phone.</div>
+    </div>
+
+    <div class="faq-item">
+      <div class="faq-q"><span>What can I do with the Souqi app?</span> <span class="chev">⌄</span></div>
+      <div class="faq-a">You can prompt Souqi Agent, preview live web apps instantly, edit code, manage databases, view build history, and share your creations with a single tap.</div>
+    </div>
+
+    <div class="faq-item">
+      <div class="faq-q"><span>How do I install the Souqi mobile app?</span> <span class="chev">⌄</span></div>
+      <div class="faq-a">Search for "Souqi" on the Apple App Store or Google Play Store, or tap the download buttons on this page.</div>
+    </div>
+
+    <div class="faq-item">
+      <div class="faq-q"><span>Can I build native mobile apps with Souqi Agent?</span> <span class="chev">⌄</span></div>
+      <div class="faq-a">You can build web apps directly on mobile, and to build native iOS/Android apps with Expo Go and App Store submission, open Souqi on the web.</div>
+    </div>
+  </section>
+
+  <!-- HOME FOOTER -->
+  <footer class="footer-sec">
+    <div class="footer-container">
+      <div class="footer-grid">
+        <div class="footer-brand-col">
+          <a href="/agent" class="footer-logo">
+            <img src="assets/logo.png" alt="Souqi Logo" />
+            <span>Souqi</span>
+          </a>
+          <div class="footer-slogan">Vibe code anything, anywhere. From prompt to deployed app in seconds.</div>
+        </div>
+
+        <div class="footer-col">
+          <h4>Products</h4>
+          <ul>
+            <li><a href="/agent">Souqi Agent</a></li>
+            <li><a href="/projects">Workspaces</a></li>
+            <li><a href="/mobile">Mobile App</a></li>
+            <li><a href="/pricing">Pricing</a></li>
+            <li><a href="/changelog">Changelog</a></li>
+          </ul>
+        </div>
+
+        <div class="footer-col">
+          <h4>Resources</h4>
+          <ul>
+            <li><a href="/docs">Documentation</a></li>
+            <li><a href="/community">Community</a></li>
+            <li><a href="/blog">Blog</a></li>
+            <li><a href="/status">Status</a></li>
+            <li><a href="/metrics">System Metrics</a></li>
+          </ul>
+        </div>
+
+        <div class="footer-col">
+          <h4>Company</h4>
+          <ul>
+            <li><a href="/about">About Us</a></li>
+            <li><a href="/careers">Careers</a></li>
+            <li><a href="/security">Security</a></li>
+            <li><a href="/privacy">Privacy Policy</a></li>
+            <li><a href="/terms">Terms of Service</a></li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="footer-bot">
+        <div>© 2026 Souqi Inc. All rights reserved.</div>
+        <div class="social-links">
+          <a href="#" title="X/Twitter">𝕏</a>
+          <a href="#" title="GitHub">🐙</a>
+          <a href="#" title="Discord">💬</a>
+          <a href="#" title="YouTube">▶</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    (function() {
+      // FAQ Accordion Toggle
+      var faqItems = document.querySelectorAll(".faq-item");
+      faqItems.forEach(function(item) {
+        var q = item.querySelector(".faq-q");
+        q.addEventListener("click", function() {
+          var isOpen = item.classList.contains("open");
+          faqItems.forEach(function(i) { i.classList.remove("open"); });
+          if (!isOpen) item.classList.add("open");
+        });
+      });
+    })();
+  </script>
+</body>
+</html>

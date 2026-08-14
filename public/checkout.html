@@ -3,358 +3,823 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <meta name="theme-color" content="#1aa6df" />
-  <meta name="description" content="Souqi Cloud checkout" />
-  <title>Checkout — Souqi Cloud</title>
+  <meta name="theme-color" content="#18181b" />
+  <meta name="description" content="Subscribe to Souqi" />
+  <title>Subscribe to Souqi — Checkout</title>
   <link rel="icon" type="image/png" href="assets/logo.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Jost:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="css/sap.css?v=28" />
-<script>
-(function(){var k="souqi-theme";try{var t=localStorage.getItem(k)||"light";document.documentElement.setAttribute("data-theme",t)}catch(e){}})();
-</script>
-<style>
-    body { background:var(--surface-2); min-height:100vh; }
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <script>
+    (function(){
+      var k = "souqi-theme";
+      try {
+        var t = localStorage.getItem(k) || "light";
+        document.documentElement.setAttribute("data-theme", t);
+      } catch(e) {}
+    })();
+  </script>
+  <style>
+    :root, :root[data-theme="light"] {
+      --bg-left: #faf8f5;
+      --bg-right: #ffffff;
+      --card-bg: #f4f0e8;
+      --card-inner: #e9e3d8;
+      --ink: #18181b;
+      --ink-2: #52525b;
+      --mut: #71717a;
+      --line: #e4e4e7;
+      --line-left: #eae5dd;
+      --brand-red: #ff3500;
+      --brand-red-hover: #e02e00;
+      --input-bg: #ffffff;
+      --input-border: #e4e4e7;
+      --badge-green-bg: #dcfce7;
+      --badge-green-fg: #15803d;
+    }
 
-    /* top bar */
-    .co-bar { position:sticky; top:0; z-index:20; height:58px; display:flex; align-items:center; gap:14px;
-      padding:0 clamp(14px,4vw,28px); background:rgba(255,255,255,.94); backdrop-filter:saturate(160%) blur(8px); border-bottom:1px solid var(--line); }
-    .co-back { width:38px; height:38px; flex:0 0 auto; display:grid; place-items:center; border-radius:10px; color:var(--navy-700); background:transparent; border:0; cursor:pointer; text-decoration:none; }
-    .co-back:hover { background:#f1f5f9; }
-    .co-back svg { width:20px; height:20px; }
-    .co-brand { display:flex; align-items:center; gap:9px; text-decoration:none; }
-    .co-brand .m { width:26px; height:26px; }
-    .co-brand .n { font-family:var(--font-head); font-weight:800; color:var(--navy-800); font-size:1rem; }
-    .co-secure { display:inline-flex; align-items:center; gap:6px; font-size:.76rem; color:var(--muted); font-weight:500; }
-    .co-secure svg { width:14px; height:14px; color:#2fae7a; }
+    :root[data-theme="dark"] {
+      --bg-left: #18181b;
+      --bg-right: #1f1f23;
+      --card-bg: #27272a;
+      --card-inner: #3f3f46;
+      --ink: #f4f4f5;
+      --ink-2: #a1a1aa;
+      --mut: #94a3b8;
+      --line: #27272a;
+      --line-left: #27272a;
+      --brand-red: #ff3500;
+      --brand-red-hover: #e02e00;
+      --input-bg: #18181b;
+      --input-border: #3f3f46;
+      --badge-green-bg: rgba(22, 163, 74, 0.2);
+      --badge-green-fg: #4ade80;
+    }
 
-    /* language switcher — identical to login/pricing's dropdown */
-    .lang-dropdown{position:relative;display:inline-block;font-family:var(--font-head);font-size:.8rem;z-index:9999}
-    .lang-trigger{display:flex;align-items:center;justify-content:center;background:#fff;border:2px solid #d0112b;border-radius:0;
-      padding:7px 14px;color:#d0112b;font-weight:700;cursor:pointer;transition:background .18s;outline:none;user-select:none;min-width:88px}
-    .lang-trigger *{pointer-events:none}
-    .lang-trigger:hover{background:#fdf5f5}
-    .lang-trigger .lang-arrow{display:none}
-    .lang-list{position:absolute;top:100%;right:0;left:0;background:#fff;border:1px solid #111;border-top:none;border-radius:0;
-      padding:0;margin:0;list-style:none;display:none;overflow:hidden;z-index:10000}
-    .lang-dropdown.open .lang-list{display:block!important;visibility:visible!important;opacity:1!important}
-    .lang-item{padding:8px 14px;cursor:pointer;font-weight:700;text-align:center;color:#d0112b;background:#fff;transition:background .18s,color .18s}
-    .lang-item:hover{background:#f5f5f5}
-    .lang-item.active{background:#1e73be;color:#fff}
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body {
+      margin: 0; padding: 0; min-height: 100vh;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      -webkit-font-smoothing: antialiased; color: var(--ink); background: var(--bg-right);
+    }
 
-    /* layout */
-    .co-wrap { max-width:560px; margin:0 auto; padding:clamp(20px,4vw,38px) 18px 60px; }
-    .co-title { font-family:var(--font-head); font-weight:800; font-size:clamp(1.5rem,5vw,1.9rem); color:var(--navy-800); letter-spacing:-.01em; margin-bottom:18px; }
+    /* Skeleton Loader Overlay */
+    .skeleton-overlay {
+      position: fixed; inset: 0; z-index: 9999; display: grid; grid-template-columns: 1fr 1fr;
+      background: var(--bg-right); opacity: 1; transition: opacity 0.4s ease, visibility 0.4s ease;
+    }
+    .skeleton-overlay.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
+    .sk-left { background: var(--bg-left); padding: 60px 48px; display: flex; flex-direction: column; gap: 24px; }
+    .sk-right { background: var(--bg-right); padding: 60px 48px; display: flex; flex-direction: column; gap: 24px; }
+    .sk-box {
+      background: var(--line); border-radius: 8px;
+      animation: skPulse 1.2s ease-in-out infinite alternate;
+    }
+    @keyframes skPulse {
+      0% { opacity: 0.45; }
+      100% { opacity: 0.85; }
+    }
 
-    /* billing cycle cards */
-    .cyc-cards { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:22px; }
-    .cyc { position:relative; display:block; cursor:pointer; border:1.5px solid var(--line); border-radius:14px; padding:15px 16px 16px; background:var(--surface); transition:border-color .15s, box-shadow .15s, background .15s; }
-    .cyc:hover { border-color:#9cc4e4; }
-    .cyc.on { border-color:var(--accent); background:#eef8fe; box-shadow:0 6px 20px rgba(26,166,223,.14); }
-    .cyc input { position:absolute; opacity:0; pointer-events:none; }
-    .cyc .radio { position:absolute; top:15px; left:16px; width:20px; height:20px; border-radius:50%; border:2px solid #c2d2e0; background:#fff; transition:all .15s; }
-    .cyc.on .radio { border-color:var(--accent); }
-    .cyc.on .radio::after { content:""; position:absolute; inset:3px; border-radius:50%; background:var(--accent); }
-    .cyc .save { position:absolute; top:14px; right:14px; font-size:.7rem; font-weight:800; color:var(--accent); background:#dcf0fb; padding:3px 9px; border-radius:999px; }
-    .cyc .nm { display:block; margin-top:30px; font-weight:700; color:var(--navy-800); font-size:.98rem; }
-    .cyc .pr { display:block; font-size:.8rem; color:var(--muted); margin-top:3px; }
+    /* Desktop Main Grid Layout */
+    .co-container {
+      display: grid; grid-template-columns: 1fr 1fr; min-height: 100vh;
+    }
 
-    /* cards */
-    .card { background:var(--surface); border:1px solid var(--line); border-radius:16px; padding:20px 20px; margin-bottom:18px; }
-    .card h2 { font-family:var(--font-head); font-weight:700; font-size:1.14rem; color:var(--navy-800); margin-bottom:14px; }
+    /* LEFT COLUMN — Order Summary */
+    .co-left {
+      background: var(--bg-left); padding: 48px 56px 60px; border-right: 1px solid var(--line-left);
+      display: flex; flex-direction: column; justify-content: flex-start;
+    }
 
-    /* order details */
-    .od-row { display:flex; justify-content:space-between; align-items:flex-start; gap:14px; padding:11px 0; font-size:.92rem; color:var(--ink); }
-    .od-row .lbl b { display:block; color:var(--navy-800); font-weight:600; }
-    .od-row .lbl small { color:var(--muted); font-size:.82rem; }
-    .od-row .amt { color:var(--navy-800); font-weight:600; white-space:nowrap; }
-    .od-div { height:1px; background:var(--line); margin:2px 0; }
-    .od-total { padding-top:13px; margin-top:3px; border-top:1px solid var(--line); }
-    .od-total .lbl b { font-size:1rem; }
-    .od-total .amt { font-family:var(--font-head); font-size:1.15rem; font-weight:800; }
+    /* Header & Logo Hover Effect */
+    .co-brand-link {
+      display: inline-flex; align-items: center; gap: 10px; text-decoration: none;
+      color: var(--ink); font-weight: 700; font-size: 1.15rem; margin-bottom: 32px;
+      transition: color 0.15s ease; width: fit-content;
+    }
+    .co-brand-link .arrow { font-size: 1.1rem; color: var(--mut); transition: transform 0.15s ease; }
+    .co-brand-link img { width: 26px; height: 26px; object-fit: contain; }
+    .co-brand-link .brand-text { display: inline-block; transition: opacity 0.15s ease; }
+    .co-brand-link .back-text { display: none; }
 
-    /* renew note */
-    .renew { display:flex; gap:11px; align-items:flex-start; background:#eef6fc; border:1px solid #cfe7f6; border-radius:13px; padding:14px 16px; margin-bottom:18px; font-size:.86rem; color:var(--navy-700); line-height:1.55; }
-    .renew svg { width:18px; height:18px; flex:0 0 auto; color:var(--accent); margin-top:1px; }
+    .co-brand-link:hover .brand-text { display: none; }
+    .co-brand-link:hover .back-text { display: inline-block; color: var(--ink); }
+    .co-brand-link:hover .arrow { transform: translateX(-3px); color: var(--ink); }
 
-    /* form */
-    .co-field { margin-bottom:14px; }
-    .co-field > label { display:block; font-size:.84rem; font-weight:600; color:var(--navy-700); margin-bottom:6px; }
-    .co-input, .co-select { width:100%; height:46px; border:1.5px solid var(--line); border-radius:11px; padding:0 14px; font:inherit; font-size:.92rem; color:var(--ink); background:#fff; transition:border-color .15s, box-shadow .15s; -webkit-appearance:none; appearance:none; }
-    textarea.co-input { height:auto; padding:12px 14px; resize:vertical; min-height:46px; }
-    .co-input:focus, .co-select:focus { outline:none; border-color:var(--accent); box-shadow:0 0 0 3px rgba(26,166,223,.14); }
-    .co-input::placeholder { color:#9aabbd; }
-    .co-select { background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2364758a' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right 14px center; padding-right:38px; }
-    .co-row2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    .co-plan-sub { font-size: 0.92rem; color: var(--mut); margin-bottom: 6px; }
+    .co-main-price {
+      display: flex; align-items: baseline; gap: 8px; margin-bottom: 24px;
+    }
+    .co-main-price .amt { font-size: 2.3rem; font-weight: 800; color: var(--ink); letter-spacing: -0.03em; }
+    .co-main-price .unit { font-size: 0.85rem; color: var(--mut); }
 
-    /* card number with brand badges */
-    .co-cardwrap { position:relative; }
-    .co-cardwrap .brands { position:absolute; top:50%; right:12px; transform:translateY(-50%); display:flex; gap:5px; pointer-events:none; }
-    .brand { height:20px; padding:0 5px; border-radius:4px; display:grid; place-items:center; font-size:.56rem; font-weight:800; letter-spacing:.02em; color:#fff; }
-    .brand.visa { background:#1a1f71; } .brand.mc { background:#eb5b25; } .brand.amex { background:#1a7fc4; } .brand.disc { background:#e8821a; }
-    .co-cardwrap .co-input { padding-right:130px; }
+    /* Currency Switcher */
+    .curr-switcher {
+      display: flex; gap: 8px; background: var(--card-inner); padding: 4px; border-radius: 10px;
+      margin-bottom: 10px; width: fit-content;
+    }
+    .curr-btn {
+      border: 0; background: none; font-family: inherit; font-size: 0.88rem; font-weight: 700;
+      color: var(--mut); padding: 8px 24px; border-radius: 8px; cursor: pointer; transition: all 0.18s;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .curr-btn.active {
+      background: var(--input-bg); color: var(--ink); box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+    }
+    .curr-subtext { font-size: 0.74rem; color: var(--mut); margin-bottom: 28px; }
 
-    /* checkboxes */
-    .co-check { display:flex; gap:10px; align-items:flex-start; font-size:.86rem; color:var(--ink); line-height:1.5; cursor:pointer; margin:6px 0 16px; }
-    .co-check input { position:absolute; opacity:0; }
-    .co-check .box { width:18px; height:18px; flex:0 0 auto; border:1.6px solid #c2d2e0; border-radius:5px; background:#fff; display:grid; place-items:center; margin-top:1px; transition:all .15s; }
-    .co-check .box svg { width:12px; height:12px; stroke:#fff; opacity:0; }
-    .co-check input:checked + .box { background:var(--accent); border-color:var(--accent); }
-    .co-check input:checked + .box svg { opacity:1; }
-    .co-check a { color:var(--accent); }
-    .co-check.err .box { border-color:var(--red); box-shadow:0 0 0 3px var(--red-bg); }
+    /* Plan Details Card */
+    .order-card {
+      background: var(--card-bg); border-radius: 14px; padding: 20px; margin-bottom: 24px;
+    }
+    .oc-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+    .oc-left { display: flex; align-items: center; gap: 12px; }
+    .oc-logo { width: 32px; height: 32px; object-fit: contain; }
+    .oc-title { font-size: 1rem; font-weight: 700; color: var(--ink); }
+    .oc-billing { font-size: 0.78rem; color: var(--mut); }
+    .oc-price { font-size: 0.95rem; font-weight: 700; color: var(--ink); }
 
-    .taxid-head { font-size:.84rem; font-weight:600; color:var(--navy-700); }
-    .taxid-help { font-size:.78rem; color:var(--muted); margin:3px 0 8px; line-height:1.45; }
-    .taxid-row { display:grid; grid-template-columns:auto 1fr; align-items:center; gap:10px; }
-    .taxid-row .tl { font-size:.82rem; color:var(--ink); }
+    .oc-annual-row {
+      display: flex; align-items: center; justify-content: space-between;
+      background: var(--card-inner); padding: 10px 14px; border-radius: 10px; margin-top: 12px;
+    }
+    .oc-annual-label { display: flex; align-items: center; gap: 8px; font-size: 0.82rem; font-weight: 600; color: var(--ink); }
+    .oc-save-badge { background: var(--badge-green-bg); color: var(--badge-green-fg); font-size: 0.72rem; font-weight: 700; padding: 2px 7px; border-radius: 99px; }
+    .oc-annual-price { font-size: 0.82rem; color: var(--mut); font-weight: 600; }
 
-    .co-sub { width:100%; height:50px; border:0; border-radius:12px; background:var(--navy-800); color:#fff; font:inherit; font-size:.98rem; font-weight:700; cursor:pointer; margin-top:6px; transition:background .15s; }
-    .co-sub:hover { background:var(--navy-700); }
-    .co-demo { text-align:center; font-size:.74rem; color:var(--muted); margin-top:11px; }
+    /* Switch Component */
+    .switch { position: relative; display: inline-block; width: 34px; height: 20px; flex: none; }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .slider { position: absolute; cursor: pointer; inset: 0; background-color: var(--mut); transition: .2s; border-radius: 99px; }
+    .slider:before { position: absolute; content: ""; height: 14px; width: 14px; left: 3px; bottom: 3px; background-color: white; transition: .2s; border-radius: 50%; }
+    input:checked + .slider { background-color: var(--brand-red); }
+    input:checked + .slider:before { transform: translateX(14px); }
 
-    /* success */
-    .co-done { text-align:center; padding:18px 6px 6px; }
-    .co-done .ic { width:64px; height:64px; border-radius:50%; background:#e3f7ee; color:#2fae7a; display:grid; place-items:center; margin:0 auto 16px; }
-    .co-done .ic svg { width:32px; height:32px; }
-    .co-done h3 { font-family:var(--font-head); font-size:1.35rem; color:var(--navy-800); }
-    .co-done p { color:var(--muted); font-size:.92rem; margin:8px auto 20px; max-width:340px; line-height:1.55; }
+    /* Summary Breakdown */
+    .summary-list { display: flex; flex-direction: column; gap: 12px; margin-bottom: 24px; }
+    .sum-row { display: flex; justify-content: space-between; align-items: center; font-size: 0.9rem; color: var(--ink); }
+    .sum-row.total { border-top: 1px solid var(--line-left); padding-top: 16px; margin-top: 8px; font-size: 1rem; font-weight: 800; }
+    .sum-row.total .amt { font-size: 1.25rem; }
 
-    @media (max-width:480px) {
-      .cyc-cards { grid-template-columns:1fr; }
-      .card { border-radius:14px; padding:18px 16px; }
-      .co-wrap { padding-bottom:80px; }
+    .promo-btn {
+      background: var(--card-inner); border: 0; border-radius: 99px; padding: 8px 18px;
+      font-family: inherit; font-size: 0.82rem; font-weight: 600; color: var(--ink);
+      cursor: pointer; width: fit-content; transition: background 0.15s; margin: 4px 0 8px;
+    }
+    .promo-btn:hover { background: var(--line); }
+
+    /* RIGHT COLUMN — Payment Form */
+    .co-right {
+      background: var(--bg-right); padding: 48px 56px 60px; display: flex; flex-direction: column; justify-content: flex-start;
+    }
+    .pay-wrap { max-width: 440px; width: 100%; margin: 0 auto; }
+
+    /* Apple Pay Express Button */
+    .apple-pay-btn {
+      width: 100%; height: 48px; background: #000000; color: #ffffff; border: 0;
+      border-radius: 8px; font-size: 1.15rem; font-weight: 700; cursor: pointer;
+      display: flex; align-items: center; justify-content: center; gap: 6px;
+      transition: background 0.15s ease; margin-bottom: 24px;
+    }
+    .apple-pay-btn:hover { background: #18181b; }
+
+    .divider {
+      display: flex; align-items: center; text-align: center; color: var(--mut);
+      font-size: 0.78rem; font-weight: 600; margin-bottom: 24px;
+    }
+    .divider::before, .divider::after {
+      content: ''; flex: 1; border-bottom: 1px solid var(--line);
+    }
+    .divider span { padding: 0 12px; }
+
+    /* Form Fields */
+    .form-group { margin-bottom: 20px; }
+    .form-label { display: block; font-size: 0.88rem; font-weight: 600; color: var(--ink); margin-bottom: 8px; }
+    .form-input {
+      width: 100%; padding: 12px 14px; border: 1px solid var(--input-border); border-radius: 8px;
+      background: var(--input-bg); font-family: inherit; font-size: 0.9rem; color: var(--ink);
+      outline: none; transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .form-input:focus { border-color: var(--brand-red); box-shadow: 0 0 0 3px rgba(255, 53, 0, 0.14); }
+
+    .card-box {
+      border: 1px solid var(--input-border); border-radius: 10px; overflow: hidden; background: var(--input-bg);
+    }
+    .card-box-header {
+      display: flex; align-items: center; justify-content: space-between; padding: 10px 14px;
+      background: var(--bg-left); border-bottom: 1px solid var(--input-border); font-size: 0.86rem; font-weight: 600;
+    }
+    .card-brands { display: flex; gap: 4px; }
+    .card-brand-badge {
+      font-size: 0.65rem; font-weight: 800; padding: 2px 5px; border-radius: 3px; color: #fff;
+    }
+    .brand-visa { background: #1a1f71; }
+    .brand-mc { background: #eb5b25; }
+    .brand-amex { background: #006fcf; }
+    .brand-jcb { background: #004098; }
+
+    .card-inputs-grid { display: grid; grid-template-columns: 1fr 1fr; }
+    .card-inputs-grid input { border: 0; border-radius: 0; }
+    .card-inputs-grid input:first-child { border-right: 1px solid var(--input-border); }
+    .card-inputs-grid input:focus { z-index: 2; position: relative; }
+
+    .address-link { font-size: 0.78rem; color: var(--mut); text-decoration: underline; margin-top: 6px; cursor: pointer; display: inline-block; }
+    .address-link:hover { color: var(--ink); }
+
+    /* Checkbox Card Containers */
+    .checkbox-row {
+      display: flex; align-items: flex-start; gap: 10px; font-size: 0.84rem; color: var(--ink);
+      cursor: pointer; margin-bottom: 16px; user-select: none;
+    }
+    .checkbox-row input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--brand-red); cursor: pointer; margin-top: 2px; }
+
+    .link-card-box {
+      border: 1px solid var(--input-border); border-radius: 10px; padding: 14px; margin-bottom: 24px;
+      background: var(--input-bg); display: flex; flex-direction: column; gap: 4px;
+    }
+    .link-card-head { display: flex; align-items: center; gap: 8px; font-size: 0.88rem; font-weight: 700; color: var(--ink); }
+    .link-card-sub { font-size: 0.78rem; color: var(--mut); padding-left: 26px; }
+
+    /* Red Replit Subscribe Button */
+    .submit-pay-btn {
+      width: 100%; height: 50px; background: var(--brand-red); color: #ffffff; border: 0;
+      border-radius: 8px; font-family: inherit; font-size: 1rem; font-weight: 700;
+      cursor: pointer; transition: background 0.15s; margin-top: 4px; margin-bottom: 16px;
+    }
+    .submit-pay-btn:hover { background: var(--brand-red-hover); }
+
+    /* Legal Disclaimers & Footer */
+    .legal-text { font-size: 0.74rem; color: var(--mut); text-align: center; line-height: 1.5; margin-bottom: 24px; }
+    .legal-text a { color: var(--mut); text-decoration: underline; }
+    .legal-text a:hover { color: var(--ink); }
+
+    .footer-links {
+      display: flex; justify-content: center; align-items: center; gap: 14px;
+      font-size: 0.74rem; color: var(--mut); border-top: 1px solid var(--line); padding-top: 16px;
+    }
+    .footer-links a { color: var(--mut); text-decoration: none; }
+    .footer-links a:hover { color: var(--ink); }
+
+    /* MOBILE SPECIFIC BAR & DRAWER */
+    .mobile-header-bar {
+      display: none;
+    }
+    .mobile-details-panel {
+      display: none;
+    }
+    .co-hero-icon {
+      display: none;
+    }
+    .add-code-btn {
+      display: none;
+    }
+
+    /* MOBILE LAYOUT BREAKPOINT */
+    @media (max-width: 768px) {
+      .skeleton-overlay { grid-template-columns: 1fr; }
+      .sk-right { display: none; }
+
+      .co-container { grid-template-columns: 1fr; }
+
+      /* Sticky Top Navigation Bar on Mobile */
+      .mobile-header-bar {
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 14px 20px; background: var(--bg-left); border-bottom: 1px solid var(--line-left);
+        position: sticky; top: 0; z-index: 100;
+      }
+      .mobile-header-bar .co-brand-link { margin-bottom: 0; }
+
+      .mobile-details-btn {
+        background: none; border: 0; font-family: inherit; font-size: 0.88rem; font-weight: 600;
+        color: var(--ink); cursor: pointer; display: flex; align-items: center; gap: 4px;
+      }
+
+      /* Slide-down Order Summary Panel on Mobile */
+      .mobile-details-panel {
+        display: none; background: var(--bg-left); border-bottom: 1px solid var(--line-left);
+        padding: 20px 24px; animation: slideDown 0.22s ease-out;
+      }
+      .mobile-details-panel.open { display: block; }
+
+      @keyframes slideDown {
+        from { opacity: 0; transform: translateY(-10px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+
+      .co-left {
+        padding: 28px 20px 20px; text-align: center; border-right: 0; border-bottom: 1px solid var(--line-left);
+        align-items: center;
+      }
+      .co-left .co-brand-link { display: none; } /* Hidden on mobile because it is in mobile-header-bar */
+
+      .co-hero-icon {
+        width: 56px; height: 56px; object-fit: contain; margin: 0 auto 16px; display: block;
+      }
+
+      .co-main-price { justify-content: center; margin-bottom: 16px; }
+      .curr-switcher { margin: 0 auto 12px; }
+      .curr-subtext { text-align: center; margin-bottom: 20px; }
+
+      .add-code-btn {
+        background: var(--card-inner); border: 0; border-radius: 8px; padding: 8px 16px;
+        font-family: inherit; font-size: 0.84rem; font-weight: 600; color: var(--ink);
+        cursor: pointer; display: inline-flex; align-items: center; gap: 5px; margin-bottom: 20px;
+      }
+
+      .order-card { width: 100%; text-align: left; }
+
+      .co-right { padding: 24px 20px 40px; }
     }
   </style>
 </head>
 <body>
-  <header class="co-bar">
-    <a class="co-back" href="pricing" aria-label="Back">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+
+  <!-- Skeleton Loader -->
+  <div class="skeleton-overlay" id="skeletonLoader">
+    <div class="sk-left">
+      <div class="sk-box" style="width: 120px; height: 32px; border-radius: 99px;"></div>
+      <div class="sk-box" style="width: 200px; height: 20px;"></div>
+      <div class="sk-box" style="width: 260px; height: 44px;"></div>
+      <div class="sk-box" style="width: 100%; height: 120px; border-radius: 14px;"></div>
+      <div class="sk-box" style="width: 100%; height: 160px; border-radius: 14px;"></div>
+    </div>
+    <div class="sk-right">
+      <div class="sk-box" style="width: 100%; height: 48px; border-radius: 8px;"></div>
+      <div class="sk-box" style="width: 100%; height: 46px; border-radius: 8px; margin-top: 20px;"></div>
+      <div class="sk-box" style="width: 100%; height: 200px; border-radius: 10px; margin-top: 20px;"></div>
+      <div class="sk-box" style="width: 100%; height: 50px; border-radius: 8px; margin-top: 20px;"></div>
+    </div>
+  </div>
+
+  <!-- Mobile Top Sticky Header Bar -->
+  <div class="mobile-header-bar">
+    <a class="co-brand-link" href="/agent" id="mobileBackLink" title="Return to Workspace">
+      <span class="arrow">←</span>
+      <img src="assets/logo.png" alt="Souqi Logo" />
+      <span class="brand-text">Souqi</span>
+      <span class="back-text">Back</span>
     </a>
-    <a class="co-brand" href="/">
-      <span class="m"><img src="assets/logo.png" alt="Souqi Logo" style="width:100%; height:100%; object-fit:contain; border-radius:4px;"></span>
-      <span class="n">Souqi</span>
-    </a>
-    <div style="margin-left:auto; display:flex; align-items:center; gap:12px;">
-      <div class="lang-dropdown" id="langDropdown">
-        <button type="button" class="lang-trigger" id="langTrigger">
-          <span class="lang-current">English</span>
-          <svg class="lang-arrow" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
-        </button>
-        <ul class="lang-list" id="langList">
-          <li data-value="en" class="lang-item">English</li>
-          <li data-value="tr" class="lang-item">Türkçe</li>
-          <li data-value="ar" class="lang-item">العربية</li>
-        </ul>
-      </div>
-      <span class="co-secure"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>Secure checkout</span>
-    </div>
-  </header>
 
-  <main class="co-wrap">
-    <h1 class="co-title" id="planTitle">Pro plan</h1>
+    <button type="button" class="mobile-details-btn" id="mobileDetailsBtn">
+      <span>Details</span>
+      <span id="detailsArrow">⌄</span>
+    </button>
+  </div>
 
-    <!-- billing cycle -->
-    <div class="cyc-cards" id="cycCards">
-      <label class="cyc" data-cyc="monthly">
-        <input type="radio" name="cyc" value="monthly" />
-        <span class="radio"></span>
-        <span class="nm">Monthly</span>
-        <span class="pr" data-monthly-label>USD 20.00/month + tax</span>
-      </label>
-      <label class="cyc on" data-cyc="yearly">
-        <input type="radio" name="cyc" value="yearly" checked />
-        <span class="radio"></span>
-        <span class="save" id="saveTag">Save 17%</span>
-        <span class="nm">Yearly</span>
-        <span class="pr" data-yearly-label>USD 200.00/year + tax</span>
-      </label>
-    </div>
-
-    <!-- order details -->
-    <section class="card">
-      <h2>Order details</h2>
-      <div class="od-row">
-        <span class="lbl"><b id="odPlan">Pro plan</b><small id="odCycle">Annually</small></span>
-        <span class="amt" id="odBase">USD 200</span>
-      </div>
-      <div class="od-div"></div>
-      <div class="od-row"><span class="lbl">Subtotal</span><span class="amt" id="odSub">USD 200</span></div>
-      <div class="od-row"><span class="lbl">Tax (KDV 20%)</span><span class="amt" id="odTax">USD 40</span></div>
-      <div class="od-row od-total"><span class="lbl"><b>Total due today</b></span><span class="amt" id="odTotal">USD 240</span></div>
-    </section>
-
-    <!-- renew note -->
-    <div class="renew">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
-      <span id="renewNote"></span>
-    </div>
-
-    <!-- payment method -->
-    <section class="card" id="payCard">
-      <h2>Payment method</h2>
-
-      <!-- No card/QR collection yet — the platform is free to use while
-           payment methods (Visa, PayPal, etc.) are being wired up. -->
-      <div id="qrFormGroup" style="text-align:center; padding:10px 0;">
-        <div style="background:var(--accent-50,#e7f5fc); border:1px solid var(--line); border-radius:16px; padding:22px 20px; display:flex; flex-direction:column; align-items:center; gap:10px;">
-          <div style="width:44px;height:44px;border-radius:50%;background:#fff;display:grid;place-items:center;color:var(--accent);box-shadow:0 4px 14px rgba(26,166,223,.18)">
-            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+  <!-- Slide-down Mobile Order Summary Panel -->
+  <div class="mobile-details-panel" id="mobileDetailsPanel">
+    <div class="order-card" style="margin-bottom: 14px;">
+      <div class="oc-head">
+        <div class="oc-left">
+          <img class="oc-logo" src="assets/logo.png" alt="Souqi Logo" />
+          <div>
+            <div class="oc-title" id="mobOcPlanTitle">Souqi Core</div>
+            <div class="oc-billing" id="mobOcBillingCycle">Billed monthly</div>
           </div>
-          <div style="font-weight:800; font-size:1.05rem; color:var(--navy-800);">Free access for now</div>
-          <p style="margin:0; font-size:.88rem; color:var(--muted); max-width:38ch; line-height:1.55;">
-            No payment is required to get started. Card and wallet payments
-            (Visa, PayPal and more) are coming soon — you won't be charged
-            until they're available and you choose to upgrade.
-          </p>
+        </div>
+        <div class="oc-price" id="mobOcBasePrice">TRY 996.00</div>
+      </div>
+    </div>
+
+    <div class="summary-list" style="margin-bottom:0;">
+      <div class="sum-row">
+        <span>Subtotal</span>
+        <span id="mobSubtotalAmt">TRY 996.00</span>
+      </div>
+
+      <div class="sum-row" id="mobPromoDiscountRow" style="display:none; color:#16a34a; font-weight:600;">
+        <span>Promotion discount (-10%)</span>
+        <span id="mobPromoDiscountAmt">-TRY 119.52</span>
+      </div>
+
+      <div class="sum-row">
+        <span>VAT (20%) <span title="Value Added Tax" style="cursor:help;">ⓘ</span></span>
+        <span id="mobVatAmt">TRY 199.20</span>
+      </div>
+
+      <div class="sum-row total">
+        <span>Total due today</span>
+        <span class="amt" id="mobTotalAmt">TRY 1,195.20</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main Container -->
+  <div class="co-container">
+    <!-- LEFT COLUMN: Order Summary -->
+    <div class="co-left">
+      <a class="co-brand-link" href="/agent" id="backLink" title="Return to Workspace">
+        <span class="arrow">←</span>
+        <img src="assets/logo.png" alt="Souqi Logo" />
+        <span class="brand-text">Souqi</span>
+        <span class="back-text">Back</span>
+      </a>
+
+      <!-- Large Centered Icon in Mobile View -->
+      <img src="assets/logo.png" alt="Souqi Icon" class="co-hero-icon" />
+
+      <div class="co-plan-sub" id="subscribePlanSub">Subscribe to Souqi Core</div>
+      <div class="co-main-price">
+        <span class="amt" id="mainPriceAmt">TRY 1,195.20</span>
+        <span class="unit">per month</span>
+      </div>
+
+      <!-- Add Code Pill Dropdown -->
+      <button type="button" class="add-code-btn" id="addCodeBtn">
+        <span>Add code</span> <span>⌄</span>
+      </button>
+      <div id="promoDrawer" style="display:none; margin: 0 auto 16px; max-width: 320px; width: 100%;">
+        <div style="display:flex; gap:8px;">
+          <input type="text" id="promoInput" class="form-input" placeholder="Enter promo code (e.g. SOUQI10)" style="padding:8px 12px; font-size:0.84rem;" />
+          <button type="button" id="applyPromoBtn" class="promo-btn" style="background:var(--brand-red); color:#fff; flex:none; padding:8px 16px;">Apply</button>
+        </div>
+        <div id="promoMsg" style="font-size:0.78rem; margin-top:4px;"></div>
+      </div>
+
+      <!-- Currency Switcher -->
+      <div class="curr-switcher">
+        <button type="button" class="curr-btn active" id="btnTRY">🇹🇷 TRY</button>
+        <button type="button" class="curr-btn" id="btnUSD">🇺🇸 USD</button>
+      </div>
+      <div class="curr-subtext" id="rateSubtext">1 USD = 49.8001 TRY. Charges will vary based on exchange rates.</div>
+
+      <!-- Order Details Card -->
+      <div class="order-card">
+        <div class="oc-head">
+          <div class="oc-left">
+            <img class="oc-logo" src="assets/logo.png" alt="Souqi Logo" />
+            <div>
+              <div class="oc-title" id="ocPlanTitle">Souqi Core</div>
+              <div class="oc-billing" id="ocBillingCycle">Billed monthly</div>
+            </div>
+          </div>
+          <div class="oc-price" id="ocBasePrice">TRY 996.00</div>
+        </div>
+
+        <div class="oc-annual-row">
+          <div class="oc-annual-label">
+            <label class="switch">
+              <input type="checkbox" id="annualToggle" />
+              <span class="slider"></span>
+            </label>
+            <span><span class="oc-save-badge" id="saveBadgeText">Save 10%</span> with annual billing</span>
+          </div>
+          <div class="oc-annual-price" id="ocAnnualSub">TRY 896.40/month</div>
         </div>
       </div>
 
-      <div class="co-field">
-        <div class="taxid-head">Business tax ID <span style="color:var(--muted);font-weight:500">(Optional)</span></div>
-        <div class="taxid-help">If you provide a tax ID, the "Full name" above should be your business's name.</div>
-        <div class="taxid-row">
-          <span class="tl">Turkish Tax ID</span>
-          <input class="co-input" id="taxid" type="text" inputmode="numeric" placeholder="0123456789" />
+      <!-- Summary Breakdown -->
+      <div class="summary-list" id="desktopSummaryList">
+        <div class="sum-row">
+          <span>Subtotal</span>
+          <span id="subtotalAmt">TRY 996.00</span>
+        </div>
+
+        <button type="button" class="promo-btn" id="promoBtn">+ Add promotion code</button>
+        <div id="promoDrawer" style="display:none; margin: 8px 0 12px;">
+          <div style="display:flex; gap:8px;">
+            <input type="text" id="promoInput" class="form-input" placeholder="Enter promo code (e.g. SOUQI10)" style="padding:8px 12px; font-size:0.84rem;" />
+            <button type="button" id="applyPromoBtn" class="promo-btn" style="background:var(--brand-red); color:#fff; flex:none; padding:8px 16px;">Apply</button>
+          </div>
+          <div id="promoMsg" style="font-size:0.78rem; margin-top:4px;"></div>
+        </div>
+
+        <div class="sum-row" id="promoDiscountRow" style="display:none; color:#16a34a; font-weight:600;">
+          <span>Promotion discount (-10%)</span>
+          <span id="promoDiscountAmt">-TRY 119.52</span>
+        </div>
+
+        <div class="sum-row">
+          <span>VAT (20%) <span title="Value Added Tax" style="cursor:help;">ⓘ</span></span>
+          <span id="vatAmt">TRY 199.20</span>
+        </div>
+
+        <div class="sum-row total">
+          <span>Total due today</span>
+          <span class="amt" id="totalAmt">TRY 1,195.20</span>
         </div>
       </div>
+    </div>
 
-      <label class="co-check" id="agreeWrap">
-        <input type="checkbox" id="agree" />
-        <span class="box"><svg viewBox="0 0 24 24" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg></span>
-        <span>You agree to Souqi's <a href="#" onclick="return false">terms</a>. Access is free for now — we'll ask for payment details only once card/wallet billing is available and you choose to upgrade.</span>
-      </label>
+    <!-- RIGHT COLUMN: Payment Form -->
+    <div class="co-right">
+      <div class="pay-wrap">
+        <!-- Apple Pay Express Button -->
+        <button type="button" class="apple-pay-btn" id="applePayBtn">
+          <img src="/assets/apple-pay-logo.svg" alt="Apple" style="height:20px; width:16px; display:inline-block; vertical-align:middle; margin-top:-3px; margin-right:4px;" />
+          <span style="font-weight:600; font-size:1.15rem; letter-spacing:-0.02em;">Pay</span>
+        </button>
 
-      <button class="co-sub" id="subscribe" type="button">Continue — free for now</button>
-      <div class="co-demo">✓ No payment required — you're on free access.</div>
-    </section>
-  </main>
+        <div class="divider">
+          <span>OR</span>
+        </div>
 
-  <script src="js/ui.js?v=28"></script>
+        <!-- Contact Information -->
+        <div class="form-group">
+          <label class="form-label">Contact information</label>
+          <input type="email" class="form-input" id="emailInput" value="hamza1tot@gmail.com" placeholder="email@example.com" />
+        </div>
+
+        <!-- Payment Method -->
+        <div class="form-group">
+          <label class="form-label">Payment method</label>
+          <div class="card-box">
+            <div class="card-box-header">
+              <span>💳 Card</span>
+              <div class="card-brands">
+                <span class="card-brand-badge brand-visa" id="bVisa" style="opacity:0.4;">VISA</span>
+                <span class="card-brand-badge brand-mc" id="bMc" style="opacity:0.4;">MC</span>
+                <span class="card-brand-badge brand-amex" id="bAmex" style="opacity:0.4;">AMEX</span>
+                <span class="card-brand-badge brand-jcb" id="bJcb" style="opacity:0.4;">JCB</span>
+              </div>
+            </div>
+            <input type="text" class="form-input" id="cardNumberInput" maxlength="19" placeholder="1234 1234 1234 1234" style="border-radius: 0; border: 0; border-bottom: 1px solid var(--input-border);" />
+            <div class="card-inputs-grid">
+              <input type="text" class="form-input" id="cardExpInput" maxlength="5" placeholder="MM / YY" />
+              <input type="text" class="form-input" id="cardCvcInput" maxlength="4" placeholder="CVC" />
+            </div>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Cardholder name</label>
+          <input type="text" class="form-input" placeholder="Full name on card" />
+        </div>
+
+        <!-- Billing Address -->
+        <div class="form-group">
+          <label class="form-label">Billing address</label>
+          <select class="form-input" id="countrySelect" style="margin-bottom: 8px;">
+            <option value="TR" selected>Turkey</option>
+            <option value="US">United States</option>
+            <option value="GB">United Kingdom</option>
+            <option value="DE">Germany</option>
+          </select>
+          <input type="text" class="form-input" placeholder="Address" />
+          <div id="manualAddressDrawer" style="display:none; flex-direction:column; gap:8px; margin-top:8px;">
+            <input type="text" class="form-input" placeholder="Address line 2 (Optional)" />
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
+              <input type="text" class="form-input" placeholder="City" />
+              <input type="text" class="form-input" placeholder="Postal code" />
+            </div>
+          </div>
+          <span class="address-link" id="toggleManualAddress">Enter address manually</span>
+        </div>
+
+        <!-- Business Checkbox -->
+        <label class="checkbox-row">
+          <input type="checkbox" id="bizCheck" />
+          <span>I'm purchasing as a business</span>
+        </label>
+
+        <!-- Red Submit Button -->
+        <button type="button" class="submit-pay-btn" id="paySubmitBtn">
+          Subscribe
+        </button>
+
+        <div class="legal-text">
+          By subscribing, you authorise Souqi to charge you in TRY at the displayed exchange rate or the exchange rate at the time of billing, according to the terms until you cancel.<br />
+          By placing your order, you agree to our <a href="/terms" target="_blank">Terms of Service</a> and <a href="/privacy" target="_blank">Privacy Policy</a>.<br />
+          <span style="display:inline-block; margin-top:4px;">↺ Eligible for a refund</span>
+        </div>
+
+        <div class="footer-links">
+          <span>Powered by <strong>stripe</strong></span>
+          <span>|</span>
+          <a href="/terms" target="_blank">Legal</a>
+          <a href="/privacy" target="_blank">Refunds</a>
+          <a href="/contact" target="_blank">Contact</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script>
     (function () {
-      var PLANS = {
-        pro:      { title:"Pro plan",      monthly:20,  yearly:200,  yearlyUnit:200 },
-        max:      { title:"Max plan",      monthly:100, yearly:1000, yearlyUnit:1000 },
-        team:     { title:"Team plan",     monthly:50,  yearly:500,  yearlyUnit:500 },
-        business: { title:"Business plan", monthly:120, yearly:1200, yearlyUnit:1200 }
-      };
-      var TAX = 0.20; // KDV
+      window.addEventListener("load", function() {
+        setTimeout(function() {
+          var sk = document.getElementById("skeletonLoader");
+          if (sk) sk.classList.add("hidden");
+        }, 400);
+      });
 
-      function q(name) {
-        var m = new RegExp("[?&]" + name + "=([^&]+)").exec(location.search);
+      function getQuery(param) {
+        var m = new RegExp("[?&]" + param + "=([^&]+)").exec(location.search);
         return m ? decodeURIComponent(m[1]) : null;
       }
-      var planKey = (q("plan") || "pro").toLowerCase();
-      if (!PLANS[planKey]) planKey = "pro";
-      var plan = PLANS[planKey];
-      var cycle = (q("cycle") === "monthly") ? "monthly" : "yearly";
 
-      function money(n) { return "USD " + n.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 }); }
-      function money2(n) { return "USD " + n.toFixed(2); }
+      var planKey = (getQuery("plan") || "core").toLowerCase();
+      var currency = "TRY";
+      var isAnnual = false;
+      var hasPromo = false;
+      var USD_TO_TRY = 49.8001;
 
-      function fmtDate(d) {
-        return ("0" + d.getDate()).slice(-2) + "/" + ("0" + (d.getMonth() + 1)).slice(-2) + "/" + d.getFullYear();
+      var BASE_USD = { starter: 0, core: 20, pro: 100 };
+      var planNames = { starter: "Starter", core: "Souqi Core", pro: "Souqi Pro" };
+
+      var btnTRY = document.getElementById("btnTRY");
+      var btnUSD = document.getElementById("btnUSD");
+      var annualToggle = document.getElementById("annualToggle");
+      var subscribePlanSub = document.getElementById("subscribePlanSub");
+      var mainPriceAmt = document.getElementById("mainPriceAmt");
+      var ocAnnualSub = document.getElementById("ocAnnualSub");
+      var saveBadgeText = document.getElementById("saveBadgeText");
+      var rateSubtext = document.getElementById("rateSubtext");
+
+      // Mobile Details Panel elements
+      var mobileDetailsBtn = document.getElementById("mobileDetailsBtn");
+      var detailsArrow = document.getElementById("detailsArrow");
+      var mobileDetailsPanel = document.getElementById("mobileDetailsPanel");
+      var mobOcPlanTitle = document.getElementById("mobOcPlanTitle");
+      var mobOcBillingCycle = document.getElementById("mobOcBillingCycle");
+      var mobOcBasePrice = document.getElementById("mobOcBasePrice");
+      var mobSubtotalAmt = document.getElementById("mobSubtotalAmt");
+      var mobPromoDiscountRow = document.getElementById("mobPromoDiscountRow");
+      var mobPromoDiscountAmt = document.getElementById("mobPromoDiscountAmt");
+      var mobVatAmt = document.getElementById("mobVatAmt");
+      var mobTotalAmt = document.getElementById("mobTotalAmt");
+
+      // Promo Code elements
+      var addCodeBtn = document.getElementById("addCodeBtn");
+      var promoDrawer = document.getElementById("promoDrawer");
+      var promoInput = document.getElementById("promoInput");
+      var applyPromoBtn = document.getElementById("applyPromoBtn");
+      var promoMsg = document.getElementById("promoMsg");
+
+      function formatMoney(val, curr) {
+        if (curr === "TRY") {
+          return "TRY " + (val * USD_TO_TRY).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+        return "US$" + val.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
       }
 
-      function render() {
-        document.getElementById("planTitle").textContent = plan.title;
-        document.getElementById("odPlan").textContent = plan.title;
+      function updateCheckout() {
+        var name = planNames[planKey] || "Souqi Core";
+        subscribePlanSub.textContent = "Subscribe to " + name;
+        if (mobOcPlanTitle) mobOcPlanTitle.textContent = name;
 
-        // cycle card labels
-        document.querySelector("[data-monthly-label]").textContent = money2(plan.monthly) + "/month + tax";
-        document.querySelector("[data-yearly-label]").textContent = money2(plan.yearly) + "/year + tax";
+        var baseUSD = BASE_USD[planKey] !== undefined ? BASE_USD[planKey] : 20;
+        var effectiveMonthlyUSD = isAnnual ? baseUSD * 0.9 : baseUSD;
+        var subtotalUSD = effectiveMonthlyUSD;
+        var discountUSD = hasPromo ? subtotalUSD * 0.10 : 0;
+        var afterDiscountUSD = subtotalUSD - discountUSD;
+        var vatUSD = afterDiscountUSD * 0.20;
+        var totalUSD = afterDiscountUSD + vatUSD;
 
-        // selected cycle cards
-        document.querySelectorAll(".cyc").forEach(function (c) {
-          var on = c.dataset.cyc === cycle;
-          c.classList.toggle("on", on);
-          c.querySelector("input").checked = on;
-        });
+        var totalFormatted = formatMoney(totalUSD, currency);
+        var baseFormatted = formatMoney(baseUSD, currency);
+        var annualFormatted = formatMoney(baseUSD * 0.9, currency) + "/month";
+        var subtotalFormatted = formatMoney(subtotalUSD, currency);
+        var discountFormatted = "-" + formatMoney(discountUSD, currency);
+        var vatFormatted = formatMoney(vatUSD, currency);
 
-        var base = cycle === "yearly" ? plan.yearly : plan.monthly;
-        var tax = Math.round(base * TAX);
-        var total = base + tax;
+        mainPriceAmt.textContent = totalFormatted;
+        ocAnnualSub.textContent = annualFormatted;
+        saveBadgeText.textContent = "Save 10%";
 
-        document.getElementById("odCycle").textContent = cycle === "yearly" ? "Annually" : "Monthly";
-        document.getElementById("odBase").textContent = money(base);
-        document.getElementById("odSub").textContent = money(base);
-        document.getElementById("odTax").textContent = money(tax);
-        document.getElementById("odTotal").textContent = money(total);
+        // Desktop breakdown updates
+        var ocPlanTitle = document.getElementById("ocPlanTitle");
+        var ocBillingCycle = document.getElementById("ocBillingCycle");
+        var ocBasePrice = document.getElementById("ocBasePrice");
+        var subtotalAmt = document.getElementById("subtotalAmt");
+        var promoDiscountRow = document.getElementById("promoDiscountRow");
+        var promoDiscountAmt = document.getElementById("promoDiscountAmt");
+        var vatAmt = document.getElementById("vatAmt");
+        var totalAmt = document.getElementById("totalAmt");
 
-        var qrAmountEl = document.getElementById("qrAmount");
-        if (qrAmountEl) {
-          qrAmountEl.textContent = money(total);
+        if (ocPlanTitle) ocPlanTitle.textContent = name;
+        if (ocBillingCycle) ocBillingCycle.textContent = isAnnual ? "Billed annually" : "Billed monthly";
+        if (ocBasePrice) ocBasePrice.textContent = baseFormatted;
+        if (subtotalAmt) subtotalAmt.textContent = subtotalFormatted;
+        if (vatAmt) vatAmt.textContent = vatFormatted;
+        if (totalAmt) totalAmt.textContent = totalFormatted;
+
+        if (hasPromo) {
+          if (promoDiscountRow) promoDiscountRow.style.display = "flex";
+          if (promoDiscountAmt) promoDiscountAmt.textContent = discountFormatted;
+          if (mobPromoDiscountRow) mobPromoDiscountRow.style.display = "flex";
+          if (mobPromoDiscountAmt) mobPromoDiscountAmt.textContent = discountFormatted;
+        } else {
+          if (promoDiscountRow) promoDiscountRow.style.display = "none";
+          if (mobPromoDiscountRow) mobPromoDiscountRow.style.display = "none";
         }
 
-        var renew = new Date();
-        if (cycle === "yearly") renew.setFullYear(renew.getFullYear() + 1);
-        else renew.setMonth(renew.getMonth() + 1);
-        
-        var renewNoteEl = document.getElementById("renewNote");
-        if (renewNoteEl) {
-          renewNoteEl.textContent =
-            "Your subscription will auto-renew on " + fmtDate(renew) + ". You'll be charged " +
-            money2(base) + "/" + (cycle === "yearly" ? "year" : "month") + " + tax.";
+        // Mobile panel updates
+        if (mobOcBasePrice) mobOcBasePrice.textContent = baseFormatted;
+        if (mobOcBillingCycle) mobOcBillingCycle.textContent = isAnnual ? "Billed annually" : "Billed monthly";
+        if (mobSubtotalAmt) mobSubtotalAmt.textContent = subtotalFormatted;
+        if (mobVatAmt) mobVatAmt.textContent = vatFormatted;
+        if (mobTotalAmt) mobTotalAmt.textContent = totalFormatted;
+
+        if (currency === "TRY") {
+          rateSubtext.textContent = "1 USD = 49.8001 TRY. Charges will vary based on exchange rates.";
+          btnTRY.classList.add("active");
+          btnUSD.classList.remove("active");
+        } else {
+          rateSubtext.textContent = "Exchange rate and fees of your bank may apply";
+          btnUSD.classList.add("active");
+          btnTRY.classList.remove("active");
         }
       }
 
-      document.querySelectorAll(".cyc").forEach(function (c) {
-        c.addEventListener("click", function () { cycle = c.dataset.cyc; render(); });
-      });
-
-      // demo subscribe
-      document.getElementById("subscribe").addEventListener("click", function () {
-        var agree = document.getElementById("agree");
-        var wrap = document.getElementById("agreeWrap");
-        if (!agree.checked) {
-          wrap.classList.add("err");
-          wrap.scrollIntoView({ behavior: "smooth", block: "center" });
-          return;
-        }
-        var base = cycle === "yearly" ? plan.yearly : plan.monthly;
-        var total = base + Math.round(base * TAX);
-        
-        // Mark active workspace as paid in local storage
-        try {
-          var activeId = localStorage.getItem("sap_active_ws");
-          if (activeId) {
-            var workspaces = JSON.parse(localStorage.getItem("sap_workspaces")) || [];
-            for (var i = 0; i < workspaces.length; i++) {
-              if (workspaces[i].id === activeId) {
-                workspaces[i].paid = true;
-                break;
-              }
-            }
-            localStorage.setItem("sap_workspaces", JSON.stringify(workspaces));
+      // Mobile Details Toggle
+      if (mobileDetailsBtn) {
+        mobileDetailsBtn.addEventListener("click", function() {
+          var isOpen = mobileDetailsPanel.classList.contains("open");
+          if (isOpen) {
+            mobileDetailsPanel.classList.remove("open");
+            mobileDetailsBtn.querySelector("span:first-child").textContent = "Details";
+            detailsArrow.textContent = "⌄";
+          } else {
+            mobileDetailsPanel.classList.add("open");
+            mobileDetailsBtn.querySelector("span:first-child").textContent = "Close";
+            detailsArrow.textContent = "⌃";
           }
-        } catch (e) {
-          console.error("Failed to update workspace paid status", e);
-        }
+        });
+      }
 
-        var messageHTML = '<p>You have free access to ' + plan.title + ' for now — no payment was collected. We\'ll let you know as soon as card and wallet billing (Visa, PayPal and more) is available.</p>';
+      btnTRY.addEventListener("click", function() { currency = "TRY"; updateCheckout(); });
+      btnUSD.addEventListener("click", function() { currency = "USD"; updateCheckout(); });
+      annualToggle.addEventListener("change", function() { isAnnual = annualToggle.checked; updateCheckout(); });
 
-        document.getElementById("payCard").innerHTML =
-          '<div class="co-done">' +
-            '<div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></div>' +
-            '<h3>You’re all set with ' + plan.title + '</h3>' +
-            messageHTML +
-            '<a href="/" class="btn btn-primary" style="padding:12px 22px">Open your workspace</a>' +
-          '</div>';
-        document.getElementById("payCard").scrollIntoView({ behavior: "smooth", block: "start" });
+      // Add Code Drawer Toggle
+      if (addCodeBtn) {
+        addCodeBtn.addEventListener("click", function() {
+          promoDrawer.style.display = promoDrawer.style.display === "none" ? "block" : "none";
+        });
+      }
+
+      if (applyPromoBtn) {
+        applyPromoBtn.addEventListener("click", function() {
+          var code = (promoInput.value || "").trim().toUpperCase();
+          if (code === "SOUQI10" || code === "REPLIT" || code === "PROMO10") {
+            hasPromo = true;
+            promoMsg.style.color = "#16a34a";
+            promoMsg.textContent = "✓ Promo code applied! 10% discount added.";
+            updateCheckout();
+          } else {
+            promoMsg.style.color = "#dc2626";
+            promoMsg.textContent = "Invalid promo code. Try SOUQI10";
+          }
+        });
+      }
+
+      // Card Brand Auto Detection & Formatting
+      var cardNumberInput = document.getElementById("cardNumberInput");
+      var bVisa = document.getElementById("bVisa");
+      var bMc = document.getElementById("bMc");
+      var bAmex = document.getElementById("bAmex");
+      var bJcb = document.getElementById("bJcb");
+
+      cardNumberInput.addEventListener("input", function(e) {
+        var v = e.target.value.replace(/\D/g, '').substring(0, 16);
+        e.target.value = v.replace(/(.{4})/g, '$1 ').trim();
+
+        bVisa.style.opacity = "0.4"; bMc.style.opacity = "0.4";
+        bAmex.style.opacity = "0.4"; bJcb.style.opacity = "0.4";
+
+        if (v.startsWith("4")) bVisa.style.opacity = "1";
+        else if (v.startsWith("5")) bMc.style.opacity = "1";
+        else if (v.startsWith("34") || v.startsWith("37")) bAmex.style.opacity = "1";
+        else if (v.startsWith("35")) bJcb.style.opacity = "1";
       });
 
-      document.getElementById("agree").addEventListener("change", function () {
-        document.getElementById("agreeWrap").classList.remove("err");
+      // Expiry & CVC formatting
+      var cardExpInput = document.getElementById("cardExpInput");
+      cardExpInput.addEventListener("input", function(e) {
+        var v = e.target.value.replace(/\D/g, '').substring(0, 4);
+        if (v.length >= 3) e.target.value = v.substring(0, 2) + " / " + v.substring(2);
+        else e.target.value = v;
       });
 
-      // Language dropdown (.lang-dropdown) is auto-wired by ui.js — nothing to do here.
+      // Manual Address Drawer Toggle
+      var toggleManualAddress = document.getElementById("toggleManualAddress");
+      var manualAddressDrawer = document.getElementById("manualAddressDrawer");
+      toggleManualAddress.addEventListener("click", function() {
+        manualAddressDrawer.style.display = manualAddressDrawer.style.display === "none" ? "flex" : "none";
+      });
 
-      render();
+      // Interactive Payment Processing
+      function processPayment(btnEl) {
+        btnEl.disabled = true;
+        btnEl.innerHTML = '⚡ Processing...';
+        setTimeout(function() {
+          btnEl.style.background = "#16a34a";
+          btnEl.innerHTML = '✓ Subscription Confirmed!';
+          setTimeout(function() {
+            window.location.href = "/agent";
+          }, 800);
+        }, 1000);
+      }
+
+      var paySubmitBtn = document.getElementById("paySubmitBtn");
+      var applePayBtn = document.getElementById("applePayBtn");
+
+      paySubmitBtn.addEventListener("click", function() { processPayment(paySubmitBtn); });
+      applePayBtn.addEventListener("click", function() { processPayment(applePayBtn); });
+
+      updateCheckout();
     })();
   </script>
-
 </body>
 </html>

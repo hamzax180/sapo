@@ -15,6 +15,7 @@
 </script>
 <style>
   *,*::before,*::after{box-sizing:border-box}
+  *[hidden], [hidden]{display:none !important;pointer-events:none !important;visibility:hidden !important}
   :root{
     --paper:#faf7f2; --paper-2:#f3eee6; --card:#ffffff;
     --ink:#12202e; --ink-2:#5d6f80; --mut:#8b98a5;
@@ -31,7 +32,14 @@
     --stone:#2e2a26; --dark:#0a0908; --line:#3a352e; --navy-800:#0d0b0a;
     --accent:#1aa6df; --accent-2:#118cc0; --accent-ink:#e6edf3;
   }
-  html{background:var(--paper)}
+  html, body {
+    background: var(--paper);
+    overscroll-behavior-x: none;
+    overflow-x: hidden;
+  }
+  .ag-main, .wrap {
+    overflow-x: hidden;
+  }
   body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--body);-webkit-font-smoothing:antialiased;display:flex;min-height:100vh}
   a{color:inherit;text-decoration:none}
   button{font:inherit}
@@ -39,26 +47,69 @@
   h1,h2{font-family:var(--disp);font-weight:700;letter-spacing:-.02em;margin:0}
 
   .ag-main{flex:1;min-width:0;display:flex;flex-direction:column;height:100vh;overflow-y:auto}
-  .ag-history{position:sticky;top:0;align-self:flex-start;height:100vh;flex:0 0 auto;
-    width:0;max-width:88vw;overflow:hidden;background:var(--paper);
-    border-right:0 solid var(--line);transition:width .26s var(--ease);
+  .ag-history{position:relative !important;height:100vh;flex:0 0 0px;
+    width:0;min-width:0;max-width:240px;overflow:hidden;
+    background:var(--paper);border-right:0 solid var(--line);box-sizing:border-box;
+    transition:width .26s var(--ease),flex-basis .26s var(--ease),border-color .26s var(--ease);
     display:flex;flex-direction:column;z-index:100}
-  .ag-history.on{width:290px;border-right:1px solid var(--line);overflow:visible !important}
-  .ag-hist-head,.ag-hist-tabs,.ag-hist-foot{width:290px}
+  .ag-history.on{width:240px !important;flex:0 0 240px !important;min-width:240px !important;border-right:1px solid var(--line);overflow:visible !important}
+  .ag-hist-head,.ag-hist-tabs,.ag-hist-foot{width:100%;box-sizing:border-box}
   .ag-hist-head{display:flex;align-items:center;gap:10px;padding:14px 14px 8px}
   .ag-hist-mark{width:24px;height:24px;border-radius:7px;background:var(--accent);display:grid;place-items:center;flex:none}
   .ag-hist-mark svg{width:13px;height:13px;color:#fff}
   .ag-hist-close{margin-inline-start:auto;border:0;background:none;color:var(--ink-2);cursor:pointer;width:30px;height:30px;border-radius:8px;display:grid;place-items:center}
-  .ag-ws{display:flex;align-items:center;gap:9px;border:1px solid var(--line);background:var(--card);border-radius:999px;padding:5px 10px 5px 5px;margin:4px 12px 9px;width:calc(100% - 24px);cursor:pointer;text-align:left}
-  .ag-ws .av{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;color:#fff;background:linear-gradient(135deg,var(--accent),var(--accent-2));font-weight:600;font-size:.74rem}
-  .ag-ws .nm{flex:1;min-width:0;font-size:.87rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .ag-ws svg{width:15px;height:15px;flex:none;color:var(--ink-2)}
-  .ag-act{display:flex;align-items:center;gap:8px;margin:0 12px 10px;padding:8px 11px;border:1px solid var(--line);background:var(--card);border-radius:999px;color:var(--ink);font-size:.87rem;cursor:pointer;width:calc(100% - 24px)}
-  .ag-act svg{width:15px;height:15px;flex:none;color:var(--ink-2)}
-  .ag-hist-tabs{display:flex;flex-direction:column;gap:2px;padding:2px 12px 10px;flex:1}
-  .ag-hist-tab{width:100%;display:flex;align-items:center;gap:11px;border:0;background:none;color:var(--ink);cursor:pointer;padding:9px 10px;border-radius:8px;font-size:.92rem;font-weight:400;text-align:left;transition:.14s}
+  .ag-ws-wrap{position:relative}
+  .ag-ws{display:flex;align-items:center;gap:9px;border:1px solid var(--line);background:var(--card);color:var(--ink) !important;border-radius:999px;padding:6px 10px 6px 6px;margin:8px 10px 8px;width:calc(100% - 20px);cursor:pointer;text-align:left;box-sizing:border-box}
+  .ag-ws .av{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;color:#fff;background:linear-gradient(135deg,var(--accent),var(--accent-2));font-weight:600;font-size:.8rem}
+  .ag-ws .nm{color:var(--ink) !important;flex:1;min-width:0;font-size:.9rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ag-ws svg{width:16px;height:16px;flex:none;color:var(--ink-2)}
+  .ag-ws .chev{transition:transform .16s var(--ease)}
+  .ag-ws.open .chev{transform:rotate(180deg)}
+  .ag-ws-menu{position:absolute;left:10px;right:10px;top:calc(100% - 2px);z-index:60;
+    background:var(--card);border:1px solid var(--line);border-radius:14px;padding:8px;
+    box-shadow:0 16px 40px -10px rgba(11,22,38,.32);
+    opacity:0;visibility:hidden;transform:translateY(-4px);
+    transition:opacity .16s ease,transform .16s ease,visibility .16s ease}
+  .ag-ws-menu.open{opacity:1;visibility:visible;transform:none}
+  .ag-ws-signed{padding:8px 10px 10px;font-size:.78rem;color:var(--mut);
+    border-bottom:1px solid var(--line);margin-bottom:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .ag-ws-item{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:9px;
+    font-size:.88rem;color:var(--ink);transition:.13s;text-decoration:none}
+  .ag-ws-item[hidden]{display:none}
+  .ag-ws-item:hover{background:var(--paper-2)}
+  .ag-ws-item svg{width:15px;height:15px;flex:none}
+  .ag-ws-sep{height:1px;background:var(--line);margin:6px 4px}
+  .ag-act{display:flex;align-items:center;gap:9px;margin:0 10px 8px;padding:8px 10px;border:1px solid var(--line);background:var(--card);border-radius:9px;color:var(--ink);font-size:.88rem;font-weight:500;cursor:pointer;width:calc(100% - 20px);box-sizing:border-box}
+  .ag-act svg{width:16px;height:16px;flex:none;color:var(--ink-2)}
+  .ag-hist-tabs{display:flex;flex-direction:column;gap:2px;padding:4px 12px 6px;width:100%;box-sizing:border-box;
+    flex:0 0 auto;overflow:visible !important;scrollbar-width:none}
+  .ag-hist-tabs::-webkit-scrollbar{display:none}
+  .ag-hist-tab{width:100%;box-sizing:border-box;display:flex;align-items:center;gap:11px;border:0;background:none;color:var(--ink);cursor:pointer;
+    padding:8px 11px;border-radius:8px;font-size:.92rem;font-weight:400;text-align:left;transition:.14s}
   .ag-hist-tab svg{width:18px;height:18px;flex:none;color:var(--ink-2)}
-  .ag-hist-tab:hover,.ag-hist-tab.on{background:var(--paper-2);font-weight:500}
+  .ag-hist-tab:hover,.ag-hist-tab.on{background:var(--paper-2);font-weight:600}
+  .ag-hist-gap{height:16px;flex:0 0 16px}
+  
+  .ag-hist-foot{margin-top:auto;flex:0 0 auto;padding:8px 10px 8px;border-top:1px solid var(--line);background:var(--paper);width:100%;box-sizing:border-box}
+  .ag-hist-foot .ttl{font-size:.84rem;font-weight:600;padding:0 2px;margin-bottom:4px;color:var(--ink)}
+  .ag-plan-alert{background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.25);color:#f87171;font-size:.76rem;font-weight:500;padding:4px 8px;border-radius:6px;margin-bottom:6px;text-align:center;width:100%;box-sizing:border-box}
+  .ag-meter-row{display:flex;align-items:center;gap:7px;padding:2px 0;width:100%;box-sizing:border-box}
+  .ag-meter-row svg{width:14px;height:14px;flex:none;color:var(--ink-2)}
+  .ag-meter-row .lab{flex:1;min-width:0;font-size:.78rem;color:var(--ink);font-weight:500}
+  .ag-meter-row .lab i{display:block;font-style:normal;color:var(--mut);font-size:.70rem;font-weight:400;margin-top:0}
+  .ag-meter{width:54px;height:5px;border-radius:999px;background:rgba(255,255,255,0.09);overflow:hidden;flex:none}
+  .ag-meter i{display:block;height:100%;border-radius:999px;background:#3b82f6}
+  .ag-upgrade{display:flex;align-items:center;justify-content:center;gap:7px;margin-top:8px;padding:9px 12px;
+    border:0;border-radius:9px;background:#0077ff;color:#fff;font-size:.9rem;font-weight:600;
+    cursor:pointer;width:100%;box-sizing:border-box;text-decoration:none;transition:.15s}
+  .ag-upgrade:hover{background:#0062cc}
+  .ag-upgrade svg{width:15px;height:15px}
+  .ag-hist-install{display:flex;align-items:center;justify-content:center;gap:5px;margin-top:6px;font-size:.72rem;color:var(--mut);width:100%;box-sizing:border-box}
+  .ag-hist-install svg{width:13px;height:13px;color:var(--ink-2);flex:none;transition:color .15s ease, transform .15s ease;cursor:pointer}
+  .ag-hist-install svg:hover{color:#0077ff !important;transform:scale(1.15)}
+  .ag-hist-install a:hover{color:var(--ink)}
+  .ag-hist-links{display:flex;gap:8px;justify-content:center;margin-top:5px;font-size:.71rem;color:var(--mut);width:100%;box-sizing:border-box}
+  .ag-hist-links a:hover{color:var(--ink)}
   
   .ag-pv-toggle-btn {
     display: inline-flex; align-items: center; gap: 8px;
@@ -68,21 +119,72 @@
     box-shadow: 0 2px 6px rgba(0,0,0,0.03); outline: none !important;
   }
   #agDeskSidebarToggle {
-    position: fixed !important; top: 12px !important; left: 18px !important; z-index: 10000 !important;
+    position: fixed !important; top: 10px !important; left: 10px !important; z-index: 999999 !important;
+    padding: 5px 10px !important; height: 32px !important; font-size: 0.82rem !important;
+  }
+  #agDeskPreviewToggle {
+    margin-inline-start: auto !important;
   }
   .ag-pv-toggle-btn:hover { border-color: #cbd5e1; background: var(--paper-2); color: var(--ink); }
-  .ag-pv-toggle-btn.on { background: var(--card); color: var(--ink); border-color: var(--ink); box-shadow: 0 0 0 1px var(--ink); }
-  .ag-pv-toggle-btn .pane-left { transition: fill 0.2s ease; fill: transparent; }
-  .ag-pv-toggle-btn.on .pane-left { fill: var(--ink); }
+  .ag-pv-toggle-btn.on { background: var(--card); color: var(--ink); border-color: var(--accent); box-shadow: 0 0 8px rgba(26, 166, 223, 0.35), 0 0 0 1px var(--accent); }
+  .ag-pv-toggle-btn .pane-left, .ag-pv-toggle-btn .pane-right { transition: fill 0.2s ease; fill: transparent; }
+  .ag-pv-toggle-btn.on .pane-left, .ag-pv-toggle-btn.on .pane-right { fill: var(--accent); }
   .ag-pv-toggle-btn svg { width: 16px; height: 16px; flex: none; }
 
-  .ag-hist-head{display:flex;align-items:center;gap:10px;padding:12px 14px 4px 116px}
-  .ag-hist-backdrop{position:fixed;inset:0;background:rgba(11,22,38,.4);opacity:0;pointer-events:none;transition:opacity .2s;z-index:70}
-  .ag-hist-backdrop.on{opacity:1;pointer-events:auto}
+  .ag-hist-hoverable{position:relative}
+  .ag-flyout{position:absolute !important;left:calc(100% + 4px) !important;top:-6px !important;z-index:999999 !important;width:230px !important;
+    background:var(--card) !important;border:1px solid var(--line) !important;border-radius:12px !important;padding:10px 8px 6px !important;
+    box-shadow:0 16px 45px -8px rgba(11,22,38,.4) !important;
+    opacity:0 !important;visibility:hidden !important;transform:translateX(4px) !important;transition:opacity .16s ease,transform .16s ease,visibility .16s ease !important;
+    display:flex !important;flex-direction:column !important;gap:2px !important;cursor:default !important;pointer-events:none !important}
+  .ag-hist-hoverable:hover .ag-flyout,.ag-flyout:hover{opacity:1 !important;visibility:visible !important;transform:none !important;pointer-events:auto !important}
+
+  .ag-hist-head{display:flex;align-items:center;gap:8px;padding:10px 10px 12px 114px;width:100%;box-sizing:border-box}
+  .ag-hist-mark{width:28px;height:28px;border-radius:8px;background:var(--accent);
+    display:grid;place-items:center;flex:none}
+  .ag-hist-mark svg{width:15px;height:15px;color:#fff}
+  .ag-hist-brand-text{display:flex;flex-direction:column;line-height:1.05;font-family:var(--disp);font-weight:800;font-size:0.88rem;color:var(--ink);letter-spacing:-0.01em;margin-left:6px}
+  .ag-hist-brand-text span{display:block}
   @media (max-width:900px){
-    .ag-history{position:fixed;top:0;left:0;bottom:0;z-index:71}
+    .ag-history{
+      position:fixed !important;
+      top:0 !important;left:0 !important;bottom:0 !important;
+      height:100vh !important;width:240px !important;max-width:80vw !important;
+      z-index:999999 !important;
+      transform:translateX(-100%) !important;
+      transition:transform .28s cubic-bezier(0.16,1,0.3,1) !important;
+      box-shadow:4px 0 24px rgba(0,0,0,.5);
+    }
+    .ag-history.on{
+      transform:translateX(0) !important;
+    }
+    #agDeskSidebarToggle {
+      position: fixed !important;
+      top: 10px !important;
+      left: 10px !important;
+      z-index: 999999 !important;
+    }
+    .ag-hist-backdrop{
+      display:block !important;
+      position:fixed !important;
+      inset:0 !important;
+      background:rgba(0,0,0,.65) !important;
+      backdrop-filter:blur(3px) !important;
+      z-index:999998 !important;
+      opacity:0 !important;
+      pointer-events:none !important;
+      transition:opacity .28s ease !important;
+    }
+    .ag-hist-backdrop.on{
+      opacity:1 !important;
+      pointer-events:auto !important;
+    }
+    .ag-hist-head{
+      padding:10px 10px 12px 114px !important;
+    }
   }
-  .nav{display:flex;align-items:center;gap:16px;padding:14px clamp(18px,4vw,40px);border-bottom:1px solid var(--line);background:var(--paper)}
+  .nav{display:flex;align-items:center;gap:16px;padding:14px clamp(18px,4vw,40px) 14px 114px;border-bottom:none;background:var(--paper);transition:padding-left .26s var(--ease)}
+  .ag-history.on ~ .ag-main .nav{padding-left:clamp(18px,4vw,40px)}
   .brand{display:flex;align-items:center;gap:10px;font-family:var(--disp);font-weight:800;font-size:1.1rem}
   .brand img{width:26px;height:26px;object-fit:contain;border-radius:4px}
   .nav .sp{margin-left:auto}
@@ -171,7 +273,100 @@
   .loading{text-align:center;padding:60px 20px;color:var(--mut);font-size:.9rem}
 </style>
 </head>
-<body>
+<body><div class="ag-hist-backdrop" id="agHistBackdrop"></div>
+<aside class="ag-history on" id="agHistory" aria-label="Your account">
+  <div class="ag-hist-head">
+    <span class="ag-hist-mark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 16 4-4-4-4M6 8l-4 4 4 4M14.5 4l-5 16"/></svg></span>
+    <b class="ag-hist-brand-text"><span>Souqi</span><span>Code</span></b>
+  </div>
+
+  <div class="ag-ws-wrap">
+    <button type="button" class="ag-ws" id="agWs">
+      <span class="av" id="agWsAv">S</span>
+      <span class="nm" id="agWsNm">Your Workspace</span>
+      <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg>
+    </button>
+    <div class="ag-ws-menu" id="agWsMenu">
+      <div class="ag-ws-signed" id="agWsSigned">Not signed in</div>
+      <a class="ag-ws-item" href="#" id="agWsSettings">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        Settings
+      </a>
+      <a class="ag-ws-item" href="/pricing">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2l2.4 6.4L21 10l-5.2 4.2L17.2 21 12 17.3 6.8 21l1.4-6.8L3 10l6.6-1.6z"/></svg>
+        Plans &amp; pricing
+      </a>
+      <div class="ag-ws-sep" id="agWsSignOutSep" hidden></div>
+      <button type="button" class="ag-ws-item" id="agWsSignOut" hidden>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>
+        Sign out
+      </button>
+      <a class="ag-ws-item" href="/login" id="agWsSignIn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><path d="M10 17l5-5-5-5"/><path d="M15 12H3"/></svg>
+        Sign in
+      </a>
+    </div>
+  </div>
+
+  <button type="button" class="ag-act" onclick="location.href='/agent'">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Create something new</button>
+
+  <div class="ag-hist-tabs" role="tablist">
+    <a class="ag-hist-tab" href="/agent">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg>Home</a>
+    <a class="ag-hist-tab ag-hist-hoverable on" href="/projects">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>Projects
+      <span class="ag-flyout" id="agProjFlyout">
+        <span class="ag-flyout-h">Recent Projects</span>
+        <span class="ag-flyout-list" id="agProjFlyoutList"><span class="ag-flyout-empty">Nothing built yet</span></span>
+      </span>
+    </a>
+    <a class="ag-hist-tab" href="/agent#favorites">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01z"/></svg>Favorites</a>
+    <a class="ag-hist-tab" href="/agent#stats">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/></svg>Stats</a>
+    <a class="ag-hist-tab" href="/agent#settings">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Settings</a>
+    <div class="ag-hist-gap"></div>
+    <a class="ag-hist-tab" href="/home">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7V18h8v-3.3A7 7 0 0 0 12 2z"/></svg>Learn</a>
+    <a class="ag-hist-tab" href="/terms">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4h7a3 3 0 0 1 3 3v13a2.5 2.5 0 0 0-2.5-2.5H2z"/><path d="M22 4h-7a3 3 0 0 0-3 3v13a2.5 2.5 0 0 1 2.5-2.5H22z"/></svg>Documentation</a>
+  </div>
+
+  <div class="ag-hist-foot">
+    <div class="ttl" id="agPlanTtl">Your Free Plan</div>
+    <div class="ag-plan-alert" id="agPlanAlert">You've reached your usage limit</div>
+    <div class="ag-meter-row">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m16 18 6-6-6-6M8 6l-6 6 6 6"/></svg>
+      <span class="lab">Free Apps<i id="agEditsUsed">6/10 created</i></span>
+      <span class="ag-meter"><i id="agEditsBar" style="width:60%"></i></span>
+    </div>
+    <div class="ag-meter-row">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.5" cy="8.5" r="2.5"/><circle cx="16.5" cy="8.5" r="2.5"/><circle cx="12" cy="6" r="3"/><path d="M12 13c-2.8 0-6 1.4-6 3.5V18h12v-1.5c0-2.1-3.2-3.5-6-3.5z"/><path d="M5.5 14.5C4 15.2 3 16.3 3 17.5V18h2v-1.5c0-.8.4-1.5 1.1-2.1-.2.1-.4.1-.6.1z"/><path d="M18.5 14.5c.2 0 .4 0 .6-.1.7.6 1.1 1.3 1.1 2.1V18h2v-.5c0-1.2-1-2.3-2.5-3z"/></svg>
+      <span class="lab">Agent credits<i id="agAgentCredits">100% used</i></span>
+      <span class="ag-meter"><i id="agAgentBar" style="width:100%"></i></span>
+    </div>
+    <div class="ag-meter-row">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 10a4 4 0 0 0-7.8-1.2A3.5 3.5 0 1 0 7 16h10.5a3.5 3.5 0 0 0 .5-6z"/></svg>
+      <span class="lab">Cloud credits<i id="agSpendUsed">0% used</i></span>
+      <span class="ag-meter"><i id="agSpendBar" style="width:0%"></i></span>
+    </div>
+    <a class="ag-upgrade" href="/pricing">✦ Upgrade</a>
+    <div class="ag-hist-install">
+      <span>Install Souqi on</span>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2" width="10" height="20" rx="2"/><line x1="11" y1="18" x2="13" y2="18"/></svg>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+      <span>•</span>
+      <a href="/changelog">Changelog</a>
+    </div>
+    <div class="ag-hist-links">
+      <a href="/terms" target="_blank" rel="noopener">Terms</a><span>·</span>
+      <a href="/privacy" target="_blank" rel="noopener">Privacy</a><span>·</span>
+      <a href="/pricing">Plans</a>
+    </div>
+  </div>
+</aside>
 
 <button type="button" class="ag-pv-toggle-btn on" id="agDeskSidebarToggle" title="Toggle Sidebar">
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
@@ -182,47 +377,8 @@
   <span>Sidebar</span>
 </button>
 
-<div class="ag-hist-backdrop" id="agHistBackdrop"></div>
-<aside class="ag-history on" id="agHistory" aria-label="Your account">
-  <div class="ag-hist-head">
-    <span class="ag-hist-mark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 16 4-4-4-4M6 8l-4 4 4 4M14.5 4l-5 16"/></svg></span>
-    <b style="font-family:var(--disp);font-weight:700">Souqi Code</b>
-    <button type="button" class="ag-pv-toggle-btn on" id="agHistClose" title="Collapse Sidebar" style="margin-inline-start:auto">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-        <rect x="3" y="3" width="18" height="18" rx="3.5"/>
-        <path d="M9 3v18"/>
-        <rect class="pane-left" x="3.8" y="3.8" width="5.2" height="16.4" rx="1" fill="var(--ink)" stroke="none"/>
-      </svg>
-      <span>Sidebar</span>
-    </button>
-  </div>
-
-  <button type="button" class="ag-ws" onclick="location.href='/agent'">
-    <span class="av">S</span>
-    <span class="nm">Your Workspace</span>
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg>
-  </button>
-
-  <button type="button" class="ag-act" onclick="location.href='/agent'">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Create something new</button>
-
-  <div class="ag-hist-tabs" role="tablist">
-    <a class="ag-hist-tab" href="/agent">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg>Home</a>
-    <a class="ag-hist-tab on" href="/projects">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>Projects</a>
-    <a class="ag-hist-tab" href="/agent#favorites">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01z"/></svg>Favorites</a>
-    <a class="ag-hist-tab" href="/agent#stats">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/></svg>Stats</a>
-    <a class="ag-hist-tab" href="/agent#settings">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Settings</a>
-  </div>
-</aside>
-
 <div class="ag-main">
   <header class="nav">
-    <a class="brand" href="/agent"><img src="/assets/logo.png" alt="Souqi"><span>Souqi</span></a>
     <span class="sp"></span>
     <a class="btn-g" href="/agent">Back to builder</a>
     <a class="btn-d" href="/pricing">See plans</a>
@@ -274,19 +430,37 @@
 
   // Sidebar toggle
   var sb = $("agHistory"), bd = $("agHistBackdrop");
-  var deskSbBtn = $("agDeskSidebarToggle"), closeBtn = $("agHistClose");
+  var deskSbBtn = $("agDeskSidebarToggle");
+  var closeBtn = $("agHistClose");
+  window.toggleSidebar = function(forceState) {
+    var isShowing = typeof forceState === "boolean" ? forceState : !sb.classList.contains("on");
+    if (sb) sb.classList.toggle("on", isShowing);
+    if (deskSbBtn) deskSbBtn.classList.toggle("on", isShowing);
+    if (closeBtn) closeBtn.classList.toggle("on", isShowing);
+    if (bd) bd.classList.toggle("on", isShowing);
+  };
   if (deskSbBtn) {
-    deskSbBtn.addEventListener("click", function() {
-      var isShowing = sb.classList.toggle("on");
-      deskSbBtn.classList.toggle("on", isShowing);
-      if (bd && window.innerWidth <= 900) bd.classList.toggle("on", isShowing);
+    deskSbBtn.addEventListener("click", function(e) {
+      if (e) e.preventDefault();
+      window.toggleSidebar();
     });
   }
-  if (closeBtn) {
-    closeBtn.addEventListener("click", function() {
-      if (sb) sb.classList.remove("on");
-      if (deskSbBtn) deskSbBtn.classList.remove("on");
-      if (bd) bd.classList.remove("on");
+  if (closeBtn) closeBtn.addEventListener("click", function() { window.toggleSidebar(false); });
+  if (bd) bd.addEventListener("click", function() { window.toggleSidebar(false); });
+
+  // Workspace Menu toggle
+  var agWs = $("agWs"), agWsMenu = $("agWsMenu");
+  if (agWs && agWsMenu) {
+    agWs.addEventListener("click", function (e) {
+      e.stopPropagation();
+      agWs.classList.toggle("open");
+      agWsMenu.classList.toggle("open");
+    });
+    document.addEventListener("click", function (e) {
+      if (!agWs.contains(e.target) && !agWsMenu.contains(e.target)) {
+        agWs.classList.remove("open");
+        agWsMenu.classList.remove("open");
+      }
     });
   }
   if (bd) {

@@ -34,13 +34,21 @@
     --stone:#2e2a26; --dark:#0a0908; --line:#3a352e; --navy-800:#0d0b0a;
     --accent:#1aa6df; --accent-2:#118cc0; --accent-ink:#e6edf3;
   }
-  /* NOTE: no `overflow-x` on <html>. Setting it (even to `clip`) forces the
-     other axis to `auto`, which turns the root into a scroll container and
-     silently breaks `position:sticky` on the navbar. Horizontal overflow is
-     contained at its source instead — see .bh-hero and .inx-pin. */
-  html{background:var(--paper);overscroll-behavior-x:none}
+  /* NOTE: no `overflow-x` on <html> or <body>. Setting it forces the other
+     axis to `auto`, which turns the root into a scroll container and
+     silently breaks `position:sticky` — on the navbar, and on .inx-pin,
+     where the symptom is that the whole 320vh industries section scrolls
+     past as an empty dark band because the pinned panel never sticks.
+     Horizontal overflow is contained at its source instead — see
+     .bh-hero (overflow:clip) and .inx-pin (overflow:hidden).
+     This note existed before and was overridden anyway by an
+     `overflow-x:hidden !important` on both elements; that is what broke
+     the scroll animation. If a horizontal scrollbar ever comes back, fix
+     the element that actually overflows — do not reinstate a blanket
+     clip here. */
+  html{background:var(--paper);overscroll-behavior-x:none;max-width:100vw;width:100%}
   body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--body);-webkit-font-smoothing:antialiased;
-    padding:0 env(safe-area-inset-right) 0 env(safe-area-inset-left)}
+    padding:0 env(safe-area-inset-right) 0 env(safe-area-inset-left);max-width:100vw;width:100%}
   *{-webkit-tap-highlight-color:transparent}
   a{color:inherit;text-decoration:none}
   h1,h2,h3,h4{font-family:var(--disp);font-weight:600;letter-spacing:-.03em;line-height:1.04;margin:0}
@@ -50,7 +58,8 @@
   /* ---------- reveal ---------- */
   .rvl{opacity:0;transform:translateY(24px);transition:opacity .8s var(--ease),transform .8s var(--ease);transition-delay:var(--d,0s)}
   .rvl.in{opacity:1;transform:none}
-  @media (prefers-reduced-motion:reduce){.rvl{opacity:1;transform:none;transition:none}}
+  @media (prefers-reduced-motion:reduce){.rvl{opacity:1;transform:none;transition:none}
+    .bh-sub{animation-duration:.01ms!important;animation-delay:0s!important}}
 
   /* ================= NAV (same bar as login.html) ================= */
   /* `static`, exactly like login.html: the bar scrolls away with the page
@@ -111,13 +120,107 @@
     background:radial-gradient(46% 52% at 50% 24%,rgba(26,166,223,.14),transparent 62%)}
   .bh-hero .wrap{position:relative;z-index:1}
   .bh-h1{font-size:clamp(2.5rem,7vw,4.6rem);font-weight:600}
-  .bh-sub{color:var(--ink-2);font-size:clamp(.98rem,2vw,1.1rem);margin:20px auto 0;max-width:560px}
+  /* A soft accent-tinted text-shadow, not a hard outline — layered same
+     as the composer's glow (tight + wide), so the subtext reads as lit
+     from behind rather than just "text with a shadow filter on it". */
+  .bh-sub{color:var(--ink-2);font-size:clamp(1.05rem,2.2vw,1.22rem);font-weight:500;margin:22px auto 0;max-width:560px;
+    text-shadow:0 0 1px color-mix(in srgb,var(--accent) 30%,transparent),
+      0 0 18px color-mix(in srgb,var(--accent) 20%,transparent),
+      0 0 40px color-mix(in srgb,var(--accent) 12%,transparent);
+    opacity:0;animation:prodIn .5s var(--ease) .08s forwards}
 
   /* composer */
-  .bh-composer{max-width:800px;margin:clamp(26px,4vw,42px) auto 0;background:var(--card);border:1px solid var(--line);
-    border-radius:22px;padding:18px 18px 12px;text-align:left;box-shadow:0 2px 3px rgba(18,32,46,.03);
+  /* Composer treatment — the same three-part build as the Souqi Code chat
+     composer (see .ag-box in code.html): a bloom behind, a box-shadow halo
+     at the rim, and a travelling conic beam on the border. Palette lives
+     in custom properties so both pages state their colours the same way. */
+  .bh-composer{
+    --glow-a:26,166,223;   /* cyan accent */
+    --glow-b:124,58,237;   /* violet      */
+    --glow-c:15,118,220;   /* deep blue   */
+    --glow-alpha:1;
+    --glow-focus:1;
+    position:relative;max-width:800px;margin:clamp(26px,4vw,42px) auto 0;background:var(--card);border:1px solid var(--line);
+    border-radius:22px;padding:18px 18px 12px;text-align:left;
+    /* The coloured shadows ARE the side glow. ::before below is at
+       z-index:-1 and so paints beneath this element's opaque var(--card)
+       background — only the spill past the edge shows, and a centre-out
+       radial is dimmest exactly there. A box-shadow has the box's own
+       silhouette, so it is brightest at the edge and fades outward.
+       Reach is blur/2 + spread = 40/2-2 = 18px, inside .wrap's 18px
+       padding floor before .bh-hero's overflow:clip. */
+    box-shadow:
+      0 0 40px -2px rgba(var(--glow-a),.20),
+      0 0 14px -3px rgba(var(--glow-b),.16),
+      0 2px 3px rgba(18,32,46,.03);
     transition:border-color .18s,box-shadow .18s}
-  .bh-composer:focus-within{border-color:#bcd9e8;box-shadow:0 12px 40px rgba(26,166,223,.13)}
+  .bh-composer:focus-within{--glow-focus:1.35;border-color:rgb(var(--glow-a));
+    box-shadow:
+      0 0 52px -2px rgba(var(--glow-a),.30),
+      0 0 18px -3px rgba(var(--glow-b),.24),
+      0 12px 40px rgba(var(--glow-a),.13)}
+  :root[data-theme="dark"] .bh-composer{--glow-alpha:.62}
+  /* Layer 1 — the bloom. .bh-composer must stay position:relative with
+     nothing that creates its own stacking context (no transform/opacity),
+     or this silently stops painting above .bh-hero::before, the page-wide
+     wash behind the whole hero. */
+  .bh-composer::before{
+    content:"";position:absolute;z-index:-1;pointer-events:none;
+    left:-3%;right:-3%;top:-150%;bottom:-110%;
+    /* Stops are arithmetic. For a radial-gradient the percentages are
+       radii against the element's full width/height, so a radius r with
+       its last stop at s reaches |2(c-.5)| + 2·r·s in half-axis units.
+       reach >= 1 means the gradient is STILL painting colour where the
+       element ends — a dead straight edge that blur softens but never
+       removes. The previous `80% 150% ... transparent 74%` reached
+       2(1.5)(.74) = 2.22, i.e. it ran clean off all four sides.
+       Every layer below is verified <= .92:
+         L1 vertical    2(.60)(.72) = .86
+         L1 horizontal  .12 + 2(.44)(.72) = .75
+         L2 vertical    .08 + 2(.56)(.68) = .84
+         L2 horizontal  .16 + 2(.38)(.68) = .68
+       Two hues kept spatially apart — stacked on one centre they average
+       through the blur into a flat lavender-grey and stop reading as
+       light at all. */
+    background:
+      radial-gradient(44% 60% at 56% 52%, rgba(var(--glow-a),.60) 0%, rgba(var(--glow-c),.28) 46%, transparent 72%),
+      radial-gradient(38% 56% at 34% 46%, rgba(var(--glow-b),.34) 0%, transparent 68%);
+    filter:blur(34px);
+    opacity:calc(var(--glow-alpha) * var(--glow-focus));
+    transition:opacity .3s var(--ease)}
+  /* Focus intensifies the LIGHT, never the geometry. The old scale(1.09)
+     pushed the bloom outward into .bh-hero's clip, so the focus state was
+     itself producing an edge. */
+  /* Layer 2 — the travelling rim beam. Registered custom property is what
+     makes a conic gradient animatable at all; --c is already taken by the
+     industries showcase below, hence the namespaced name. Without
+     @property support the angle stays at 0deg and the ring renders as a
+     static gradient border — degraded, not broken. */
+  @property --bh-beam-angle{syntax:'<angle>';inherits:false;initial-value:0deg}
+  .bh-composer::after{
+    content:"";position:absolute;inset:-1px;border-radius:23px;
+    padding:1.5px;pointer-events:none;
+    background:conic-gradient(from var(--bh-beam-angle) at 50% 50%,
+      transparent 0deg,transparent 186deg,
+      rgba(var(--glow-b),.85) 246deg,
+      rgba(var(--glow-a),1) 300deg,
+      rgba(var(--glow-b),.5) 330deg,
+      transparent 360deg);
+    /* Paint the full rect, then subtract the content box so only the
+       1.5px ring survives. Order matters: the `mask` shorthand resets
+       mask-composite, so each composite follows its own shorthand. */
+    -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
+    -webkit-mask-composite:xor;
+    mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
+    mask-composite:exclude;
+    opacity:.7;
+    animation:bhBeamSpin 7s linear infinite;
+    transition:opacity .3s var(--ease)}
+  .bh-composer:focus-within::after{opacity:1;animation-duration:3.4s}
+  @keyframes bhBeamSpin{to{--bh-beam-angle:360deg}}
+  @media (prefers-reduced-motion:reduce){
+    .bh-composer::after{animation:none!important}
+  }
   .bh-ta{width:100%;border:0;outline:0;resize:none;background:none;font-family:var(--body);font-size:1.02rem;
     line-height:1.55;color:var(--ink);min-height:52px;max-height:230px;overflow-y:auto}
   .bh-ta::placeholder{color:var(--mut)}
@@ -129,12 +232,17 @@
     border-radius:999px;padding:6px 8px 6px 12px;font-size:.86rem;font-weight:500}
   .bh-chip-sel.on{display:inline-flex}
   .bh-chip-sel button{border:0;background:none;cursor:pointer;color:var(--ink-2);font-size:1rem;line-height:1;padding:0 2px}
+  /* Idle state is theme-tokened, not a hardcoded light-theme cream. It was
+     background:#e9e4db;color:#fff — on the dark theme that painted a bright
+     near-white disc on the near-black card, with a white arrow on top of it
+     that was effectively invisible. --stone tracks the theme, and the arrow
+     only goes white once .live turns the button accent-coloured. */
   .bh-send{margin-left:auto;flex:none;height:38px;min-width:38px;padding:0;border:0;border-radius:999px;cursor:pointer;
-    background:#e9e4db;color:#fff;display:inline-flex;align-items:center;justify-content:center;gap:8px;
-    transition:background .2s,padding .2s,transform .16s}
+    background:var(--stone);color:var(--mut);display:inline-flex;align-items:center;justify-content:center;gap:8px;
+    transition:background .2s,color .2s,padding .2s,transform .16s}
   .bh-send svg{width:17px;height:17px}
   .bh-send span{display:none;font-weight:600;font-size:.92rem}
-  .bh-send.live{background:var(--accent)}
+  .bh-send.live{background:var(--accent);color:#fff}
   .bh-send.live:hover{background:var(--accent-2);transform:translateY(-1px)}
   .bh-send.labelled{padding:0 20px}
   .bh-send.labelled span{display:inline}
@@ -142,6 +250,13 @@
 
   /* the hand-off beat: shown under the composer while the page changes */
   .bh-boot{max-width:800px;margin:14px auto 0;text-align:left;display:flex;flex-direction:column;gap:2px}
+  /* Same [hidden]-vs-class-display trap as elsewhere in this codebase —
+     display:flex above outranks the UA's [hidden]{display:none}, so this
+     "build in progress" block (and its .bar i fill, which animates to
+     100% width unconditionally the moment it's in the DOM — CSS
+     animations don't wait for JS) was rendering, and finishing, on every
+     page load instead of only during an actual build hand-off. */
+  .bh-boot[hidden]{display:none}
   /* rows arrive one at a time — a step that hasn't started yet isn't shown */
   .bh-bstage{display:none;align-items:center;gap:11px;padding:8px 4px;font-size:.94rem;color:var(--ink-2)}
   .bh-bstage.on{display:flex;opacity:0;transform:translateY(5px);animation:bootIn .3s var(--ease) forwards}
@@ -370,7 +485,14 @@
 
   /* ================= PLATFORM CARDS ================= */
   .bh-plat{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-top:clamp(32px,5vw,54px)}
-  .plat{border-radius:var(--r-card);padding:clamp(22px,2vw,30px);display:flex;flex-direction:column;min-height:440px}
+  /* min-width:0 — grid items default to min-width:auto, so a track can't
+     shrink below its content's min-content width and the whole .bh-plat
+     grid blows past its container on narrow screens (measured: 131+164+10
+     = 305px of tracks inside a 278px box), which is a real horizontal
+     scrollbar on the page. Same fix as .inx-left/.inx-right above. This
+     used to be masked by an overflow-x:hidden on html/body, which also
+     broke every position:sticky on the page — see the note there. */
+  .plat{border-radius:var(--r-card);padding:clamp(22px,2vw,30px);display:flex;flex-direction:column;min-height:440px;min-width:0}
   .plat .eyebrow{font-size:.9rem;opacity:.72}
   .plat h3{font-size:clamp(1.4rem,2.2vw,1.72rem);margin-top:12px;font-weight:600;line-height:1.12}
   .plat p{font-size:.92rem;line-height:1.6;opacity:.85;margin:auto 0 0}
@@ -483,8 +605,13 @@
     .bh-rail{justify-content:flex-start;padding:4px 2px}
     .bh-mode{width:78px}
     .bh-mode i{width:52px;height:48px}
-    .bh-plat{grid-template-columns:repeat(2,1fr);gap:10px}
-    .plat{min-height:0}
+    /* auto-fit, not a fixed 2 — a hard repeat(2,1fr) here gave each card
+       ~172px on a 390px phone, and after .plat's own padding that left
+       ~128px of text, so headings wrapped one word per line ("Connect /
+       To AI / & / Services."). auto-fit drops to a single column as soon
+       as two 232px tracks stop fitting, and keeps two wherever they do. */
+    .bh-plat{grid-template-columns:repeat(auto-fit,minmax(232px,1fr));gap:10px}
+    .plat{min-height:0;padding:18px}
     .q-side{grid-template-columns:repeat(2,1fr)}
     .bh-foot .grid{grid-template-columns:1fr 1fr}
     .bh-foot .brandcol{grid-column:span 2}

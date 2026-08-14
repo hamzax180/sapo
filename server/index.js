@@ -8,6 +8,7 @@
    Client headers never select which database is used.
    ================================================================= */
 const path = require("path");
+const fs = require("fs");
 // Explicit path, not the default require("dotenv").config() — that
 // resolves .env relative to process.cwd(), which silently does nothing
 // (no error, no warning) whenever this is launched from anywhere other
@@ -89,10 +90,6 @@ app.get("/", (req, res) => res.sendFile(path.join(__dirname, "..", "public", "ho
 // (/code and /code.html stay listed: they serve the same document, so
 // isolating one entry point and not the others would just move the bug.)
 function crossOriginIsolate(req, res, next) {
-  // credentialless (not require-corp): SharedArrayBuffer is enabled, and
-  // cross-origin resources that don't set CORP headers (e.g. CDN-hosted
-  // @webcontainer/api on jsdelivr) can still load. require-corp blocks
-  // them entirely, which silently kills WebContainer.boot().
   res.setHeader("Cross-Origin-Embedder-Policy", "credentialless");
   res.setHeader("Cross-Origin-Opener-Policy", "same-origin");
   next();
@@ -188,6 +185,7 @@ app.get("/privacy", (req, res) => res.sendFile(path.join(__dirname, "..", "publi
 app.get("/settings", (req, res) => res.sendFile(path.join(__dirname, "..", "public", "settings.html")));
 app.get("/projects", (req, res) => res.sendFile(path.join(__dirname, "..", "public", "projects.html")));
 app.get("/checkout", (req, res) => res.sendFile(path.join(__dirname, "..", "public", "checkout.html")));
+app.get("/mobile", (req, res) => res.sendFile(path.join(__dirname, "..", "public", "mobile.html")));
 app.get("/admin", (req, res) => res.sendFile(path.join(__dirname, "..", "public", "admin.html")));
 app.get("/portal/:wsId", (req, res) => res.sendFile(path.join(__dirname, "..", "public", "portal.html")));
 
@@ -3219,7 +3217,13 @@ app.get("/api/agent/draft/:id", async (req, res, next) => {
 
 /* ---- guard: only allow known collections through the generic CRUD ---- */
 function guard(req, res, next) {
-  if (!COLLECTIONS.includes(req.params.c)) return res.status(404).json({ error: "unknown collection" });
+  if (!COLLECTIONS.includes(req.params.c)) {
+    const pageFile = path.join(__dirname, "..", "public", `${req.params.c}.html`);
+    if (fs.existsSync(pageFile)) {
+      return res.sendFile(pageFile);
+    }
+    return res.status(404).json({ error: "unknown collection" });
+  }
   next();
 }
 

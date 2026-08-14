@@ -11,22 +11,18 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Jost:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
 <script>
-(function(){var k="souqi-theme";try{var t=localStorage.getItem(k)||"light";document.documentElement.setAttribute("data-theme",t)}catch(e){}})();
+(function(){var k="souqi-theme";try{var t=localStorage.getItem(k)||"dark";document.documentElement.setAttribute("data-theme",t)}catch(e){}})();
 </script>
 <style>
   *,*::before,*::after{box-sizing:border-box}
-  :root{
-    --paper:#faf7f2; --card:#ffffff; --ink:#12202e; --ink-2:#5d6f80; --mut:#8b98a5;
-    --accent:#1aa6df; --accent-2:#0f8ec4; --line:#e7e1d7; --navy-800:#0b1e33;
-    --disp:'Jost','Century Gothic',system-ui,sans-serif;
-    --body:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
-  }
-  :root[data-theme="dark"]{
+  :root, :root[data-theme="dark"]{
     --paper:#1c1917; --paper-2:#24211e; --card:#2a2622;
     --ink:#f0eadc; --ink-2:#a49e92; --mut:#7e766a;
     --tint:#3d3428; --tint-2:#2d2420;
-    --stone:#2e2a26; --dark:#0a0908; --line:#3a352e; --navy-800:#0d0b0a;
+    --stone:#2e2a26; --dark:#0a0908; --line:#3a352e; --navy-800:#f0eadc;
     --accent:#1aa6df; --accent-2:#118cc0; --accent-ink:#e6edf3;
+    --disp:'Jost','Century Gothic',system-ui,sans-serif;
+    --body:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
   }
   html{background:var(--paper)}
   body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--body);-webkit-font-smoothing:antialiased;

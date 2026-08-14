@@ -3,536 +3,303 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <meta name="theme-color" content="#1aa6df" />
+  <meta name="theme-color" content="#1c1917" />
   <meta name="description" content="Souqi plan prices — simple, transparent plans that scale with your business." />
-  <meta name="theme-color" content="#1aa6df" />
   <link rel="icon" type="image/png" href="assets/logo.png" />
-  <title>Plan prices — Souqi</title>
+  <title>Upgrade — Souqi</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Jost:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="css/sap.css?v=28" />
-<script>
-(function(){var k="souqi-theme";try{var t=localStorage.getItem(k)||"light";document.documentElement.setAttribute("data-theme",t)}catch(e){}})();
-</script>
-<style>
-    /* ---- marketing top navigation — was an exact copy of login.html's
-       DARK .nav; overridden here to the same warm cream as the body
-       (#faf7f2, matching home.html/code.html) since a dark bar over a
-       cream page was the one thing on this page that didn't match.
-       Every text/icon color below is flipped from "light-on-dark" to
-       "dark-on-light" to stay legible — the layout/positions are
-       untouched, only the palette. */
-    .nav{position:static;z-index:40;display:flex;align-items:center;gap:20px;padding:14px clamp(18px,4vw,40px);
-      background:#faf7f2}
-    .brand{display:flex;align-items:center;gap:10px;font-family:var(--font-head);font-weight:800;font-size:1.1rem;color:var(--navy-800);text-decoration:none}
-    .nav .lnk{margin-left:auto;display:flex;gap:2px}
-    .ndrop{position:relative}
-    .ntop{display:inline-flex;align-items:center;gap:5px;background:none;border:0;cursor:pointer;font:inherit;font-size:.88rem;font-weight:500;color:var(--navy-700);padding:9px 12px;border-radius:9px;transition:.16s}
-    .ntop svg{width:12px;height:12px;opacity:.6;transition:transform .18s}
-    .ndrop:hover .ntop,.ntop.active{background:rgba(11,30,51,.06);color:var(--navy-800)}
-    .ndrop:hover .ntop svg{transform:rotate(180deg)}
-    .npanel{position:absolute;top:calc(100% + 8px);left:0;min-width:252px;background:#fff;border:1px solid var(--line);border-radius:14px;
-      box-shadow:0 18px 46px rgba(11,30,51,.16);padding:9px;opacity:0;visibility:hidden;transform:translateY(8px);
-      transition:opacity .16s,transform .16s,visibility .16s;z-index:60}
-    .ndrop:hover .npanel{opacity:1;visibility:visible;transform:none}
-    .npanel a{display:block;padding:9px 11px;border-radius:9px;text-decoration:none;color:var(--ink);font-size:.88rem;font-weight:500;cursor:pointer}
-    .npanel a:hover{background:var(--surface-2);color:var(--navy-800)}
-    .npanel a b{display:block;font-size:.9rem;color:var(--navy-800);font-weight:700}
-    .npanel a small{display:block;font-size:.76rem;color:var(--muted);margin-top:1px;font-weight:400}
-    .npanel.cols{display:grid;grid-template-columns:1fr 1fr;min-width:380px;gap:0 6px}
-    .npanel.cols h5{font-size:.64rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);font-weight:800;padding:8px 11px 4px;margin:0}
-    .btn-g{padding:9px 15px;border:1px solid #e7e1d7;border-radius:10px;color:var(--navy-800);font-size:.86rem;font-weight:600;transition:.16s;text-decoration:none}
-    .btn-g:hover{border-color:#c6dbe7;background:rgba(11,30,51,.04)}
-    .btn-d{padding:9px 17px;border-radius:10px;background:var(--accent);color:#04121d;font-size:.86rem;font-weight:700;transition:.16s;text-decoration:none}
-    .btn-d:hover{background:#3bb8ea;transform:translateY(-1px)}
-    /* language switcher — matches the app's own dropdown */
-    .lang-dropdown{position:relative;display:inline-block;font-family:var(--font-head);font-size:.85rem;z-index:9999}
-    .lang-trigger{display:flex;align-items:center;justify-content:center;background:#fff;border:2px solid #d0112b;border-radius:0;
-      padding:10px 18px;color:#d0112b;font-weight:700;cursor:pointer;transition:background .18s;outline:none;user-select:none;min-width:100px}
-    .lang-trigger *{pointer-events:none}
-    .lang-trigger:hover{background:#fdf5f5}
-    .lang-trigger .lang-arrow{display:none}
-    .lang-list{position:absolute;top:100%;right:0;left:0;background:#fff;border:1px solid #111;border-top:none;border-radius:0;
-      padding:0;margin:0;list-style:none;display:none;overflow:hidden;z-index:10000}
-    .lang-dropdown.open .lang-list{display:block!important;visibility:visible!important;opacity:1!important}
-    .lang-item{padding:10px 16px;cursor:pointer;font-weight:700;text-align:center;color:#d0112b;background:#fff;transition:background .18s,color .18s}
-    .lang-item:hover{background:#f5f5f5}
-    .lang-item.active{background:#1e73be;color:#fff}
-    @media(max-width:860px){ .nav .lnk{display:none} }
-
-    /* ---- marketing top navigation (shared with login) ---- */
-    :root { --wcnav-h:64px; }
-  :root[data-theme="dark"]{
-    --paper:#1c1917; --paper-2:#24211e; --card:#2a2622;
-    --ink:#f0eadc; --ink-2:#a49e92; --mut:#7e766a;
-    --tint:#3d3428; --tint-2:#2d2420;
-    --stone:#2e2a26; --dark:#0a0908; --line:#3a352e; --navy-800:#0d0b0a;
-    --accent:#1aa6df; --accent-2:#118cc0; --accent-ink:#e6edf3;
-  }
-    /* pricing.html still links the legacy sap.css corporate-navy design
-       system (--bg/--surface-2 resolve to cool grays there) — home.html
-       and code.html moved to a warm cream palette and pricing never
-       followed, so this was the one page that visually didn't match the
-       product it's selling. Overridden here rather than in sap.css
-       itself, which admin.html/checkout.html still rely on as-is. */
-    body { background:#faf7f2; min-height:100vh; }
-    .wc-nav { position:sticky; top:0; z-index:30; height:var(--wcnav-h); display:flex; align-items:center; gap:20px;
-      padding:0 clamp(16px,3vw,40px); background:rgba(250,247,242,.92); backdrop-filter:saturate(160%) blur(8px); border-bottom:1px solid var(--line); }
-    .wc-brand { display:flex; align-items:center; gap:10px; text-decoration:none; flex:0 0 auto; }
-    .wc-brand .wc-mark { width:30px; height:30px; display:grid; place-items:center; }
-    .wc-brand .wc-name { font-family:var(--font-head); font-weight:800; letter-spacing:.02em; color:var(--navy-800); font-size:1.06rem; }
-    .wc-links { display:flex; align-items:center; gap:4px; margin-left:8px; flex:1; }
-    .wc-item { position:relative; }
-    .wc-item > .wc-top { display:inline-flex; align-items:center; gap:5px; background:none; border:0; cursor:pointer;
-      font:inherit; font-size:.92rem; font-weight:500; color:var(--ink); padding:9px 12px; border-radius:8px; text-decoration:none; }
-    .wc-item > .wc-top.active { color:var(--accent); font-weight:600; }
-    .wc-item > .wc-top svg { width:13px; height:13px; transition:transform .18s; opacity:.7; }
-    .wc-item:hover > .wc-top { background:#f3f5f8; color:var(--navy-700); }
-    .wc-item:hover > .wc-top svg { transform:rotate(180deg); }
-    .wc-menu { position:absolute; top:calc(100% + 6px); left:0; min-width:212px; background:#fff; border:1px solid var(--line);
-      border-radius:12px; box-shadow:0 16px 40px rgba(13,42,69,.14); padding:7px; opacity:0; visibility:hidden;
-      transform:translateY(6px); transition:opacity .16s, transform .16s, visibility .16s; }
-    .wc-item:hover .wc-menu { opacity:1; visibility:visible; transform:translateY(0); }
-    .wc-menu a { display:flex; align-items:center; gap:10px; padding:9px 11px; border-radius:8px; text-decoration:none; color:var(--ink); font-size:.88rem; }
-    .wc-menu a:hover { background:#f3f7fb; color:var(--navy-700); }
-    .wc-menu a .mi { width:26px; height:26px; flex:0 0 auto; border-radius:7px; background:#eef4fa; color:var(--navy-600); display:grid; place-items:center; }
-    .wc-menu a .mi svg { width:15px; height:15px; }
-    .wc-menu a small { display:block; color:var(--muted); font-weight:400; font-size:.74rem; margin-top:1px; }
-    .wc-actions { display:flex; align-items:center; gap:10px; flex:0 0 auto; }
-    .wc-btn-ghost { display:inline-flex; align-items:center; padding:8px 15px; border:1px solid var(--line); border-radius:9px; background:#fff; color:var(--navy-700); font-size:.88rem; font-weight:600; text-decoration:none; cursor:pointer; }
-    .wc-btn-ghost:hover { border-color:#9cc4e4; background:#f6fafd; }
-    .wc-btn-dark { display:inline-flex; align-items:center; padding:9px 17px; border-radius:9px; background:var(--navy-800); color:#fff; font-size:.88rem; font-weight:600; text-decoration:none; cursor:pointer; border:1px solid var(--navy-800); }
-    .wc-btn-dark:hover { background:var(--navy-700); }
-    @media (max-width:900px) { .wc-links { display:none; } .wc-actions .wc-btn-ghost { display:none; } :root { --wcnav-h:56px; } }
-
-    /* ---- page ---- */
-    .wrap { max-width:1060px; margin:0 auto; padding:clamp(28px,5vw,58px) 20px 40px; }
-    .price-hero { text-align:center; max-width:680px; margin:0 auto; }
-    .price-hero h1 { font-family:var(--font-head); font-size:clamp(1.9rem,4.6vw,2.7rem); color:var(--navy-800); letter-spacing:-.02em; line-height:1.08; }
-    .price-hero p { margin-top:11px; color:var(--muted); font-size:1.02rem; line-height:1.55; }
-
-    /* Individual / Team segmented toggle */
-    .seg { display:inline-flex; background:#eef2f7; border:1px solid var(--line); border-radius:13px; padding:5px; margin:22px auto 32px; gap:4px; }
-    .seg button { border:0; background:none; cursor:pointer; font:inherit; font-size:.9rem; font-weight:600; color:var(--muted); padding:9px 20px; border-radius:9px; transition:color .18s, background .18s, box-shadow .18s; white-space:nowrap; }
-    .seg button.on { background:#fff; color:var(--navy-800); box-shadow:0 2px 8px rgba(13,42,69,.08); }
-
-    /* plan cards */
-    .cards { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; align-items:stretch; }
-    .card { display:flex; flex-direction:column; background:var(--surface); border:1.5px solid var(--line); border-radius:18px; padding:24px 22px; position:relative; transition:transform .2s, box-shadow .2s; }
-    .card:hover { box-shadow:var(--sh-sm); }
-    .card.rec { background:linear-gradient(180deg,#eef8fe,#fff 42%); border-color:#bfe1f4; box-shadow:0 20px 54px rgba(26,166,223,.16); }
-    .c-top { display:flex; align-items:flex-start; justify-content:space-between; gap:10px; min-height:42px; }
-    .c-ico { width:42px; height:42px; border-radius:12px; display:grid; place-items:center; background:var(--accent-50); color:var(--accent); flex:0 0 auto; }
-    .c-ico.green { background:#edf7e6; color:#5cb12f; }
-    .c-ico.gold { background:var(--gold-50); color:var(--gold); }
-    .c-ico svg { width:22px; height:22px; }
-    .c-rec { font-size:.7rem; font-weight:800; letter-spacing:.02em; color:#fff; background:var(--accent); padding:5px 11px; border-radius:999px; align-self:flex-start; }
-    .c-name { font-family:var(--font-head); font-weight:800; font-size:1.5rem; color:var(--navy-800); margin-top:14px; letter-spacing:-.01em; }
-    .c-tag { color:var(--muted); font-size:.9rem; margin-top:3px; line-height:1.4; min-height:38px; }
-
-    .c-cycle { display:inline-flex; background:#eef2f7; border:1px solid var(--line); border-radius:10px; padding:3px; margin-top:14px; gap:2px; }
-    .c-cycle button { border:0; background:none; cursor:pointer; font:inherit; font-size:.74rem; font-weight:700; color:var(--muted); padding:5px 11px; border-radius:7px; transition:all .16s; white-space:nowrap; }
-    .c-cycle button.on { background:#fff; color:var(--navy-800); box-shadow:0 1px 5px rgba(13,42,69,.12); }
-    .c-cycle .save { color:var(--accent); }
-
-    .c-price { display:flex; align-items:flex-end; gap:9px; margin:16px 0 2px; min-height:50px; }
-    .c-amt { font-family:var(--font-head); font-weight:800; font-size:2.55rem; letter-spacing:-.02em; color:var(--navy-800); line-height:.92; }
-    .c-amt.sm { font-size:1.7rem; }
-    .c-unit { font-size:.76rem; color:var(--muted); line-height:1.4; padding-bottom:4px; }
-    .c-cta { margin-top:14px; }
-    .c-cta .btn { width:100%; justify-content:center; padding:12px; font-size:.92rem; }
-    .c-sub { text-align:center; font-size:.73rem; color:var(--muted); margin-top:9px; min-height:16px; }
-
-    .c-feats { margin-top:18px; padding-top:18px; border-top:1px solid var(--line); }
-    .card.rec .c-feats { border-top-color:#cfe7f6; }
-    .c-feats h4 { font-size:.82rem; font-weight:700; color:var(--navy-700); margin-bottom:13px; }
-    .c-feat { display:flex; gap:10px; font-size:.86rem; color:var(--ink); margin-bottom:11px; line-height:1.4; }
-    .c-feat:last-child { margin-bottom:0; }
-    .c-feat .ck { color:var(--accent); flex:0 0 auto; margin-top:1px; }
-    .c-feat .ck svg { width:16px; height:16px; }
-    .c-feat b { color:var(--navy-700); font-weight:600; }
-
-    .price-foot-note { text-align:center; color:var(--muted); font-size:.86rem; margin:34px auto 0; max-width:620px; }
-    .price-foot-note a { color:var(--accent); text-decoration:none; font-weight:600; }
-
-    /* cta strip */
-    .cta { margin-top:50px; background:linear-gradient(135deg, var(--navy-900), var(--navy-700) 60%, var(--navy-500)); border-radius:18px;
-      padding:40px 44px; display:flex; align-items:center; justify-content:space-between; gap:26px; flex-wrap:wrap; box-shadow:var(--sh-lg); }
-    .cta h2 { font-family:var(--font-head); font-size:1.45rem; font-weight:700; color:#fff; letter-spacing:-.01em; }
-    .cta p { font-size:.92rem; color:#aebfd0; max-width:400px; line-height:1.6; margin-top:6px; }
-    .cta-btns { display:flex; gap:10px; flex-shrink:0; }
-    .cta-w { display:inline-flex; align-items:center; padding:11px 22px; border-radius:9px; background:#fff; color:var(--navy-800); font-weight:600; font-size:.9rem; text-decoration:none; }
-    .cta-w:hover { background:#eef4fa; }
-    .cta-g { display:inline-flex; align-items:center; padding:11px 22px; border-radius:9px; background:transparent; color:#cdd9e6; border:1px solid rgba(255,255,255,.25); font-size:.9rem; text-decoration:none; }
-    .cta-g:hover { color:#fff; border-color:rgba(255,255,255,.5); }
-
-    .wc-foot { border-top:1px solid var(--line); margin-top:48px; padding:24px 20px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; font-size:.82rem; color:var(--muted); max-width:1060px; margin-left:auto; margin-right:auto; }
-    .wc-foot a { color:var(--muted); text-decoration:none; }
-    .wc-foot a:hover { color:var(--navy-700); }
-    .ft-links { display:flex; gap:18px; }
-
-    /* ---------- mobile: 3 cards fit horizontally ---------- */
-    @media (max-width:860px) {
-      .wrap { padding:18px 10px 30px; }
-      .price-hero p { font-size:.92rem; }
-      .seg { display:flex; width:100%; max-width:340px; margin:16px auto 20px; }
-      .seg button { flex:1; padding:9px 6px; font-size:.82rem; }
-      .cards { grid-template-columns:repeat(3,1fr); gap:6px; max-width:none; margin:0; }
-      .card { border-radius:12px; padding:12px 7px; order:0; min-width:0; }
-      .card.rec { order:0; }
-      .c-top { min-height:16px; }
-      .c-ico { display:none; }
-      .c-rec { font-size:.5rem; padding:2px 5px; letter-spacing:0; top:-8px; }
-      .c-name { font-size:.95rem; margin-top:6px; }
-      .c-tag { min-height:0; font-size:.64rem; margin-top:2px; line-height:1.2; }
-      .c-cycle { display:none; }
-      .c-price { min-height:0; margin:8px 0 2px; gap:2px; flex-wrap:wrap; align-items:baseline; }
-      .c-amt { font-size:1.35rem; }
-      .c-amt.sm { font-size:.98rem; }
-      .c-unit { font-size:.55rem; line-height:1.15; }
-      .c-cta { margin-top:8px; }
-      .c-cta .btn { padding:8px 3px; font-size:.65rem; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; text-align:center; justify-content:center; }
-      .c-sub { font-size:.55rem; margin-top:5px; min-height:0; }
-      .c-feats { margin-top:10px; padding-top:10px; }
-      .c-feats h4 { font-size:.62rem; margin-bottom:6px; }
-      .c-feat { font-size:.62rem; gap:4px; margin-bottom:6px; line-height:1.25; word-break:break-word; }
-      .c-feat .ck svg { width:11px; height:11px; }
-      .cta { padding:22px 18px; text-align:center; justify-content:center; flex-direction:column; }
-      .cta-btns { justify-content:center; width:100%; }
-      .cta-w, .cta-g { flex:1; justify-content:center; }
-      .wc-foot { flex-direction:column; text-align:center; gap:14px; }
-      .ft-links { flex-wrap:wrap; justify-content:center; }
+  <script>
+    (function(){var k="souqi-theme";try{var t=localStorage.getItem(k)||"dark";document.documentElement.setAttribute("data-theme",t)}catch(e){}})();
+  </script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    :root {
+      --paper: #faf7f2; --paper-2: #f3eee6; --card: #ffffff;
+      --ink: #12202e; --ink-2: #5d6f80; --mut: #7e766a;
+      --accent: #0070f3; --accent-2: #0051a8; --line: #e7e1d7; --stone: #dedad2;
+      --disp: 'Jost', system-ui, sans-serif;
+      --body: 'Inter', system-ui, -apple-system, sans-serif;
     }
-    @media (max-width:380px) {
-      .wrap { padding:14px 6px 24px; }
-      .cards { gap:4px; }
-      .card { padding:10px 5px; border-radius:10px; }
-      .c-name { font-size:.88rem; }
-      .c-amt { font-size:1.18rem; }
-      .c-amt.sm { font-size:.88rem; }
-      .c-unit { font-size:.5rem; }
-      .c-cta .btn { font-size:.58rem; padding:7px 2px; }
-      .c-feat { font-size:.58rem; }
+    :root[data-theme="dark"] {
+      --paper: #18181b; --paper-2: #242220; --card: #1c1917;
+      --ink: #f4f4f5; --ink-2: #a1a1aa; --mut: #71717a;
+      --accent: #0070f3; --accent-2: #0051a8; --line: #3f3f46; --stone: #27272a;
     }
-    
-    /* FAQ Accordion hover effects */
-    .faq-item:hover { border-color: #9cc4e4 !important; }
-    .faq-trigger:hover { background: #fafdff !important; }
+    html, body {
+      margin: 0; padding: 0; background: var(--paper); color: var(--ink);
+      font-family: var(--body); -webkit-font-smoothing: antialiased; min-height: 100vh;
+    }
+
+    /* Top Nav */
+    .top-nav {
+      height: 60px; display: flex; align-items: center; justify-content: space-between;
+      padding: 0 clamp(16px, 4vw, 40px); border-bottom: 1px solid var(--line);
+      background: var(--paper); position: sticky; top: 0; z-index: 50;
+    }
+    .brand-link {
+      display: flex; align-items: center; gap: 10px; text-decoration: none;
+      font-family: var(--disp); font-weight: 700; font-size: 1.1rem; color: var(--ink);
+    }
+    .brand-link img { width: 26px; height: 26px; object-fit: contain; }
+    .close-btn {
+      color: var(--mut); text-decoration: none; font-size: 1.4rem; font-weight: 400;
+      padding: 4px 10px; border-radius: 8px; transition: background 0.15s;
+    }
+    .close-btn:hover { background: var(--paper-2); color: var(--ink); }
+
+    /* Container */
+    .upgrade-wrap {
+      max-width: 1060px; margin: 0 auto; padding: 40px 20px 60px;
+    }
+
+    /* Header */
+    .up-header { text-align: center; margin-bottom: 32px; }
+    .up-header h1 {
+      font-family: var(--body) !important; font-size: 2.1rem; font-weight: 700;
+      color: var(--ink); margin: 0 0 6px 0; letter-spacing: -0.02em;
+    }
+    .up-header p {
+      font-family: var(--body) !important; font-size: 0.98rem; color: var(--mut); margin: 0 0 24px 0;
+    }
+
+    /* Billing Toggle Rectangle */
+    .billing-toggle {
+      display: inline-flex; align-items: center; gap: 4px; background: var(--paper-2);
+      border: 1px solid var(--line); padding: 4px; border-radius: 10px !important;
+    }
+    .billing-toggle button {
+      border: 0; background: none; font-family: var(--body) !important; font-size: 0.88rem;
+      font-weight: 600; color: var(--mut); padding: 8px 18px; border-radius: 8px !important;
+      cursor: pointer; transition: all 0.18s; display: inline-flex; align-items: center; gap: 6px;
+    }
+    .billing-toggle button.active {
+      background: var(--card); color: var(--ink);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    }
+    .billing-toggle .discount-pill {
+      background: rgba(0, 112, 243, 0.15); color: var(--accent);
+      font-size: 0.76rem; font-weight: 700; padding: 3px 8px; border-radius: 6px !important;
+    }
+
+    /* Cards Grid */
+    .up-grid {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px;
+      align-items: stretch; margin-bottom: 36px;
+    }
+    .up-card {
+      background: var(--paper-2); border: 1px solid var(--line); border-radius: 18px;
+      padding: 28px 24px; display: flex; flex-direction: column; position: relative;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .up-card:hover {
+      box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.12);
+    }
+    .up-card.featured {
+      border: 2px solid var(--accent); background: var(--card);
+      box-shadow: 0 0 24px rgba(0, 112, 243, 0.16);
+    }
+
+    .up-card-top {
+      display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;
+    }
+    .up-card-title {
+      font-family: var(--body) !important; font-size: 1.3rem; font-weight: 700; color: var(--ink);
+    }
+    .up-badge-current {
+      background: var(--stone); color: var(--mut); font-size: 0.76rem;
+      font-weight: 600; padding: 4px 10px; border-radius: 99px;
+    }
+
+    .up-price-row {
+      margin: 14px 0 4px; display: flex; align-items: baseline; gap: 6px;
+    }
+    .up-price-row .amt {
+      font-family: var(--body) !important; font-size: 2.5rem; font-weight: 800;
+      color: var(--ink); line-height: 1; letter-spacing: -0.03em;
+    }
+    .up-price-row .unit {
+      font-size: 0.85rem; color: var(--mut);
+    }
+
+    .up-subtitle {
+      font-size: 0.88rem; color: var(--mut); margin-bottom: 22px; min-height: 38px; line-height: 1.4;
+    }
+
+    /* List of Features */
+    .up-feats {
+      list-style: none; padding: 0; margin: 0 0 28px 0; flex: 1;
+      display: flex; flex-direction: column; gap: 11px;
+    }
+    .up-feat-item {
+      display: flex; align-items: flex-start; gap: 10px; font-size: 0.88rem;
+      color: var(--ink); line-height: 1.4;
+    }
+    .up-feat-item .mark {
+      font-weight: 700; flex: none; width: 16px; text-align: center;
+    }
+    .up-feat-item.check .mark { color: var(--ink); }
+    .up-feat-item.plus .mark { color: var(--mut); }
+
+    /* Select Dropdown in Pro */
+    .up-select {
+      width: 100%; padding: 9px 12px; border: 1px solid var(--line); border-radius: 8px;
+      background: var(--card); color: var(--ink); font-size: 0.86rem; margin-bottom: 16px;
+      outline: none; cursor: pointer; font-family: var(--body);
+    }
+
+    /* Action Buttons */
+    .up-btn {
+      width: 100%; padding: 12px 18px; border-radius: 10px; font-family: var(--body);
+      font-size: 0.92rem; font-weight: 600; cursor: pointer; border: 0;
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      transition: background 0.18s, transform 0.18s; text-decoration: none;
+    }
+    .up-btn-primary {
+      background: var(--accent); color: #ffffff !important;
+    }
+    .up-btn-primary:hover {
+      background: var(--accent-2); transform: translateY(-1px);
+    }
+    .up-btn-disabled {
+      background: var(--stone); color: var(--mut); cursor: default;
+    }
+
+    /* Footnote Disclaimer */
+    .up-disclaimer {
+      text-align: center; font-size: 0.78rem; color: var(--mut);
+      max-width: 780px; margin: 0 auto; line-height: 1.55;
+    }
+
+    @media (max-width: 860px) {
+      .up-grid { grid-template-columns: 1fr; gap: 16px; }
+      .up-subtitle { min-height: auto; margin-bottom: 16px; }
+    }
   </style>
 </head>
 <body>
-  <!-- Marketing top navigation -->
-  <header class="nav" id="nav">
-    <a class="brand" href="/"><img src="assets/logo.png" alt="Souqi Logo" style="width:26px; height:26px; object-fit:contain; border-radius:4px;"><span data-t="Souqi">Souqi</span></a>
-    <nav class="lnk">
-      <div class="ndrop">
-        <button type="button" class="ntop"><span data-t="Platform">Platform</span> <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></button>
-        <div class="npanel">
-          <a href="/agent"><b data-t="AI Website Builder">AI Website Builder</b><small data-t="Describe it, watch it build">Describe it, watch it build</small></a>
-          <a href="/agent"><b data-t="AI App Builder">AI App Builder</b><small data-t="Real React, real TypeScript, running live">Real React, real TypeScript, running live</small></a>
-          <a href="/pricing"><b data-t="Publishing &amp; domains">Publishing &amp; domains</b><small data-t="Your app, on your own domain">Your app, on your own domain</small></a>
-        </div>
-      </div>
-      <div class="ndrop">
-        <button type="button" class="ntop"><span data-t="Solutions">Solutions</span> <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></button>
-        <div class="npanel cols">
-          <div><h5 data-t="By type">By type</h5><a href="/agent" data-t="Website">Website</a><a href="/agent" data-t="Web App">Web App</a><a href="/agent" data-t="Dashboard">Dashboard</a><a href="/agent" data-t="Portfolio">Portfolio</a></div>
-        </div>
-      </div>
-      <div class="ndrop">
-        <button type="button" class="ntop active"><span data-t="Pricing">Pricing</span> <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></button>
-        <div class="npanel">
-          <a href="pricing?group=individual"><b data-t="Individual">Individual</b><small data-t="Free, Pro &amp; Max plans">Free, Pro &amp; Max plans</small></a>
-          <a href="pricing?group=team"><b data-t="Team &amp; Enterprise">Team &amp; Enterprise</b><small data-t="Multi-user teams &amp; offices">Multi-user teams &amp; offices</small></a>
-        </div>
-      </div>
-      <div class="ndrop">
-        <button type="button" class="ntop"><span data-t="Resources">Resources</span> <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></button>
-        <div class="npanel">
-          <a href="assets/docs/MERVEKS_SAP_Client_Guide.pdf" target="_blank"><b>User guide (EN)</b><small>Full PDF walkthrough</small></a>
-          <a href="assets/docs/MERVEKS_SAP_Musteri_Kilavuzu.pdf" target="_blank"><b>Kullanım kılavuzu (TR)</b><small>Türkçe PDF rehber</small></a>
-        </div>
-      </div>
-    </nav>
-    <div class="lang-dropdown" id="langDropdown">
-      <button type="button" class="lang-trigger" id="langTrigger">
-        <span class="lang-current">English</span>
-        <svg class="lang-arrow" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
-      </button>
-      <ul class="lang-list" id="langList">
-        <li data-value="en" class="lang-item">English</li>
-        <li data-value="tr" class="lang-item">Türkçe</li>
-        <li data-value="ar" class="lang-item">العربية</li>
-      </ul>
-    </div>
-    <a class="btn-g" href="/login" data-t="Sign in">Sign in</a><a class="btn-d" href="/agent" data-t="Start building">Start building</a>
+
+  <header class="top-nav">
+    <a class="brand-link" href="/agent">
+      <img src="assets/logo.png" alt="Souqi Logo">
+      <span>Souqi</span>
+    </a>
+    <a class="close-btn" href="/agent" title="Close">✕</a>
   </header>
 
-  <div class="wrap">
-    <div class="price-hero">
-      <h1 data-t="Plan prices">Plan prices</h1>
-      <p data-t="Start free, upgrade when you're ready. Every plan keeps your data exactly where it is — no rebuild, no migration.">Start free, upgrade when you're ready. Every plan keeps your data exactly where it is — no rebuild, no migration.</p>
-    </div>
-
-    <div style="text-align:center">
-      <div class="seg" id="seg">
-        <button type="button" data-grp="individual" class="on" data-t="Individual">Individual</button>
-        <button type="button" data-grp="team" data-t="Team &amp; Enterprise">Team &amp; Enterprise</button>
+  <div class="upgrade-wrap">
+    <div class="up-header">
+      <h1>Upgrade</h1>
+      <p>Choose the best plan for you</p>
+      
+      <div class="billing-toggle">
+        <button type="button" id="btnMonthly" class="active">Monthly</button>
+        <button type="button" id="btnYearly">Yearly <span class="discount-pill">🏷️ Up to 10% off</span></button>
       </div>
     </div>
 
-    <div class="cards" id="cards"></div>
-
-    <p class="price-foot-note">All prices in USD, excluding local tax (KDV). Need something custom? <a href="mailto:sales@souqi.site">Talk to sales</a>.</p>
-
-    <!-- FAQ Accordion Section -->
-    <section class="faq-section" style="margin-top: 64px; margin-bottom: 58px;">
-      <h2 style="font-family:var(--font-head); font-size:1.85rem; font-weight:800; color:var(--navy-800); text-align:center; margin-bottom:28px; letter-spacing:-.01em;" data-t="Frequently Asked Questions">Frequently Asked Questions</h2>
-      <div class="faq-container" style="max-width:760px; margin:0 auto; display:flex; flex-direction:column; gap:12px;">
-        
-        <div class="faq-item" style="background:#fff; border:1px solid var(--line); border-radius:12px; overflow:hidden; transition:border-color .15s;">
-          <button type="button" class="faq-trigger" style="width:100%; display:flex; align-items:center; justify-content:space-between; gap:16px; padding:18px 20px; background:none; border:0; text-align:left; font:inherit; font-size:0.98rem; font-weight:700; color:var(--navy-800); cursor:pointer;">
-            <span data-t="Can I switch plans later?">Can I switch plans later?</span>
-            <svg class="faq-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="width:16px; height:16px; flex:0 0 auto; color:var(--muted); transition:transform .2s;"><path d="m6 9 6 6 6-6"/></svg>
-          </button>
-          <div class="faq-content" style="max-height:0; overflow:hidden; transition:max-height .25s ease-out;">
-            <div style="padding:0 20px 18px; font-size:0.88rem; color:var(--ink); line-height:1.55;" data-t="Yes, you can upgrade, downgrade, or cancel your subscription at any time directly from your console settings. Changes apply immediately.">
-              Yes, you can upgrade, downgrade, or cancel your subscription at any time directly from your console settings. Changes apply immediately.
-            </div>
-          </div>
+    <div class="up-grid">
+      <!-- Starter Plan -->
+      <div class="up-card">
+        <div class="up-card-top">
+          <span class="up-card-title">Starter</span>
+          <span class="up-badge-current">Current plan</span>
         </div>
-
-        <div class="faq-item" style="background:#fff; border:1px solid var(--line); border-radius:12px; overflow:hidden; transition:border-color .15s;">
-          <button type="button" class="faq-trigger" style="width:100%; display:flex; align-items:center; justify-content:space-between; gap:16px; padding:18px 20px; background:none; border:0; text-align:left; font:inherit; font-size:0.98rem; font-weight:700; color:var(--navy-800); cursor:pointer;">
-            <span>Is my business data secure?</span>
-            <svg class="faq-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="width:16px; height:16px; flex:0 0 auto; color:var(--muted); transition:transform .2s;"><path d="m6 9 6 6 6-6"/></svg>
-          </button>
-          <div class="faq-content" style="max-height:0; overflow:hidden; transition:max-height .25s ease-out;">
-            <div style="padding:0 20px 18px; font-size:0.88rem; color:var(--ink); line-height:1.55;">
-              Absolutely. Souqi uses bank-grade security protocols. If you use Neon or self-hosted databases, you retain full ownership and control over your records.
-            </div>
-          </div>
+        <div class="up-price-row">
+          <span class="amt">Free</span>
         </div>
-
-        <div class="faq-item" style="background:#fff; border:1px solid var(--line); border-radius:12px; overflow:hidden; transition:border-color .15s;">
-          <button type="button" class="faq-trigger" style="width:100%; display:flex; align-items:center; justify-content:space-between; gap:16px; padding:18px 20px; background:none; border:0; text-align:left; font:inherit; font-size:0.98rem; font-weight:700; color:var(--navy-800); cursor:pointer;">
-            <span>What happens when my 1-day trial expires?</span>
-            <svg class="faq-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="width:16px; height:16px; flex:0 0 auto; color:var(--muted); transition:transform .2s;"><path d="m6 9 6 6 6-6"/></svg>
-          </button>
-          <div class="faq-content" style="max-height:0; overflow:hidden; transition:max-height .25s ease-out;">
-            <div style="padding:0 20px 18px; font-size:0.88rem; color:var(--ink); line-height:1.55;">
-              Your account will be temporarily locked until a subscription payment is completed. All your seeded data, company logo, and settings are preserved so you can pick up right where you left off.
-            </div>
-          </div>
-        </div>
-
-        <div class="faq-item" style="background:#fff; border:1px solid var(--line); border-radius:12px; overflow:hidden; transition:border-color .15s;">
-          <button type="button" class="faq-trigger" style="width:100%; display:flex; align-items:center; justify-content:space-between; gap:16px; padding:18px 20px; background:none; border:0; text-align:left; font:inherit; font-size:0.98rem; font-weight:700; color:var(--navy-800); cursor:pointer;">
-            <span>How do I pay?</span>
-            <svg class="faq-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="width:16px; height:16px; flex:0 0 auto; color:var(--muted); transition:transform .2s;"><path d="m6 9 6 6 6-6"/></svg>
-          </button>
-          <div class="faq-content" style="max-height:0; overflow:hidden; transition:max-height .25s ease-out;">
-            <div style="padding:0 20px 18px; font-size:0.88rem; color:var(--ink); line-height:1.55;">
-              Nothing to pay right now — access is free while we finish rolling out card and wallet billing (Visa, PayPal and more). We'll let you know before any payment is required.
-            </div>
-          </div>
-        </div>
-
-        <div class="faq-item" style="background:#fff; border:1px solid var(--line); border-radius:12px; overflow:hidden; transition:border-color .15s;">
-          <button type="button" class="faq-trigger" style="width:100%; display:flex; align-items:center; justify-content:space-between; gap:16px; padding:18px 20px; background:none; border:0; text-align:left; font:inherit; font-size:0.98rem; font-weight:700; color:var(--navy-800); cursor:pointer;">
-            <span>Do you support multi-branch operations?</span>
-            <svg class="faq-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="width:16px; height:16px; flex:0 0 auto; color:var(--muted); transition:transform .2s;"><path d="m6 9 6 6 6-6"/></svg>
-          </button>
-          <div class="faq-content" style="max-height:0; overflow:hidden; transition:max-height .25s ease-out;">
-            <div style="padding:0 20px 18px; font-size:0.88rem; color:var(--ink); line-height:1.55;">
-              Yes! The Team and Business plans fully support multi-warehouse tracking, multi-currency transactions, and custom role permissions across different branches.
-            </div>
-          </div>
-        </div>
-
-        <div class="faq-item" style="background:#fff; border:1px solid var(--line); border-radius:12px; overflow:hidden; transition:border-color .15s;">
-          <button type="button" class="faq-trigger" style="width:100%; display:flex; align-items:center; justify-content:space-between; gap:16px; padding:18px 20px; background:none; border:0; text-align:left; font:inherit; font-size:0.98rem; font-weight:700; color:var(--navy-800); cursor:pointer;">
-            <span data-t="Can I export my data?">Can I export my data?</span>
-            <svg class="faq-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="width:16px; height:16px; flex:0 0 auto; color:var(--muted); transition:transform .2s;"><path d="m6 9 6 6 6-6"/></svg>
-          </button>
-          <div class="faq-content" style="max-height:0; overflow:hidden; transition:max-height .25s ease-out;">
-            <div style="padding:0 20px 18px; font-size:0.88rem; color:var(--ink); line-height:1.55;">
-              Yes, anytime. Your data is never locked in — export orders, invoices, clients and inventory to CSV directly from the console, on any plan, no rebuild or migration required.
-            </div>
-          </div>
-        </div>
-
+        <div class="up-subtitle">For exploring what's possible</div>
+        <ul class="up-feats">
+          <li class="up-feat-item check"><span class="mark">✓</span><span>Free daily Agent credits</span></li>
+          <li class="up-feat-item check"><span class="mark">✓</span><span>Built-in database for full-stack apps</span></li>
+          <li class="up-feat-item check"><span class="mark">✓</span><span>Create slides, videos, animations</span></li>
+          <li class="up-feat-item check"><span class="mark">✓</span><span>Publish up to 1 project</span></li>
+          <li class="up-feat-item check"><span class="mark">✓</span><span>Publish private or password-protected deployments</span></li>
+        </ul>
+        <button class="up-btn up-btn-disabled" disabled>Your current plan</button>
       </div>
-    </section>
 
-    <!-- CTA -->
-    <div class="cta">
-      <div>
-        <h2 data-t="Ready to get started?">Ready to get started?</h2>
-        <p data-t="Describe what you want to build — Souqi Code writes it, builds it, and shows you the running result.">Describe what you want to build — Souqi Code writes it, builds it, and shows you the running result.</p>
+      <!-- Souqi Core Plan (Featured) -->
+      <div class="up-card featured">
+        <div class="up-card-top">
+          <span class="up-card-title">Souqi Core</span>
+        </div>
+        <div class="up-price-row">
+          <span class="amt" id="corePrice">$20</span>
+          <span class="unit">per month</span>
+        </div>
+        <div class="up-subtitle">For personal projects &amp; simple apps</div>
+        <ul class="up-feats">
+          <li class="up-feat-item plus"><span class="mark">+</span><span>Everything in Starter</span></li>
+          <li class="up-feat-item check"><span class="mark">✓</span><span>$20 of monthly credits</span></li>
+          <li class="up-feat-item check"><span class="mark">✓</span><span>Invite up to 5 collaborators</span></li>
+          <li class="up-feat-item check"><span class="mark">✓</span><span>Work in parallel with up to 2 agents</span></li>
+          <li class="up-feat-item check"><span class="mark">✓</span><span>Publish projects in any region</span></li>
+          <li class="up-feat-item check"><span class="mark">✓</span><span>Unlimited workspaces</span></li>
+          <li class="up-feat-item check"><span class="mark">✓</span><span>Remove "Made with Souqi" badge</span></li>
+          <li class="up-feat-item check"><span class="mark">✓</span><span>Souqi AI Integrations</span></li>
+        </ul>
+        <a href="/checkout?plan=core" class="up-btn up-btn-primary">Continue with Core &rarr;</a>
       </div>
-      <div class="cta-btns">
-        <a href="/agent" class="cta-w" data-t="Start free">Start free</a>
-        <a href="/login" class="cta-g" data-t="Sign in">Sign in</a>
+
+      <!-- Souqi Pro Plan -->
+      <div class="up-card">
+        <div class="up-card-top">
+          <span class="up-card-title">Souqi Pro</span>
+        </div>
+        <div class="up-price-row">
+          <span class="amt" id="proPrice">$100</span>
+          <span class="unit">per month</span>
+        </div>
+        <div class="up-subtitle">For commercial and professional builds</div>
+        <ul class="up-feats">
+          <li class="up-feat-item plus"><span class="mark">+</span><span>Everything in Core</span></li>
+          <li class="up-feat-item check"><span class="mark">✓</span><span>$100 monthly credits</span></li>
+          <li class="up-feat-item check"><span class="mark">✓</span><span>Invite up to 15 collaborators</span></li>
+          <li class="up-feat-item check"><span class="mark">✓</span><span>Invite up to 50 viewers</span></li>
+          <li class="up-feat-item check"><span class="mark">✓</span><span>Work in parallel with up to 10 agents</span></li>
+          <li class="up-feat-item check"><span class="mark">✓</span><span>Access to the most powerful models</span></li>
+          <li class="up-feat-item check"><span class="mark">✓</span><span>Database rollbacks for up to 28 days</span></li>
+        </ul>
+        <select class="up-select" id="proCreditSelect">
+          <option value="100">$100 credits</option>
+          <option value="250">$250 credits</option>
+          <option value="500">$500 credits</option>
+        </select>
+        <a href="/checkout?plan=pro" class="up-btn up-btn-primary">Continue with Pro &rarr;</a>
       </div>
+    </div>
+
+    <div class="up-disclaimer">
+      *Prices are subject to tax depending on your location. Souqi Agent is powered by large language models. While it can produce powerful results, its behavior is probabilistic — meaning it may occasionally make mistakes.
     </div>
   </div>
 
-  <footer class="wc-foot">
-    <span>© <span id="yr"></span> Souqi</span>
-    <div class="ft-links">
-      <a href="/agent" data-t="Start building">Start building</a>
-      <a href="/login">Sign in</a>
-      <a href="mailto:sales@souqi.site">Contact sales</a>
-    </div>
-  </footer>
-
-  <script src="js/ui.js?v=28"></script>
   <script>
-    (function () {
-      document.getElementById("yr").textContent = new Date().getFullYear();
+    (function() {
+      var isYearly = false;
+      var btnMonthly = document.getElementById("btnMonthly");
+      var btnYearly = document.getElementById("btnYearly");
+      var corePrice = document.getElementById("corePrice");
+      var proPrice = document.getElementById("proPrice");
 
-      // ---- icons ----
-      var CK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>';
-      var ICONS = {
-        spark: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M5.6 5.6l2.8 2.8M15.6 15.6l2.8 2.8M18.4 5.6l-2.8 2.8M8.4 15.6l-2.8 2.8"/></svg>',
-        bolt:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg>',
-        cloud: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19a4.5 4.5 0 0 0 .5-8.97A6 6 0 0 0 6.5 9 4.5 4.5 0 0 0 6 18z"/></svg>',
-        users: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
-        building: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M5 21V7l8-4v18M19 21V11l-6-3M9 9h.01M9 13h.01M9 17h.01"/></svg>'
-      };
-
-      // ---- plan data ----
-      var PLANS = {
-        individual: [
-          { name:"Free", icon:"cloud", tag:"Try it, no card needed",
-            price:{ type:"fixed", amt:"$0", unit:"free forever" },
-            cta:{ label:"Start building free", href:"/agent", style:"btn-ghost" }, sub:"No card needed",
-            head:"What you get",
-            feats:["<b>1 free build</b> to start","<b>3 free edits</b> after you sign in","Publish to a souqi.site URL","Community support"] },
-          { name:"Pro", icon:"spark", tag:"Host and keep building, 1 app", rec:true,
-            price:{ type:"cycle", monthly:{ amt:"$20", unit:"USD / month<br>billed monthly" }, yearly:{ amt:"$17", unit:"USD / month<br>billed annually ($200/yr)" } },
-            cta:{ label:"Get Pro", href:"checkout?plan=pro", style:"btn-dark" }, sub:"Cancel anytime",
-            head:"Everything in Free, and:",
-            feats:["<b>1 active app</b>, unlimited edits","Hosting included","Custom domain support","Priority builds","Email support"] },
-          { name:"Max", icon:"bolt", tag:"Up to 5 apps, unlimited editing",
-            price:{ type:"fixed", amt:"$100", unit:"USD / month<br>billed monthly" },
-            cta:{ label:"Get Max plan", href:"checkout?plan=max", style:"btn-dark" }, sub:"No commitment · Cancel anytime",
-            head:"Everything in Pro, plus:",
-            feats:["<b>Up to 5 active apps</b>, unlimited edits","Hosting + custom domains on all of them","Priority processing","Priority support"] }
-        ],
-        team: [
-          { name:"Team", icon:"users", tag:"For small teams",
-            price:{ type:"fixed", amt:"$50", unit:"USD / month<br>up to 5 seats" },
-            cta:{ label:"Get Team plan", href:"checkout?plan=team", style:"btn-ghost" }, sub:"14-day free trial",
-            head:"What you get",
-            feats:["<b>Up to 5 employees</b>","Role-based access","Shared workspace data","Task assignment &amp; handoffs","100&nbsp;GB storage","Priority support (24h)"] },
-          { name:"Business", icon:"building", tag:"Scale operations across branches", rec:true,
-            price:{ type:"cycle", monthly:{ amt:"$120", unit:"USD / month<br>billed monthly" }, yearly:{ amt:"$100", unit:"USD / month<br>billed annually" } },
-            cta:{ label:"Get Business plan", href:"checkout?plan=business", style:"btn-dark" }, sub:"Cancel anytime",
-            head:"Everything in Team, plus:",
-            feats:["<b>Up to 25 employees</b>","Multi-warehouse &amp; multi-currency","Live AI Accountant (Gemini)","Quotations &amp; purchase orders","Advanced permissions","Priority support (12h)"] },
-          { name:"Enterprise", icon:"building", tag:"Custom & unlimited",
-            price:{ type:"custom", amt:"Custom", unit:"tailored to your org" },
-            cta:{ label:"Contact sales", href:"mailto:sales@souqi.site", style:"btn-ghost" }, sub:"Custom onboarding · SLA",
-            head:"Everything in Business, plus:",
-            feats:["<b>Unlimited</b> employees &amp; seats","Live cloud backend (REST + DB)","Custom domain &amp; white-label","SSO / SAML","Dedicated success manager","99.9% uptime SLA · 1h support"] }
-        ]
-      };
-
-      function q(name) {
-        var m = new RegExp("[?&]" + name + "=([^&]+)").exec(location.search);
-        return m ? decodeURIComponent(m[1]) : null;
-      }
-      var grp = (q("group") || "individual").toLowerCase();
-      if (grp !== "team" && grp !== "individual") grp = "individual";
-
-      var cycle = "yearly"; // matches Claude default (Yearly Â· Save)
-
-      function priceBlock(p) {
-        if (p.price.type === "cycle") {
-          var c = p.price[cycle];
-          return '<div class="c-price"><span class="c-amt">' + c.amt + '</span><span class="c-unit">' + c.unit + '</span></div>';
-        }
-        var big = (p.price.type === "from" || p.price.type === "custom") ? " sm" : "";
-        return '<div class="c-price"><span class="c-amt' + big + '">' + p.price.amt + '</span><span class="c-unit">' + p.price.unit + '</span></div>';
-      }
-      function cycleToggle(p) {
-        if (p.price.type !== "cycle") return "";
-        return '<div class="c-cycle" data-cyc>' +
-          '<button type="button" data-c="monthly" class="' + (cycle === "monthly" ? "on" : "") + '">Monthly</button>' +
-          '<button type="button" data-c="yearly" class="' + (cycle === "yearly" ? "on" : "") + '">Yearly <span class="save">· Save 17%</span></button>' +
-        '</div>';
-      }
-      function iconClass(i) { return i === "building" ? "gold" : (i === "users" ? "green" : ""); }
-
-      function render() {
-        var list = PLANS[grp];
-        document.getElementById("cards").innerHTML = list.map(function (p) {
-          var href = p.cta.href;
-          if (p.price.type === "cycle" && href.indexOf("checkout") === 0) href += "&cycle=" + cycle;
-          return '<div class="card' + (p.rec ? " rec" : "") + '">' +
-            '<div class="c-top"><span class="c-ico ' + iconClass(p.icon) + '">' + ICONS[p.icon] + '</span>' +
-              (p.rec ? '<span class="c-rec">Recommended</span>' : '') + '</div>' +
-            '<div class="c-name">' + p.name + '</div>' +
-            '<div class="c-tag">' + p.tag + '</div>' +
-            cycleToggle(p) +
-            priceBlock(p) +
-            '<div class="c-cta"><a href="' + href + '" class="btn ' + p.cta.style + '">' + p.cta.label + '</a></div>' +
-            '<div class="c-sub">' + (p.sub || "") + '</div>' +
-            '<div class="c-feats"><h4>' + p.head + '</h4>' +
-              p.feats.map(function (f) { return '<div class="c-feat"><span class="ck">' + CK + '</span><span>' + f + '</span></div>'; }).join("") +
-            '</div>' +
-          '</div>';
-        }).join("");
-
-        // wire in-card cycle toggles
-        document.querySelectorAll("[data-cyc] button").forEach(function (b) {
-          b.addEventListener("click", function () { cycle = b.dataset.c; render(); });
-        });
-      }
-
-      // group toggle
-      document.querySelectorAll("#seg button").forEach(function (b) {
-        var isOn = b.dataset.grp === grp;
-        b.classList.toggle("on", isOn);
-        
-        b.addEventListener("click", function () {
-          document.querySelectorAll("#seg button").forEach(function (x) { x.classList.remove("on"); });
-          b.classList.add("on");
-          grp = b.dataset.grp;
-          render();
-        });
+      btnMonthly.addEventListener("click", function() {
+        isYearly = false;
+        btnMonthly.classList.add("active");
+        btnYearly.classList.remove("active");
+        corePrice.textContent = "$20";
+        proPrice.textContent = "$100";
       });
 
-      render();
-
-      // FAQ Accordion logic
-      document.querySelectorAll(".faq-trigger").forEach(function (trigger) {
-        trigger.addEventListener("click", function () {
-          var item = trigger.closest(".faq-item");
-          var content = item.querySelector(".faq-content");
-          var arrow = item.querySelector(".faq-arrow");
-          var isOpen = content.style.maxHeight && content.style.maxHeight !== "0px";
-          
-          // Close all other items (accordion behavior)
-          document.querySelectorAll(".faq-content").forEach(function (c) {
-            c.style.maxHeight = "0px";
-            c.closest(".faq-item").style.borderColor = "var(--line)";
-            c.closest(".faq-item").querySelector(".faq-arrow").style.transform = "rotate(0deg)";
-          });
-          
-          if (!isOpen) {
-            content.style.maxHeight = content.scrollHeight + "px";
-            item.style.borderColor = "var(--accent)";
-            arrow.style.transform = "rotate(180deg)";
-          }
-        });
+      btnYearly.addEventListener("click", function() {
+        isYearly = true;
+        btnYearly.classList.add("active");
+        btnMonthly.classList.remove("active");
+        corePrice.textContent = "$18";
+        proPrice.textContent = "$90";
       });
     })();
   </script>
-
 </body>
 </html>
-

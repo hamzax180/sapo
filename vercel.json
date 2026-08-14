@@ -38,6 +38,7 @@
     { "source": "/build", "destination": "/home" },
     { "source": "/settings", "destination": "/settings" },
     { "source": "/projects", "destination": "/projects" },
+    { "source": "/mobile", "destination": "/mobile" },
     { "source": "/portal/:path*", "destination": "/portal" },
 
     { "source": "/api/:path*", "destination": "/api/index" },

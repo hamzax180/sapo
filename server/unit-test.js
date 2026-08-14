@@ -292,7 +292,7 @@ async function request(path, options = {}) {
     pass("GET /secrets (Guard blocked) -> 404 Not Found");
 
     // Test 11: Clean URL Frontend Routes
-    const pages = ["/login", "/pricing", "/checkout"];
+    const pages = ["/login", "/pricing", "/checkout", "/mobile"];
     for (const page of pages) {
       res = await request(page, { method: "GET" });
       assert.strictEqual(res.status, 200);

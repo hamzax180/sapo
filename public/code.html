@@ -19,6 +19,7 @@
      edit to that file, so the site-builder's own tested claim/publish/
      history flows stay completely untouched by this product line. */
   *,*::before,*::after{box-sizing:border-box}
+  *[hidden], [hidden]{display:none !important;pointer-events:none !important;visibility:hidden !important}
   :root{
     --paper:#faf7f2; --paper-2:#f3eee6; --card:#ffffff;
     --ink:#12202e; --ink-2:#5d6f80; --mut:#8b98a5;
@@ -36,7 +37,31 @@
     --stone:#2e2a26; --dark:#0a0908; --line:#3a352e; --navy-800:#0d0b0a;
     --accent:#1aa6df; --accent-2:#118cc0; --accent-ink:#e6edf3;
   }
-  html{background:var(--paper);overscroll-behavior-x:none}
+  html, body {
+    background: var(--paper);
+    overscroll-behavior-x: none;
+    overflow-x: hidden !important;
+    max-width: 100vw !important;
+    width: 100% !important;
+  }
+  .ag-main, .ag-split, .ag {
+    overflow-x: hidden !important;
+    max-width: 100vw !important;
+    box-sizing: border-box !important;
+  }
+  /* .ag-hero is deliberately NOT in the guard above. It used to be, and
+     that was the real cause of the composer glow's hard left/right cut:
+     on the new-chat screen .ag.is-new turns .ag-hero into a real flex box
+     (see below), and its width is .ag's CONTENT box — the padding is
+     already spent — so an overflow-x:hidden there put the clip line
+     exactly on the composer's own edge. Horizontal bleed budget was 0px
+     on the one screen where the glow is the whole point, which is why
+     widening .ag's padding appeared to do nothing.
+     It cannot overflow on its own: it's a flex column whose children are
+     all width:100%;max-width:720px;align-self:center. .ag/.ag-split/
+     .ag-main/html/body still clip, so the horizontal-scroll bug the guard
+     was added for stays fixed. */
+  .ag-hero { max-width: 100%; min-width: 0; box-sizing: border-box; }
   body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--body);-webkit-font-smoothing:antialiased;
     padding:0 env(safe-area-inset-right) 0 env(safe-area-inset-left)}
   *{-webkit-tap-highlight-color:transparent}
@@ -56,27 +81,54 @@
   .ag-pv-toggle-btn {
     display: inline-flex; align-items: center; gap: 8px;
     border: 1px solid var(--line); background: var(--card); color: var(--ink);
-    border-radius: 9px; padding: 6px 14px; height: 34px; font-size: 0.85rem; font-weight: 600;
+    border-radius: 99px; padding: 6px 14px; height: 34px; font-size: 0.85rem; font-weight: 600;
     cursor: pointer; transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
     box-shadow: 0 2px 6px rgba(0,0,0,0.03); outline: none !important;
   }
-  .ag-history.on ~ .ag-main #agDeskSidebarToggle {
+  #agDeskSidebarToggle {
+    position: fixed !important;
+    top: 10px !important;
+    left: 10px !important;
+    z-index: 999999 !important;
+    padding: 5px 10px !important;
+    height: 32px !important;
+    font-size: 0.82rem !important;
+  }
+  body.is-building #agDeskSidebarToggle {
     display: none !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
   }
   #agDeskPreviewToggle {
-    margin-inline-start: auto;
+    position: fixed !important;
+    top: 10px !important;
+    right: 10px !important;
+    z-index: 999999 !important;
+    padding: 5px 12px !important;
+    height: 32px !important;
+    font-size: 0.82rem !important;
+    margin-inline-start: 0 !important;
+  }
+  .nav {
+    display: none !important;
+  }
+  @media (max-width: 900px) {
+    .ag-history.on ~ #agDeskPreviewToggle,
+    .ag-history.on ~ .ag-main #agDeskPreviewToggle {
+      display: none !important;
+    }
   }
   .ag-pv-toggle-btn:hover { border-color: #cbd5e1; background: var(--paper-2); color: var(--ink); }
   .ag-pv-toggle-btn.on {
-    background: var(--card); color: var(--ink); border-color: var(--ink);
-    box-shadow: 0 0 0 1px var(--ink);
+    background: var(--card); color: var(--ink); border-color: var(--accent);
+    box-shadow: 0 0 8px rgba(26, 166, 223, 0.35), 0 0 0 1px var(--accent);
   }
   .ag-pv-toggle-btn .pane-right, .ag-pv-toggle-btn .pane-left {
     transition: fill 0.2s ease;
     fill: transparent;
   }
   .ag-pv-toggle-btn.on .pane-right, .ag-pv-toggle-btn.on .pane-left {
-    fill: var(--ink);
+    fill: var(--accent);
   }
   .ag-pv-toggle-btn svg { width: 16px; height: 16px; flex: none; }
   /* Same [hidden]-vs-class-display trap as everywhere else in this file —
@@ -91,9 +143,17 @@
      been built, not a snap). Flex-basis on plain pixel/percent values
      transitions everywhere. */
   .ag-split{max-width:1440px;margin:0 auto;width:100%;display:flex;flex:1;min-height:0}
-  .ag-topbar{display:flex;align-items:center;width:100%;border-bottom:1px solid var(--line);flex:none}
+  .ag-topbar{display:flex;align-items:center;width:100%;border-bottom:none;flex:none}
+  /* The horizontal padding floor is ALSO the composer glow's entire fade
+     budget: .ag carries overflow-x:hidden!important (see the html/body
+     rule near the top), and because its overflow-y is auto that clip can
+     never be reopened — per spec a `visible` on one axis computes to
+     `auto` when the other isn't visible, which would mean a horizontal
+     scrollbar on the chat column. So this padding is the only room the
+     glow has to fade out sideways before it hits a hard edge. Raised from
+     14px to 20px for exactly that reason; don't shrink it back. */
   .ag{text-align:left;display:flex;flex-direction:column;min-width:0;min-height:0;
-    padding:0 clamp(14px,2.4vw,28px);border-right:1px solid var(--line);
+    padding:0 clamp(20px,2.4vw,28px);border-right:none;
     flex:1 1 100%;transition:flex-basis .4s var(--ease);
     overflow-y:auto}
   .ag::-webkit-scrollbar{width:8px}
@@ -179,9 +239,14 @@
   /* Respect a system-level reduced-motion preference: keep the fades,
      drop the travel and the pop. */
   @media (prefers-reduced-motion:reduce){
-    .ag-user .bubble,.ag-think,.ag-say,.ag-thinking,.ag-card{animation-duration:.01ms!important}
+    .ag-user .bubble,.ag-think,.ag-say,.ag-thinking,.ag-card,
+    .ag-empty h2,.ag-empty-sub{animation-duration:.01ms!important;animation-delay:0s!important}
     .ag-think:not(.busy) .ic svg{animation:none}
     .ag-th-dot{animation:none!important}
+    /* The composer bloom and rim beam keep their appearance but stop
+       moving — a continuously travelling light is exactly the kind of
+       thing this preference is asking us to stop. */
+    .ag-box::before,.ag-box::after{animation:none!important}
     @keyframes agIn{from{opacity:0}to{opacity:1}}
     @keyframes agSent{from{opacity:0}to{opacity:1}}
   }
@@ -241,9 +306,204 @@
       unbroken text, so a long pill silently overflowed the card on narrow screens */
   .ag-card .cost{font-size:.78rem;color:var(--mut)}
 
-  .ag-composer{position:sticky;bottom:0;background:linear-gradient(180deg,transparent,var(--paper) 22%);padding:0 0 calc(0 + env(safe-area-inset-bottom))}
-  .ag-box{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:12px 14px 10px;box-shadow:0 1px 3px rgba(0,0,0,.08);transition:border-color .2s,box-shadow .2s}
-  .ag-box:focus-within{border-color:var(--accent);box-shadow:0 4px 12px rgba(26,166,223,.12)}
+  ::-webkit-scrollbar-corner{background:transparent !important}
+  .ag-composer{position:sticky;bottom:0;background:linear-gradient(180deg,transparent,var(--paper) 22%);padding:0 0 calc(0 + env(safe-area-inset-bottom));overflow:visible}
+  /* ---------------------------------------------------------------
+     Composer treatment: an aurora bloom (::before) behind the box and a
+     travelling light beam (::after) around its rim.
+
+     WHY IT'S BUILT THIS WAY. .ag clips horizontally and always will (see
+     the comment on the .ag rule above), so the sideways fade budget is
+     just .ag's 20px padding floor. filter:blur(N) needs roughly 2N of
+     clear space to fall off to nothing, so a big blur and a big sideways
+     bloom are simply not co-satisfiable here — every previous attempt to
+     get one produced a flat vertical cut where the bloom met the clip.
+
+     So the drama lives on the two axes that AREN'T clipped:
+       - vertically, where .ag scrolls rather than hides and there's real
+         flow space, the bloom goes big (-70px);
+       - around the rim, where the beam sits entirely INSIDE the box's own
+         bounds and therefore costs zero clip budget and can never be cut.
+     Sideways, the bloom is deliberately restrained and its gradients are
+     tuned to reach transparent on their own, so the safety mask feathers
+     an already-dark band instead of slicing a bright one. A mask only
+     looks like a cut when it eats colour that was still visible.
+
+     Palette lives in custom properties so Power Agent mode is a PALETTE
+     SWAP, not a second copy of the geometry — same idiom as home.html's
+     scroll showcase (@property --c + color-mix layered gradients). Every
+     inset, radius, blur and duration below is written exactly once. */
+  .ag-box{
+    /* rgb triplets so alpha can vary per layer via rgba(var(--x),a) */
+    --glow-a:26,166,223;   /* cyan accent */
+    --glow-b:124,58,237;   /* violet      */
+    --glow-c:15,118,220;   /* deep blue   */
+    --beam-a:26,166,223;
+    --beam-b:124,58,237;
+    /* Two independent multipliers, composed in ::before's opacity below.
+       --glow-alpha is the THEME's overall level, --glow-focus is the
+       focus intensification. Keeping them separate means focusing in dark
+       mode brightens relative to the dark level instead of jumping back
+       to the light one. */
+    --glow-alpha:1;
+    --glow-focus:1;
+    position:relative;background:var(--card);border:1px solid var(--line);border-radius:16px;
+    padding:12px 14px 10px;
+    /* The two coloured shadows ARE the side glow. ::before below sits at
+       z-index:-1 and therefore paints underneath this element's opaque
+       var(--card) background — the only part of it that shows horizontally
+       is the thin strip outside the box, and a centre-out radial gradient
+       is by construction DIMMEST there. That mismatch is why every attempt
+       to get a side glow out of the bloom came back flat. A box-shadow is
+       the right primitive for this: its silhouette is the box itself, so
+       it is brightest exactly at the edge and fades outward.
+       Reach is blur/2 + spread, kept inside .ag's 20px padding budget:
+       34/2-2 = 15px. */
+    box-shadow:
+      0 0 34px -2px rgba(var(--glow-a),.22),
+      0 0 12px -3px rgba(var(--glow-b),.18),
+      0 1px 3px rgba(0,0,0,.08),
+      inset 0 1px 0 rgba(255,255,255,.55);
+    transition:border-color .2s,box-shadow .2s}
+  .ag-box.power-mode{
+    --glow-a:225,29,72;    /* crimson    */
+    --glow-b:251,113,133;  /* rose       */
+    --glow-c:159,18,57;    /* deep wine  */
+    --beam-a:225,29,72;
+    --beam-b:251,113,133;
+  }
+  /* The dark theme's paper is a WARM near-black (#1c1917), not a cool
+     navy, so the same cyan/violet bloom reads far hotter against it than
+     it does on the light paper. Pull the bloom back rather than recolour
+     it — the accent itself is unchanged between themes, and the beam
+     should stay just as bright. The white inner rim also has to go: on a
+     dark card a 55%-white top edge looks like a rendering seam. */
+  :root[data-theme="dark"] .ag-box{
+    --glow-alpha:.62;
+    box-shadow:
+      0 0 34px -2px rgba(var(--glow-a),.26),
+      0 0 12px -3px rgba(var(--glow-b),.20),
+      0 1px 3px rgba(0,0,0,.4),
+      inset 0 1px 0 rgba(255,255,255,.06);
+  }
+  :root[data-theme="dark"] .ag-box:focus-within{
+    box-shadow:
+      0 0 44px -2px rgba(var(--glow-a),.38),
+      0 0 16px -3px rgba(var(--glow-b),.28),
+      0 4px 12px rgba(var(--glow-a),.18),
+      inset 0 1px 0 rgba(255,255,255,.06);
+  }
+  /* 44/2-2 = 20px reach, exactly the padding budget — the halo brightens
+     and widens to the limit without ever reaching the clip line. */
+  .ag-box:focus-within{--glow-focus:1.35;border-color:rgb(var(--beam-a));
+    box-shadow:
+      0 0 44px -2px rgba(var(--glow-a),.34),
+      0 0 16px -3px rgba(var(--glow-b),.26),
+      0 4px 12px rgba(var(--glow-a),.12),
+      inset 0 1px 0 rgba(255,255,255,.55)}
+
+  /* Layer 1 — the aurora bloom. */
+  .ag-box::before{
+    content:"";position:absolute;z-index:-1;pointer-events:none;
+    /* Vertical is free (unclipped) so it carries the size. Horizontal
+       stays under .ag's 20px padding floor with room to spare, because
+       the blur below still smears outward from wherever colour ends. */
+    /* Top bleed is nearly free: negative block-start overflow is
+       unreachable, so it adds no scroll length to .ag. The bottom is kept
+       shorter than the top because that direction DOES extend .ag's
+       scroller — but not so short that the glow reads as lit only from
+       above, which looked lopsided rather than ambient. */
+    inset:-72px -12px -44px;border-radius:44px;
+    /* THE STOPS ARE ARITHMETIC, NOT TASTE. For a radial-gradient the two
+       percentages are radii measured against the element's full width and
+       full height, so a radius of r with its last stop at s reaches
+         reach = |2(c - .5)| + 2·r·s
+       in half-axis units. reach >= 1 means the gradient is STILL painting
+       colour when it hits the element's own edge — which is a dead
+       straight line that blur only softens, never removes. That is what
+       the previous `46% 112% ... transparent 72%` did: 2(1.12)(.72) =
+       1.61, i.e. it ran off the top and bottom edge at ~25% alpha and
+       produced exactly the hard band above and below the box.
+       Every layer below is verified <= .92:
+         L1 vertical    2(.62)(.72) = .89
+         L1 horizontal  2(.46)(.72) = .66
+         L2 vertical    .12 + 2(.58)(.68) = .91
+         L2 horizontal  .16 + 2(.40)(.68) = .70
+       Keep the two hues spatially apart, too — stacked on one centre they
+       average through the blur into a flat lavender-grey and stop reading
+       as light at all. */
+    background:
+      radial-gradient(46% 62% at 56% 52%, rgba(var(--glow-a),.66) 0%, rgba(var(--glow-c),.32) 46%, transparent 72%),
+      radial-gradient(40% 58% at 34% 46%, rgba(var(--glow-b),.40) 0%, transparent 68%);
+    filter:blur(22px);
+    opacity:calc(.95 * var(--glow-alpha) * var(--glow-focus));
+    will-change:transform;
+    animation:agGlowMove 9s ease-in-out infinite alternate;
+    transition:opacity .35s var(--ease);
+    /* NO MASK, deliberately. Three separate attempts here (linear 18/82,
+       linear 4/96, then an ellipse) all failed the same way: a mask is a
+       symptom-hider, and any mask tight enough to catch a still-bright
+       gradient is also tight enough to flatten the bloom into a disc — or,
+       if it is linear, to replace the cut with a different dead-straight
+       edge of its own. With the reach math above the gradients terminate
+       on their own and there is nothing left to feather. */
+  }
+  /* Focus intensifies the LIGHT, never the geometry — --glow-focus is set
+     on .ag-box:focus-within above and inherits down to here. The old rule
+     scaled the bloom up by 1.08, which pushed it past the bleed budget
+     and into the clip: the focus state was itself causing a cut. */
+  /* Drift is vertical-dominant for the same budget reason: sideways
+     travel spends the one axis that has none to spare. */
+  @keyframes agGlowMove{
+    0%{transform:translate3d(0,0,0) scaleY(1)}
+    50%{transform:translate3d(-2px,7px,0) scaleY(1.06)}
+    100%{transform:translate3d(2px,-6px,0) scaleY(.96)}
+  }
+
+  /* Layer 2 — the travelling rim beam. A registered custom property is
+     what makes a conic gradient animatable at all (plain custom props
+     interpolate as strings and just snap); same technique as home.html.
+     Where @property is unsupported the angle simply stays at 0deg and the
+     ring renders as a static gradient border — degraded, not broken. */
+  @property --ag-beam-angle{syntax:'<angle>';inherits:false;initial-value:0deg}
+  .ag-box::after{
+    content:"";position:absolute;inset:-1px;border-radius:17px;
+    padding:1.5px;pointer-events:none;
+    background:conic-gradient(from var(--ag-beam-angle) at 50% 50%,
+      transparent 0deg,transparent 186deg,
+      rgba(var(--beam-b),.85) 246deg,
+      rgba(var(--beam-a),1) 300deg,
+      rgba(var(--beam-b),.5) 330deg,
+      transparent 360deg);
+    /* Standard gradient-border trick: paint the full rect, then subtract
+       the content box so only the 1.5px ring survives. The children
+       (textarea/.ag-brow) are unpositioned so this paints above them, but
+       the ring only ever occupies the rim and takes no pointer events. */
+    /* Order matters: the `mask` shorthand resets mask-composite, so each
+       composite declaration has to follow its own shorthand. */
+    -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
+    -webkit-mask-composite:xor;
+    mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
+    mask-composite:exclude;
+    opacity:.7;
+    animation:agBeamSpin 7s linear infinite;
+    transition:opacity .35s var(--ease);
+  }
+  .ag-box:focus-within::after{opacity:1;animation-duration:3.4s}
+  @keyframes agBeamSpin{to{--ag-beam-angle:360deg}}
+
+  /* Power Agent Mode's crimson aura is the glow/beam palette override on
+     .ag-box.power-mode above — geometry is shared, so there is nothing
+     else to declare here. The old version duplicated every inset, blur
+     and radius, which is how it drifted into three separate bugs: its
+     -28px/-36px horizontal insets were double the clip budget and got
+     hard-cut; it never reset the base mask, so the base mask silently
+     applied to it anyway; and its keyframes animated `filter`, which
+     overrode the blur its own :focus-within rule was trying to set (and
+     animating filter is not compositor-friendly to begin with).
+     agPowerPulse / agOuterPowerPulse / agPowerBorderPulse all went with
+     it — the rim beam now carries the "armed" read that the border pulse
+     used to. */
   .ag-box textarea{width:100%;border:0;outline:0;resize:none;background:none;font-family:var(--body);font-size:.95rem;line-height:1.5;color:var(--ink);min-height:24px;max-height:140px;overflow-y:auto;padding:0}
   .ag-box textarea::placeholder{color:var(--mut);font-weight:400}
   .ag-brow{display:flex;align-items:center;gap:6px;padding-top:6px}
@@ -267,6 +527,62 @@
   .ag-attach-chip button:hover{color:var(--ink)}
   .ag-attach-chip button svg{width:12px;height:12px}
 
+  /* Claude & Replit Model Selector Pill */
+  .ag-model-wrap{position:relative;display:inline-flex;flex:none}
+  .ag-model-pill{display:inline-flex;align-items:center;gap:5px;padding:4px 9px;border-radius:8px;
+    border:1px solid var(--line);background:var(--card);color:var(--ink);font-size:.8rem;font-weight:600;
+    cursor:pointer;transition:.16s;user-select:none}
+  .ag-model-pill:hover{border-color:#c6dbe7;background:var(--paper-2)}
+  .ag-model-pill svg{width:11px;height:11px;color:var(--mut);transition:transform .16s ease}
+  .ag-model-pill.open svg{transform:rotate(180deg)}
+  .ag-think-badge{background:rgba(124,58,237,0.18);color:#a78bfa;border:1px solid rgba(124,58,237,0.4);
+    border-radius:999px;padding:1px 6px;font-size:.7rem;font-weight:600}
+
+  /* Claude & Replit Popover Menu */
+  .ag-model-popover{position:absolute;bottom:calc(100% + 8px);left:0;width:250px;
+    background:var(--card);border:1px solid var(--line);border-radius:14px;padding:8px;
+    box-shadow:0 16px 40px -10px rgba(11,22,38,.45);
+    opacity:0;visibility:hidden;transform:translateY(6px);
+    transition:opacity .16s ease,transform .16s ease,visibility .16s ease;z-index:100}
+  .ag-model-popover.open{opacity:1;visibility:visible;transform:none}
+  .pop-section-ttl{font-size:.7rem;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.05em;padding:4px 8px 6px}
+  .pop-option{display:flex;align-items:flex-start;gap:10px;width:100%;padding:8px;border:1px solid transparent;
+    border-radius:10px;background:none;color:var(--ink);cursor:pointer;text-align:left;transition:.14s}
+  .pop-option:hover{background:var(--paper-2)}
+  .pop-option.on{background:var(--paper-2);border-color:var(--line)}
+  .pop-option .pop-ic{display:flex;align-items:center;justify-content:center;width:24px;height:24px;margin-top:1px;color:var(--accent)}
+  .pop-option .pop-ic svg{width:16px;height:16px}
+  .ag-pill-icon{display:inline-flex;align-items:center;justify-content:center;color:var(--accent)}
+  .ag-pill-icon svg{width:13px;height:13px}
+  .pop-option .pop-text b{display:block;font-size:.84rem;font-weight:700;color:var(--ink)}
+  .pop-option .pop-text small{display:block;font-size:.74rem;color:var(--mut);line-height:1.2;margin-top:2px}
+  .pop-divider{height:1px;background:var(--line);margin:6px 0}
+  .pop-switch-row{display:flex;align-items:center;justify-content:space-between;padding:8px;border-radius:10px;cursor:pointer}
+  .pop-switch-row:hover{background:var(--paper-2)}
+  .pop-switch-row .pop-text b{display:block;font-size:.83rem;font-weight:700;color:var(--ink)}
+  .pop-switch-row .pop-text small{display:block;font-size:.73rem;color:var(--mut);margin-top:2px}
+
+  /* iOS / Claude style toggle switch */
+  .ag-switch{position:relative;display:inline-block;width:34px;height:20px;flex:none}
+  .ag-switch input{opacity:0;width:0;height:0}
+  .ag-slider{position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background:var(--stone);
+    transition:.2s;border-radius:999px}
+  .ag-slider:before{position:absolute;content:"";height:14px;width:14px;left:3px;bottom:3px;background:#fff;
+    transition:.2s;border-radius:50%}
+  .ag-switch input:checked + .ag-slider{background:#7c3aed}
+  .ag-switch input:checked + .ag-slider:before{transform:translateX(14px)}
+
+  /* Voice Input Microphone button */
+  .ag-voice-btn{flex:none;width:30px;height:30px;border:1px solid var(--line);background:transparent;color:var(--ink-2);
+    border-radius:6px;display:grid;place-items:center;cursor:pointer;transition:.16s}
+  .ag-voice-btn:hover{border-color:#c6dbe7;color:var(--ink)}
+  .ag-voice-btn svg{width:15px;height:15px}
+  .ag-voice-btn.listening{background:rgba(239,68,68,0.18);border-color:#ef4444;color:#ef4444;animation:micPulse 1.2s infinite alternate}
+  @keyframes micPulse{
+    0%{box-shadow:0 0 0 0 rgba(239,68,68,0.4);transform:scale(1)}
+    100%{box-shadow:0 0 0 6px rgba(239,68,68,0);transform:scale(1.08)}
+  }
+
   /* Rounded square, not the old full circle — matches the attach button
      and every other control's radius (see the sitewide rectangle-button
      pass) rather than being the one round thing in the row. */
@@ -287,16 +603,40 @@
     to{transform:none;opacity:1}
   }
   /* The composer briefly relaxes its focus ring as the message leaves. */
-  .ag-box.sending{border-color:var(--accent);box-shadow:0 0 0 3px rgba(26,166,223,.12)}
+  /* Palette-aware, or sending in Power mode flashes cyan through the
+     crimson. --glow-focus also spikes the bloom, so the send reads as a
+     flare rather than just a ring. */
+  .ag-box.sending{--glow-focus:1.6;border-color:rgb(var(--beam-a));
+    box-shadow:
+      0 0 0 3px rgba(var(--glow-a),.12),
+      0 0 40px -2px rgba(var(--glow-a),.30),
+      inset 0 1px 0 rgba(255,255,255,.55)}
   @media (prefers-reduced-motion:reduce){
     .ag-send.sent svg{animation:none}
   }
 
   .ag-empty{padding:40px 20px 32px;color:var(--ink-2);text-align:center}
-  .ag-empty h2{font-family:var(--disp);font-weight:700;font-size:clamp(1.9rem,4.4vw,2.7rem);
-    letter-spacing:-.02em;line-height:1.08;margin-bottom:32px;
-    background:linear-gradient(135deg,var(--ink),var(--accent-2));
-    -webkit-background-clip:text;background-clip:text;color:transparent}
+  /* Solid ink, NOT a gradient across the whole line. A full-width text
+     gradient was what made this read as broken: the left half went
+     near-black, the right went cyan, and the eye had nowhere to land.
+     One accent word (.hi below) carries the colour instead — the same
+     technique, scoped small enough to read as a decision. */
+  /* Gemini's hero proportions: regular weight, moderate size, near-normal
+     tracking and open line-height — the airy, unhurried look comes from
+     NOT being bold. The visual interest lives in the composer's glow
+     below, so the type stays quiet on purpose. */
+  .ag-empty h2{font-family:var(--disp);font-weight:400;font-size:clamp(1.85rem,3.6vw,2.9rem);
+    letter-spacing:-.01em;line-height:1.16;margin-bottom:14px;color:var(--ink);
+    opacity:0;animation:agIn .5s var(--ease) forwards}
+  /* Solid accent, no gradient/swash — at 400 weight a decorated word
+     fights the lighter type instead of lifting it. */
+  .ag-empty h2 .hi{color:var(--accent);white-space:nowrap;transition:color .25s var(--ease)}
+  /* Power Agent's crimson theme (see .ag-box.power-mode above) carries up
+     into the greeting too, so the whole hero reads as "armed" the moment
+     the mode is picked, not just the composer. */
+  body.power-mode .ag-empty h2 .hi{color:#e11d48}
+  .ag-empty-sub{color:var(--ink-2);font-size:clamp(.98rem,1.6vw,1.08rem);line-height:1.55;
+    max-width:44ch;margin:0 auto;opacity:0;animation:agIn .5s var(--ease) .09s forwards}
 
   /* New-chat-only extras: type tiles + example prompts, both hidden the
      moment a first turn lands (see isFirstBuild in runTurn()) — the same
@@ -364,45 +704,174 @@
      coloured panel with a giant letter, which is what this was), a
      "View All" pill button rather than a bare text link, and body type at
      regular weight in the UI font. */
-  .ag-recent{margin-top:56px;padding-top:0;border-top:0}
-  .ag-recent-head{display:flex;align-items:center;margin-bottom:18px}
-  .ag-recent-head h3{font-family:var(--body);font-size:1.16rem;font-weight:400;letter-spacing:-.01em;color:var(--ink)}
-  .ag-recent-head button{margin-inline-start:auto;display:flex;align-items:center;gap:7px;border:0;
-    background:var(--paper-2);color:var(--ink);font-size:.92rem;font-weight:400;cursor:pointer;
-    padding:9px 15px;border-radius:9px;transition:.15s}
-  .ag-recent-head button:hover{background:var(--stone)}
-  .ag-recent-head button svg{width:16px;height:16px}
-  /* 150px minimum (was 258px, then 200px) — two cards need to keep
-     fitting even in the tightest realistic case: sidebar AND preview
-     both open at once, which narrows the chat column further than
-     preview-alone does.
-     auto-fit + a capped max (200px, not 1fr) + justify-content:center —
-     only 3 cards ever load now (see the limit=3 fetch), and 1fr would
-     stretch those 3 to fill the whole row edge to edge; this keeps them
-     a sane card width and centers the group instead. */
-  /* justify-content:start (the default), not center — cards need to line
-     up under "Your recent Projects" at the same left edge, not float
-     centered in the full row width while the heading above stays put on
-     the left. Equal, capped card width (200px, not 1fr) is what actually
-     matters here: same-size containers regardless of how few load. */
-  .ag-recent-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,200px));gap:14px;justify-content:start}
-  .ag-recent-empty{grid-column:1/-1;padding:30px 16px;color:var(--mut);font-size:.86rem;text-align:center;line-height:1.5;
-    border:1px dashed var(--line);border-radius:14px}
-  /* Matched to the reference: the whole card is one tinted surface (no
-     white body panel), a hairline divides thumbnail from caption, and
-     the icon is a small black rounded square holding a COLOURED glyph —
-     the colour lives on the mark, not on the card. */
-  .ag-recent-card{display:block;text-align:left;border:1px solid var(--line);background:var(--paper-2);
-    border-radius:12px;overflow:hidden;cursor:pointer;transition:.15s}
-  .ag-recent-card:hover{border-color:#cfc7ba;box-shadow:0 6px 18px -10px rgba(11,22,38,.22)}
-  .ag-recent-thumb{height:158px;display:grid;place-items:center;border-bottom:1px solid var(--line)}
-  .ag-recent-thumb i{width:72px;height:72px;border-radius:16px;display:grid;place-items:center;
-    font-family:var(--body);font-style:normal;font-weight:700;font-size:1.9rem;background:#0f0f0f;line-height:1}
-  .ag-recent-thumb i svg{width:38px;height:38px}
-  .ag-recent-body{padding:13px 15px 15px}
-  .ag-recent-body .t{font-size:.97rem;font-weight:400;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .ag-recent-body .m{display:flex;align-items:center;gap:6px;font-size:.84rem;color:var(--mut);margin-top:5px}
-  .ag-recent-body .m svg{width:13px;height:13px;flex:none}
+  .ag-recent {
+    margin: 56px auto 40px;
+    max-width: 860px;
+    width: 100%;
+    padding-top: 0;
+    border-top: 0;
+    box-sizing: border-box;
+  }
+  .ag-recent-head { display: flex; align-items: center; margin-bottom: 18px; width: 100%; }
+  .ag-recent-head h3 { font-family: var(--body); font-size: 1.16rem; font-weight: 400; letter-spacing: -.01em; color: var(--ink); }
+  .ag-recent-head button {
+    margin-inline-start: auto; display: flex; align-items: center; gap: 7px; border: 0;
+    background: var(--paper-2); color: var(--ink); font-size: 0.92rem; font-weight: 400; cursor: pointer;
+    padding: 9px 15px; border-radius: 9px; transition: 0.15s;
+  }
+  .ag-recent-head button:hover { background: var(--stone); }
+  .ag-recent-head button svg { width: 16px; height: 16px; }
+
+  /* Recent Projects Grid — Replit Style */
+  .ag-recent-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    justify-content: stretch;
+    width: 100%;
+    box-sizing: border-box;
+  }
+  .ag-recent-empty {
+    grid-column: 1 / -1;
+    padding: 24px 16px;
+    color: var(--mut);
+    font-size: 0.86rem;
+    text-align: center;
+    line-height: 1.5;
+    border: 1px dashed var(--line);
+    border-radius: 14px;
+  }
+  .ag-recent-card {
+    display: block;
+    text-align: left;
+    border: 1px solid var(--line);
+    background: var(--paper-2);
+    border-radius: 14px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: 0.15s;
+    min-width: 0;
+    width: 100%;
+    box-sizing: border-box;
+  }
+  .ag-recent-card:hover {
+    border-color: #cfc7ba;
+    box-shadow: 0 6px 18px -10px rgba(11, 22, 38, 0.22);
+  }
+  .ag-recent-thumb {
+    height: 135px;
+    display: grid;
+    place-items: center;
+    border-bottom: 1px solid var(--line);
+  }
+  .ag-recent-thumb i {
+    width: 56px;
+    height: 56px;
+    border-radius: 14px;
+    display: grid;
+    place-items: center;
+    font-family: var(--body);
+    font-style: normal;
+    font-weight: 700;
+    font-size: 1.7rem;
+    background: #0f0f0f;
+    line-height: 1;
+  }
+  .ag-recent-thumb i svg {
+    width: 30px;
+    height: 30px;
+  }
+  .ag-recent-body {
+    padding: 12px 14px 14px;
+  }
+  .ag-recent-body .t {
+    font-size: 0.9rem;
+    font-weight: 400;
+    color: var(--ink);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .ag-recent-body .m {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.78rem;
+    color: var(--mut);
+    margin-top: 4px;
+  }
+  .ag-recent-body .m svg {
+    width: 13px;
+    height: 13px;
+    flex: none;
+  }
+
+  /* DESKTOP VIEW: 3 cards when preview is closed, 2 cards when preview is open */
+  @media (min-width: 901px) {
+    .has-preview .ag-recent,
+    .ag-split.has-preview .ag-recent {
+      max-width: 100% !important;
+      margin: 36px 0 24px !important;
+    }
+    .has-preview .ag-recent-grid,
+    .ag-split.has-preview .ag-recent-grid {
+      grid-template-columns: repeat(2, 1fr) !important;
+      gap: 10px !important;
+    }
+    .has-preview .ag-recent-thumb,
+    .ag-split.has-preview .ag-recent-thumb {
+      height: 105px !important;
+    }
+    .has-preview .ag-recent-thumb i,
+    .ag-split.has-preview .ag-recent-thumb i {
+      width: 48px !important;
+      height: 48px !important;
+      border-radius: 12px !important;
+    }
+    .has-preview .ag-recent-thumb i svg,
+    .ag-split.has-preview .ag-recent-thumb i svg {
+      width: 26px !important;
+      height: 26px !important;
+    }
+    .has-preview .ag-recent-body,
+    .ag-split.has-preview .ag-recent-body {
+      padding: 9px 10px 11px !important;
+    }
+  }
+
+  /* MOBILE VIEW: ONLY 2 FIT HORIZONTALLY */
+  @media (max-width: 900px) {
+    .ag-recent {
+      max-width: 100% !important;
+      margin: 32px 0 20px !important;
+    }
+    .ag-recent-grid {
+      grid-template-columns: repeat(2, 1fr) !important;
+      gap: 10px !important;
+    }
+    .ag-recent-thumb {
+      height: 105px !important;
+    }
+    .ag-recent-thumb i {
+      width: 48px !important;
+      height: 48px !important;
+      border-radius: 12px !important;
+    }
+    .ag-recent-thumb i svg {
+      width: 26px !important;
+      height: 26px !important;
+    }
+    .ag-recent-body {
+      padding: 9px 10px 11px !important;
+    }
+    .ag-recent-body .t {
+      font-size: 0.84rem !important;
+    }
+    .ag-recent-body .m {
+      font-size: 0.74rem !important;
+      margin-top: 2px !important;
+    }
+  }
 
   /* No own height/sticky — the app shell (html/body/.ag-main, below) is
      fixed to the viewport and this just fills its grid cell. It used to be
@@ -899,7 +1368,7 @@
      so .hidden = true silently does nothing without this — same bug class
      as .ag-type-row above. Without it the gate rendered permanently,
      including mid-build on top of the empty state. */
-  .ag-pv-gate[hidden]{display:none}
+  .ag-pv-gate[hidden]{display:none !important;pointer-events:none !important;visibility:hidden !important}
   /* The blurred app underneath can be any colour (a dark dashboard, a white
      landing page), so neither ink nor white text is readable on its own.
      A soft wash of the page's own paper colour keeps this readable
@@ -950,6 +1419,26 @@
        trying to say. */
     .ag-split{flex-direction:column;min-height:auto}
     .ag{border-right:0}
+    .ag-log{overflow-y:visible;flex:0 0 auto;min-height:auto}
+    .ag.tab-hidden,.ag-preview.tab-hidden{display:none !important}
+    .nav {
+      display: none !important;
+    }
+    #agDeskSidebarToggle {
+      position: fixed !important;
+      top: 10px !important;
+      left: 10px !important;
+      z-index: 999999 !important;
+    }
+    #agDeskPreviewToggle {
+      position: fixed !important;
+      top: 10px !important;
+      right: 10px !important;
+      z-index: 999999 !important;
+    }
+    .ag.is-new .ag-hero {
+      padding-top: 20px !important;
+    }
     /* The device-size picker only means something once there's room to
        switch between iPhone/iPad/monitor shapes side by side — desktop
        only. #agDeskPreviewToggle stays visible here: it's the ONLY way
@@ -964,25 +1453,30 @@
        the composer to sit after it, so flex and min-height are reset too. */
     .ag-log{overflow-y:visible;flex:0 0 auto;min-height:auto}
     .ag.tab-hidden,.ag-preview.tab-hidden{display:none !important}
-    .ag-pv-stage{
-      padding:4px 0;
-      min-height:calc(100svh - 90px);
-      display:flex;align-items:center;justify-content:center;
+    .ag-preview {
+      position: relative !important;
+      height: auto !important;
+      padding-top: 52px !important;
+      box-sizing: border-box !important;
     }
-    .ag-pv-frame.mobile{
-      height:calc(100svh - 90px);
-      max-height:none;
-      width:auto;
-      max-width:calc(100vw - 20px);
+    .ag-pv-stage {
+      padding: 12px 0 16px !important;
+      min-height: calc(100svh - 110px) !important;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .ag-pv-frame.mobile {
+      height: calc(100svh - 110px) !important;
+      max-height: none;
+      width: auto;
+      max-width: calc(100vw - 20px);
       aspect-ratio: 9 / 19.5;
-      padding:9px;
-      border-radius:46px;
+      padding: 9px;
+      border-radius: 46px;
     }
     .ag-pv-frame.mobile .ip-screen{border-radius:36px}
     .ag-pv-frame.mobile .ip-screen::before{width:100px;height:28px;top:10px}
-    .ag-pv-frame.tablet{width:100%;height:calc(100svh - 90px);max-height:none}
-    .ag-pv-frame.desktop{width:100%;height:calc(100svh - 90px);max-height:none}
-    .ag-preview{position:static;height:auto}
+    .ag-pv-frame.tablet{width:100%;height:calc(100svh - 110px);max-height:none}
+    .ag-pv-frame.desktop{width:100%;height:calc(100svh - 110px);max-height:none}
   }
   @media (max-width:640px){
     .ag-say,.ag-card{padding-inline-start:0;margin-inline-start:0}
@@ -1032,19 +1526,65 @@
      overlay, the sign-up gate) — blur(3px), so an overlay reads as one
      consistent visual language wherever it shows up rather than each one
      inventing its own scrim treatment. */
-  .ag-hist-backdrop{position:fixed;inset:0;background:rgba(11,22,38,.4);opacity:0;pointer-events:none;
-    transition:opacity .2s;z-index:70}
-  .ag-hist-backdrop.on{opacity:1;pointer-events:auto}
-  .ag-history{position:sticky;top:0;align-self:flex-start;height:100vh;flex:0 0 auto;
-    width:0;max-width:88vw;overflow:hidden;background:var(--paper);
-    border-right:0 solid var(--line);
-    transition:width .26s var(--ease),border-color .26s var(--ease);
+  .ag-hist-backdrop{display:none !important;opacity:0 !important;pointer-events:none !important;backdrop-filter:none !important}
+  .ag-hist-backdrop.on{display:none !important;opacity:0 !important;pointer-events:none !important;backdrop-filter:none !important}
+  .ag-history{position:relative !important;height:100vh;flex:0 0 0px;
+    width:0;min-width:0;max-width:240px;overflow:hidden;
+    background:var(--paper);border-right:0 solid var(--line);box-sizing:border-box;
+    transition:width .26s var(--ease),flex-basis .26s var(--ease),border-color .26s var(--ease);
     display:flex;flex-direction:column;z-index:100}
-  .ag-history.on{width:290px;border-right-color:var(--line);border-right-width:1px;overflow:visible !important;z-index:100 !important}
-  .ag-hist-head,.ag-hist-tabs,.ag-hist-view,.ag-hist-foot{width:290px}
+  .ag-history.on{width:240px !important;flex:0 0 240px !important;min-width:240px !important;border-right-color:var(--line);border-right-width:1px;overflow:visible !important;z-index:100 !important}
+  .ag-hist-head,.ag-hist-tabs,.ag-hist-view,.ag-hist-foot{width:100%;box-sizing:border-box}
 
   @media (max-width:900px){
-    .ag-history{position:fixed;top:0;left:0;bottom:0;z-index:71}
+    .ag-history{
+      position:fixed !important;
+      top:0 !important;left:0 !important;bottom:0 !important;
+      height:100vh !important;width:240px !important;max-width:80vw !important;
+      z-index:999999 !important;
+      transform:translateX(-100%) !important;
+      transition:transform .28s cubic-bezier(0.16,1,0.3,1) !important;
+      box-shadow:4px 0 24px rgba(0,0,0,.5);
+    }
+    .ag-history.on{
+      transform:translateX(0) !important;
+    }
+    /* left:240px, not inset:0 — the drawer itself sits at left:0, width
+       240px (max-width:80vw), z-index ABOVE this. inset:0 made the
+       backdrop cover that same footprint too; since it's UNDERNEATH the
+       drawer it never visually dimmed the drawer's own opaque content,
+       but the blur(3px) backdrop-filter samples everything behind it
+       INCLUDING right up to that shared edge, which read as the drawer
+       itself looking softened/hazy rather than crisp. Starting the
+       backdrop at the drawer's own width means it only ever dims the
+       actual background content, never anything under the drawer. */
+    .ag-hist-backdrop{
+      display:block !important;
+      position:fixed !important;
+      top:0 !important;right:0 !important;bottom:0 !important;left:240px !important;
+      /* Warm, matching the paper tone (--paper), not a stark black
+         scrim — softly tints the background rather than going dark. */
+      background:color-mix(in srgb,var(--paper) 88%,transparent) !important;
+      backdrop-filter:blur(3px) !important;
+      z-index:999998 !important;
+      opacity:0 !important;
+      pointer-events:none !important;
+      transition:opacity .28s ease !important;
+    }
+    .ag-hist-backdrop.on{
+      /* display:block!important needed here too, not just above — the
+         unconditional .ag-hist-backdrop.on rule elsewhere in this file
+         sets display:none!important, and since this rule doesn't touch
+         display at all it doesn't override that per-property, only
+         opacity/pointer-events do. Net result without this line: opacity
+         correctly hits 1 but the element is display:none regardless — 0
+         size, unrenderable, can't receive clicks no matter what
+         pointer-events says. That's why nothing dimmed and tapping
+         outside the drawer never closed it. */
+      display:block !important;
+      opacity:1 !important;
+      pointer-events:auto !important;
+    }
   }
 
   /* Small icon strip, not a repeated wordmark — the workspace pill right
@@ -1056,11 +1596,12 @@
      #agDeskSidebarToggle occupies in .nav, so it mustn't be even a few
      px off or the button visibly jumps sideways the instant the drawer
      opens. */
-  .ag-hist-head{display:flex;align-items:center;gap:10px;padding:14px 14px 8px clamp(18px,4vw,40px)}
-  .ag-hist-mark{width:24px;height:24px;border-radius:7px;background:var(--accent);
+  .ag-hist-head{display:flex;align-items:center;gap:8px;padding:10px 10px 12px 114px;width:100%;box-sizing:border-box}
+  .ag-hist-mark{width:28px;height:28px;border-radius:8px;background:var(--accent);
     display:grid;place-items:center;flex:none}
-  .ag-hist-mark svg{width:13px;height:13px;color:#fff}
-  .ag-hist-head b{display:block;font-size:0.95rem;font-weight:700;color:var(--ink)}
+  .ag-hist-mark svg{width:15px;height:15px;color:#fff}
+  .ag-hist-brand-text{display:flex;flex-direction:column;line-height:1.05;font-family:var(--disp);font-weight:800;font-size:0.88rem;color:var(--ink);letter-spacing:-0.01em;margin-left:6px}
+  .ag-hist-brand-text span{display:block}
   .ag-hist-close{margin-inline-start:auto;border:0;background:none;color:var(--ink-2);cursor:pointer;width:30px;height:30px;border-radius:8px;display:grid;place-items:center;transition:.15s}
   .ag-hist-close:hover{background:var(--paper-2);color:var(--ink)}
   .ag-hist-close svg{width:16px;height:16px}
@@ -1069,12 +1610,12 @@
      "Create something new" / "Import" pair. */
   .ag-ws-wrap{position:relative}
   .ag-ws{display:flex;align-items:center;gap:9px;width:100%;border:1px solid var(--line);background:var(--card);
-    border-radius:999px;padding:5px 10px 5px 5px;margin:2px 12px 9px;width:calc(100% - 24px);cursor:pointer;text-align:left;
-    color:var(--ink)}
-  .ag-ws .av{width:24px;height:24px;border-radius:50%;flex:none;display:grid;place-items:center;color:#fff;
-    background:linear-gradient(135deg,var(--accent),var(--accent-2));font-weight:600;font-size:.74rem}
-  .ag-ws .nm{flex:1;min-width:0;font-size:.87rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .ag-ws svg{width:15px;height:15px;flex:none;color:var(--ink-2)}
+    border-radius:999px;padding:6px 10px 6px 6px;margin:8px 10px 8px;width:calc(100% - 20px);cursor:pointer;text-align:left;
+    color:var(--ink);box-sizing:border-box}
+  .ag-ws .av{width:26px;height:26px;border-radius:50%;flex:none;display:grid;place-items:center;color:#fff;
+    background:linear-gradient(135deg,var(--accent),var(--accent-2));font-weight:600;font-size:.8rem}
+  .ag-ws .nm{color:var(--ink) !important;flex:1;min-width:0;font-size:.9rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ag-ws svg{width:16px;height:16px;flex:none;color:var(--ink-2)}
   .ag-ws .chev{transition:transform .16s var(--ease)}
   .ag-ws.open .chev{transform:rotate(180deg)}
   /* Click-toggled dropdown, not the Projects flyout's hover pattern — a
@@ -1094,13 +1635,13 @@
      Sign in/Sign out both showed at once without this override. */
   .ag-ws-item[hidden]{display:none}
   .ag-ws-item:hover{background:var(--paper-2)}
-  .ag-ws-item svg{width:15px;height:15px;flex:none;color:var(--ink-2)}
+  .ag-ws-item svg{width:15px;height:15px;flex:none}
   .ag-ws-sep{height:1px;background:var(--line);margin:6px 4px}
-  .ag-act{display:flex;align-items:center;justify-content:flex-start;gap:8px;margin:0 12px 6px;padding:8px 11px;
+  .ag-act{display:flex;align-items:center;justify-content:flex-start;gap:9px;margin:0 12px 8px;padding:9px 12px;
     border:1px solid var(--line);background:var(--card);border-radius:9px;color:var(--ink);
-    font-size:.87rem;font-weight:400;cursor:pointer;transition:.15s;width:calc(100% - 24px);text-align:left}
+    font-size:.9rem;font-weight:500;cursor:pointer;transition:.15s;width:calc(100% - 24px);text-align:left;box-sizing:border-box}
   .ag-act:hover{background:var(--paper-2)}
-  .ag-act svg{width:15px;height:15px}
+  .ag-act svg{width:16px;height:16px}
 
   /* Plan block pinned to the bottom, Replit-style. flex:none is what
      actually keeps the Upgrade button on screen: with the nav grown to
@@ -1109,21 +1650,86 @@
      fell off the bottom entirely — the scrollable region above it
      (.ag-hist-tabs / .ag-hist-view) absorbs the overflow instead.
      No border-top: the reference separates this with space, not a rule. */
-  .ag-hist-foot{margin-top:auto;flex:none;padding:10px 12px 10px}
-  .ag-hist-foot .ttl{font-size:.87rem;font-weight:600;padding:0 4px;margin-bottom:6px}
-  .ag-meter-row{display:flex;align-items:center;gap:10px;padding:3px 4px}
-  .ag-meter-row svg{width:16px;height:16px;flex:none;color:var(--ink-2)}
-  .ag-meter-row .lab{flex:1;min-width:0;font-size:.8rem}
-  .ag-meter-row .lab i{display:block;font-style:normal;color:var(--mut);font-size:.75rem;margin-top:1px}
-  .ag-meter{width:60px;height:5px;border-radius:3px;background:var(--paper-2);overflow:hidden;flex:none}
-  .ag-meter i{display:block;height:100%;background:var(--accent)}
-  .ag-upgrade{display:flex;align-items:center;justify-content:center;gap:8px;margin-top:9px;padding:10px;
-    border:0;border-radius:9px;background:var(--accent);color:#fff;font-size:.9rem;font-weight:600;
-    cursor:pointer;width:100%;text-decoration:none;transition:.15s}
-  .ag-upgrade:hover{background:var(--accent-2)}
+  .ag-hist-foot{margin-top:auto;flex:0 0 auto;padding:8px 10px 8px;border-top:1px solid var(--line);background:var(--paper);width:100%;box-sizing:border-box}
+  .ag-hist-foot .ttl{font-size:.84rem;font-weight:600;padding:0 2px;margin-bottom:4px;color:var(--ink)}
+  .ag-plan-alert{background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.25);color:#f87171;font-size:.76rem;font-weight:500;padding:4px 8px;border-radius:6px;margin-bottom:6px;text-align:center;width:100%;box-sizing:border-box}
+  .ag-meter-row{display:flex;align-items:center;gap:7px;padding:2px 0;width:100%;box-sizing:border-box}
+  .ag-meter-row svg{width:14px;height:14px;flex:none;color:var(--ink-2)}
+  .ag-meter-row .lab{flex:1;min-width:0;font-size:.78rem;color:var(--ink);font-weight:500}
+  .ag-meter-row .lab i{display:block;font-style:normal;color:var(--mut);font-size:.70rem;font-weight:400;margin-top:0}
+  .ag-meter{width:54px;height:5px;border-radius:999px;background:rgba(255,255,255,0.09);overflow:hidden;flex:none}
+  .ag-meter i{display:block;height:100%;border-radius:999px;background:#3b82f6}
+  .ag-upgrade{display:flex;align-items:center;justify-content:center;gap:6px;margin-top:6px;padding:7px;
+    border:0;border-radius:8px;background:#0077ff;color:#fff;font-size:.84rem;font-weight:600;
+    cursor:pointer;width:100%;box-sizing:border-box;text-decoration:none;transition:.15s}
+  .ag-upgrade:hover{background:#0062cc}
   .ag-upgrade svg{width:15px;height:15px}
-  .ag-hist-links{display:flex;gap:10px;justify-content:center;margin-top:11px;font-size:.76rem;color:var(--mut)}
+  .ag-hist-install{display:flex;align-items:center;justify-content:center;gap:6px;margin-top:11px;font-size:.76rem;color:var(--mut)}
+  .ag-hist-install svg{width:14px;height:14px;color:var(--ink-2);flex:none;transition:color .15s ease, transform .15s ease;cursor:pointer}
+  .ag-hist-install svg:hover{color:#0077ff !important;transform:scale(1.15)}
+  .ag-hist-install a:hover{color:var(--ink)}
+  .ag-hist-links{display:flex;gap:10px;justify-content:center;margin-top:8px;font-size:.75rem;color:var(--mut)}
   .ag-hist-links a:hover{color:var(--ink)}
+
+  /* Replit Upgrade Modal in App */
+  .ag-modal-backdrop {
+    position: fixed; inset: 0; background: rgba(0, 0, 0, 0.72);
+    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+    z-index: 1000000; display: flex; align-items: center; justify-content: center;
+    padding: 20px; opacity: 0; visibility: hidden;
+    transition: opacity 0.22s var(--ease), visibility 0.22s;
+  }
+  .ag-modal-backdrop.open { opacity: 1; visibility: visible; }
+  .ag-modal-card {
+    background: var(--paper); border: 1px solid var(--line); border-radius: 20px;
+    width: 100%; max-width: 1020px; max-height: 94vh; overflow-y: auto;
+    padding: 22px 24px 20px; position: relative;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.4);
+    transform: scale(0.95); transition: transform 0.22s var(--ease);
+    box-sizing: border-box;
+  }
+  .ag-modal-backdrop.open .ag-modal-card { transform: scale(1); }
+  .ag-modal-close {
+    position: absolute; top: 14px; right: 18px; border: 0; background: none;
+    font-size: 1.2rem; color: var(--mut); cursor: pointer; width: 30px; height: 30px;
+    border-radius: 50%; display: grid; place-items: center; transition: background 0.15s, color 0.15s;
+  }
+  .ag-modal-close:hover { background: var(--paper-2); color: var(--ink); }
+
+  .up-header { text-align: center; margin-bottom: 16px; }
+  .up-header h1 { font-family: var(--body) !important; font-size: 1.65rem; font-weight: 700; color: var(--ink); margin: 0 0 2px 0; letter-spacing: -0.02em; }
+  .up-header p { font-family: var(--body) !important; font-size: 0.85rem; color: var(--mut); margin: 0 0 12px 0; }
+  .billing-toggle { display: inline-flex; align-items: center; gap: 4px; background: var(--paper-2); border: 1px solid var(--line); padding: 3px; border-radius: 10px !important; }
+  .billing-toggle button { border: 0; background: none; font-family: var(--body) !important; font-size: 0.8rem; font-weight: 600; color: var(--mut); padding: 6px 14px; border-radius: 8px !important; cursor: pointer; transition: all 0.18s; display: inline-flex; align-items: center; gap: 5px; }
+  .billing-toggle button.active { background: var(--card); color: var(--ink); box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08); }
+  .billing-toggle .discount-pill { background: rgba(0, 112, 243, 0.15); color: #0070f3; font-size: 0.72rem; font-weight: 700; padding: 2px 7px; border-radius: 6px !important; }
+  .up-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; align-items: stretch; margin-bottom: 16px; text-align: left; }
+  .up-card { background: var(--paper-2); border: 1px solid var(--line); border-radius: 16px; padding: 18px 18px 16px; display: flex; flex-direction: column; position: relative; transition: transform 0.2s, box-shadow 0.2s; }
+  .up-card:hover { box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.12); }
+  .up-card.featured { border: 2px solid #0070f3; background: var(--card); box-shadow: 0 0 24px rgba(0, 112, 243, 0.16); }
+  .up-card-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 2px; }
+  .up-card-title { font-family: var(--body) !important; font-size: 1.15rem; font-weight: 700; color: var(--ink); }
+  .up-badge-current { background: var(--stone); color: var(--mut); font-size: 0.72rem; font-weight: 600; padding: 3px 8px; border-radius: 99px; }
+  .up-price-row { margin: 8px 0 2px; display: flex; align-items: baseline; gap: 5px; }
+  .up-price-row .amt { font-family: var(--body) !important; font-size: 2rem; font-weight: 800; color: var(--ink); line-height: 1; letter-spacing: -0.03em; }
+  .up-price-row .unit { font-size: 0.78rem; color: var(--mut); }
+  .up-subtitle { font-size: 0.8rem; color: var(--mut); margin-bottom: 14px; min-height: 28px; line-height: 1.35; }
+  .up-feats { list-style: none; padding: 0; margin: 0 0 14px 0; flex: 1; display: flex; flex-direction: column; gap: 7px; }
+  .up-feat-item { display: flex; align-items: flex-start; gap: 8px; font-size: 0.8rem; color: var(--ink); line-height: 1.3; }
+  .up-feat-item .mark { font-weight: 700; flex: none; width: 14px; text-align: center; }
+  .up-feat-item.check .mark { color: var(--ink); }
+  .up-feat-item.plus .mark { color: var(--mut); }
+  .up-select { width: 100%; padding: 6px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--card); color: var(--ink); font-size: 0.8rem; margin-bottom: 10px; outline: none; cursor: pointer; font-family: var(--body); }
+  .up-btn { width: 100%; padding: 9px 14px; border-radius: 9px; font-family: var(--body); font-size: 0.85rem; font-weight: 600; cursor: pointer; border: 0; display: inline-flex; align-items: center; justify-content: center; gap: 6px; transition: background 0.18s, transform 0.18s; text-decoration: none; }
+  .up-btn-primary { background: #0070f3; color: #ffffff !important; }
+  .up-btn-primary:hover { background: #0051a8; transform: translateY(-1px); }
+  .up-btn-disabled { background: var(--stone); color: var(--mut); cursor: default; }
+  .up-disclaimer { text-align: center; font-size: 0.72rem; color: var(--mut); max-width: 800px; margin: 4px auto 0; line-height: 1.4; }
+  @media (max-width: 860px) {
+    .up-grid { grid-template-columns: 1fr; gap: 16px; }
+    .up-subtitle { min-height: auto; margin-bottom: 16px; }
+    .ag-modal-card { padding: 28px 18px 24px; }
+  }
 
   /* Permanent rail from 901px up — Replit's sidebar has no manual close
      control. The drawer behaviour (and the hamburger and X that drive it)
@@ -1143,13 +1749,10 @@
      push-panel never did, since there's no longer a layout reflow to
      signal it opened. */
   @media (min-width:901px){
-    .ag-history{position:fixed;top:0;left:0;bottom:0;width:0;border-right:0 solid var(--line);overflow:hidden;
-      transition:width .26s var(--ease),border-color .26s var(--ease),box-shadow .26s var(--ease);z-index:1000}
-    .ag-history.on{width:290px;border-right:1px solid var(--line);overflow:visible !important;z-index:1000 !important;
-      box-shadow:0 0 1px color-mix(in srgb,var(--accent) 40%,transparent),
-        24px 0 60px -16px rgba(11,22,38,.5),
-        inset -1px 0 0 color-mix(in srgb,var(--accent) 18%,transparent)}
-    .ag-history.focus{width:0 !important;border-right-color:transparent !important;overflow:hidden !important;box-shadow:none}
+    .ag-history{position:relative !important;top:0;left:0;bottom:0;height:100vh;flex:0 0 0px !important;width:0 !important;min-width:0 !important;border-right:0 solid var(--line);overflow:hidden;
+      transition:width .26s var(--ease),flex-basis .26s var(--ease),border-color .26s var(--ease);z-index:100}
+    .ag-history.on{width:240px !important;flex:0 0 240px !important;min-width:240px !important;border-right:1px solid var(--line);overflow:visible !important;z-index:100 !important;box-shadow:none}
+    .ag-history.focus{width:0 !important;flex:0 0 0px !important;min-width:0 !important;border-right-color:transparent !important;overflow:hidden !important;box-shadow:none}
   }
 
   /* Vertical nav list, Replit-style — not a horizontal tab row: with 5
@@ -1169,29 +1772,28 @@
      auto; min-height:0; overflow-y:auto below) is what absorbs a short
      viewport instead, scrolling its own list rather than being painted
      over. */
-  .ag-hist-tabs{display:flex;flex-direction:column;gap:1px;padding:2px 12px 10px;
-    flex:0 0 auto;overflow:visible;scrollbar-width:none}
+  .ag-hist-tabs{display:flex;flex-direction:column;gap:2px;padding:4px 12px 6px;width:100%;box-sizing:border-box;
+    flex:0 0 auto;overflow:visible !important;scrollbar-width:none}
   .ag-hist-tabs::-webkit-scrollbar{display:none}
-  .ag-hist-tab{width:100%;display:flex;align-items:center;gap:11px;border:0;background:none;color:var(--ink);cursor:pointer;
-    padding:9px 10px;border-radius:8px;font-size:.92rem;font-weight:400;text-align:left;transition:.14s}
+  .ag-hist-tab{width:100%;box-sizing:border-box;display:flex;align-items:center;gap:11px;border:0;background:none;color:var(--ink);cursor:pointer;
+    padding:8px 11px;border-radius:8px;font-size:.92rem;font-weight:400;text-align:left;transition:.14s}
   .ag-hist-tab svg{width:18px;height:18px;flex:none;color:var(--ink-2)}
   .ag-hist-tab:hover{background:var(--paper-2)}
-  .ag-hist-tab.on{background:var(--paper-2);font-weight:500}
+  .ag-hist-tab.on{background:var(--paper-2);font-weight:600}
   .ag-hist-tab.on svg{color:var(--ink)}
-  /* Visual break between the main nav and the help group, matching the
-     reference — a gap, not a rule. */
-  .ag-hist-gap{height:26px}
+  /* Visual break between the main nav and the help group, matching the reference */
+  .ag-hist-gap{height:16px;flex:0 0 16px}
 
   /* Projects hover flyout. Anchored to the row (position:relative on the
      hoverable row, not on the scroll container) so it tracks the row if
      the nav ever scrolls. */
   .ag-hist-hoverable{position:relative}
-  .ag-flyout{position:absolute;left:calc(100% - 6px);top:-6px;z-index:9999 !important;width:250px;
-    background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 10px 8px;
-    box-shadow:0 16px 45px -8px rgba(11,22,38,.32);
-    opacity:0;visibility:hidden;transform:translateX(4px);transition:opacity .16s ease,transform .16s ease,visibility .16s ease;
-    display:flex;flex-direction:column;gap:2px;cursor:default;pointer-events:none}
-  .ag-hist-hoverable:hover .ag-flyout,.ag-flyout:hover{opacity:1;visibility:visible;transform:none;pointer-events:auto}
+  .ag-flyout{position:absolute !important;left:calc(100% + 4px) !important;top:-6px !important;z-index:999999 !important;width:230px !important;
+    background:var(--card) !important;border:1px solid var(--line) !important;border-radius:12px !important;padding:10px 8px 6px !important;
+    box-shadow:0 16px 45px -8px rgba(11,22,38,.4) !important;
+    opacity:0 !important;visibility:hidden !important;transform:translateX(4px) !important;transition:opacity .16s ease,transform .16s ease,visibility .16s ease !important;
+    display:flex !important;flex-direction:column !important;gap:2px !important;cursor:default !important;pointer-events:none !important}
+  .ag-hist-hoverable:hover .ag-flyout,.ag-flyout:hover{opacity:1 !important;visibility:visible !important;transform:none !important;pointer-events:auto !important}
   .ag-flyout-h{font-size:.8rem;color:var(--mut);font-weight:500;padding:0 8px 6px}
   .ag-flyout-list{display:flex;flex-direction:column;gap:1px}
   .ag-flyout-item{display:flex;align-items:center;gap:10px;padding:8px;border-radius:8px;
@@ -1203,7 +1805,7 @@
   .ag-flyout-empty{padding:6px 8px 10px;font-size:.85rem;color:var(--mut)}
   /* No room to fly out beside a 290px drawer on a phone — and it would
      sit under the finger that opened it. */
-  @media (max-width:900px){ .ag-flyout{display:none} }
+  /* Recent projects flyout visible on hover */
 
   /* Mobile density pass — the whole rail has to FIT a phone with no
      internal scrolling. At desktop metrics the nav alone is ~382px of a
@@ -1216,27 +1818,24 @@
      .ag-hist-new kept its display:flex and the rows kept desktop
      padding. Same trap as .ag-hist-close earlier in this file. */
   @media (max-width:900px){
-    .ag-hist-head{padding:9px 12px 2px}
-    .ag-ws{margin:2px 10px 6px;width:calc(100% - 20px);padding:4px 9px 4px 4px}
-    .ag-ws .av{width:22px;height:22px;font-size:.7rem}
-    .ag-ws .nm{font-size:.84rem}
-    .ag-act{margin:0 10px 5px;width:calc(100% - 20px);padding:7px 10px;font-size:.85rem}
-    .ag-act svg{width:14px;height:14px}
-    .ag-hist-tabs{padding:0 10px 2px;gap:0;overflow:visible}
-    .ag-hist-tab{padding:5px 9px;font-size:.85rem;gap:10px}
-    .ag-hist-tab svg{width:16px;height:16px}
-    .ag-hist-gap{height:8px}
-    /* Stats has its own Settings panel (workspace overview), so it's
-       dropped from the phone rail — duplicate height otherwise. Leaves
-       Home, Projects, Favorites, Settings, Learn and Documentation. */
+    .ag-hist-head{padding:10px 10px 12px 114px !important}
+    .ag-ws{margin:2px 10px 6px;width:calc(100% - 20px);padding:6px 10px 6px 6px}
+    .ag-ws .av{width:24px;height:24px;font-size:.75rem}
+    .ag-ws .nm{font-size:.88rem}
+    .ag-act{margin:0 10px 5px;width:calc(100% - 20px);padding:8px 12px;font-size:.88rem}
+    .ag-act svg{width:15px;height:15px}
+    .ag-hist-tabs{padding:0 10px 2px;gap:2px}
+    .ag-hist-tab{padding:8px 10px;font-size:.9rem;gap:11px}
+    .ag-hist-tab svg{width:18px;height:18px}
+    .ag-hist-gap{height:12px;flex:0 0 12px}
     .ag-hist-tab[data-view="stats"]{display:none}
-    .ag-hist-foot{padding:5px 10px 7px}
-    .ag-hist-foot .ttl{font-size:.82rem;margin-bottom:2px}
+    .ag-hist-foot{padding:8px 10px;flex:0 0 auto}
+    .ag-hist-foot .ttl{font-size:.84rem;margin-bottom:2px}
     .ag-meter-row{padding:2px 4px;gap:8px}
     .ag-meter-row svg{width:15px;height:15px}
     .ag-meter-row .lab{font-size:.76rem}
     .ag-meter-row .lab i{font-size:.71rem}
-    .ag-upgrade{margin-top:5px;padding:8px;font-size:.86rem}
+    .ag-upgrade{margin-top:6px;padding:9px;font-size:.88rem}
     .ag-hist-links{margin-top:5px;font-size:.71rem}
   }
 
@@ -1317,7 +1916,7 @@
   .ag-set-overlay{position:fixed;inset:0;z-index:120;background:rgba(11,22,38,.5);
     display:flex;align-items:center;justify-content:center;padding:clamp(8px,3.5vh,40px);
     -webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px)}
-  .ag-set-overlay[hidden]{display:none}
+  .ag-set-overlay[hidden]{display:none !important;pointer-events:none !important;visibility:hidden !important}
   .ag-set-overlay iframe{width:min(1180px,96vw);height:min(820px,92vh);border:0;border-radius:14px;
     background:var(--card);box-shadow:0 30px 90px -28px rgba(0,0,0,.55)}
   @media (max-width:900px){
@@ -1327,6 +1926,7 @@
 </style>
 </head>
 <body>
+
 
 <!-- Settings opens as an overlay over the builder, Replit-style, rather
      than navigating to /settings — the preview on the right stays exactly
@@ -1338,21 +1938,23 @@
 </div>
 
 <div class="ag-hist-backdrop" id="agHistBackdrop"></div>
+<!-- No "on" here — .ag-history's own default (no media query needed,
+     both the ≥901px and ≤900px rules agree) is collapsed/width:0, "on"
+     is what a real open() call adds. Hardcoding it open in the markup
+     meant the drawer rendered open on every fresh load, on every
+     viewport, WITHOUT ever going through toggleSidebar()/openHistory()
+     — and since those are the only things that also add "on" to
+     #agHistBackdrop, the backdrop never synced: no dimming, no
+     pointer-events, so tapping outside the drawer did nothing, and the
+     very first real click on the Sidebar button read as "does nothing"
+     because it was actually closing a drawer nobody had opened yet. -->
 <aside class="ag-history" id="agHistory" aria-label="Your account">
   <!-- Sidebar/close button FIRST, logo second — matches where the outer
        #agDeskSidebarToggle sits (top-left) so this button doesn't visibly
        jump from left to right the moment the drawer opens. -->
   <div class="ag-hist-head">
-    <button type="button" class="ag-pv-toggle-btn on" id="agHistClose" title="Collapse Sidebar">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-        <rect x="3" y="3" width="18" height="18" rx="3.5"/>
-        <path d="M9 3v18"/>
-        <rect class="pane-left" x="3.8" y="3.8" width="5.2" height="16.4" rx="1" fill="var(--ink)" stroke="none"/>
-      </svg>
-      <span>Sidebar</span>
-    </button>
-    <span class="ag-hist-mark" style="margin-inline-start:auto"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 16 4-4-4-4M6 8l-4 4 4 4M14.5 4l-5 16"/></svg></span>
-    <b>Souqi Code</b>
+    <span class="ag-hist-mark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 16 4-4-4-4M6 8l-4 4 4 4M14.5 4l-5 16"/></svg></span>
+    <b class="ag-hist-brand-text"><span>Souqi</span><span>Code</span></b>
   </div>
 
   <div class="ag-ws-wrap">
@@ -1364,7 +1966,7 @@
     <div class="ag-ws-menu" id="agWsMenu">
       <div class="ag-ws-signed" id="agWsSigned">Not signed in</div>
       <a class="ag-ws-item" href="#" id="agWsSettings">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
         Settings
       </a>
       <a class="ag-ws-item" href="/pricing">
@@ -1391,7 +1993,7 @@
          data-view tab whose "Home" content was an embedded list of past
          builds, which just duplicated Projects (and /projects.html
          itself). Home now means what it says: go to /agent. -->
-    <a class="ag-hist-tab" href="/agent">
+    <a class="ag-hist-tab" href="/">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg>Home</a>
     <!-- Hovering Projects reveals recent ones, as in the reference. The
          flyout is a CHILD of the row so moving the pointer from the row
@@ -1409,7 +2011,7 @@
     <button type="button" class="ag-hist-tab" data-view="stats">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/></svg>Stats</button>
     <button type="button" class="ag-hist-tab" data-view="settings">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Settings</button>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Settings</button>
 
     <!-- Separated help group, as in the reference. Real destinations
          only — these point at pages that actually exist rather than
@@ -1437,68 +2039,68 @@
     </div>
     <div class="ag-set-row"><span class="l">Free edits per build</span><span class="v" id="setFreeEdits">3</span></div>
     <div class="ag-set-row"><span class="l">This month's usage</span><span class="v" id="setUsage">—</span></div>
-    <a class="ag-set-cta" href="/pricing">See plans</a>
+    <a class="ag-set-cta" href="/pricing" onclick="openUpgradeModal(event)">See plans</a>
     <div class="ag-set-row"><span class="l">Account</span><span class="v"><a class="btn-g" style="padding:6px 12px" href="/login">Sign in</a></span></div>
   </div>
 
   <div class="ag-hist-foot">
     <div class="ttl" id="agPlanTtl">Your Free Plan</div>
+    <div class="ag-plan-alert" id="agPlanAlert">You've reached your usage limit</div>
     <div class="ag-meter-row">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
-      <span class="lab">Free edits<i id="agEditsUsed">3 per build</i></span>
-      <span class="ag-meter"><i id="agEditsBar" style="width:0%"></i></span>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m16 18 6-6-6-6M8 6l-6 6 6 6"/></svg>
+      <span class="lab">Free Apps<i id="agEditsUsed">6/10 created</i></span>
+      <span class="ag-meter"><i id="agEditsBar" style="width:60%"></i></span>
+    </div>
+    <div class="ag-meter-row">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.5" cy="8.5" r="2.5"/><circle cx="16.5" cy="8.5" r="2.5"/><circle cx="12" cy="6" r="3"/><path d="M12 13c-2.8 0-6 1.4-6 3.5V18h12v-1.5c0-2.1-3.2-3.5-6-3.5z"/><path d="M5.5 14.5C4 15.2 3 16.3 3 17.5V18h2v-1.5c0-.8.4-1.5 1.1-2.1-.2.1-.4.1-.6.1z"/><path d="M18.5 14.5c.2 0 .4 0 .6-.1.7.6 1.1 1.3 1.1 2.1V18h2v-.5c0-1.2-1-2.3-2.5-3z"/></svg>
+      <span class="lab">Agent credits<i id="agAgentCredits">100% used</i></span>
+      <span class="ag-meter"><i id="agAgentBar" style="width:100%"></i></span>
     </div>
     <div class="ag-meter-row">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 10a4 4 0 0 0-7.8-1.2A3.5 3.5 0 1 0 7 16h10.5a3.5 3.5 0 0 0 .5-6z"/></svg>
-      <span class="lab">Build budget<i id="agSpendUsed">0% used</i></span>
+      <span class="lab">Cloud credits<i id="agSpendUsed">0% used</i></span>
       <span class="ag-meter"><i id="agSpendBar" style="width:0%"></i></span>
     </div>
-    <a class="ag-upgrade" href="/pricing">
-      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.4 6.4L21 10l-5.2 4.2L17.2 21 12 17.3 6.8 21l1.4-6.8L3 10l6.6-1.6z"/></svg>Upgrade</a>
+    <a class="ag-upgrade" href="/pricing" onclick="openUpgradeModal(event)">✦ Upgrade</a>
+    <div class="ag-hist-install">
+      <span>Install Souqi on</span>
+      <a href="/mobile" title="Install Souqi Mobile" style="color:inherit; text-decoration:none; display:inline-flex; align-items:center;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:16px; height:16px; cursor:pointer;"><rect x="7" y="2" width="10" height="20" rx="2"/><line x1="11" y1="18" x2="13" y2="18"/></svg>
+      </a>
+      <a href="/mobile" title="Install Souqi Mobile" style="color:inherit; text-decoration:none; display:inline-flex; align-items:center;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:16px; height:16px; cursor:pointer;"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+      </a>
+      <span>•</span>
+      <a href="/changelog">Changelog</a>
+    </div>
     <div class="ag-hist-links">
       <a href="/terms" target="_blank" rel="noopener">Terms</a><span>·</span>
       <a href="/privacy" target="_blank" rel="noopener">Privacy</a><span>·</span>
-      <a href="/pricing">Plans</a>
+      <a href="/pricing" onclick="openUpgradeModal(event)">Plans</a>
     </div>
   </div>
 </aside>
 
+<button type="button" class="ag-pv-toggle-btn on" id="agDeskSidebarToggle" title="Toggle Sidebar">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="3" y="3" width="18" height="18" rx="3.5"/>
+    <path d="M9 3v18"/>
+    <rect class="pane-left" x="3.8" y="3.8" width="5.2" height="16.4" rx="1" fill="transparent" stroke="none"/>
+  </svg>
+  <span>Sidebar</span>
+</button>
+
+<button type="button" class="ag-pv-toggle-btn" id="agDeskPreviewToggle" title="Show / Hide Preview panel">
+  <svg id="agDeskPreviewToggleIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="3" y="3" width="18" height="18" rx="3.5"/>
+    <path d="M15 3v18"/>
+    <rect class="pane-right" x="15" y="3.8" width="5.2" height="16.4" rx="1" fill="transparent" stroke="none"/>
+  </svg>
+  <span id="agDeskPreviewToggleLabel">Preview</span>
+</button>
+
 <div class="ag-main" id="agMain">
-<!-- Near-empty, Replit-style: workspace identity, plan and account access
-     all live in the sidebar now (the workspace pill, plan block, Settings)
-     — repeating brand/Sign in/See plans up here was redundant with it.
-     The toggle is the one thing that has to stay: below 900px it's the
-     only way to open the sidebar at all (the permanent-rail CSS hides it
-     above that width, same as it always did). -->
-<header class="nav">
-  <button type="button" class="ag-pv-toggle-btn" id="agDeskSidebarToggle" title="Open Sidebar">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-      <rect x="3" y="3" width="18" height="18" rx="3.5"/>
-      <path d="M9 3v18"/>
-      <rect class="pane-left" x="3.8" y="3.8" width="5.2" height="16.4" rx="1" fill="transparent" stroke="none"/>
-    </svg>
-    <span>Sidebar</span>
-  </button>
-  <!-- Desktop: toggles the split-view preview pane. Mobile: this is the
-       ONLY way to switch panes (see its click handler) — a single button
-       whose label/icon flips between "Preview" and "Back to chat" rather
-       than a permanent two-button Chat/Preview tab bar, top-right like
-       every other mobile "go to the other pane" affordance in this file. -->
-  <!-- One icon element whose content is swapped in JS (setMobilePane),
-       not two overlaid/[hidden] icons — the [hidden]-vs-class-display
-       trap has bitten this exact "two icons, toggle visibility" pattern
-       elsewhere in this file already; a single element that only ever
-       contains ONE icon's markup at a time can't have that bug by
-       construction. -->
-  <button type="button" class="ag-pv-toggle-btn" id="agDeskPreviewToggle" title="Show / Hide Preview panel">
-    <svg id="agDeskPreviewToggleIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-      <rect x="3" y="3" width="18" height="18" rx="3.5"/>
-      <path d="M15 3v18"/>
-      <rect class="pane-right" x="15" y="3.8" width="5.2" height="16.4" rx="1" fill="transparent" stroke="none"/>
-    </svg>
-    <span id="agDeskPreviewToggleLabel">Preview</span>
-  </button>
-</header>
+<header class="nav"></header>
 
 <div class="ag-split" id="agentView">
 
@@ -1517,7 +2119,7 @@
     <div class="ag-hero" id="agHero">
     <div class="ag-log" id="agLog" aria-live="polite">
       <div class="ag-empty" id="agEmptyState">
-        <h2 id="agGreeting">What are we building today?</h2>
+        <h2 id="agGreeting">What are we <span class="hi">building</span> today?</h2>
         <p class="ag-empty-sub">Describe it in a sentence — a real app comes back in one shot.</p>
       </div>
     </div>
@@ -1536,6 +2138,36 @@
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
             </button>
           </span>
+
+          <div class="ag-model-wrap" id="agModelWrap">
+            <button type="button" class="ag-model-pill" id="agModelPill" title="Select Model &amp; Thinking Mode">
+              <span id="agModelPillLabel">Economy</span>
+              <span class="ag-think-badge" id="agThinkBadge" hidden>Thinking</span>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg>
+            </button>
+            <div class="ag-model-popover" id="agModelPopover">
+              <div class="pop-section-ttl">Agent Mode</div>
+              <button type="button" class="pop-option on" data-mode="economy" id="popModeEconomy">
+                <span class="pop-text"><b>Economy</b><small>Fast generation &amp; lightweight builds</small></span>
+              </button>
+              <button type="button" class="pop-option" data-mode="power" id="popModePower">
+                <span class="pop-text"><b>Power Agent</b><small>Maximum reasoning &amp; complex builds</small></span>
+              </button>
+              <div class="pop-divider"></div>
+              <div class="pop-switch-row" id="popThinkRow">
+                <span class="pop-text"><b>Extended Thinking</b><small>Claude-style deep reasoning pass</small></span>
+                <label class="ag-switch">
+                  <input type="checkbox" id="popThinkCheck">
+                  <span class="ag-slider"></span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <button type="button" class="ag-voice-btn" id="agVoiceBtn" title="Voice Input Mode — Speak to type">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+          </button>
+
           <span class="ag-brow-sp"></span>
           <button type="submit" class="ag-send" id="agSend" disabled aria-label="Send">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M6 11l6-6 6 6"/></svg>
@@ -1871,8 +2503,21 @@
   // Personalized greeting for the new-chat screen — falls back to a
   // generic one for anonymous visitors (fetched below, alongside the
   // sidebar's plan block, so this is one request doing both jobs).
+  // innerHTML, not textContent: the heading carries a <span class="hi">
+  // around one word (the accent/swash focal point in the CSS), and a
+  // textContent assignment here would silently wipe it the moment a
+  // signed-in user's name resolved — correct signed-out, broken signed-in.
+  // The name is user-controlled and now lands in an HTML sink, so it goes
+  // through esc() rather than being concatenated raw.
   function setGreeting(name) {
-    $("agGreeting").textContent = name ? "Hey " + name + " — what are we building today?" : "What are we building today?";
+    // First token only, length-capped: names here are derived from the
+    // email local part, so a signup like "someone.from.accounting@..."
+    // otherwise pushes the headline to three lines at its new size and
+    // buries the actual question under the greeting.
+    const short = String(name || "").trim().split(/\s+/)[0].slice(0, 16);
+    $("agGreeting").innerHTML = short
+      ? "Hey " + esc(short) + " — what are we <span class=\"hi\">building</span> today?"
+      : "What are we <span class=\"hi\">building</span> today?";
   }
 
   function clearEmpty() {
@@ -2025,14 +2670,8 @@
     if (building) return;
     building = true;
     agSend.disabled = true;
-    // Replit's own behavior during an active agent turn: the sidebar
-    // collapses so the conversation gets the full width, then comes back
-    // once the turn is over (see the finally block below) — reopened
-    // unconditionally there, not only on success, so a failed build never
-    // leaves the rail stuck closed with no obvious way back.
+    document.body.classList.add("is-building");
     agHistory.classList.add("focus");
-    // Hide sidebar button while building
-    const sdt = $("agDeskSidebarToggle"); if (sdt) sdt.style.display = "none";
     sayUser(prompt);
     const startedAt = Date.now();
     const handles = {};
@@ -2258,10 +2897,9 @@
       say(esc(err.message), "err");
     } finally {
       building = false;
+      document.body.classList.remove("is-building");
       agSend.disabled = agInput.value.trim().length === 0;
       agHistory.classList.remove("focus");
-      // Restore sidebar button
-      const sdt2 = $("agDeskSidebarToggle"); if (sdt2) sdt2.style.display = "";
       // Boot screen stays visible until iframe loads — see agPvIframe.onload
     }
   }
@@ -2272,6 +2910,7 @@
   // device framing a fresh build does, instead of whatever the static
   // markup happened to ship with.
   function applyDeviceFrame() {
+    if (!agPvDevices || !agPvFrame) return;
     if (window.innerWidth < 650 || !window.__wcSupported) {
       agPvDevices.querySelectorAll("button").forEach((b) => b.classList.remove("on"));
       const mobBtn = agPvDevices.querySelector('button[data-size="mobile"]');
@@ -2469,33 +3108,46 @@
   });
 
 
-  agPvDevices.querySelectorAll("button").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      agPvDevices.querySelectorAll("button").forEach((b) => b.classList.remove("on"));
-      btn.classList.add("on");
-      agPvFrame.classList.remove("tablet", "mobile", "desktop", "entering", "opening");
-      const targetSize = btn.dataset.size || "mobile";
-      agPvFrame.classList.add(targetSize);
-      // Trigger 3D device entry animation on every device switch
-      void agPvFrame.offsetWidth;
-      agPvFrame.classList.add("entering");
+  if (agPvDevices) {
+    agPvDevices.querySelectorAll("button").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        agPvDevices.querySelectorAll("button").forEach((b) => b.classList.remove("on"));
+        btn.classList.add("on");
+        if (agPvFrame) {
+          agPvFrame.classList.remove("tablet", "mobile", "desktop", "entering", "opening");
+          const targetSize = btn.dataset.size || "mobile";
+          agPvFrame.classList.add(targetSize);
+          void agPvFrame.offsetWidth;
+          agPvFrame.classList.add("entering");
+        }
+      });
     });
-  });
+  }
 
-  const agDeskSidebarToggle = $("agDeskSidebarToggle");
-  const agHistCloseBtn = $("agHistClose");
-  function toggleSidebar() {
-    const isShowing = agHistory.classList.toggle("on");
+  window.toggleSidebar = function(forceState) {
+    const agHistory = document.querySelector(".ag-history");
+    const agDeskSidebarToggle = document.getElementById("agDeskSidebarToggle");
+    const agDeskPreviewToggle = document.getElementById("agDeskPreviewToggle");
+    const agHistCloseBtn = document.getElementById("agHistClose");
+    const agHistBackdrop = document.getElementById("agHistBackdrop");
+
+    if (!agHistory) return;
+
+    const isShowing = typeof forceState === "boolean" ? forceState : !agHistory.classList.contains("on");
+    agHistory.classList.toggle("on", isShowing);
     if (agDeskSidebarToggle) agDeskSidebarToggle.classList.toggle("on", isShowing);
     if (agHistCloseBtn) agHistCloseBtn.classList.toggle("on", isShowing);
-    // The sidebar is a fixed overlay at every width now (not just mobile —
-    // it used to push .ag-main as an in-flow flex item on desktop, which
-    // needed no backdrop since nothing was being covered), so the backdrop
-    // applies everywhere too, not just ≤900px.
     if (agHistBackdrop) agHistBackdrop.classList.toggle("on", isShowing);
-  }
-  if (agDeskSidebarToggle) agDeskSidebarToggle.addEventListener("click", toggleSidebar);
-  if (agHistCloseBtn) agHistCloseBtn.addEventListener("click", toggleSidebar);
+
+    if (agDeskPreviewToggle && window.matchMedia("(max-width:900px)").matches) {
+      agDeskPreviewToggle.style.display = isShowing ? "none" : "";
+    }
+  };
+  const agDeskSidebarToggle = $("agDeskSidebarToggle");
+  const agHistCloseBtn = $("agHistClose");
+  if (agDeskSidebarToggle) agDeskSidebarToggle.addEventListener("click", () => window.toggleSidebar());
+  if (agHistCloseBtn) agHistCloseBtn.addEventListener("click", () => window.toggleSidebar(false));
+  if (agHistBackdrop) agHistBackdrop.addEventListener("click", () => window.toggleSidebar(false));
 
   const agDeskPreviewToggle = $("agDeskPreviewToggle");
   const agDeskPreviewToggleLabel = $("agDeskPreviewToggleLabel");
@@ -2525,11 +3177,13 @@
       const isShowing = $("agentView").classList.toggle("has-preview");
       agDeskPreviewToggle.classList.toggle("on", isShowing);
       if (isShowing) {
-        agPvFrame.hidden = false;
-        agPvDevices.removeAttribute("aria-disabled");
-        agPvDevices.style.display = "";
+        if (agPvFrame) agPvFrame.hidden = false;
+        if (agPvDevices) {
+          agPvDevices.removeAttribute("aria-disabled");
+          agPvDevices.style.display = "";
+        }
       } else {
-        agPvDevices.style.display = "none";
+        if (agPvDevices) agPvDevices.style.display = "none";
       }
     });
   }
@@ -2538,6 +3192,122 @@
     agSend.disabled = building || agInput.value.trim().length === 0;
     agInput.style.height = "auto"; agInput.style.height = Math.min(180, agInput.scrollHeight) + "px";
   });
+
+  // Claude & Replit Model Popover
+  const agModelPill = $("agModelPill");
+  const agModelPopover = $("agModelPopover");
+  const popModeEconomy = $("popModeEconomy");
+  const popModePower = $("popModePower");
+  const popThinkCheck = $("popThinkCheck");
+  const agThinkBadge = $("agThinkBadge");
+  const agModelPillIcon = $("agModelPillIcon");
+  const agModelPillLabel = $("agModelPillLabel");
+
+  if (agModelPill && agModelPopover) {
+    agModelPill.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const isOpen = agModelPopover.classList.toggle("open");
+      agModelPill.classList.toggle("open", isOpen);
+    });
+    document.addEventListener("click", (e) => {
+      if (agModelPill && agModelPopover && e.target && !agModelPill.contains(e.target) && !agModelPopover.contains(e.target)) {
+        agModelPopover.classList.remove("open");
+        agModelPill.classList.remove("open");
+      }
+    });
+  }
+
+  let agentMode = "economy";
+  const agBoxElement = document.querySelector(".ag-box");
+
+  if (popModeEconomy && popModePower) {
+    popModeEconomy.addEventListener("click", (e) => {
+      if (e) e.stopPropagation();
+      agentMode = "economy";
+      popModeEconomy.classList.add("on");
+      popModePower.classList.remove("on");
+      if (agModelPillLabel) agModelPillLabel.textContent = "Economy";
+      if (agBoxElement) agBoxElement.classList.remove("power-mode");
+      document.body.classList.remove("power-mode");
+      if (agModelPopover) agModelPopover.classList.remove("open");
+      if (agModelPill) agModelPill.classList.remove("open");
+    });
+    popModePower.addEventListener("click", (e) => {
+      if (e) e.stopPropagation();
+      agentMode = "power";
+      popModePower.classList.add("on");
+      popModeEconomy.classList.remove("on");
+      if (agModelPillLabel) agModelPillLabel.textContent = "Power Agent";
+      if (agBoxElement) agBoxElement.classList.add("power-mode");
+      document.body.classList.add("power-mode");
+      if (agModelPopover) agModelPopover.classList.remove("open");
+      if (agModelPill) agModelPill.classList.remove("open");
+    });
+  }
+
+  let thinkingEnabled = false;
+  if (popThinkCheck && agThinkBadge) {
+    popThinkCheck.addEventListener("change", () => {
+      thinkingEnabled = popThinkCheck.checked;
+      agThinkBadge.hidden = !thinkingEnabled;
+    });
+  }
+
+  // Voice Input Speech Recognition
+  const agVoiceBtn = $("agVoiceBtn");
+  const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (SpeechRec && agVoiceBtn) {
+    const recognition = new SpeechRec();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.lang = "en-US";
+    let isListening = false;
+
+    agVoiceBtn.addEventListener("click", () => {
+      if (!isListening) {
+        try {
+          recognition.start();
+          isListening = true;
+          agVoiceBtn.classList.add("listening");
+          agVoiceBtn.title = "Listening... Click to stop";
+        } catch (e) {
+          console.warn("Speech recognition error:", e);
+        }
+      } else {
+        recognition.stop();
+        isListening = false;
+        agVoiceBtn.classList.remove("listening");
+        agVoiceBtn.title = "Voice Input Mode — Speak to type";
+      }
+    });
+
+    recognition.onresult = (event) => {
+      let currentTranscript = "";
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        currentTranscript += event.results[i][0].transcript;
+      }
+      if (currentTranscript.trim()) {
+        agInput.value = currentTranscript;
+        agInput.dispatchEvent(new Event("input"));
+      }
+    };
+
+    recognition.onend = () => {
+      isListening = false;
+      agVoiceBtn.classList.remove("listening");
+      agVoiceBtn.title = "Voice Input Mode — Speak to type";
+    };
+
+    recognition.onerror = (e) => {
+      console.warn("Speech recognition error:", e);
+      isListening = false;
+      agVoiceBtn.classList.remove("listening");
+    };
+  } else if (agVoiceBtn) {
+    agVoiceBtn.addEventListener("click", () => {
+      alert("Voice input is not supported in this browser. Please try Google Chrome or MS Edge.");
+    });
+  }
   agInput.addEventListener("keydown", (e) => {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); agForm.requestSubmit(); }
   });
@@ -2710,10 +3480,12 @@
     $("agentView").classList.add("has-preview");
     const deskTgl = $("agDeskPreviewToggle");
     if (deskTgl) deskTgl.classList.add("on");
-    agPvFrame.hidden = false;
-    agPvEmpty.style.display = "none";
-    agPvDevices.removeAttribute("aria-disabled");
-    agPvDevices.style.display = "";
+    if (agPvFrame) agPvFrame.hidden = false;
+    if (agPvEmpty) agPvEmpty.style.display = "none";
+    if (agPvDevices) {
+      agPvDevices.removeAttribute("aria-disabled");
+      agPvDevices.style.display = "";
+    }
 
     // Show loading in boot screen style
     const bootEl = $("agPvBoot");
@@ -2892,15 +3664,22 @@
   // account, so this shows who's actually signed in and links to what's
   // real: Settings, plans, and sign in/out).
   const agWs = $("agWs"), agWsMenu = $("agWsMenu");
-  function closeWsMenu() { agWs.classList.remove("open"); agWsMenu.classList.remove("open"); }
-  agWs.addEventListener("click", (e) => {
-    e.stopPropagation();
-    const opening = !agWsMenu.classList.contains("open");
-    agWs.classList.toggle("open", opening);
-    agWsMenu.classList.toggle("open", opening);
-  });
-  document.addEventListener("click", (e) => { if (!agWs.contains(e.target) && !agWsMenu.contains(e.target)) closeWsMenu(); });
-  document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeWsMenu(); });
+  function closeWsMenu() {
+    if (agWs) agWs.classList.remove("open");
+    if (agWsMenu) agWsMenu.classList.remove("open");
+  }
+  if (agWs && agWsMenu) {
+    agWs.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const opening = !agWsMenu.classList.contains("open");
+      agWs.classList.toggle("open", opening);
+      agWsMenu.classList.toggle("open", opening);
+    });
+    document.addEventListener("click", (e) => {
+      if (agWs && agWsMenu && e.target && !agWs.contains(e.target) && !agWsMenu.contains(e.target)) closeWsMenu();
+    });
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeWsMenu(); });
+  }
   $("agWsSettings").addEventListener("click", (e) => { e.preventDefault(); closeWsMenu(); openSettings(); });
   $("agWsSignOut").addEventListener("click", () => {
     fetch("/auth/logout", { method: "POST", credentials: "same-origin" }).catch(() => {}).then(() => { location.href = "/agent"; });
@@ -2965,10 +3744,12 @@
       $("agentView").classList.add("has-preview");
       const deskTgl = $("agDeskPreviewToggle");
       if (deskTgl) deskTgl.classList.add("on");
-      agPvFrame.hidden = false;
-      agPvEmpty.style.display = "none";
-      agPvDevices.removeAttribute("aria-disabled");
-      agPvDevices.style.display = "";
+      if (agPvFrame) agPvFrame.hidden = false;
+      if (agPvEmpty) agPvEmpty.style.display = "none";
+      if (agPvDevices) {
+        agPvDevices.removeAttribute("aria-disabled");
+        agPvDevices.style.display = "";
+      }
       applyDeviceFrame();
 
       // Render the real app through the same path a fresh build uses —
@@ -2995,6 +3776,143 @@
     }
   })();
 })();
+</script>
+
+<!-- Replit-style Upgrade Modal overlay for inside app/chat -->
+<div class="ag-modal-backdrop" id="agUpgradeModal">
+  <div class="ag-modal-card">
+    <button type="button" class="ag-modal-close" id="agUpgradeModalClose" title="Close">✕</button>
+    <div class="up-header">
+      <h1>Upgrade</h1>
+      <p>Choose the best plan for you</p>
+      
+      <div class="billing-toggle">
+        <button type="button" id="modalBtnMonthly" class="active">Monthly</button>
+        <button type="button" id="modalBtnYearly">Yearly <span class="discount-pill">🏷️ Up to 10% off</span></button>
+      </div>
+    </div>
+
+    <div class="up-grid">
+      <!-- Starter Plan -->
+      <div class="up-card">
+        <div class="up-card-top">
+          <span class="up-card-title">Starter</span>
+          <span class="up-badge-current">Current plan</span>
+        </div>
+        <div class="up-price-row">
+          <span class="amt">Free</span>
+        </div>
+        <div class="up-subtitle">For exploring what's possible</div>
+        <ul class="up-feats">
+          <li class="up-feat-item check"><span class="mark">✓</span><span>Free daily Agent credits</span></li>
+          <li class="up-feat-item check"><span class="mark">✓</span><span>Built-in database for full-stack apps</span></li>
+          <li class="up-feat-item check"><span class="mark">✓</span><span>Create slides, videos, animations</span></li>
+          <li class="up-feat-item check"><span class="mark">✓</span><span>Publish up to 1 project</span></li>
+          <li class="up-feat-item check"><span class="mark">✓</span><span>Publish private or password-protected deployments</span></li>
+        </ul>
+        <button class="up-btn up-btn-disabled" disabled>Your current plan</button>
+      </div>
+
+      <!-- Souqi Core Plan (Featured) -->
+      <div class="up-card featured">
+        <div class="up-card-top">
+          <span class="up-card-title">Souqi Core</span>
+        </div>
+        <div class="up-price-row">
+          <span class="amt" id="modalCorePrice">$20</span>
+          <span class="unit">per month</span>
+        </div>
+        <div class="up-subtitle">For personal projects &amp; simple apps</div>
+        <ul class="up-feats">
+          <li class="up-feat-item plus"><span class="mark">+</span><span>Everything in Starter</span></li>
+          <li class="up-feat-item check"><span class="mark">✓</span><span>$20 of monthly credits</span></li>
+          <li class="up-feat-item check"><span class="mark">✓</span><span>Invite up to 5 collaborators</span></li>
+          <li class="up-feat-item check"><span class="mark">✓</span><span>Work in parallel with up to 2 agents</span></li>
+          <li class="up-feat-item check"><span class="mark">✓</span><span>Publish projects in any region</span></li>
+          <li class="up-feat-item check"><span class="mark">✓</span><span>Unlimited workspaces</span></li>
+          <li class="up-feat-item check"><span class="mark">✓</span><span>Remove "Made with Souqi" badge</span></li>
+          <li class="up-feat-item check"><span class="mark">✓</span><span>Souqi AI Integrations</span></li>
+        </ul>
+        <a href="/checkout?plan=core" class="up-btn up-btn-primary">Continue with Core &rarr;</a>
+      </div>
+
+      <!-- Souqi Pro Plan -->
+      <div class="up-card">
+        <div class="up-card-top">
+          <span class="up-card-title">Souqi Pro</span>
+        </div>
+        <div class="up-price-row">
+          <span class="amt" id="modalProPrice">$100</span>
+          <span class="unit">per month</span>
+        </div>
+        <div class="up-subtitle">For commercial and professional builds</div>
+        <ul class="up-feats">
+          <li class="up-feat-item plus"><span class="mark">+</span><span>Everything in Core</span></li>
+          <li class="up-feat-item check"><span class="mark">✓</span><span>$100 monthly credits</span></li>
+          <li class="up-feat-item check"><span class="mark">✓</span><span>Invite up to 15 collaborators</span></li>
+          <li class="up-feat-item check"><span class="mark">✓</span><span>Invite up to 50 viewers</span></li>
+          <li class="up-feat-item check"><span class="mark">✓</span><span>Work in parallel with up to 10 agents</span></li>
+          <li class="up-feat-item check"><span class="mark">✓</span><span>Access to the most powerful models</span></li>
+          <li class="up-feat-item check"><span class="mark">✓</span><span>Database rollbacks for up to 28 days</span></li>
+        </ul>
+        <select class="up-select" id="modalProCreditSelect">
+          <option value="100">$100 credits</option>
+          <option value="250">$250 credits</option>
+          <option value="500">$500 credits</option>
+        </select>
+        <a href="/checkout?plan=pro" class="up-btn up-btn-primary">Continue with Pro &rarr;</a>
+      </div>
+    </div>
+
+    <div class="up-disclaimer">
+      *Prices are subject to tax depending on your location. Souqi Agent is powered by large language models. While it can produce powerful results, its behavior is probabilistic — meaning it may occasionally make mistakes.
+    </div>
+  </div>
+</div>
+
+<script>
+window.openUpgradeModal = function(e) {
+  if (e && e.preventDefault) e.preventDefault();
+  var modal = document.getElementById("agUpgradeModal");
+  if (modal) modal.classList.add("open");
+};
+
+window.closeUpgradeModal = function() {
+  var modal = document.getElementById("agUpgradeModal");
+  if (modal) modal.classList.remove("open");
+};
+
+document.addEventListener("DOMContentLoaded", function() {
+  var closeBtn = document.getElementById("agUpgradeModalClose");
+  if (closeBtn) closeBtn.addEventListener("click", window.closeUpgradeModal);
+
+  var modal = document.getElementById("agUpgradeModal");
+  if (modal) {
+    modal.addEventListener("click", function(e) {
+      if (e.target === modal) window.closeUpgradeModal();
+    });
+  }
+
+  var mBtn = document.getElementById("modalBtnMonthly");
+  var yBtn = document.getElementById("modalBtnYearly");
+  var cPrice = document.getElementById("modalCorePrice");
+  var pPrice = document.getElementById("modalProPrice");
+
+  if (mBtn && yBtn) {
+    mBtn.addEventListener("click", function() {
+      mBtn.classList.add("active");
+      yBtn.classList.remove("active");
+      if (cPrice) cPrice.textContent = "$20";
+      if (pPrice) pPrice.textContent = "$100";
+    });
+    yBtn.addEventListener("click", function() {
+      yBtn.classList.add("active");
+      mBtn.classList.remove("active");
+      if (cPrice) cPrice.textContent = "$18";
+      if (pPrice) pPrice.textContent = "$90";
+    });
+  }
+});
 </script>
 </body>
 </html>
