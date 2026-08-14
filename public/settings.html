@@ -550,9 +550,13 @@
 <script>
 (function () {
   "use strict";
-  var $ = function (id) { return document.getElementById(id); };
+  var $ = function (id) {
+    var el = document.getElementById(id);
+    return el || { addEventListener: function(){}, style: {}, querySelector: function(){ return null; }, querySelectorAll: function(){ return []; } };
+  };
   function esc(t) { var d = document.createElement("span"); d.textContent = t == null ? "" : t; return d.innerHTML; }
   function note(el, msg, ok) {
+    if (!el) return;
     el.textContent = msg; el.hidden = false;
     el.className = "note " + (ok ? "ok" : "err");
   }
@@ -577,21 +581,27 @@
   var current = "light";
   try { current = localStorage.getItem(THEME_KEY) || "light"; } catch (e) { /* ignore */ }
   applyTheme(current);
-  $("themes").addEventListener("click", function (e) {
-    var b = e.target.closest(".theme"); if (b) applyTheme(b.dataset.theme);
-  });
+  var thEl = document.getElementById("themes");
+  if (thEl) {
+    thEl.addEventListener("click", function (e) {
+      var b = e.target.closest(".theme"); if (b) applyTheme(b.dataset.theme);
+    });
+  }
 
   /* When embedded as the builder's Settings overlay, closing must dismiss
      the overlay rather than navigate this frame to /agent (which would
      leave the builder rendered inside its own iframe). Falls through to
      the plain href when opened as a standalone page. */
   var embedded = window.parent !== window;
-  $("mclose").addEventListener("click", function (e) {
-    if (!embedded) return;
-    e.preventDefault();
-    try { parent.postMessage("souqi:settings:close", "*"); } catch(err) {}
-    try { if (parent.closeSettings) parent.closeSettings(); } catch(err) {}
-  });
+  var mc = document.getElementById("mclose");
+  if (mc) {
+    mc.addEventListener("click", function (e) {
+      if (!embedded) return;
+      e.preventDefault();
+      try { parent.postMessage("souqi:settings:close", "*"); } catch(err) {}
+      try { if (parent.closeSettings) parent.closeSettings(); } catch(err) {}
+    });
+  }
 
   /* Collapsible sections — click the heading, same as Replit. */
   document.addEventListener("click", function (e) {
