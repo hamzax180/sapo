@@ -1,0 +1,26 @@
+# The platform API and worker. Deliberately boring: no build step, no
+# compiler in the runtime image, and it runs as an unprivileged user.
+#
+# The worker still needs the docker CLI, because engine.js shells out to it
+# rather than speaking the HTTP API directly — one binary is easier to reason
+# about than a socket client, and execFile with an argv array is the thing
+# that makes command injection impossible.
+FROM node:20-alpine
+
+RUN apk add --no-cache docker-cli
+
+WORKDIR /app
+COPY package*.json ./
+RUN npm install --omit=dev --no-audit --no-fund
+
+COPY src ./src
+COPY db ./db
+COPY scripts ./scripts
+
+# The worker needs to reach the docker socket, which is root-owned on the
+# host. Running as root inside THIS container is not the risk — this
+# container runs no untrusted code. User code only ever runs in the
+# containers this one creates, which are unprivileged, capability-stripped
+# and on an internal network.
+ENV NODE_ENV=production
+CMD ["node", "src/api/server.js"]

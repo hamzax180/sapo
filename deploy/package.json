@@ -1,0 +1,21 @@
+{
+  "name": "souqi-deploy",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Container deployment plane: build user apps in isolation, run them under hard resource limits, route them over HTTPS.",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "api": "node src/api/server.js",
+    "worker": "node src/worker/index.js",
+    "migrate": "node scripts/migrate.js",
+    "smoke": "node scripts/smoke.js"
+  },
+  "dependencies": {
+    "dotenv": "^17.4.2",
+    "express": "^4.19.2",
+    "jsonwebtoken": "^9.0.3",
+    "pg": "^8.22.0"
+  }
+}

@@ -1,0 +1,148 @@
+# =================================================================
+#  Souqi Deploy — the platform stack
+#  -----------------------------------------------------------------
+#  Four services, and the security boundary runs between them:
+#
+#    postgres  platform data. Not reachable from user containers.
+#    caddy     the ONLY service with published ports (80/443).
+#    api       accepts requests, writes rows, never runs Docker.
+#    worker    the only service with the Docker socket.
+#
+#  Two networks, and the separation is the point:
+#
+#    souqi_platform  postgres + api + worker + caddy
+#    souqi_apps      user containers + caddy   (created --internal
+#                    by the worker, so members have no route off the
+#                    box; Caddy bridges the two)
+#
+#  A user container is therefore on a network that cannot reach
+#  postgres, cannot reach the api, and cannot reach the internet.
+# =================================================================
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-souqi}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-souqi}
+      POSTGRES_DB: ${POSTGRES_DB:-souqi_deploy}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+    # No ports. Nothing outside the platform network talks to the database.
+    networks: [platform]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-souqi} -d ${POSTGRES_DB:-souqi_deploy}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    # The only published ports in the entire stack. Application ports are
+    # never published — that is what forces all traffic through the proxy.
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - caddy_data:/data          # certificates; losing this re-issues them
+      - caddy_config:/config
+      # A minimal bootstrap config so Caddy comes up with its admin API
+      # reachable. The API replaces this wholesale at startup via /load,
+      # which is also what installs the on-demand TLS ask endpoint.
+      - ./caddy/caddy.json:/config/caddy.json:ro
+    environment:
+      # Admin API on the platform network only. Anyone who reaches it can
+      # route any hostname anywhere, so it must never be published.
+      CADDY_ADMIN: "0.0.0.0:2019"
+    command: ["caddy", "run", "--config", "/config/caddy.json", "--adapter", "json", "--resume"]
+    networks: [platform, apps]
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:2019/config/"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build: { context: ., dockerfile: Dockerfile.node }
+    restart: unless-stopped
+    command: ["node", "src/api/server.js"]
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-souqi}:${POSTGRES_PASSWORD:-souqi}@postgres:5432/${POSTGRES_DB:-souqi_deploy}
+      CADDY_ADMIN: http://caddy:2019
+      APP_DOMAIN: ${APP_DOMAIN:-localhost}
+      ACME_EMAIL: ${ACME_EMAIL:-}
+      BUILD_ROOT: /opt/platform/builds
+      SECRET_KEY: ${SECRET_KEY:-}
+      API_PORT: "4500"
+      HOST_ID: ${HOST_ID:-local}
+      # Sessions. JWT_SECRET must match the main app or every session is
+      # rejected; the api refuses to start in production without it.
+      JWT_SECRET: ${JWT_SECRET:-}
+      AUTH_INTROSPECT_URL: ${AUTH_INTROSPECT_URL:-}
+      INTERNAL_TOKEN: ${INTERNAL_TOKEN:-}
+      ALLOW_DEV_AUTH: ${ALLOW_DEV_AUTH:-0}
+      NODE_ENV: ${NODE_ENV:-development}
+    volumes:
+      # Shared with the worker so an upload lands where the build reads it.
+      - builds:/opt/platform/builds
+    # NO docker socket. The api must never be able to run a container.
+    networks: [platform]
+    depends_on:
+      postgres: { condition: service_healthy }
+
+  worker:
+    build: { context: ., dockerfile: Dockerfile.node }
+    restart: unless-stopped
+    command: ["node", "src/worker/index.js"]
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-souqi}:${POSTGRES_PASSWORD:-souqi}@postgres:5432/${POSTGRES_DB:-souqi_deploy}
+      CADDY_ADMIN: http://caddy:2019
+      APP_DOMAIN: ${APP_DOMAIN:-localhost}
+      BUILD_ROOT: /opt/platform/builds
+      SECRET_KEY: ${SECRET_KEY:-}
+      HOST_ID: ${HOST_ID:-local}
+      DEFAULT_CPU: ${DEFAULT_CPU:-0.5}
+      DEFAULT_MEMORY_MB: ${DEFAULT_MEMORY_MB:-512}
+      DEFAULT_PIDS: ${DEFAULT_PIDS:-100}
+      MAX_CONTAINERS: ${MAX_CONTAINERS:-40}
+    volumes:
+      - builds:/opt/platform/builds
+      # THE trust boundary of this whole system.
+      #
+      # The worker holds the Docker socket because building and running
+      # containers IS its job — this is a control plane, and a control plane
+      # needs the control API. The socket is root-equivalent on the host, so:
+      #
+      #   - it is mounted HERE and nowhere else;
+      #   - no user container ever receives it (see docker/engine.js runApp,
+      #     which has no parameter that could add a mount);
+      #   - the worker runs no user-supplied code itself — user build steps
+      #     execute inside the build container, never in this process.
+      #
+      # If you take one rule from this file: never add this line to a
+      # service that executes untrusted input.
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks: [platform]
+    depends_on:
+      postgres: { condition: service_healthy }
+      caddy: { condition: service_started }
+
+networks:
+  platform:
+    name: souqi_platform
+  apps:
+    name: souqi_apps
+    # Created here so Caddy can join it at boot; the worker also ensures it
+    # exists, because the worker may start against a host where compose has
+    # not run. internal:true is what denies user containers any route off
+    # the box.
+    internal: true
+
+volumes:
+  pgdata:
+  builds:
+  caddy_data:
+  caddy_config:

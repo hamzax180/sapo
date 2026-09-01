@@ -1,0 +1,124 @@
+/* =================================================================
+   framework/detect.js — work out what the user uploaded
+   -----------------------------------------------------------------
+   Detection is a convenience, never a contract. An explicit
+   deploy.json in the source always wins, because guessing wrong on
+   someone else's code is worse than asking them to declare it.
+
+   Supported on purpose, and no more (spec: "do not attempt to
+   support every language initially"):
+     static  — Vite/CRA/plain HTML, built to a folder, served by nginx
+     node    — anything with a start script
+     nextjs  — needs its own runtime, not a static export
+     python  — Flask/FastAPI/Django via a WSGI/ASGI server
+   ================================================================= */
+"use strict";
+
+const fs = require("fs");
+const path = require("path");
+
+const FRAMEWORKS = ["static", "node", "nextjs", "python"];
+
+function readJson(dir, name) {
+  try { return JSON.parse(fs.readFileSync(path.join(dir, name), "utf8")); }
+  catch (e) { return null; }
+}
+const has = (dir, name) => fs.existsSync(path.join(dir, name));
+
+/**
+ * @returns {{framework, buildCommand, startCommand, port, outputDir, declared}}
+ */
+function detect(dir) {
+  // 1. An explicit spec wins outright.
+  const declared = readJson(dir, "deploy.json");
+  if (declared && FRAMEWORKS.includes(declared.framework)) {
+    return normalise(Object.assign({ declared: true }, declared));
+  }
+
+  const pkg = readJson(dir, "package.json");
+
+  if (pkg) {
+    const deps = Object.assign({}, pkg.dependencies, pkg.devDependencies);
+    const scripts = pkg.scripts || {};
+
+    if (deps.next) {
+      return normalise({
+        framework: "nextjs",
+        buildCommand: scripts.build ? "npm run build" : "npx next build",
+        startCommand: scripts.start ? "npm start" : "npx next start",
+        port: 3000
+      });
+    }
+
+    // Vite / CRA / any build that emits a folder of static files. Checked
+    // before "node" because these DO have a build script but must not get a
+    // long-running Node process — that would cost 512MB to serve files nginx
+    // handles in 8MB.
+    const staticish = deps.vite || deps["react-scripts"] || deps["@vitejs/plugin-react"];
+    if (staticish && scripts.build) {
+      return normalise({
+        framework: "static",
+        buildCommand: "npm run build",
+        outputDir: deps["react-scripts"] ? "build" : "dist",
+        port: 80
+      });
+    }
+
+    if (scripts.start || pkg.main) {
+      return normalise({
+        framework: "node",
+        buildCommand: scripts.build ? "npm run build" : null,
+        startCommand: scripts.start ? "npm start" : "node " + (pkg.main || "index.js"),
+        port: 3000
+      });
+    }
+  }
+
+  if (has(dir, "requirements.txt") || has(dir, "pyproject.toml")) {
+    return normalise({
+      framework: "python",
+      buildCommand: null,
+      startCommand: guessPythonStart(dir),
+      port: 8000
+    });
+  }
+
+  // Plain HTML with no build step at all.
+  if (has(dir, "index.html")) {
+    return normalise({ framework: "static", buildCommand: null, outputDir: ".", port: 80 });
+  }
+
+  return null;
+}
+
+function guessPythonStart(dir) {
+  if (has(dir, "manage.py")) return "python manage.py runserver 0.0.0.0:8000";
+  for (const f of ["main.py", "app.py", "server.py"]) {
+    if (has(dir, f)) {
+      const mod = f.replace(/\.py$/, "");
+      // Uvicorn covers FastAPI and any ASGI app; a Flask app object works too
+      // via its WSGI shim, so one command serves the common cases.
+      return "uvicorn " + mod + ":app --host 0.0.0.0 --port 8000";
+    }
+  }
+  return "python main.py";
+}
+
+function normalise(s) {
+  const out = {
+    framework: s.framework,
+    buildCommand: s.buildCommand || null,
+    startCommand: s.startCommand || null,
+    port: Number(s.port) || (s.framework === "static" ? 80 : 3000),
+    outputDir: s.outputDir || (s.framework === "static" ? "dist" : null),
+    declared: !!s.declared
+  };
+  if (!FRAMEWORKS.includes(out.framework)) throw new Error("unsupported framework: " + out.framework);
+  // A static site is served by nginx on 80 regardless of what anyone declares;
+  // letting a declared port through here would produce a proxy route pointing
+  // at a port nothing listens on.
+  if (out.framework === "static") out.port = 80;
+  return out;
+}
+
+module.exports = { detect, FRAMEWORKS };
