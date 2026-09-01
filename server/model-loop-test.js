@@ -441,7 +441,7 @@ const ROUTES = { prose: { baseUrl: "https://x.invalid", model: "m", key: "k" }, 
 
   await check("a vague prompt -> {clear:false} with the model's own warm reply, not a canned question", async () => {
     client.init({ enabled: true, routes: ROUTES, fetchImpl: jsonReplyFetch({ clear: false, reply: "Hey! 👋 What would you like me to build?" }) });
-    const res = await assessPrompt("hello");
+    const res = await assessPrompt("make it really nice please");
     assert.strictEqual(res.clear, false);
     assert.strictEqual(res.reply, "Hey! 👋 What would you like me to build?");
   });
@@ -449,40 +449,59 @@ const ROUTES = { prose: { baseUrl: "https://x.invalid", model: "m", key: "k" }, 
   await check("uses the json (DeepSeek) route, not prose — this is a classification call, not copywriting", async () => {
     let hitUrl = "";
     client.init({ enabled: true, routes: ROUTES, fetchImpl: async (url) => { hitUrl = url; return (await jsonReplyFetch({ clear: true })()); } });
-    await assessPrompt("hello");
+    await assessPrompt("make it really nice please");
     assert.ok(hitUrl.indexOf("/json") >= 0, "expected the json-route baseUrl, got: " + hitUrl);
   });
 
   await check("clear:false with NO reply text -> fails open, not a broken prompt", async () => {
     client.init({ enabled: true, routes: ROUTES, fetchImpl: jsonReplyFetch({ clear: false }) });
-    const res = await assessPrompt("hello");
+    const res = await assessPrompt("make it really nice please");
     assert.strictEqual(res.clear, true, "a malformed refusal should fail OPEN (let the build proceed), not silently block one");
   });
 
   await check("clear:false with an empty/whitespace reply -> also fails open", async () => {
     client.init({ enabled: true, routes: ROUTES, fetchImpl: jsonReplyFetch({ clear: false, reply: "   " }) });
-    const res = await assessPrompt("hello");
+    const res = await assessPrompt("make it really nice please");
     assert.strictEqual(res.clear, true);
   });
 
   await check("malformed JSON from the assessment call itself -> fails open", async () => {
     client.init({ enabled: true, routes: ROUTES, fetchImpl: jsonReplyFetch("not json at all") });
-    const res = await assessPrompt("hello");
+    const res = await assessPrompt("make it really nice please");
     assert.strictEqual(res.clear, true);
   });
 
   await check("the assessment call failing outright (network, breaker, budget) -> fails open, never blocks a build", async () => {
     client.init({ enabled: true, routes: ROUTES, fetchImpl: async () => ({ ok: false, status: 500, json: async () => ({}) }) });
-    const res = await assessPrompt("hello");
+    const res = await assessPrompt("make it really nice please");
     assert.strictEqual(res.clear, true);
   });
 
   await check("AI disabled -> fails open too, no crash, no fetch reached", async () => {
     let reached = false;
     client.init({ enabled: false, routes: ROUTES, fetchImpl: async () => { reached = true; } });
-    const res = await assessPrompt("hello");
+    const res = await assessPrompt("make it really nice please");
     assert.strictEqual(res.clear, true);
     assert.strictEqual(reached, false);
+  });
+
+  await check("quickAssess answers greetings and noise itself — no model call, works with the provider down", async () => {
+    let reached = false;
+    client.init({ enabled: true, routes: ROUTES, fetchImpl: async () => { reached = true; } });
+    for (const noise of ["hello", "hi", "HHH", "haha", "test", "ok", "zzz"]) {
+      const res = await assessPrompt(noise);
+      assert.strictEqual(res.clear, false, JSON.stringify(noise) + " should not reach a build");
+      assert.ok(res.reply && res.reply.length > 0, "should offer a reply to show");
+    }
+    assert.strictEqual(reached, false, "the gate must not touch the network");
+  });
+
+  await check("quickAssess never rejects a real request, however short", async () => {
+    client.init({ enabled: true, routes: ROUTES, fetchImpl: jsonReplyFetch({ clear: true }) });
+    for (const real of ["a todo app", "bakery site", "crm", "gym", "2d game", "portfolio"]) {
+      const res = await assessPrompt(real);
+      assert.strictEqual(res.clear, true, JSON.stringify(real) + " is a build request");
+    }
   });
 
   console.log("\n" + (failed === 0 ? "✓ ALL MODEL-LOOP TESTS PASSED (" + passed + ")" : "✗ " + failed + " FAILED, " + passed + " passed"));

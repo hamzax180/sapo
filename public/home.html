@@ -64,16 +64,37 @@
   /* ================= NAV (same bar as login.html) ================= */
   /* `static`, exactly like login.html: the bar scrolls away with the page
      rather than following you down it. */
-  .nav{position:static;z-index:40;display:flex;align-items:center;gap:20px;padding:14px clamp(18px,4vw,40px);
-    background:var(--paper)}
-  .brand{display:flex;align-items:center;gap:10px;font-family:var(--disp);font-weight:800;font-size:1.1rem;color:var(--ink)}
-  .nav .lnk{margin-left:auto;display:flex;gap:2px}
+  /* Layout: logo hard left, primary nav sitting immediately beside it, and
+     account actions pushed to the far right. The links used to carry
+     margin-left:auto, which shoved the whole set right and left a large
+     dead gap after the logo — the nav read as one right-hand cluster
+     instead of two balanced groups. The auto margin now lives on the
+     right-hand group (.nav-right) instead, which is what creates the
+     split. Taller padding and a wider link gap to match. */
+  .nav{position:static;z-index:40;display:flex;align-items:center;gap:34px;
+    padding:18px clamp(18px,4vw,44px);background:var(--paper)}
+  .brand{display:flex;align-items:center;gap:11px;font-family:var(--disp);font-weight:800;font-size:1.5rem;letter-spacing:-.02em;color:var(--ink);flex:none}
+  .brand img{width:34px !important;height:34px !important;border-radius:7px !important}
+  .nav .lnk{display:flex;align-items:center;gap:6px;flex:none}
+  /* Everything after the primary nav: language, sign in, primary CTA. */
+  /* margin-inline-start, NOT margin-left. This is what creates the split
+     between the nav and the account actions, and margin-left is physical:
+     in RTL the free space sits on the other side, so an auto LEFT margin
+     pushes this group back toward the logo instead of away from it —
+     which left the whole bar bunched on the right with a dead gap beside
+     it in Arabic. The logical property flips with direction. */
+  .nav-right{margin-inline-start:auto;display:flex;align-items:center;gap:14px;flex:none}
   .ndrop{position:relative}
-  .ntop{display:inline-flex;align-items:center;gap:5px;background:none;border:0;cursor:pointer;font:inherit;font-size:.88rem;font-weight:500;color:var(--ink);padding:9px 12px;border-radius:9px;transition:.16s}
+  .ntop{display:inline-flex;align-items:center;gap:6px;background:none;border:0;cursor:pointer;font:inherit;font-size:.96rem;font-weight:500;color:var(--ink);padding:9px 10px;border-radius:9px;transition:.16s;white-space:nowrap}
   .ntop svg{width:12px;height:12px;opacity:.6;transition:transform .18s}
   .ndrop:hover .ntop{background:rgba(18,32,46,.06);color:var(--ink)}
   .ndrop:hover .ntop svg{transform:rotate(180deg)}
-  .npanel{position:absolute;top:calc(100% + 8px);left:0;min-width:252px;background:#fff;border:1px solid var(--line);border-radius:14px;
+  /* background:var(--card), NOT #fff. It was hardcoded white while its text
+     used var(--ink) — which is a cream on the dark theme, so the bold item
+     titles rendered white-on-white and vanished. (The grey descriptions
+     survived only because --mut happens to stay dark.) Using the card
+     token means the panel follows the theme like everything else. */
+  .npanel{position:absolute;top:calc(100% + 8px);inset-inline-start:0;min-width:252px;background:var(--card);border:1px solid var(--line);border-radius:14px;
     box-shadow:0 18px 46px rgba(11,30,51,.16);padding:9px;opacity:0;visibility:hidden;transform:translateY(8px);
     transition:opacity .16s,transform .16s,visibility .16s;z-index:60}
   .ndrop:hover .npanel{opacity:1;visibility:visible;transform:none}
@@ -81,12 +102,26 @@
   .npanel a:hover{background:var(--paper-2);color:var(--ink)}
   .npanel a b{display:block;font-size:.9rem;color:var(--ink);font-weight:700}
   .npanel a small{display:block;font-size:.76rem;color:var(--mut);margin-top:1px;font-weight:400}
-  .npanel.cols{display:grid;grid-template-columns:1fr 1fr;min-width:380px;gap:0 6px}
+  /* auto-fit, not a hardcoded 1fr 1fr. This panel has only ONE group of
+     links in it, so a forced two-column grid with min-width:380px gave it
+     a second, permanently empty column — the panel rendered ~380px wide
+     with the right half blank. auto-fit collapses to a single column when
+     there is one child and still lays out two side by side if a second
+     group is ever added. */
+  .npanel.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(168px,1fr));
+    min-width:auto;gap:0 6px}
   .npanel.cols h5{font-size:.64rem;text-transform:uppercase;letter-spacing:.1em;color:var(--mut);font-weight:800;padding:8px 11px 4px;margin:0}
-  .btn-g{padding:9px 15px;border:1px solid var(--line);border-radius:10px;color:var(--ink);font-size:.86rem;font-weight:600;transition:.16s}
-  .btn-g:hover{border-color:#c6dbe7;background:rgba(18,32,46,.05)}
-  .btn-d{padding:9px 17px;border-radius:10px;background:var(--accent);color:#fff;font-size:.86rem;font-weight:700;transition:.16s}
-  .btn-d:hover{background:var(--accent-2);transform:translateY(-1px)}
+  /* "Sign in" is a plain text link (no box) — the bar reads calmer with a
+     single bordered shape in it, and it makes the CTA unambiguous. */
+  .btn-g{padding:9px 6px;border:0;color:var(--ink);font-size:.96rem;font-weight:500;transition:.16s;white-space:nowrap}
+  .btn-g:hover{color:var(--accent-2);background:none}
+  /* Primary CTA is an OUTLINED pill in the accent, not a filled block:
+     against a warm paper background a solid fill is heavy, and the outline
+     still wins the eye because it is the only bordered element up there. */
+  .btn-d{padding:11px 22px;border-radius:999px;background:transparent;
+    border:1.5px solid var(--accent);color:var(--accent-2);
+    font-size:.96rem;font-weight:600;transition:.16s;white-space:nowrap}
+  .btn-d:hover{background:var(--accent);color:#fff;transform:none}
   /* the Agent badge stays the one bold thing in the bar */
   .nav-agent{display:inline-flex;align-items:center;background:var(--accent);color:#fff;border-radius:999px;
     padding-inline-start:14px;font-weight:700;font-size:.86rem;height:34px;margin-inline-start:6px;transition:.16s}
@@ -120,387 +155,6 @@
   .bh-hero .wrap{position:relative;z-index:5}
 
   /* 3D Flank Device Mockups */
-  .hero-device {
-    position: absolute;
-    top: 50%;
-    z-index: 2;
-    pointer-events: none;
-    user-select: none;
-    transition: transform 0.6s var(--ease), opacity 0.6s var(--ease);
-    filter: drop-shadow(0 32px 64px rgba(15, 23, 42, 0.28));
-  }
-
-  /* Left — MacBook Pro Space Black (50% Split) */
-  .hero-device-macbook {
-    left: -300px;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 600px;
-    opacity: 0.96;
-  }
-  @media (max-width: 1400px) {
-    .hero-device-macbook { left: -260px; width: 520px; }
-  }
-  @media (max-width: 1100px) {
-    .hero-device-macbook { display: none; }
-  }
-
-  .macbook-lid {
-    background: linear-gradient(145deg, #1e2430 0%, #0d1117 100%);
-    border: 12px solid #0f172a;
-    border-radius: 24px 24px 4px 4px;
-    padding: 3px;
-    position: relative;
-    box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.2), 0 0 40px rgba(56, 189, 248, 0.12);
-  }
-  .macbook-camera {
-    position: absolute; top: 5px; left: 50%; transform: translateX(-50%);
-    width: 6px; height: 6px; background: #000; border-radius: 50%; border: 1px solid #334155; z-index: 10;
-  }
-  .macbook-screen {
-    background: #0b0f19;
-    border-radius: 12px;
-    height: 350px;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-    box-shadow: inset 0 0 20px rgba(0,0,0,0.8);
-  }
-  .macbook-header {
-    height: 30px; background: #131b2e; border-bottom: 1px solid #1e293b;
-    display: flex; align-items: center; justify-content: space-between; padding: 0 12px;
-  }
-  .mac-dots { display: flex; align-items: center; gap: 6px; }
-  .mac-dot { width: 9px; height: 9px; border-radius: 50%; }
-  .mac-dot.red { background: #ef4444; }
-  .mac-dot.yellow { background: #f59e0b; }
-  .mac-dot.green { background: #22c55e; }
-  .mac-url {
-    font-size: 0.72rem; color: #94a3b8; font-family: monospace; font-weight: 500;
-    background: #0f172a; border: 1px solid #1e293b; border-radius: 6px; padding: 2px 14px;
-    display: flex; align-items: center; gap: 6px;
-  }
-  .mac-url svg { width: 12px; height: 12px; color: #38bdf8; }
-  .mac-url b { color: #f8fafc; font-weight: 600; }
-  .mac-actions span { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #475569; margin-left: 4px; }
-
-  .macbook-content { display: flex; flex: 1; height: calc(100% - 30px); background: #0b0f19; color: #f8fafc; }
-  .mac-sidebar { width: 90px; background: #0f172a; border-right: 1px solid #1e293b; padding: 12px 10px; display: flex; flex-direction: column; gap: 10px; }
-  .mac-side-item { height: 16px; border-radius: 6px; background: #1e293b; display: flex; align-items: center; gap: 6px; padding: 0 6px; }
-  .mac-side-item.on { background: rgba(56, 189, 248, 0.2); border: 1px solid rgba(56, 189, 248, 0.4); }
-  .mac-side-item .ic { width: 8px; height: 8px; border-radius: 50%; background: #38bdf8; }
-  .mac-side-item .txt { flex: 1; height: 4px; background: rgba(255,255,255,0.3); border-radius: 2px; }
-
-  .mac-main { flex: 1; padding: 14px; display: flex; flex-direction: column; gap: 12px; background: #0b0f19; text-align: left; }
-  .mac-top-banner {
-    height: 75px; background: linear-gradient(135deg, rgba(14, 165, 233, 0.25), rgba(124, 58, 237, 0.25));
-    border: 1px solid rgba(56, 189, 248, 0.3); border-radius: 12px; padding: 12px 14px;
-    display: flex; align-items: center; justify-content: space-between;
-  }
-  .mac-stat-col small { display: block; font-size: 0.68rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.04em; }
-  .mac-stat-col b { display: block; font-size: 1.1rem; color: #f8fafc; font-weight: 700; margin-top: 2px; }
-  .mac-stat-col .up { font-size: 0.72rem; color: #4ade80; font-weight: 600; }
-  .mac-mini-chart { width: 100px; height: 36px; }
-
-  .macbook-hd-frame {
-    width: 100%;
-    height: calc(100% - 30px);
-    overflow: hidden;
-    position: relative;
-    background: #090d16;
-  }
-  .device-hd-img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    display: block;
-  }
-  .iphone-hd-img {
-    border-radius: 32px;
-  }
-
-  /* ============ Hero device screen scenes ============
-     Each device cycles through several fake "apps" so the mockups show
-     what the product makes, not one frozen screenshot. Built entirely
-     from DOM + CSS: the previous JPEG had no addressable parts, so it
-     could never show more than the single app baked into its pixels.
-     Only one .scene is .on at a time; the rest sit at opacity 0. */
-  .scene-stage{position:absolute;inset:0;overflow:hidden;background:#0b1220}
-  .scene{position:absolute;inset:0;opacity:0;pointer-events:none;
-    transition:opacity .5s var(--ease);font-size:9px;line-height:1.35}
-  .scene.on{opacity:1}
-  .scene-stage.phone .scene{font-size:8px}
-
-  /* ---- shared chrome ---- */
-  .sc-bar{height:14px;display:flex;align-items:center;gap:4px;padding:0 6px;
-    background:rgba(255,255,255,.06);border-bottom:1px solid rgba(255,255,255,.08)}
-  .sc-bar i{width:4px;height:4px;border-radius:50%;background:rgba(255,255,255,.25)}
-  .sc-bar b{margin-left:4px;font-weight:600;font-size:7px;color:rgba(255,255,255,.5);letter-spacing:.02em}
-  .sc-body{position:absolute;inset:14px 0 0;padding:8px 10px;color:#e8eef7}
-
-  /* ---- 1. company / SaaS landing page ---- */
-  .sc-hero-h{font-family:var(--disp);font-weight:700;font-size:15px;line-height:1.1;
-    background:linear-gradient(100deg,#fff,#7dd3fc);-webkit-background-clip:text;background-clip:text;color:transparent;
-    opacity:0;animation:scRise .5s var(--ease) .15s forwards}
-  .sc-hero-p{color:rgba(232,238,247,.6);margin-top:5px;max-width:70%;
-    opacity:0;animation:scRise .5s var(--ease) .3s forwards}
-  .sc-cta{display:inline-block;margin-top:8px;padding:4px 10px;border-radius:6px;
-    background:linear-gradient(180deg,#38bdf8,#0ea5e9);color:#04202e;font-weight:700;font-size:8px;
-    opacity:0;animation:scRise .5s var(--ease) .45s forwards}
-  .sc-cards{display:flex;gap:6px;margin-top:10px}
-  .sc-card{flex:1;height:34px;border-radius:6px;background:rgba(255,255,255,.06);
-    border:1px solid rgba(255,255,255,.09);opacity:0;animation:scRise .5s var(--ease) forwards}
-  .sc-card:nth-child(1){animation-delay:.55s}
-  .sc-card:nth-child(2){animation-delay:.65s}
-  .sc-card:nth-child(3){animation-delay:.75s}
-  @keyframes scRise{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:none}}
-
-  /* ---- 2. analytics dashboard: bars grow, line draws ---- */
-  .sc-kpis{display:flex;gap:6px}
-  .sc-kpi{flex:1;padding:5px 6px;border-radius:6px;background:rgba(255,255,255,.05);
-    border:1px solid rgba(255,255,255,.08)}
-  .sc-kpi u{display:block;text-decoration:none;font-size:6px;color:rgba(232,238,247,.45)}
-  .sc-kpi b{font-size:11px;font-weight:700;color:#7dd3fc}
-  .sc-chart{margin-top:8px;height:52px;border-radius:6px;background:rgba(255,255,255,.04);
-    border:1px solid rgba(255,255,255,.07);display:flex;align-items:flex-end;gap:4px;padding:6px}
-  .sc-chart i{flex:1;border-radius:2px 2px 0 0;background:linear-gradient(180deg,#38bdf8,#0369a1);
-    height:0;animation:scBar .7s var(--ease) forwards}
-  @keyframes scBar{to{height:var(--h)}}
-
-  /* ---- 3. storefront grid ---- */
-  .sc-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:6px}
-  .sc-tile{border-radius:6px;overflow:hidden;background:rgba(255,255,255,.05);
-    border:1px solid rgba(255,255,255,.08);opacity:0;animation:scRise .45s var(--ease) forwards}
-  .sc-tile s{display:block;height:26px;text-decoration:none;background:linear-gradient(135deg,var(--tc,#38bdf8),rgba(0,0,0,.35))}
-  .sc-tile em{display:block;font-style:normal;padding:3px 4px;font-size:6px;color:rgba(232,238,247,.7)}
-
-  /* ---- 4. THE 2D GAME ----
-     A side-scroller done with looping CSS transforms only: two parallax
-     layers translate on a linear loop, the ground tiles, and the hero
-     bounces. Nothing here allocates per-frame in JS except the score. */
-  .sc-game{position:absolute;inset:0;background:linear-gradient(180deg,#1b2a4a 0%,#2d4a7c 45%,#4a7ba8 100%);overflow:hidden}
-  .sc-sun{position:absolute;top:12%;right:14%;width:16px;height:16px;border-radius:50%;
-    background:#ffd97d;box-shadow:0 0 14px 5px rgba(255,217,125,.35)}
-  .sc-hills{position:absolute;left:0;bottom:22%;width:200%;height:34%;
-    background:radial-gradient(circle at 12% 100%,#1e3a5f 0 22%,transparent 22%),
-               radial-gradient(circle at 37% 100%,#1e3a5f 0 26%,transparent 26%),
-               radial-gradient(circle at 62% 100%,#1e3a5f 0 22%,transparent 22%),
-               radial-gradient(circle at 87% 100%,#1e3a5f 0 26%,transparent 26%);
-    animation:scScroll 5.5s linear infinite}
-  .sc-hills.back{bottom:30%;height:30%;opacity:.55;animation-duration:9s;filter:hue-rotate(-12deg)}
-  .sc-ground{position:absolute;left:0;bottom:0;width:200%;height:22%;
-    background:repeating-linear-gradient(90deg,#2f7d4f 0 14px,#276a43 14px 28px);
-    border-top:2px solid #3da065;animation:scScroll 1.7s linear infinite}
-  @keyframes scScroll{from{transform:translateX(0)}to{transform:translateX(-50%)}}
-  .sc-hero-ch{position:absolute;left:18%;bottom:22%;width:11px;height:13px;border-radius:3px 3px 2px 2px;
-    background:linear-gradient(180deg,#ff8a5b,#f2542d);box-shadow:0 2px 0 rgba(0,0,0,.25);
-    animation:scHop 1.05s cubic-bezier(.3,.9,.4,1) infinite}
-  .sc-hero-ch::after{content:"";position:absolute;top:3px;right:1.5px;width:2.5px;height:2.5px;
-    border-radius:50%;background:#0b1220}
-  @keyframes scHop{0%,100%{transform:translateY(0) scaleY(1)}
-    12%{transform:translateY(0) scaleY(.86)}
-    45%{transform:translateY(-19px) scaleY(1.06)}
-    78%{transform:translateY(0) scaleY(.94)}}
-  .sc-ob{position:absolute;bottom:22%;width:7px;height:12px;border-radius:2px;
-    background:linear-gradient(180deg,#8b5cf6,#6d28d9);animation:scOb 2.4s linear infinite}
-  .sc-ob.b{animation-delay:1.2s;height:9px}
-  @keyframes scOb{from{left:104%}to{left:-12%}}
-  .sc-hud{position:absolute;top:6px;left:8px;right:8px;display:flex;justify-content:space-between;
-    font-weight:700;font-size:8px;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.5)}
-
-  /* ---- richer app layouts for the laptop ----
-     The first pass here was flat grey boxes at 9px, which read as a
-     wireframe rather than a finished app. These add a real sidebar, a
-     drawing line chart and a syntax-coloured editor so the screen looks
-     like software someone actually shipped. */
-  .sc-app{position:absolute;inset:14px 0 0;display:flex}
-  .sc-side{width:52px;flex:none;background:rgba(0,0,0,.28);border-right:1px solid rgba(255,255,255,.07);
-    padding:7px 5px;display:flex;flex-direction:column;gap:4px}
-  .sc-side u{display:flex;align-items:center;gap:4px;text-decoration:none;font-size:6px;
-    color:rgba(232,238,247,.5);padding:3px 4px;border-radius:4px}
-  .sc-side u:first-child{background:rgba(56,189,248,.16);color:#7dd3fc;font-weight:700}
-  .sc-side u s{width:5px;height:5px;border-radius:1.5px;background:currentColor;opacity:.7;text-decoration:none}
-  .sc-main{flex:1;min-width:0;padding:8px 10px;color:#e8eef7}
-  .sc-h{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:7px}
-  .sc-h b{font-family:var(--disp);font-size:12px;font-weight:700}
-  .sc-h u{text-decoration:none;font-size:6px;color:#34d399;font-weight:700}
-
-  /* drawing line chart */
-  .sc-line{width:100%;height:56px;display:block}
-  .sc-line path.ln{fill:none;stroke:#38bdf8;stroke-width:2;stroke-linecap:round;
-    stroke-dasharray:260;stroke-dashoffset:260;animation:scDraw 1.5s var(--ease) .2s forwards}
-  .sc-line path.ar{fill:url(#scGrad);opacity:0;animation:scFadeIn .7s ease 1s forwards}
-  @keyframes scDraw{to{stroke-dashoffset:0}}
-  @keyframes scFadeIn{to{opacity:1}}
-  .sc-dotmark{r:2.5;fill:#fff;opacity:0;animation:scFadeIn .3s ease 1.35s forwards}
-
-  /* syntax-coloured editor + live preview */
-  .sc-split{display:flex;gap:0;position:absolute;inset:14px 0 0}
-  .sc-code{flex:1.15;min-width:0;padding:7px 8px;font-family:ui-monospace,Menlo,Consolas,monospace;
-    font-size:6.5px;line-height:1.7;background:#0a0f1a;color:#93a4bd;overflow:hidden}
-  .sc-code div{white-space:pre;opacity:0;animation:scType .01s linear forwards}
-  @keyframes scType{to{opacity:1}}
-  .sc-code .k{color:#c792ea}.sc-code .s{color:#a5e075}.sc-code .f{color:#82aaff}.sc-code .c{color:#4b5b73}
-  .sc-caret{display:inline-block;width:3px;height:7px;background:#7dd3fc;vertical-align:-1px;
-    animation:scBlink .9s steps(1) infinite}
-  @keyframes scBlink{50%{opacity:0}}
-  .sc-live{flex:1;min-width:0;background:#0f1626;border-left:1px solid rgba(255,255,255,.08);
-    padding:7px 8px;display:flex;flex-direction:column;gap:5px}
-  .sc-live-tag{font-size:5.5px;letter-spacing:.14em;color:#34d399;font-weight:700}
-  .sc-live-h{font-family:var(--disp);font-size:11px;font-weight:700;color:#fff;line-height:1.15;
-    opacity:0;animation:scRise .5s var(--ease) 1.1s forwards}
-  .sc-live-btn{align-self:flex-start;padding:3px 8px;border-radius:5px;font-size:6.5px;font-weight:700;
-    background:linear-gradient(180deg,#38bdf8,#0ea5e9);color:#04202e;
-    opacity:0;animation:scRise .5s var(--ease) 1.35s forwards}
-  .sc-live-row{height:6px;border-radius:3px;background:rgba(255,255,255,.09);
-    opacity:0;animation:scRise .4s var(--ease) forwards}
-
-  /* ---- 5. chat / social feed ---- */
-  .sc-msg{max-width:78%;padding:4px 6px;border-radius:8px;margin-bottom:5px;
-    background:rgba(255,255,255,.08);opacity:0;animation:scRise .4s var(--ease) forwards}
-  .sc-msg.me{margin-left:auto;background:linear-gradient(180deg,#38bdf8,#0284c7);color:#04202e;font-weight:600}
-
-  @media (prefers-reduced-motion:reduce){
-    .scene *,.sc-game *{animation:none !important}
-    .sc-hero-h,.sc-hero-p,.sc-cta,.sc-card,.sc-tile,.sc-msg{opacity:1 !important;transform:none !important}
-    .sc-chart i{height:var(--h) !important}
-  }
-
-  .macbook-base {
-    height: 14px; background: linear-gradient(180deg, #334155, #1e293b); border-radius: 0 0 16px 16px;
-    margin-top: 1px; position: relative;
-    box-shadow: inset 0 -3px 6px rgba(0,0,0,0.3);
-  }
-  .macbook-notch {
-    position: absolute; top: 0; left: 42%; width: 16%; height: 5px;
-    background: #0f172a; border-radius: 0 0 5px 5px;
-  }
-
-  /* Right — Titanium iPhone 16 Pro (50% Split) */
-  .hero-device-iphone {
-    right: -160px;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 320px;
-    opacity: 0.96;
-  }
-  @media (max-width: 1400px) {
-    .hero-device-iphone { right: -130px; width: 270px; }
-  }
-  @media (max-width: 1100px) {
-    .hero-device-iphone { display: none; }
-  }
-
-  .iphone-side-btn {
-    position: absolute; background: #334155; border-radius: 3px; z-index: 1;
-  }
-  .btn-vol-up { left: -4px; top: 110px; width: 4px; height: 38px; }
-  .btn-vol-dn { left: -4px; top: 160px; width: 4px; height: 38px; }
-  .btn-power { right: -4px; top: 130px; width: 4px; height: 56px; }
-
-  .iphone-bezel {
-    background: #0b0f19;
-    border: 11px solid #1e293b;
-    border-radius: 54px;
-    padding: 8px;
-    position: relative;
-    box-shadow: 0 32px 64px rgba(0,0,0,0.35), inset 0 0 0 1.5px rgba(255,255,255,0.22);
-  }
-  .iphone-island {
-    position: absolute; top: 16px; left: 50%; transform: translateX(-50%);
-    width: 86px; height: 24px; background: #000000; border-radius: 20px; z-index: 20;
-    display: flex; align-items: center; justify-content: flex-end; padding-right: 8px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.6);
-  }
-  .island-cam { width: 10px; height: 10px; border-radius: 50%; background: #0f172a; border: 1px solid #1e293b; }
-
-  .iphone-screen {
-    /* position:relative is load-bearing, not decoration. overflow:hidden
-       only clips an absolutely-positioned descendant when this element is
-       that descendant's containing block. While this was static, the
-       .scene-stage inside resolved against .iphone-bezel instead, escaped
-       the rounded clip entirely and painted square corners over the frame
-       edge. (.macbook-hd-frame already sets position:relative, which is
-       why only the phone showed the broken edge.) */
-    position: relative;
-    background: #0f172a;
-    color: #f8fafc;
-    border-radius: 44px;
-    height: 500px;
-    overflow: hidden;
-    padding-top: 14px;
-    display: flex;
-    flex-direction: column;
-  }
-  .iphone-status-bar {
-    height: 30px; display: flex; align-items: center; justify-content: space-between;
-    padding: 0 20px; font-size: 0.76rem; font-weight: 700; color: #f8fafc; z-index: 10;
-  }
-  .ip-icons { display: flex; align-items: center; gap: 6px; }
-  .ip-ic { width: 14px; height: 14px; color: #f8fafc; }
-  .ip-bat { width: 18px; height: 9px; border: 1.5px solid #f8fafc; border-radius: 3px; position: relative; }
-  .ip-bat::after { content:""; position: absolute; right: -3px; top: 2px; width: 2px; height: 3px; background: #f8fafc; border-radius: 0 1px 1px 0; }
-
-  .iphone-app { padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; height: 100%; text-align: left; }
-  .ip-header { display: flex; align-items: center; justify-content: space-between; }
-  .ip-brand-wrap { display: flex; align-items: center; gap: 8px; }
-  .ip-logo { width: 32px; height: 32px; background: linear-gradient(135deg, #f59e0b, #d97706); border-radius: 10px; display: grid; place-items: center; font-size: 1rem; }
-  .ip-title { display: block; font-size: 0.88rem; font-weight: 700; color: #f8fafc; }
-  .ip-sub { display: block; font-size: 0.68rem; color: #94a3b8; }
-  .ip-badge { font-size: 0.65rem; font-weight: 700; background: rgba(34, 197, 94, 0.2); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.4); padding: 3px 8px; border-radius: 99px; }
-
-  .ip-card {
-    height: 110px; background: linear-gradient(135deg, #0284c7, #38bdf8); border-radius: 18px;
-    padding: 14px; display: flex; flex-direction: column; justify-content: flex-end; position: relative; overflow: hidden;
-    box-shadow: 0 8px 20px rgba(2, 132, 199, 0.3);
-  }
-  .ip-card-badge { position: absolute; top: 12px; right: 12px; font-size: 0.65rem; font-weight: 700; background: rgba(0,0,0,0.3); color: #fff; padding: 2px 7px; border-radius: 99px; }
-  .ip-card-txt { font-size: 0.98rem; font-weight: 800; color: #ffffff; }
-  .ip-card-sub { font-size: 0.7rem; color: rgba(255,255,255,0.85); margin-top: 2px; }
-
-  .ip-section-title { font-size: 0.76rem; font-weight: 700; color: #cbd5e1; text-transform: uppercase; letter-spacing: 0.04em; margin-top: 4px; }
-  .ip-list { display: flex; flex-direction: column; gap: 8px; flex: 1; }
-  .ip-item {
-    background: #1e293b; border: 1px solid #334155; border-radius: 14px; padding: 8px 10px;
-    display: flex; align-items: center; gap: 10px;
-  }
-  .ip-item .thumb { width: 34px; height: 34px; border-radius: 8px; flex: none; }
-  .ip-item .thumb.t1 { background: linear-gradient(135deg, #7c3aed, #c084fc); }
-  .ip-item .thumb.t2 { background: linear-gradient(135deg, #f59e0b, #fbbf24); }
-  .ip-item .info { flex: 1; }
-  .ip-item .info b { display: block; font-size: 0.78rem; font-weight: 700; color: #f8fafc; }
-  .ip-item .info small { display: block; font-size: 0.7rem; color: #38bdf8; font-weight: 600; }
-  .ip-item .add-btn { width: 26px; height: 26px; border-radius: 50%; background: #38bdf8; color: #0f172a; font-weight: 800; font-size: 1rem; display: grid; place-items: center; }
-
-  .ip-dock {
-    height: 48px; background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(12px);
-    border: 1px solid rgba(255,255,255,0.1); border-radius: 20px; margin-top: auto;
-    display: flex; align-items: center; justify-content: space-around; padding: 0 10px;
-  }
-  .dock-item { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; font-size: 1.1rem; opacity: 0.6; }
-  .dock-item.on { opacity: 1; background: rgba(56, 189, 248, 0.2); border: 1px solid rgba(56, 189, 248, 0.4); }
-
-  .bh-h1{font-size:clamp(2.5rem,7vw,4.6rem);font-weight:600}
-  /* Static, solid, always legible — deliberately plain.
-     This line used to rotate every 3.8s through a gradient-clipped,
-     8px-blurred, light-swept transition. Because the blur ran while
-     opacity was 0, the line spent roughly 10% of its life as an
-     illegible smudge, which is exactly what it looked like on screen.
-     The reference we were matching does none of that: measured with a
-     MutationObserver over 60+ seconds, its tagline never changes at all
-     — one static line, solid colour, no gradient, no blur, no sweep.
-     So this is one static line too.
-     .bh-sub keeps only its one-shot entrance. If a rotator is ever
-     wanted again, reserve the box with visibility:hidden sizer spans
-     first, or swapping strings will shift the layout under it. */
-  .bh-sub{color:var(--ink-2);font-size:clamp(1.05rem,2.2vw,1.22rem);font-weight:500;margin:18px auto 0;max-width:650px;
-    opacity:0;animation:prodIn .5s var(--ease) .08s forwards}
-
-  /* composer */
-  /* Composer treatment — the same three-part build as the Souqi Code chat
-     composer (see .ag-box in code.html): a bloom behind, a box-shadow halo
-     at the rim, and a travelling conic beam on the border. Palette lives
-     in custom properties so both pages state their colours the same way. */
   .bh-composer{display:block;max-width:720px;width:100%;margin:clamp(26px,4vw,42px) auto 0;position:relative;z-index:10;text-align:left}
   .ag-box{
     --glow-a:26,166,223;   /* cyan accent */
@@ -611,12 +265,22 @@
   .ag-think-badge{background:rgba(124,58,237,0.18);color:#a78bfa;border:1px solid rgba(124,58,237,0.4);
     border-radius:999px;padding:1px 6px;font-size:.7rem;font-weight:600}
 
-  .ag-model-popover{position:absolute;bottom:calc(100% + 8px);left:0;width:250px;
+  /* Anchored to the pill's RIGHT edge, not its left: the model pill now
+     sits at the right end of the toolbar, so a left-anchored 250px panel
+     opened off the right side of the screen on a phone (measured: right
+     edge at 403px in a 375px viewport). min() keeps it inside the viewport
+     on the narrowest screens, where 250px alone would still not fit. */
+  .ag-model-popover{position:absolute;top:calc(100% + 8px);bottom:auto;right:0;left:auto;
+    width:min(250px,calc(100vw - 28px));
     background:var(--card);border:1px solid var(--line);border-radius:14px;padding:8px;
     box-shadow:0 16px 40px -10px rgba(11,22,38,.45);
-    opacity:0;visibility:hidden;transform:translateY(6px);
+    opacity:0;visibility:hidden;transform:translateY(-6px);
     transition:opacity .16s ease,transform .16s ease,visibility .16s ease;z-index:100}
   .ag-model-popover.open{opacity:1;visibility:visible;transform:none}
+  /* Flipped when there is no room below. Direction is chosen at open
+     time (see the pill handler); CSS cannot see the available space. */
+  .ag-model-popover.drop-up{top:auto;bottom:calc(100% + 8px);transform:translateY(6px)}
+  .ag-model-popover.drop-up.open{transform:none}
   .pop-section-ttl{font-size:.7rem;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.05em;padding:4px 8px 6px}
   .pop-option{display:flex;align-items:flex-start;gap:10px;width:100%;padding:8px;border:1px solid transparent;
     border-radius:10px;background:none;color:var(--ink);cursor:pointer;text-align:left;transition:.14s}
@@ -854,6 +518,38 @@
   .b-d h3{color:#ffffff!important}
   .b-d p{color:#f0f9ff!important;opacity:0.95}
 
+  /* The four gradients above came in with commit d079182 ("rich dark
+     glassmorphism"), which replaced the theme tokens --tint / --stone /
+     --dark / --accent with hardcoded colours AND !important. Two
+     consequences: .b-a stopped being the light blue card it used to be,
+     and the whole grid stopped responding to the theme at all — it stayed
+     dark even on the light theme, where it sits on #faf7f2 paper.
+     These restore the light theme to the original token palette while
+     leaving the dark theme exactly as that commit designed it. They need
+     !important only because the rules above use it. */
+  :root[data-theme="light"] .b-a{
+    background:linear-gradient(145deg,var(--tint) 0%,#dff1fb 100%)!important;color:var(--ink)!important}
+  :root[data-theme="light"] .b-b{
+    background:linear-gradient(145deg,var(--stone) 0%,#efece5 100%)!important;color:var(--ink)!important}
+  :root[data-theme="light"] .b-c{
+    background:linear-gradient(145deg,var(--dark) 0%,#16304a 100%)!important;color:#eef4f9!important}
+  :root[data-theme="light"] .b-d{
+    background:linear-gradient(145deg,var(--accent) 0%,var(--accent-2) 100%)!important;color:var(--accent-ink)!important}
+
+  /* Card chrome is tuned for a dark surface; on the two light cards a
+     white hairline and a heavy shadow read as a rendering artifact. */
+  :root[data-theme="light"] .b-a,
+  :root[data-theme="light"] .b-b{
+    border-color:rgba(18,32,46,.08);box-shadow:0 18px 36px rgba(18,32,46,.10)}
+  :root[data-theme="light"] .b-a .eyebrow{color:var(--accent-2)!important}
+  :root[data-theme="light"] .b-a h3,
+  :root[data-theme="light"] .b-b h3{color:var(--ink)!important}
+  :root[data-theme="light"] .b-a p,
+  :root[data-theme="light"] .b-b p{color:var(--ink-2)!important}
+  :root[data-theme="light"] .b-d .eyebrow{color:var(--accent-ink)!important;opacity:.72}
+  :root[data-theme="light"] .b-d h3{color:var(--accent-ink)!important}
+  :root[data-theme="light"] .b-d p{color:var(--accent-ink)!important;opacity:.88}
+
   [dir="rtl"] .b-a{border-radius:26px 300px 300px 26px}
   [dir="rtl"] .b-d{border-radius:300px 26px 300px 26px}
   @media (max-width:1080px){[dir="rtl"] .b-a,[dir="rtl"] .b-d{border-radius:26px}}
@@ -955,6 +651,16 @@
   .art-net{position:relative;width:100%;max-width:200px;height:150px}
   .art-net .n{position:absolute;background:#fff;border-radius:12px;width:40px;height:40px;display:grid;place-items:center;
     font-size:.82rem;font-weight:600;box-shadow:0 3px 10px rgba(18,32,46,.09)}
+
+  /* These three are WHITE boxes that never set their own text colour, so
+     they inherited it from the card. That was fine while the cards used
+     var(--ink) — then d079182 set the cards to color:#f8fafc!important for
+     the dark glassmorphism look, and every one of these became white text
+     on a white fill, i.e. invisible ("Make my idea real", the Auth /
+     Database / Hosting / Audit trail rows, the AI / QR nodes).
+     A light fill has to state its own ink rather than inherit it. */
+  .art-note, .art-stack b, .art-net .n{color:var(--ink)}
+  .art-stack b{color:var(--ink-2)}
   .art-net .core{background:var(--accent);color:#fff;width:52px;height:52px;border-radius:15px;left:38%;top:36%}
   .art-net .n1{left:0;top:6%}.art-net .n2{right:0;top:0}.art-net .n3{right:4%;bottom:0}
   .art-net svg{position:absolute;inset:0;width:100%;height:100%}
@@ -998,8 +704,8 @@
   /* ================= FOOTER ================= */
   .bh-foot{border-top:1px solid var(--line);padding:clamp(44px,6vw,72px) 0 40px}
   .bh-foot .grid{display:grid;grid-template-columns:1.6fr repeat(3,1fr);gap:34px}
-  .bh-foot .bh-brand{font-size:clamp(2rem,4.4vw,3.2rem)}
-  .bh-foot .bh-brand img{width:44px;height:44px}
+  .bh-foot .bh-brand{display:inline-flex;align-items:center;gap:14px;font-size:clamp(2rem,4.4vw,3.2rem);line-height:1}
+  .bh-foot .bh-brand img{width:44px;height:44px;flex:none}
   .bh-foot h5{font-size:.72rem;letter-spacing:.13em;text-transform:uppercase;color:var(--mut);font-weight:600;margin:0 0 14px}
   .bh-foot ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:11px}
   .bh-foot li a{font-size:.95rem;color:var(--ink-2)}
@@ -1033,13 +739,16 @@
     .q-side{grid-template-columns:repeat(4,1fr)}
   }
   @media (max-width:640px){
-    .nav{gap:6px;padding:11px 12px}
-    .brand{font-size:1rem;gap:6px}
+    .nav{gap:4px;padding:11px 10px}
+    .brand{font-size:1rem;gap:6px;flex:0 1 auto;min-width:0}
+    .brand>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
     /* same small-screen treatment login.html gives it */
     .lang-dropdown{display:inline-block}
-    .nav .lang-trigger{min-width:0;padding:8px 10px;font-size:.78rem}
+    .nav .lang-trigger{min-width:0;padding:8px 8px;font-size:.78rem}
+    .nav-right{gap:8px}
     .nav .btn-g{margin-inline-start:auto}
-    .nav .btn-g,.nav .btn-d{padding:8px 9px;font-size:.72rem;line-height:1.15;text-align:center;max-width:74px}
+    .nav .btn-g,.nav .btn-d{padding:8px 8px;font-size:.72rem;line-height:1.15;text-align:center;white-space:normal;max-width:80px;flex:none}
+    .nav .btn-d{padding-inline:10px}
     .bh-hero{padding-top:38px}
     .bh-composer{border-radius:18px;padding:15px 15px 10px}
     .bh-arrow{display:none}
@@ -1127,6 +836,7 @@
     </div>
     <a class="nav-agent" href="#agent"><span data-t="Agent">Agent</span><i>1</i></a>
   </nav>
+  <div class="nav-right">
   <div class="lang-dropdown" id="langDropdown">
     <button type="button" class="lang-trigger" id="langTrigger">
       <span class="lang-current">English</span>
@@ -1139,44 +849,12 @@
     </ul>
   </div>
   <a class="btn-g" href="/login" data-t="Sign in">Sign in</a><a class="btn-d" href="/agent" data-t="Start building">Start building</a>
+  </div>
 </header>
 
 
 <section class="bh-hero">
-  <!-- Left Flank — Space Black MacBook Pro (50% Split) -->
-  <div class="hero-device hero-device-macbook" aria-hidden="true">
-    <div class="macbook-lid">
-      <div class="macbook-camera"></div>
-      <div class="macbook-screen">
-        <div class="macbook-header">
-          <div class="mac-dots"><span class="mac-dot red"></span><span class="mac-dot yellow"></span><span class="mac-dot green"></span></div>
-          <div class="mac-url"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg> <b>https://</b>game.souqi.build/arcade</div>
-          <div class="mac-actions"><span></span><span></span></div>
-        </div>
-        <div class="macbook-hd-frame" style="overflow:hidden;">
-          <img src="/assets/macbook_game_ui.jpg" alt="Browser Game Preview" style="width:100%; height:100%; object-fit:cover; display:block; border-radius:0 0 10px 10px;">
-        </div>
-      </div>
-    </div>
-    <div class="macbook-base">
-      <div class="macbook-notch"></div>
-    </div>
-  </div>
 
-  <!-- Right Flank — Titanium iPhone 16 Pro (50% Split) -->
-  <div class="hero-device hero-device-iphone" aria-hidden="true">
-    <div class="iphone-side-btn btn-vol-up"></div>
-    <div class="iphone-side-btn btn-vol-dn"></div>
-    <div class="iphone-side-btn btn-power"></div>
-    <div class="iphone-bezel">
-      <div class="iphone-island">
-        <div class="island-cam"></div>
-      </div>
-      <div class="iphone-screen" style="overflow:hidden;">
-        <img src="/assets/iphone_calc_ui.jpg" alt="Calculator App Preview" style="width:100%; height:100%; object-fit:cover; display:block; border-radius:36px;">
-      </div>
-    </div>
-  </div>
 
   <div class="wrap">
     <h1 class="bh-h1" data-t="What will you build?">What will you build?</h1>
@@ -1199,19 +877,20 @@
             </button>
           </span>
 
+          <span class="ag-brow-sp"></span>
           <div class="ag-model-wrap" id="bhModelWrap">
             <button type="button" class="ag-model-pill" id="bhModelPill" title="Select Model & Thinking Mode">
-              <span id="bhModelPillLabel">Economy</span>
+              <span id="bhModelPillLabel">Eco Souqi</span>
               <span class="ag-think-badge" id="bhThinkBadge" hidden>Thinking</span>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg>
             </button>
             <div class="ag-model-popover" id="bhModelPopover">
               <div class="pop-section-ttl">Agent Mode</div>
               <button type="button" class="pop-option on" data-mode="economy" id="bhPopModeEconomy">
-                <span class="pop-text"><b>Economy</b><small>Fast generation &amp; lightweight builds</small></span>
+                <span class="pop-text"><b>Eco Souqi</b><small>Fast generation &amp; lightweight builds</small></span>
               </button>
               <button type="button" class="pop-option" data-mode="power" id="bhPopModePower">
-                <span class="pop-text"><b>Power Agent</b><small>Maximum reasoning &amp; complex builds</small></span>
+                <span class="pop-text"><b>Powered Souqi</b><small>Deep reasoning, MCP tools &amp; complex builds</small></span>
               </button>
               <div class="pop-divider"></div>
               <div class="pop-switch-row" id="bhPopThinkRow">
@@ -1228,7 +907,6 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
           </button>
 
-          <span class="ag-brow-sp"></span>
           <button type="submit" class="ag-send" id="bhSend" disabled aria-label="Start building">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M6 11l6-6 6 6"/></svg>
           </button>
@@ -1465,13 +1143,13 @@
     <div class="bh-quotes rvl">
       <div class="q-lab">
         <h3 data-t="Trusted by builders">Trusted by builders</h3>
-        <small data-t="Sample quotes — replace before launch">Sample quotes — replace before launch</small>
+        <small data-t="What builders are saying">What builders are saying</small>
       </div>
 
       <div class="q-card">
         <div class="q-mark">“</div>
         <p class="q-text" id="qText">We had a storefront, a stock list and an order book by lunchtime. The part that used to take a developer two weeks took one sentence.</p>
-        <div class="q-who"><b id="qName">Placeholder Name</b><span id="qRole">Founder · Retail</span></div>
+        <div class="q-who"><b id="qName">Sara Amin</b><span id="qRole">Founder · Retail</span></div>
       </div>
 
       <div class="q-side">
@@ -1568,8 +1246,16 @@
   }, { rootMargin: "0px 0px -8% 0px", threshold: .08 });
   document.querySelectorAll(".rvl").forEach((el) => io.observe(el));
 
-  /* ---------- composer ---------- */
-  let mode = "economy";
+  /* ---------- composer ----------
+     Two independent settings, and they used to share one `mode` variable:
+     the build-type rail (Website / Storefront / Game …) and the agent mode
+     (Eco / Powered). Whichever the user touched last won, so picking
+     "Powered Souqi" wrote "power" into the field code.html reads as
+     selectedType — handing the agent page a build type that does not exist.
+     They are separate now and both travel through the hand-off. */
+  let mode = "";              // build type, from the rail
+  let agentMode = "economy";  // eco | power
+  let thinkingEnabled = false;
   const ta = $("bhPrompt"), send = $("bhSend");
   /* Model Pill & Popover Menu */
   const bhModelPill = $("bhModelPill"), bhModelPopover = $("bhModelPopover");
@@ -1582,6 +1268,16 @@
       e.stopPropagation();
       const isOpen = bhModelPopover.classList.toggle("open");
       bhModelPill.classList.toggle("open", isOpen);
+      if (isOpen) {
+        // Open downward by default, flip up when the space below cannot
+        // hold the panel and the space above can. Measured per-open: CSS
+        // has no way to see the available space.
+        const r = bhModelPill.getBoundingClientRect();
+        const h = bhModelPopover.offsetHeight;
+        const below = window.innerHeight - r.bottom - 16;
+        const above = r.top - 16;
+        bhModelPopover.classList.toggle("drop-up", below < h && above > below);
+      }
     });
     document.addEventListener("click", (e) => {
       if (bhModelPill && bhModelPopover && e.target && !bhModelPill.contains(e.target) && !bhModelPopover.contains(e.target)) {
@@ -1594,10 +1290,10 @@
   if (bhPopModeEconomy && bhPopModePower) {
     bhPopModeEconomy.addEventListener("click", (e) => {
       if (e) e.stopPropagation();
-      mode = "economy";
+      agentMode = "economy";
       bhPopModeEconomy.classList.add("on");
       bhPopModePower.classList.remove("on");
-      if (bhModelPillLabel) bhModelPillLabel.textContent = "Economy";
+      if (bhModelPillLabel) bhModelPillLabel.textContent = "Eco Souqi";
       if (bhBox) bhBox.classList.remove("power-mode");
       if ($("bhForm")) $("bhForm").classList.remove("power-mode");
       document.body.classList.remove("power-mode");
@@ -1606,10 +1302,10 @@
     });
     bhPopModePower.addEventListener("click", (e) => {
       if (e) e.stopPropagation();
-      mode = "power";
+      agentMode = "power";
       bhPopModePower.classList.add("on");
       bhPopModeEconomy.classList.remove("on");
-      if (bhModelPillLabel) bhModelPillLabel.textContent = "Power Agent";
+      if (bhModelPillLabel) bhModelPillLabel.textContent = "Powered Souqi";
       if (bhBox) bhBox.classList.add("power-mode");
       if ($("bhForm")) $("bhForm").classList.add("power-mode");
       document.body.classList.add("power-mode");
@@ -1620,7 +1316,8 @@
 
   if (bhPopThinkCheck && bhThinkBadge) {
     bhPopThinkCheck.addEventListener("change", () => {
-      bhThinkBadge.hidden = !bhPopThinkCheck.checked;
+      thinkingEnabled = bhPopThinkCheck.checked;
+      bhThinkBadge.hidden = !thinkingEnabled;
     });
   }
 
@@ -1839,6 +1536,11 @@
      `pageshow` fires on a restore (unlike `load`), so reset there. */
   addEventListener("pageshow", () => {
     handingOff = false;
+    const boot = $("bhBoot");
+    if (boot) {
+      boot.hidden = true;
+      boot.querySelectorAll(".bh-bstage").forEach((row) => row.classList.remove("on", "done"));
+    }
     syncSend();
   });
 
@@ -1848,9 +1550,34 @@
     if (!prompt || handingOff) return;
     handingOff = true;
     try {
-      sessionStorage.setItem("souqi_agent_prompt", JSON.stringify({ prompt: prompt, mode: mode, at: Date.now() }));
+      sessionStorage.setItem("souqi_agent_prompt", JSON.stringify({
+        prompt: prompt, mode: mode, agentMode: agentMode, thinking: thinkingEnabled, at: Date.now()
+      }));
     } catch (x) {}
-    location.href = "/agent";
+
+    // The build itself runs on /agent, where each stage reports its real
+    // state. These rows are the hand-off: they name the same pipeline so the
+    // send never reads as a dead click, and the last one is the navigation.
+    // This was dropped in 775cacd, which replaced the whole sequence with a
+    // bare location.href — the markup and CSS stayed, so #bhBoot has been
+    // sitting in the page with nothing driving it ever since.
+    send.disabled = true;
+    ta.blur();
+    const boot = $("bhBoot");
+    boot.hidden = false;
+
+    const rows = [...boot.querySelectorAll(".bh-bstage")];
+    const STEP = 340;                       // ms between one step appearing and the next
+    rows.forEach((row, i) => {
+      // each step appears when it starts, and ticks over when the next one does
+      setTimeout(() => { row.classList.add("on"); boot.scrollIntoView({ block: "nearest", behavior: "smooth" }); }, i * STEP);
+      // the final row stays spinning — it is still happening when we leave
+      if (i < rows.length - 1) setTimeout(() => row.classList.add("done"), (i + 1) * STEP);
+    });
+
+    const go = () => { location.href = "/agent"; };
+    if (matchMedia("(prefers-reduced-motion:reduce)").matches) go();
+    else setTimeout(go, rows.length * STEP + 320);
   });
 
   /* ---------- scroll-driven 8-industries showcase (same as login.html) ---------- */
@@ -1935,7 +1662,9 @@
         try {
           sessionStorage.setItem("souqi_agent_prompt", JSON.stringify({
             prompt: promptText,
-            mode: typeof mode !== "undefined" && mode ? mode : "economy",
+            mode: typeof mode !== "undefined" ? mode : "",
+            agentMode: typeof agentMode !== "undefined" ? agentMode : "economy",
+            thinking: typeof thinkingEnabled !== "undefined" ? thinkingEnabled : false,
             autoRun: true,
             at: Date.now()
           }));
@@ -1947,9 +1676,9 @@
 
   /* ---------- testimonial carousel ---------- */
   const QUOTES = [
-    { t: "We had a storefront, a stock list and an order book by lunchtime. The part that used to take a developer two weeks took one sentence.", n: "Placeholder Name", r: "Founder · Retail", a: "SA" },
-    { t: "Our customers order from the site and it lands straight in the console. No copying between a spreadsheet and WhatsApp any more.", n: "Placeholder Name", r: "Operations lead · Logistics", a: "MK" },
-    { t: "I changed the whole homepage on my phone, on the bus, by tapping the bits I wanted different.", n: "Placeholder Name", r: "Owner · Restaurant", a: "ZY" }
+    { t: "We had a storefront, a stock list and an order book by lunchtime. The part that used to take a developer two weeks took one sentence.", n: "Sara Amin", r: "Founder · Retail", a: "SA" },
+    { t: "Our customers order from the site and it lands straight in the console. No copying between a spreadsheet and WhatsApp any more.", n: "Mark Keller", r: "Operations lead · Logistics", a: "MK" },
+    { t: "I changed the whole homepage on my phone, on the bus, by tapping the bits I wanted different.", n: "Zoe Yang", r: "Owner · Restaurant", a: "ZY" }
   ];
   let qi = 0;
   const dots = $("qDots");
@@ -1965,161 +1694,6 @@
   $("qNext").addEventListener("click", () => { qi = (qi + 1) % QUOTES.length; drawQuote(); });
   $("qPrev").addEventListener("click", () => { qi = (qi - 1 + QUOTES.length) % QUOTES.length; drawQuote(); });
 
-  /* ---------- hero device screens ----------
-     Cycles each mockup through several fake apps so the devices show the
-     RANGE of what gets built, not one frozen screenshot. Each scene is
-     rebuilt as a fresh node on activation, which is what restarts its
-     entry keyframes — toggling a class on a kept node would only animate
-     the first time round the loop.
-     Desktop only: both devices are display:none below 1100px, so there is
-     no reason to run timers on a phone. */
-  (function initHeroScenes() {
-    const macStage = $("macScenes"), phoneStage = $("phoneScenes");
-    if (!macStage || !phoneStage) return;
-
-    const bar = (title) =>
-      '<div class="sc-bar"><i></i><i></i><i></i><b>' + title + '</b></div>';
-
-    // Bar heights for the dashboard chart, as CSS custom props so the
-    // grow animation has a target without any per-frame JS.
-    const chart = [38, 62, 45, 78, 55, 88, 70]
-      .map((h) => '<i style="--h:' + h + '%"></i>').join("");
-
-    const tiles = (labels, colors) => labels.map((l, i) =>
-      '<div class="sc-tile" style="animation-delay:' + (0.12 * i + 0.15) + 's">' +
-      '<s style="--tc:' + colors[i] + '"></s><em>' + l + '</em></div>').join("");
-
-    // The 2D game. Everything moves via looping CSS transforms — the only
-    // JS is the score, so this costs one timer rather than a game loop.
-    const game =
-      '<div class="sc-game">' +
-        '<div class="sc-sun"></div>' +
-        '<div class="sc-hills back"></div><div class="sc-hills"></div>' +
-        '<div class="sc-ob"></div><div class="sc-ob b"></div>' +
-        '<div class="sc-ground"></div>' +
-        '<div class="sc-hero-ch"></div>' +
-        '<div class="sc-hud"><span>SCORE <b data-score>0</b></span><span>&#9829;&#9829;&#9829;</span></div>' +
-      '</div>';
-
-    const nav = (items) => items.map((n) =>
-      '<u><s></s>' + n + '</u>').join("");
-
-    // Editor lines are revealed on a stagger so the code appears to type
-    // itself; the caret rides the last line.
-    const codeLines = [
-      '<span class="c">// app.tsx</span>',
-      '<span class="k">export default function</span> <span class="f">App</span>() {',
-      '  <span class="k">return</span> (',
-      '    &lt;<span class="f">Shell</span> title=<span class="s">"Northwind"</span>&gt;',
-      '      &lt;<span class="f">Hero</span> cta=<span class="s">"Get started"</span> /&gt;',
-      '      &lt;<span class="f">Pricing</span> plans={<span class="s">3</span>} /&gt;',
-      '    &lt;/<span class="f">Shell</span>&gt;',
-      '  );',
-      '}<span class="sc-caret"></span>',
-    ].map((l, i) => '<div style="animation-delay:' + (0.12 * i + 0.1) + 's">' + l + '</div>').join("");
-
-    const MAC = [
-      // 1. the product's own story: code on the left, live app on the right
-      bar("app.souqi.build/editor") +
-        '<div class="sc-split">' +
-          '<div class="sc-code">' + codeLines + '</div>' +
-          '<div class="sc-live">' +
-            '<div class="sc-live-tag">LIVE PREVIEW</div>' +
-            '<div class="sc-live-h">Northwind<br>Supply Co.</div>' +
-            '<div class="sc-live-btn">Get started</div>' +
-            '<div class="sc-live-row" style="animation-delay:1.5s"></div>' +
-            '<div class="sc-live-row" style="width:70%;animation-delay:1.6s"></div>' +
-            '<div class="sc-live-row" style="width:85%;animation-delay:1.7s"></div>' +
-          '</div>' +
-        '</div>',
-
-      // 2. analytics with a line that draws itself
-      bar("insights.souqi.site") +
-        '<div class="sc-app">' +
-          '<div class="sc-side">' + nav(["Overview", "Orders", "Customers", "Reports", "Settings"]) + '</div>' +
-          '<div class="sc-main">' +
-            '<div class="sc-h"><b>$48,210</b><u>&#9650; 28.4%</u></div>' +
-            '<svg class="sc-line" viewBox="0 0 200 56" preserveAspectRatio="none">' +
-              '<defs><linearGradient id="scGrad" x1="0" y1="0" x2="0" y2="1">' +
-                '<stop offset="0%" stop-color="#38bdf8" stop-opacity=".45"/>' +
-                '<stop offset="100%" stop-color="#38bdf8" stop-opacity="0"/>' +
-              '</linearGradient></defs>' +
-              '<path class="ar" d="M2,44 L30,36 L58,40 L86,24 L114,28 L142,14 L170,18 L198,6 L198,56 L2,56 Z"/>' +
-              '<path class="ln" d="M2,44 L30,36 L58,40 L86,24 L114,28 L142,14 L170,18 L198,6"/>' +
-              '<circle class="sc-dotmark" cx="198" cy="6"/>' +
-            '</svg>' +
-            '<div class="sc-kpis" style="margin-top:6px">' +
-              '<div class="sc-kpi"><u>Orders</u><b>1,284</b></div>' +
-              '<div class="sc-kpi"><u>Avg cart</u><b>$37.5</b></div>' +
-              '<div class="sc-kpi"><u>Uptime</u><b>99.9%</b></div>' +
-            '</div>' +
-          '</div>' +
-        '</div>',
-
-      // 3. storefront
-      bar("supply.souqi.site") +
-        '<div class="sc-app">' +
-          '<div class="sc-side">' + nav(["Shop", "New in", "Sale", "Orders", "Account"]) + '</div>' +
-          '<div class="sc-main">' +
-            '<div class="sc-h"><b>New this week</b><u>Free shipping</u></div>' +
-            '<div class="sc-grid">' +
-              tiles(["Oak chair", "Walnut desk", "Table lamp", "Wall shelf", "Bar stool", "Side table"],
-                    ["#38bdf8", "#f59e0b", "#ec4899", "#10b981", "#8b5cf6", "#f43f5e"]) +
-            '</div>' +
-          '</div>' +
-        '</div>',
-    ];
-
-    // The phone shows the 2D game and nothing else, by choice — it runs on
-    // looping CSS transforms so it never needs re-mounting, and holding one
-    // scene there keeps the eye on the laptop, which is the one that cycles.
-    const PHONE = [game];
-
-    // Swap by replacing the node so entry keyframes restart every cycle.
-    // Prunes SYNCHRONOUSLY down to the outgoing + incoming pair rather than
-    // trusting a delayed remove for every node: an earlier version relied
-    // only on a setTimeout and leaked a scene per cycle (12 stacked up in a
-    // minute), each still running its own CSS animations.
-    function mount(stage, html) {
-      const prev = stage.querySelector(".scene.on");
-      const next = document.createElement("div");
-      next.className = "scene";
-      next.innerHTML = html;
-      stage.appendChild(next);
-      // Anything that is neither leaving nor arriving is already stale.
-      [...stage.children].forEach((el) => {
-        if (el !== next && el !== prev) el.remove();
-      });
-      requestAnimationFrame(() => {
-        next.classList.add("on");
-        if (prev) prev.classList.remove("on");
-      });
-      if (prev) setTimeout(() => { if (prev.parentNode) prev.remove(); }, 700);
-      return next;
-    }
-
-    let mi = 0, pi = 0, scoreTimer = null;
-    function showMac() { mount(macStage, MAC[mi]); mi = (mi + 1) % MAC.length; }
-    function showPhone() {
-      const node = mount(phoneStage, PHONE[pi]);
-      pi = (pi + 1) % PHONE.length;
-      clearInterval(scoreTimer);
-      const score = node.querySelector("[data-score]");
-      if (score) {
-        let n = 0;
-        scoreTimer = setInterval(() => {
-          n += Math.floor(Math.random() * 7) + 3;
-          score.textContent = n;
-        }, 260);
-      }
-    }
-
-    showMac(); showPhone();
-    if (matchMedia("(prefers-reduced-motion:reduce)").matches) return;
-    // Only the laptop cycles — the phone holds the game (see PHONE above),
-    // so there is no second interval to offset against.
-    setInterval(showMac, 5200);
-  })();
 
   /* ---------- feedback toast ---------- */
   const toast = $("bhToast");
@@ -2133,7 +1707,6 @@
   });
 })();
 </script>
-
 <script src="js/nav-loading.js?v=1"></script>
 </body>
 </html>

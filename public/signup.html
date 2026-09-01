@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0d2338">
+<meta name="robots" content="noindex">
+<link rel="icon" type="image/png" href="assets/logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Jost:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<title>Create your Souqi account</title>
+<script>
+(function(){var k="souqi-theme";try{var t=localStorage.getItem(k)||"light";document.documentElement.setAttribute("data-theme",t)}catch(e){}})();
+</script>
+<style>
+  *,*::before,*::after{box-sizing:border-box}
+  /* Same token names/values as login.html so the two pages cannot drift. */
+  :root{
+    --accent:#1aa6df; --accent-2:#0f8ec4; --accent-ink:#04202e;
+    --ink:#0e2136; --ink-2:#4d5f74; --mut:#6b7a90;
+    --paper:#ffffff; --paper-2:#f5f9fc; --line:#e4ecf4; --card:#ffffff;
+    /* Neutral button fills — warm greys, not blue-tinted, so they read as
+       chrome next to the cyan primary rather than as a second accent. */
+    --neutral:#f1f0ee; --neutral-2:#e8e6e3; --neutral-3:#dedbd7;
+    --danger:#d92d20;
+    --disp:'Jost','Century Gothic',system-ui,sans-serif;
+    --body:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+    --ease:cubic-bezier(.16,1,.3,1);
+  }
+  :root[data-theme="dark"]{
+    --ink:#f0eadc; --ink-2:#a49e92; --mut:#7e766a;
+    --paper:#1c1917; --paper-2:#24211e; --card:#2a2622; --line:#3a352e;
+    --neutral:#2e2a26; --neutral-2:#383430; --neutral-3:#423d38;
+  }
+  html,body{margin:0;padding:0;min-height:100vh;background:var(--paper);color:var(--ink);
+    font-family:var(--body);-webkit-font-smoothing:antialiased}
+  a{color:inherit}
+
+  /* Split layout: form left, brand panel right. The panel is decorative
+     only, so it is the half that collapses on narrow screens. */
+  .su-wrap{display:grid;grid-template-columns:1fr 1fr;min-height:100vh}
+  .su-form-col{display:flex;flex-direction:column;padding:clamp(24px,4vw,48px);
+    background:var(--paper)}
+  .su-brand{display:inline-flex;align-items:center;gap:9px;font-family:var(--disp);
+    font-weight:800;font-size:1.1rem;color:var(--ink);text-decoration:none;width:fit-content}
+  .su-brand img{width:26px;height:26px;object-fit:contain;border-radius:5px}
+  .su-body{flex:1;display:flex;flex-direction:column;justify-content:center;
+    max-width:400px;width:100%;margin:0 auto;padding:32px 0}
+  .su-h1{font-family:var(--disp);font-size:clamp(1.6rem,3vw,2rem);font-weight:600;
+    text-align:center;margin:0 0 26px;letter-spacing:-.01em}
+
+  /* Flat neutral fills with no visible border — the provider logo is the
+     only colour in the row, so the eye lands on the primary action rather
+     than on four competing outlined boxes. */
+  .su-oauth{display:flex;flex-direction:column;gap:9px}
+  .su-oa{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;
+    height:48px;border:0;border-radius:10px;background:var(--neutral);
+    color:var(--ink);font:inherit;font-size:.95rem;font-weight:500;cursor:pointer;
+    transition:background .15s ease}
+  .su-oa:hover{background:var(--neutral-2)}
+  .su-oa:active{background:var(--neutral-3)}
+  .su-oa svg{width:18px;height:18px;flex:none}
+
+  .su-or{display:flex;align-items:center;gap:12px;color:var(--mut);
+    font-size:.8rem;font-weight:600;margin:18px 0}
+  .su-or::before,.su-or::after{content:"";flex:1;border-bottom:1px solid var(--line)}
+
+  .su-field{margin-bottom:14px}
+  .su-label{display:block;font-size:.82rem;font-weight:600;color:var(--ink-2);margin-bottom:6px}
+  .su-input{width:100%;height:46px;padding:0 13px;border:1px solid var(--line);
+    border-radius:10px;background:var(--card);color:var(--ink);font:inherit;font-size:.95rem;
+    transition:border-color .15s ease,box-shadow .15s ease}
+  .su-input:focus{outline:0;border-color:var(--accent);
+    box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 18%,transparent)}
+  .su-input[aria-invalid="true"]{border-color:var(--danger)}
+  .su-pw-wrap{position:relative}
+  .su-pw-wrap .su-input{padding-right:44px}
+  .su-eye{position:absolute;right:6px;top:50%;transform:translateY(-50%);width:32px;height:32px;
+    border:0;background:none;color:var(--mut);cursor:pointer;display:grid;place-items:center;
+    border-radius:7px}
+  .su-eye:hover{color:var(--ink);background:var(--paper-2)}
+  .su-eye svg{width:17px;height:17px}
+  .su-hint{font-size:.76rem;color:var(--mut);margin-top:6px}
+
+  .su-submit{width:100%;height:48px;border:0;border-radius:10px;cursor:pointer;
+    background:var(--accent);color:#fff;font:inherit;font-size:.98rem;font-weight:700;
+    margin-top:6px;transition:background .15s ease,transform .12s ease}
+  .su-submit:hover:not(:disabled){background:var(--accent-2);transform:translateY(-1px)}
+  .su-submit:disabled{opacity:.6;cursor:not-allowed;transform:none}
+
+  .su-err{display:none;margin-top:12px;padding:10px 12px;border-radius:9px;
+    background:color-mix(in srgb,var(--danger) 10%,transparent);
+    border:1px solid color-mix(in srgb,var(--danger) 32%,transparent);
+    color:var(--danger);font-size:.86rem;font-weight:500}
+  .su-err.show{display:block}
+
+  .su-legal{margin-top:16px;text-align:center;font-size:.76rem;color:var(--mut);line-height:1.55}
+  .su-legal a{color:var(--ink-2);font-weight:600}
+  .su-alt{margin-top:20px;text-align:center;font-size:.88rem;color:var(--ink-2)}
+  .su-alt a{color:var(--accent);font-weight:600;text-decoration:none}
+  .su-alt a:hover{text-decoration:underline}
+
+  /* Decorative half: a full-bleed SVG with the tagline set over it.
+     SVG rather than a photo — it is a few KB instead of a few hundred,
+     stays sharp at any size or DPR, and is drawn from the brand tokens so
+     it cannot drift from the rest of the site. */
+  /* Text sits slightly above centre and hard left. Dead-centre put the
+     headline in the busiest part of the artwork; this keeps it in the
+     quiet band the composition deliberately leaves open. */
+  .su-panel{position:relative;overflow:hidden;background:#0b1e33;
+    display:flex;align-items:center;
+    padding:clamp(32px,4vw,64px) clamp(32px,4vw,64px) clamp(72px,9vw,132px)}
+  .su-panel-art{position:absolute;inset:0;width:100%;height:100%;
+    object-fit:cover;display:block}
+  .su-panel-in{position:relative;z-index:1;color:#fff;max-width:420px}
+  .su-panel-in h2{font-family:var(--disp);font-size:clamp(1.7rem,2.8vw,2.5rem);font-weight:600;
+    margin:0 0 14px;line-height:1.14;letter-spacing:-.015em;
+    text-shadow:0 2px 18px rgba(5,13,24,.5)}
+  .su-panel-in p{margin:0;font-size:1rem;line-height:1.6;color:rgba(255,255,255,.82);
+    text-shadow:0 1px 12px rgba(5,13,24,.5)}
+  .su-marks{display:flex;flex-direction:column;gap:13px;margin-top:30px}
+  .su-mark{display:flex;align-items:flex-start;gap:11px;font-size:.94rem;
+    color:rgba(255,255,255,.92);text-shadow:0 1px 10px rgba(5,13,24,.45)}
+  .su-mark i{flex:none;width:19px;height:19px;border-radius:50%;background:var(--accent);
+    display:grid;place-items:center;margin-top:1px;box-shadow:0 2px 10px rgba(26,166,223,.5)}
+  .su-mark i svg{width:11px;height:11px;color:#04202e}
+  .su-wordmark{display:inline-flex;align-items:center;gap:9px;margin-top:34px;
+    padding:9px 15px 9px 11px;border-radius:12px;background:var(--accent);
+    font-family:var(--disp);font-weight:800;font-size:1.05rem;color:#fff;
+    box-shadow:0 8px 26px rgba(26,166,223,.42)}
+  .su-wordmark img{width:22px;height:22px;object-fit:contain;border-radius:4px}
+
+  @media (max-width:900px){
+    .su-wrap{grid-template-columns:1fr}
+    .su-panel{display:none}
+  }
+  @media (prefers-reduced-motion:reduce){
+    .su-submit:hover:not(:disabled){transform:none}
+  }
+</style>
+<link rel="stylesheet" href="css/site-footer.css">
+</head>
+<body>
+
+<div class="su-wrap">
+  <div class="su-form-col">
+    <a class="su-brand" href="/home">
+      <img src="assets/logo.png" alt=""><span>Souqi</span>
+    </a>
+
+    <div class="su-body">
+      <h1 class="su-h1">Create your Souqi account</h1>
+
+      <!-- No OAuth backend exists yet (see the note in login.html's script),
+           so these route to the email form rather than pretending to start
+           a provider flow that would dead-end. -->
+      <div class="su-oauth">
+        <button type="button" class="su-oa" data-fallback>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285F4" d="M23 12.3c0-.8-.1-1.6-.2-2.3H12v4.5h6.2a5.3 5.3 0 0 1-2.3 3.5v2.9h3.7c2.2-2 3.4-5 3.4-8.6z"/><path fill="#34A853" d="M12 24c3.1 0 5.7-1 7.6-2.8l-3.7-2.9c-1 .7-2.3 1.1-3.9 1.1-3 0-5.5-2-6.4-4.7H1.8v3C3.7 21.4 7.6 24 12 24z"/><path fill="#FBBC05" d="M5.6 14.7a7.2 7.2 0 0 1 0-4.6v-3H1.8a12 12 0 0 0 0 10.6l3.8-3z"/><path fill="#EA4335" d="M12 4.8c1.7 0 3.2.6 4.4 1.7l3.3-3.3C17.7 1.2 15.1 0 12 0 7.6 0 3.7 2.6 1.8 6.1l3.8 3C6.5 6.7 9 4.8 12 4.8z"/></svg>
+          Continue with Google
+        </button>
+        <button type="button" class="su-oa" data-fallback>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 .3a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2c-3.3.7-4-1.6-4-1.6-.6-1.4-1.4-1.8-1.4-1.8-1.1-.7 0-.7 0-.7 1.2.1 1.9 1.3 1.9 1.3 1.1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.8-1.6-2.7-.3-5.5-1.3-5.5-5.9 0-1.3.5-2.4 1.2-3.2-.1-.3-.5-1.5.1-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0C17.2 4.9 18.2 5.2 18.2 5.2c.6 1.7.2 2.9.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.6-2.8 5.6-5.5 5.9.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6A12 12 0 0 0 12 .3z"/></svg>
+          Continue with GitHub
+        </button>
+      </div>
+
+      <div class="su-or">Or</div>
+
+      <form id="suForm" novalidate>
+        <div class="su-field">
+          <label class="su-label" for="suEmail">Email</label>
+          <input class="su-input" type="email" id="suEmail" name="email"
+                 autocomplete="email" required placeholder="you@company.com">
+        </div>
+
+        <div class="su-field">
+          <label class="su-label" for="suPass">Password</label>
+          <div class="su-pw-wrap">
+            <input class="su-input" type="password" id="suPass" name="password"
+                   autocomplete="new-password" required minlength="8" placeholder="At least 8 characters">
+            <button type="button" class="su-eye" id="suEye" aria-label="Show password">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                   stroke-linecap="round" stroke-linejoin="round">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+              </svg>
+            </button>
+          </div>
+          <!-- Matches signupSchema's min:8 on the server. Stated up front
+               rather than only on rejection. -->
+          <div class="su-hint">At least 8 characters.</div>
+        </div>
+
+        <div class="su-field">
+          <label class="su-label" for="suCompany">Workspace name <span style="font-weight:400;color:var(--mut)">(optional)</span></label>
+          <input class="su-input" type="text" id="suCompany" name="company"
+                 autocomplete="organization" maxlength="120" placeholder="My Apps">
+        </div>
+
+        <button type="submit" class="su-submit" id="suSubmit">Create account</button>
+        <div class="su-err" id="suErr" role="alert" aria-live="polite"></div>
+      </form>
+
+      <p class="su-legal">
+        By continuing you agree to our
+        <a href="/terms" target="_blank" rel="noopener">Terms of Service</a> and
+        <a href="/privacy" target="_blank" rel="noopener">Privacy Policy</a>.
+      </p>
+
+      <p class="su-alt">Already have an account? <a href="/login">Log in</a></p>
+    </div>
+  </div>
+
+  <aside class="su-panel" aria-hidden="true">
+    <img class="su-panel-art" src="assets/signup-panel.svg" alt="" decoding="async">
+    <div class="su-panel-in">
+      <h2>Describe it once. Ship it today.</h2>
+      <p>Your first build is free — no card needed.</p>
+      <div class="su-marks">
+        <div class="su-mark"><i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></i>A real, running app — not a mockup</div>
+        <div class="su-mark"><i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></i>Edit any section live on the page</div>
+        <div class="su-mark"><i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></i>Publish to your own domain</div>
+      </div>
+      <span class="su-wordmark"><img src="assets/logo.png" alt="">Souqi</span>
+    </div>
+  </aside>
+</div>
+
+<script>
+(function () {
+  "use strict";
+  var form = document.getElementById("suForm");
+  var email = document.getElementById("suEmail");
+  var pass = document.getElementById("suPass");
+  var company = document.getElementById("suCompany");
+  var submit = document.getElementById("suSubmit");
+  var err = document.getElementById("suErr");
+  var eye = document.getElementById("suEye");
+
+  function fail(msg, field) {
+    err.textContent = msg;
+    err.classList.add("show");
+    if (field) { field.setAttribute("aria-invalid", "true"); field.focus(); }
+  }
+  function clearErr() {
+    err.classList.remove("show");
+    email.removeAttribute("aria-invalid");
+    pass.removeAttribute("aria-invalid");
+  }
+
+  eye.addEventListener("click", function () {
+    var show = pass.type === "password";
+    pass.type = show ? "text" : "password";
+    eye.setAttribute("aria-label", show ? "Hide password" : "Show password");
+    pass.focus();
+  });
+
+  // No OAuth backend yet — send these to the email field instead of
+  // starting a provider flow that has nothing to return to.
+  Array.prototype.forEach.call(document.querySelectorAll("[data-fallback]"), function (b) {
+    b.addEventListener("click", function () { email.focus(); });
+  });
+
+  form.addEventListener("submit", async function (e) {
+    e.preventDefault();
+    clearErr();
+
+    var em = email.value.trim();
+    var pw = pass.value;
+    if (!em || em.indexOf("@") < 0) return fail("Enter a valid email address.", email);
+    // Mirrors signupSchema min:8 so the common case never round-trips.
+    if (pw.length < 8) return fail("Password must be at least 8 characters.", pass);
+
+    submit.disabled = true;
+    submit.textContent = "Creating account…";
+    if (window.SouqiLoading) window.SouqiLoading.show();
+
+    try {
+      var r = await fetch("/auth/signup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ email: em, password: pw, company: company.value.trim() })
+      });
+      var j = await r.json().catch(function () { return {}; });
+
+      if (r.ok) { location.href = "/agent"; return; }
+
+      // The server returns either { error: "..." } or the validation
+      // middleware's { error: { code, message } } — handle both shapes.
+      var m = j && j.error;
+      var msg = (m && (m.message || m)) || "Could not create your account.";
+      if (r.status === 409) fail(msg, email);
+      else fail(String(msg), r.status === 400 ? pass : null);
+    } catch (x) {
+      fail("Cannot reach the server. Check your connection and try again.");
+    } finally {
+      if (window.SouqiLoading) window.SouqiLoading.hide();
+      submit.disabled = false;
+      submit.textContent = "Create account";
+    }
+  });
+})();
+</script>
+<script src="js/nav-loading.js?v=1"></script>
+<script src="js/site-footer.js" defer></script>
+</body>
+</html>

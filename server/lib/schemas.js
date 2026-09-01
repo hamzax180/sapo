@@ -66,4 +66,18 @@ const microClaimSchema = {
   }
 };
 
-module.exports = { loginSchema, orderSchema, inquirySchema, microClaimSchema };
+// Standalone signup (POST /auth/signup). Same shape as microClaimSchema
+// minus the project fields — that route creates an account as a side
+// effect of claiming a build, this one is the account on its own.
+// min:8 rather than microClaim's 4: that gate sits behind an already-built
+// project and is deliberately low-friction, whereas this is the front door.
+const signupSchema = {
+  fields: {
+    email: { type: "email", required: true },
+    password: { type: "string", required: true, min: 8, max: 200 },
+    company: { type: "string", max: 120 },
+    country: { type: "string", max: 5 }
+  }
+};
+
+module.exports = { loginSchema, orderSchema, inquirySchema, microClaimSchema, signupSchema };

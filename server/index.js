@@ -31,11 +31,13 @@ const { httpError, errorHandler } = require("./lib/errors");
 const requestId = require("./middleware/requestId");
 const { makeAuth } = require("./middleware/auth");
 const { validateBody } = require("./lib/validate");
-const { loginSchema, orderSchema, inquirySchema, microClaimSchema } = require("./lib/schemas");
+const { loginSchema, orderSchema, inquirySchema, microClaimSchema, signupSchema } = require("./lib/schemas");
 const { initIdempotency, withIdempotency } = require("./lib/idempotency");
 const securityHeaders = require("./middleware/securityHeaders");
 const { rateLimit } = require("./middleware/rateLimit");
-const { encryptSecret } = require("./lib/crypto");
+const { encryptSecret, decryptSecret } = require("./lib/crypto");
+const aiProviders = require("./lib/ai/providers");
+const mcpClient = require("./lib/codeagent/mcp");
 const requestLog = require("./middleware/requestLog");
 const metrics = require("./lib/metrics");
 const { writeAudit, writeMasterAudit } = require("./lib/audit");
@@ -179,6 +181,7 @@ app.get("/agent", (req, res) => res.sendFile(path.join(__dirname, "..", "public"
 app.get("/agent/:slug", (req, res) => res.sendFile(path.join(__dirname, "..", "public", "code.html")));
 app.get("/build", (req, res) => res.sendFile(path.join(__dirname, "..", "public", "home.html")));
 app.get("/login", (req, res) => res.sendFile(path.join(__dirname, "..", "public", "login.html")));
+app.get("/signup", (req, res) => res.sendFile(path.join(__dirname, "..", "public", "signup.html")));
 app.get("/pricing", (req, res) => res.sendFile(path.join(__dirname, "..", "public", "pricing.html")));
 app.get("/terms", (req, res) => res.sendFile(path.join(__dirname, "..", "public", "terms.html")));
 app.get("/privacy", (req, res) => res.sendFile(path.join(__dirname, "..", "public", "privacy.html")));
@@ -923,6 +926,83 @@ app.post("/auth/login", loginLimiter, validateBody(loginSchema), async (req, res
   } catch (e) {
     console.error("login error:", e.message);
     res.status(500).json({ error: "login failed" });
+  }
+});
+
+/* ---- signup: create an account + its workspace, then sign in ----
+ *
+ * Until now the ONLY way to get an account was POST /api/codeagent/:key/
+ * micro-claim, which creates one as a side effect of claiming a build and
+ * therefore needs a project to exist first. This is the same provisioning
+ * (workspace row in the master registry + an Owner user inside that
+ * workspace) with the project half removed, so a visitor can sign up
+ * before building anything.
+ *
+ * Deliberate choices:
+ *  - The password is passed to dbAdapter.insertOne as PLAINTEXT. That
+ *    adapter bcrypt-hashes any `users.password` that isn't already
+ *    $2-prefixed (see db-adapters.js). Hashing here as well would double-
+ *    hash and silently break /auth/login, which bcrypt.compare()s once.
+ *  - Duplicate email is checked against master `workspaces.ownerEmail`,
+ *    the same field micro-claim and /auth/login resolve against, so the
+ *    three agree on what "this email already has an account" means.
+ *  - Reuses loginLimiter (30 per 15min per ip+email) rather than adding
+ *    another bucket: it is already keyed the right way for this shape.
+ *  - Responds with the identical { token, user } body and sq_session
+ *    cookie as /auth/login, so a client can treat signup as "login that
+ *    also provisions" and needs no second code path.
+ */
+app.post("/auth/signup", loginLimiter, validateBody(signupSchema), async (req, res, next) => {
+  try {
+    const { email, password, company, country } = req.valid;
+    const emailLower = String(email).toLowerCase();
+
+    const masterDb = getMasterDb();
+    if (!masterDb) return res.status(503).json({ error: "Master DB not available" });
+
+    const existingWs = await masterDb.collection("workspaces").findOne({ ownerEmail: emailLower });
+    if (existingWs) {
+      return res.status(409).json({ error: "an account with this email already exists — sign in instead" });
+    }
+
+    const wsId = "ws_" + Date.now().toString(36) + crypto.randomBytes(4).toString("hex");
+    await masterDb.collection("workspaces").insertOne({
+      id: wsId,
+      company: String(company || "").slice(0, 120) || "My Apps",
+      industry: "software",
+      country: String(country || "").toUpperCase().slice(0, 5) || "OT",
+      ownerEmail: emailLower,
+      dbType: "local",
+      dbUri: "",
+      logo: null,
+      tagline: "",
+      storefrontEnabled: false,
+      plan: "free",
+      createdAt: new Date().toISOString()
+    });
+
+    const ownerUser = {
+      id: "usr_" + crypto.randomBytes(8).toString("base64url"),
+      name: emailLower.split("@")[0],
+      email: emailLower,
+      password: password,            // hashed by insertOne — see note above
+      role: "Owner", dept: "Management", active: true,
+      joined: new Date().toISOString().slice(0, 10)
+    };
+    const ws = await resolveWsContext(wsId);
+    await dbAdapter.insertOne(ws, "users", ownerUser);
+
+    const session = { id: ownerUser.id, name: ownerUser.name, email: ownerUser.email,
+                      role: "Owner", dept: "Management", wsId: wsId };
+    const token = jwt.sign(session, JWT_SECRET, { expiresIn: "12h" });
+    res.cookie("sq_session", token, {
+      httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production",
+      maxAge: 12 * 3600 * 1000, path: "/"
+    });
+    res.json({ ok: true, wsId: wsId, token: token, user: session });
+  } catch (e) {
+    console.error("signup error:", e.message);
+    res.status(500).json({ error: "signup failed" });
   }
 });
 
@@ -1874,7 +1954,7 @@ app.post("/api/projects/:key/micro-claim", microClaimLimiter, validateBody(micro
 const codeAgentRuntimeReg = require("./lib/codeagent/runtime");
 const daytonaRuntimeModule = require("./lib/codeagent/runtimes/daytona-runtime"); // registers "daytona"
 const { makeTools: makeCodeAgentTools } = require("./lib/codeagent/tools");
-const { proposeChanges, proposeWithRepair, proposeWithClientBuild, assessPrompt } = require("./lib/codeagent/model-loop");
+const { proposeChanges, proposeWithRepair, proposeWithClientBuild, assessPrompt, buildPlan } = require("./lib/codeagent/model-loop");
 const codeAgentUsage = require("./lib/codeagent/usage");
 codeAgentUsage.init({ getMasterDb });
 
@@ -2087,7 +2167,13 @@ const CODEAGENT_TYPE_HINT = {
   // capability that doesn't exist behind it.
   landing: " Build it as a single-page marketing landing page: a hero, a few feature/benefit sections, and a clear call to action — not a multi-page app.",
   blog: " Build it as a blog: a post list/index and an individual post view, with realistic example posts, not lorem ipsum.",
-  ecommerce: " Build it as a storefront: a product grid, a product detail view, and a cart — with realistic example products, not a payment integration."
+  ecommerce: " Build it as a storefront: a product grid, a product detail view, and a cart — with realistic example products, not a payment integration.",
+  // 2D only, and deliberately so — same reasoning as the note above about
+  // Replit's "3D Game". A canvas/DOM game with a loop, input handling and
+  // score IS just a React web app, so this steers the same single output
+  // shape and promises nothing the agent can't build. A 3D engine game
+  // would be a different output format and is still not offered.
+  game: " Build it as a playable 2D browser game rendered on a <canvas>: a real game loop, keyboard/touch controls, collision, score, and a restart — not a page about a game."
 };
 
 // docs/pricing.html: Free has no total-app cap (each app gets its own
@@ -2322,6 +2408,163 @@ app.patch("/api/account/workspace", async (req, res, next) => {
     res.json({ ok: true, company: name });
   } catch (e) { next(e); }
 });
+
+/* -----------------------------------------------------------------
+   BRING-YOUR-OWN-KEY model providers
+   -----------------------------------------------------------------
+   A user pastes their own Anthropic/Gemini/OpenAI/DeepSeek key and
+   their builds run on it instead of Souqi's models. Three rules hold
+   across all four endpoints below and are the reason they are not
+   simply a field on PATCH /api/account/workspace:
+
+     1. SIGNED-IN ONLY. An anon cookie is not an identity — storing a
+        real API key against one means the next person to get that
+        cookie inherits the key, and the owner has no way to revoke it.
+     2. THE KEY NEVER COMES BACK OUT. GET returns the provider, the
+        model, and the last four characters. There is no endpoint that
+        returns a stored key, for the user or for anyone else: a
+        read-back route is a credential exfiltration primitive one XSS
+        away from being used, and nothing in the product needs it.
+     3. ENCRYPTED AT REST via lib/crypto.js, same envelope as tenant
+        connection strings, so a dump of the collection is not a pile
+        of live third-party credentials.
+   ----------------------------------------------------------------- */
+
+/** The catalogue the picker renders. Public — it contains no secrets. */
+app.get("/api/ai/providers", (req, res) => {
+  res.json({ providers: aiProviders.publicList() });
+});
+
+/** Which providers this account has a key for. Never returns a key. */
+app.get("/api/account/ai-keys", async (req, res, next) => {
+  try {
+    const sessionUser = await codeAgentSessionUserVerified(req);
+    if (!sessionUser) return res.json({ signedIn: false, keys: [] });
+    const stored = await readAiKeys(sessionUser);
+    res.json({
+      signedIn: true,
+      keys: Object.keys(stored).map((id) => ({
+        provider: id, model: stored[id].model || null, masked: stored[id].masked || "••••",
+        addedAt: stored[id].addedAt || null
+      }))
+    });
+  } catch (e) { next(e); }
+});
+
+/** Save (or replace) the key for one provider. */
+app.post("/api/account/ai-keys", async (req, res, next) => {
+  try {
+    const sessionUser = await codeAgentSessionUserVerified(req);
+    if (!sessionUser) return res.status(401).json({ error: "Sign in to use your own API key." });
+
+    const providerId = String((req.body && req.body.provider) || "").toLowerCase();
+    const provider = aiProviders.get(providerId);
+    if (!provider || !provider.byok) return res.status(400).json({ error: "unknown model provider" });
+
+    const check = aiProviders.validateKey(providerId, req.body && req.body.apiKey);
+    if (!check.ok) return res.status(400).json({ error: check.reason });
+
+    // Refuse rather than store in the clear. lib/crypto.js is deliberately
+    // pass-through when DB_ENCRYPTION_KEY is unset — a documented dev
+    // convenience for tenant DB strings, which are Souqi's own secrets in
+    // Souqi's own database. A user's third-party API key is not: storing it
+    // as plaintext is a breach of what the picker promises ("encrypted"),
+    // and it is a live billable credential belonging to someone else. An
+    // operator who has not configured encryption gets an actionable error;
+    // the user is not silently exposed to a deployment mistake.
+    if (!process.env.DB_ENCRYPTION_KEY) {
+      return res.status(503).json({
+        error: "This server cannot store API keys securely yet (DB_ENCRYPTION_KEY is not configured). Use Souqi Default, or ask the operator to set it."
+      });
+    }
+
+    const model = String((req.body && req.body.model) || "").trim().slice(0, 80) || provider.defaultModel;
+
+    const ws = await resolveWsContext(sessionUser.wsId);
+    const existing = await readAiKeys(sessionUser);
+    existing[providerId] = {
+      key: encryptSecret(check.key),
+      model: model,
+      masked: aiProviders.maskKey(check.key),
+      addedAt: new Date().toISOString()
+    };
+    await dbAdapter.updateOne(ws, "users", sessionUser.id, { aiKeys: existing });
+
+    try {
+      const masterDbForAudit = getMasterDb();
+      if (masterDbForAudit) {
+        await writeMasterAudit(masterDbForAudit, {
+          requestId: req.id, actor: sessionUser.id, action: "account.aiKey.set",
+          entityId: sessionUser.id, summary: "Saved a " + provider.label + " API key",
+          meta: { provider: providerId, model: model }
+        });
+      }
+    } catch (e) { /* audit must never fail the write it describes */ }
+
+    res.json({ ok: true, provider: providerId, model: model, masked: aiProviders.maskKey(check.key) });
+  } catch (e) { next(e); }
+});
+
+/** Forget the key for one provider. */
+app.delete("/api/account/ai-keys/:provider", async (req, res, next) => {
+  try {
+    const sessionUser = await codeAgentSessionUserVerified(req);
+    if (!sessionUser) return res.status(401).json({ error: "not signed in" });
+    const providerId = String(req.params.provider || "").toLowerCase();
+    if (!aiProviders.isValidId(providerId)) return res.status(400).json({ error: "unknown model provider" });
+
+    const ws = await resolveWsContext(sessionUser.wsId);
+    const existing = await readAiKeys(sessionUser);
+    delete existing[providerId];
+    await dbAdapter.updateOne(ws, "users", sessionUser.id, { aiKeys: existing });
+    res.json({ ok: true });
+  } catch (e) { next(e); }
+});
+
+/** Raw stored map, still encrypted. Callers decrypt only what they need. */
+async function readAiKeys(sessionUser) {
+  const ws = await resolveWsContext(sessionUser.wsId);
+  const user = await dbAdapter.findOne(ws, "users", { id: sessionUser.id });
+  const keys = (user && user.aiKeys) || {};
+  return (keys && typeof keys === "object") ? Object.assign({}, keys) : {};
+}
+
+/**
+ * Resolve the BYOK credentials for a build request, or null for "use
+ * Souqi's own models".
+ *
+ * The provider is taken from the request body but the KEY is only ever
+ * loaded server-side from the signed-in account. A client that could send
+ * its own key inline would let an anonymous visitor spend a key they pasted
+ * once and can no longer revoke, and would put live credentials in request
+ * bodies and logs. The client sends an intent; the server supplies the
+ * secret. If the account has no key for the requested provider, this
+ * returns null and the build falls back to Souqi's models rather than
+ * failing — a missing key is a configuration gap, not an error worth
+ * throwing away a build request over.
+ */
+async function resolveByok(req, providerId) {
+  const id = String(providerId || "").toLowerCase();
+  if (!id || id === "souqi") return null;
+  const provider = aiProviders.get(id);
+  if (!provider || !provider.byok) return null;
+
+  const sessionUser = await codeAgentSessionUserVerified(req);
+  if (!sessionUser) return null;
+
+  const stored = await readAiKeys(sessionUser);
+  const entry = stored[id];
+  if (!entry || !entry.key) return null;
+  try {
+    return { provider: id, apiKey: decryptSecret(entry.key), model: entry.model || provider.defaultModel };
+  } catch (e) {
+    // Key present but undecryptable (DB_ENCRYPTION_KEY rotated or missing).
+    // Fall back to Souqi's models rather than failing the build; the user
+    // can re-save the key from the picker.
+    console.warn("[byok] could not decrypt stored " + id + " key:", e.message);
+    return null;
+  }
+}
 
 /** Code's version of finalizeClaim (line ~1620) — re-points project
     ownership from the anonymous cookie to a real account, same idea as
@@ -2612,6 +2855,37 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
       sseFrame(res, "done", {});
       return res.end();
     }
+
+    /* Confirm before building.
+       A build takes a minute, spends credits and produces a whole app, and
+       until now the first sign of what the agent understood was the finished
+       result. This shows the plan first — what it will be, what it will have,
+       and which choices the agent is making that the prompt did not specify —
+       and waits for a yes.
+
+       Only on a FRESH build: a follow-up is already a correction of something
+       on screen, so asking "shall I?" for every tweak would be a tax rather
+       than a check. The client re-POSTs the same prompt with confirmed:true,
+       which lands here with the gate already passed. */
+    if (!(req.body && req.body.confirmed)) {
+      const planType = String((req.body && req.body.buildType) || "website");
+      let plan = null;
+      try {
+        plan = await buildPlan(prompt, planType);
+      } catch (e) {
+        // The confirm step must never become a new way for a build to die.
+        plan = null;
+      }
+      if (plan) {
+        try { if (plan.costUsd) await codeAgentUsage.recordSpend(owner, plan.costUsd); } catch (e) {}
+        sseFrame(res, "confirm", {
+          plan: { title: plan.title, summary: plan.summary, features: plan.features, assumptions: plan.assumptions || [] },
+          prompt: prompt, buildType: planType
+        });
+        sseFrame(res, "done", {});
+        return res.end();
+      }
+    }
   }
 
   // ---- WebContainers flow: server proposes files, client builds ----
@@ -2655,19 +2929,41 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
     // client stores + previews them via the project's published URL.
     const canBuild = req.body && req.body.canBuild !== false; // default true if omitted (desktop)
     const agentMode = String((req.body && req.body.mode) || "economy").toLowerCase();
+    const thinking = !!(req.body && req.body.thinking);
+    const byok = await resolveByok(req, req.body && req.body.provider);
+
+    // MCP is a Powered Souqi capability, and connecting costs a process
+    // spawn or an HTTP handshake per configured server — so it happens only
+    // when the mode actually asks for it, and never on the Eco path.
+    let mcp = mcpClient.EMPTY;
+    if (agentMode === "power") {
+      try { mcp = await mcpClient.connectAll(); }
+      catch (e) { console.warn("[mcp] connect failed, continuing without tools:", e.message); }
+      if (mcp.size) {
+        sseFrame(res, "stage", {
+          id: "mcp", state: "done",
+          detail: "Connected " + mcp.size + " MCP tool" + (mcp.size === 1 ? "" : "s")
+        });
+      }
+    }
+
+    const agentOpts = {
+      mode: agentMode, byok: byok, thinking: thinking, mcp: mcp,
+      onToolCall: (c) => sseFrame(res, "stage", { id: "tool-" + c.name, state: "done", detail: "Used " + c.name })
+    };
 
     let result;
+    try {
     if (!canBuild) {
-      const attempt = await proposeChanges(effectivePrompt, { mode: agentMode });
+      const attempt = await proposeChanges(effectivePrompt, agentOpts);
       if (!attempt.ok) {
         result = { ok: false, reason: attempt.reason, rounds: 1, costUsd: attempt.costUsd || 0 };
       } else {
         result = { ok: true, calls: attempt.calls, note: attempt.note, rounds: 1, repaired: false, costUsd: attempt.costUsd || 0 };
       }
     } else {
-      result = await proposeWithClientBuild({
+      result = await proposeWithClientBuild(Object.assign({}, agentOpts, {
         userPrompt: effectivePrompt,
-        mode: agentMode,
         maxRounds: agentMode === "power" ? 3 : 2,
         onFiles: async (calls) => {
           // Send proposed files to the client for WebContainer build
@@ -2689,11 +2985,21 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
             detail: r.ok ? "Build succeeded" : ("Fixing " + (r.errors ? r.errors.length : 0) + " issue(s)")
           });
         }
-      });
+      }));
+    }
+    } finally {
+      // Every MCP server is a live child process or HTTP session. Closing in
+      // `finally` and not on the success path is the whole point: a build
+      // that throws, or a client that disconnects mid-stream, would otherwise
+      // leak one spawned process per request until the box runs out.
+      try { mcp.close(); } catch (e) { /* best effort */ }
     }
 
-    // Record spend regardless of outcome
-    try { await codeAgentUsage.recordSpend(owner, result.costUsd || 0); } catch(e) {}
+    // Record spend regardless of outcome — but only what SOUQI paid for.
+    // A BYOK build is billed by the provider to the user's own account, so
+    // charging it against Souqi's monthly guard as well would bill them
+    // twice and could lock them out of a budget they are not spending.
+    try { if (!byok) await codeAgentUsage.recordSpend(owner, result.costUsd || 0); } catch(e) {}
     try {
       const masterDbForAudit = getMasterDb();
       if (masterDbForAudit) {
@@ -2701,7 +3007,10 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
           requestId: req.id, actor: owner.userId || owner.anonId || "anon",
           action: "codeagent.build", entityId: project ? project.id : null,
           summary: (result.ok ? "Build" : "Failed build") + " — $" + (result.costUsd || 0).toFixed(4),
-          meta: { costUsd: result.costUsd || 0, ok: result.ok, rounds: result.rounds, isFollowUp }
+          meta: {
+            costUsd: result.costUsd || 0, ok: result.ok, rounds: result.rounds, isFollowUp,
+            mode: agentMode, provider: byok ? byok.provider : "souqi", mcpTools: mcp.size
+          }
         });
       }
     } catch(e) {}
@@ -2833,7 +3142,7 @@ app.get("/api/projects/:key/preview", async (req, res, next) => {
 
     const meta = project.meta || {};
     const buildType = meta.buildType || "website";
-    const color = { website: "#1aa6df", dashboard: "#7c5ce7", webapp: "#e05a33", portfolio: "#2ea87a", mobile: "#e0a11a" }[buildType] || "#8b98a5";
+    const color = { website: "#1aa6df", dashboard: "#7c5ce7", webapp: "#e05a33", portfolio: "#2ea87a", mobile: "#e0a11a", game: "#f43f5e" }[buildType] || "#8b98a5";
 
     // Published — serve compiled HTML from published snapshot
     if (project.published && project.published.files) {

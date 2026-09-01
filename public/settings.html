@@ -20,10 +20,10 @@
      and flat cards, Souqi's cyan as the accent rather than their blue. */
   *,*::before,*::after{box-sizing:border-box}
   :root{
-    --paper:#ffffff; --paper-2:#f5f5f5; --card:#ffffff;
-    --ink:#1a1a1a; --ink-2:#6b6b6b; --mut:#8f8f8f;
+    --paper:#faf7f2; --paper-2:#f1ece3; --card:#fffdf9; --sidebg:#f7f2ea;
+    --ink:#241f1a; --ink-2:#6b6258; --mut:#9c948a;
     --accent:#0079f2; --accent-2:#0068d0;      /* Replit blue */
-    --tint-2:#e8f2fe; --line:#e5e5e5; --dark:#1a1a1a; --navy-800:#0d0d0d;
+    --tint-2:#e8f2fe; --line:#e7e1d7; --dark:#241f1a; --navy-800:#0d0d0d;
     --danger:#d92d20; --danger-bg:#fef3f2; --danger-line:#fda29b;
     /* Replit sets UI type in its own sans, not a display face — using Jost
        for headings here is what made this read as "inspired by" rather
@@ -36,7 +36,7 @@
      against variables precisely so this stays a ~15-line override rather
      than a second stylesheet that drifts from the first. */
   :root[data-theme="dark"]{
-    --paper:#1c1917; --paper-2:#24211e; --card:#2a2622;
+    --paper:#1c1917; --paper-2:#24211e; --card:#2a2622; --sidebg:#241f1c;
     --ink:#f0eadc; --ink-2:#a49e92; --mut:#7e766a;
     --tint-2:#2d2420; --line:#3a352e; --dark:#0a0908; --navy-800:#0d0b0a;
     --danger:#f97066; --danger-bg:#2a1614; --danger-line:#4a2320;
@@ -62,9 +62,9 @@
   .wrap{max-width:1180px;margin:clamp(12px,3vh,34px) auto;background:var(--card);
     border:1px solid var(--line);border-radius:14px;overflow:hidden;
     box-shadow:0 24px 70px -30px rgba(0,0,0,.35)}
-  .mhead{display:flex;align-items:center;gap:12px;padding:22px 26px 18px}
-  .mhead svg.gear{width:24px;height:24px;color:var(--ink)}
-  .mhead h1{font-size:1.75rem;font-weight:700;letter-spacing:-.02em}
+  .mhead{display:flex;align-items:center;gap:10px;padding:9px 20px 8px;border-bottom:1px solid var(--line)}
+  .mhead svg.gear{width:20px;height:20px;color:var(--ink)}
+  .mhead h1{font-size:1.4rem;font-weight:600;letter-spacing:-.02em}
   .ag-modal-x-btn {
     margin-left: auto;
     width: 34px;
@@ -86,41 +86,42 @@
     transform: scale(1.05);
   }
   .ag-modal-x-btn svg { width: 18px; height: 18px; }
-  .mbody{display:grid;grid-template-columns:290px 1fr;min-height:min(74vh,660px)}
+  .mbody{display:grid;grid-template-columns:237px 1fr;min-height:min(74vh,660px)}
 
   ::-webkit-scrollbar { width: 6px; height: 6px; }
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb { background: var(--line); border-radius: 99px; }
   ::-webkit-scrollbar-thumb:hover { background: var(--mut); }
 
-  .side{padding:0 14px 20px 22px;overflow-y:auto;max-height:min(74vh,660px)}
-  .wsbadge{display:flex;align-items:center;gap:10px;width:100%;border:1px solid var(--line);background:var(--paper-2);
-    color:var(--ink);border-radius:999px;padding:7px 12px 7px 8px;margin-bottom:22px;text-align:left;cursor:pointer}
-  .wsbadge .av{width:28px;height:28px;border-radius:50%;flex:none;display:grid;place-items:center;color:#fff;
+  .side{padding:10px 10px 16px 14px;overflow-y:auto;max-height:min(74vh,660px);
+    background:var(--sidebg);border-right:1px solid var(--line)}
+  .wsbadge{display:flex;align-items:center;gap:10px;width:100%;border:1px solid var(--line);background:var(--card);
+    color:var(--ink);border-radius:9px;padding:5px 9px 5px 5px;margin-bottom:16px;text-align:left;cursor:pointer}
+  .wsbadge .av{width:24px;height:24px;border-radius:50%;flex:none;display:grid;place-items:center;color:#fff;
     background:linear-gradient(135deg,#8b8b8b,#6b6b6b);font-weight:600;font-size:.82rem}
-  .wsbadge .nm{flex:1;min-width:0;font-size:.92rem;font-weight:600;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .wsbadge .chev{width:16px;height:16px;flex:none;color:var(--ink-2)}
+  .wsbadge .nm{flex:1;min-width:0;font-size:.8rem;font-weight:600;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .wsbadge .chev{width:14px;height:14px;flex:none;color:var(--ink-2)}
   /* Replit's group labels are normal-case and near-body-size, not the
      tiny uppercase eyebrows a settings page usually uses. */
-  .grp{font-size:.95rem;font-weight:600;color:var(--ink);padding:0 10px;margin:22px 0 4px}
+  .grp{font-size:.7rem;font-weight:600;color:var(--ink);padding:0 8px;margin:16px 0 3px}
   .grp:first-of-type{margin-top:0}
-  .snav{display:flex;flex-direction:column;gap:0}
-  .snav button{display:flex;align-items:center;gap:12px;width:100%;text-align:left;border:0;background:none;
-    color:var(--ink-2);padding:10px;border-radius:8px;font-size:.95rem;font-weight:400;cursor:pointer;transition:.14s}
-  .snav button svg{width:19px;height:19px;flex:none}
+  .snav{display:flex;flex-direction:column;gap:4px}
+  .snav button{display:flex;align-items:center;gap:10px;width:100%;text-align:left;border:0;background:none;
+    color:var(--ink-2);padding:8px;border-radius:8px;font-size:.81rem;font-weight:400;cursor:pointer;transition:.14s}
+  .snav button svg{width:16px;height:16px;flex:none}
   .snav button:hover{background:var(--paper-2);color:var(--ink)}
   .snav button.on{background:var(--paper-2);color:var(--ink);font-weight:500}
 
-  .content{padding:4px clamp(20px,3vw,34px) 40px;overflow-y:auto;max-height:min(74vh,660px)}
+  .content{padding:4px clamp(16px,2.4vw,27px) 32px;overflow-y:auto;max-height:min(74vh,660px)}
   .panel{display:none}
   .panel.on{display:block}
   .panel-head{margin-bottom:26px}
-  .panel-head h2{font-size:1.9rem;font-weight:700;letter-spacing:-.025em}
+  .panel-head h2{font-size:1.5rem;font-weight:600;letter-spacing:-.02em}
   /* Replit's content shape: NOT bordered cards — a collapsible section
      heading, rows beneath it, and a hairline rule between sections. */
   .sec{border-top:1px solid var(--line);padding:22px 0 4px}
   .sec:first-of-type{border-top:0;padding-top:0}
-  .sec > h3{display:flex;align-items:center;font-size:1.15rem;font-weight:600;margin-bottom:14px;
+  .sec > h3{display:flex;align-items:center;font-size:1rem;font-weight:600;margin-bottom:11px;
     cursor:pointer;user-select:none}
   .sec > h3 .chev{margin-left:auto;width:18px;height:18px;color:var(--ink-2);transition:transform .2s var(--ease)}
   .sec.closed > h3{margin-bottom:0}
@@ -128,7 +129,7 @@
   /* Collapse everything under the heading. :not(h3) rather than a wrapper
      div so the existing markup needed no restructuring. */
   .sec.closed > *:not(h3){display:none}
-  .sec > p{font-size:.92rem;color:var(--ink-2);line-height:1.55;margin:0 0 16px}
+  .sec > p{font-size:.81rem;color:var(--ink-2);line-height:1.55;margin:0 0 13px}
   .sec > p:last-child{margin-bottom:0}
 
   /* Replit's scan-result banner shape, reused honestly (see the HTML
@@ -165,6 +166,24 @@
   .btn-primary{border:0;background:var(--accent);color:#fff;border-radius:8px;padding:10px 18px;
     font-size:.88rem;font-weight:600;cursor:pointer;transition:.15s;white-space:nowrap}
   .btn-primary:hover{background:var(--accent-2)}
+  /* Model provider rows. Each is a self-contained key form: the input is
+     always present rather than hidden behind an "Add" toggle, because the
+     whole point of this panel is that it is the one place keys are entered
+     — a click to reveal the field would just be a step in the way. */
+  .prow{border-top:1px solid var(--line);padding:16px 0}
+  .prow:first-of-type{border-top:0;padding-top:4px}
+  .prow .phead{display:flex;align-items:center;gap:10px;margin-bottom:4px}
+  .prow .pname{font-size:.98rem;font-weight:600}
+  .prow .phint{font-size:.87rem;color:var(--ink-2);line-height:1.45;margin:0 0 12px}
+  .prow .copyrow{margin-bottom:8px}
+  .prow .copyrow input.model{flex:0 0 190px}
+  .prow .prow-actions{display:flex;gap:8px;align-items:center}
+  .pill.keyed{background:#e6f8f1;color:#0f8a5f}
+  .pill.nokey{background:var(--paper-2);color:var(--ink-2)}
+  @media (max-width:620px){
+    .prow .copyrow{flex-wrap:wrap}
+    .prow .copyrow input.model{flex:1 1 100%}
+  }
   .domrow{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:13px 0;border-top:1px solid var(--line)}
   .domrow:first-of-type{border-top:0}
   .domrow .t{flex:1;min-width:150px;font-size:.9rem;font-weight:600}
@@ -260,9 +279,13 @@
      the script below rather than a media query — it depends on being in
      an iframe, not on width. */
   body.embedded .nav{display:none}
-  body.embedded .wrap{margin:0;border:0;border-radius:0;height:100vh;display:flex;flex-direction:column}
+  body.embedded .wrap{margin:0;border:0;border-radius:0;max-width:none;width:100%;height:100vh;display:flex;flex-direction:column}
   body.embedded .mbody{flex:1;min-height:0}
-  body.embedded .content{max-height:none}
+  body.embedded .content{max-height:none;height:100%}
+  body.embedded .side{max-height:none;height:100%}
+  /* The frame owns the scroll now, so the page itself must not add a
+     second one on top of the two column scrollers. */
+  body.embedded{overflow:hidden}
 
   @media (max-width:860px){
     .wrap{margin:0;border:0;border-radius:0}
@@ -304,6 +327,8 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 3v6h6"/><path d="M3.5 9a9 9 0 1 0 2.1-3.4L3 9"/><path d="M12 7v5l4 2"/></svg>Build History</button>
       <button type="button" data-p="integrations">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 2 9 5-9 5-9-5 9-5z"/><path d="m3 12 9 5 9-5"/><path d="m3 17 9 5 9-5"/></svg>Integrations</button>
+      <button type="button" data-p="providers">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4M12 18v4M4.9 4.9l2.9 2.9M16.2 16.2l2.9 2.9M2 12h4M18 12h4M4.9 19.1l2.9-2.9M16.2 7.8l2.9-2.9"/><circle cx="12" cy="12" r="3"/></svg>Model providers</button>
       <button type="button" data-p="security">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/></svg>Security</button>
 
@@ -424,6 +449,28 @@
           <span class="txt"><span class="t">Hosted database</span><span class="d">Persistent storage an app can read and write.</span></span>
           <span class="pill">Not built yet</span>
         </div>
+      </div>
+    </section>
+
+    <!-- Model providers (bring your own key).
+
+         This is the ONLY place an API key is entered. The composer's model
+         picker deliberately does not take one: a key field inside a
+         dropdown, on the page where you are about to hit send, invites
+         pasting a credential in a hurry into whatever field is nearest.
+         Keys live here, next to the rest of the account's secrets, and the
+         picker just reflects what has been saved. -->
+    <section class="panel" id="pProviders">
+      <div class="panel-head"><h2>Model providers</h2></div>
+      <div class="sec">
+        <h3>Use your own API key</h3>
+        <p>By default your builds run on Souqi's own models. Add a key below and that provider becomes selectable in the agent's model picker, next to Eco Souqi and Powered Souqi — builds then run on your account, billed by that provider directly, and are not counted against your Souqi usage.</p>
+        <div id="provList"></div>
+        <div class="note" id="provNote" hidden></div>
+      </div>
+      <div class="sec">
+        <h3>How your keys are stored</h3>
+        <p>Keys are encrypted before they are written to the database and are never sent back to the browser — this page only ever shows the last four characters of what you saved. Remove a key here and it is deleted outright; there is no copy kept.</p>
       </div>
     </section>
 
@@ -613,10 +660,19 @@
      leave the builder rendered inside its own iframe). Falls through to
      the plain href when opened as a standalone page. */
   var embedded = window.parent !== window;
+  if (embedded) document.body.classList.add("embedded");
   var mc = document.getElementById("mheadClose");
   if (mc) {
     mc.addEventListener("click", function (e) {
       e.preventDefault();
+      // Standalone page: there is no parent overlay to dismiss, so the two
+      // lines below are no-ops here (postMessage talks to this same window,
+      // and parent.closeSettings is undefined) and the X did nothing at all.
+      // Found live opening /settings directly instead of as the overlay.
+      if (!embedded) {
+        if (history.length > 1) history.back(); else location.href = "/agent";
+        return;
+      }
       try { parent.postMessage("souqi:settings:close", "*"); } catch(err) {}
       try { if (parent.closeSettings) parent.closeSettings(); } catch(err) {}
     });
@@ -667,6 +723,116 @@
       ? "Promo codes aren't active yet — nothing was applied."
       : "Enter a code first.", false);
   });
+
+  /* ---- model providers (bring your own key) ----
+     Renders one row per BYOK provider from the server's catalogue, so the
+     list is not duplicated here — adding a provider server-side makes it
+     appear on this page with no change to this file. */
+  var provCatalogue = [], provKeys = {};
+
+  function renderProviders() {
+    var list = $("provList");
+    if (!list) return;
+    list.innerHTML = "";
+
+    provCatalogue.filter(function (p) { return p.byok; }).forEach(function (p) {
+      var saved = provKeys[p.id];
+      var row = document.createElement("div");
+      row.className = "prow";
+
+      var head = document.createElement("div");
+      head.className = "phead";
+      head.innerHTML = '<span class="pname">' + esc(p.label) + '</span>'
+        + '<span class="pill ' + (saved ? "keyed" : "nokey") + '">'
+        + (saved ? "Key saved · " + esc(saved.masked) : "No key") + '</span>';
+
+      var hint = document.createElement("p");
+      hint.className = "phint";
+      hint.textContent = p.hint || "";
+
+      var form = document.createElement("div");
+      form.className = "copyrow";
+      var key = document.createElement("input");
+      key.type = "password"; key.autocomplete = "off"; key.spellcheck = false;
+      key.placeholder = saved ? "Paste a new key to replace it" : (p.keyPlaceholder || "Paste your API key");
+      var model = document.createElement("input");
+      model.type = "text"; model.className = "model"; model.autocomplete = "off"; model.spellcheck = false;
+      model.value = (saved && saved.model) || "";
+      model.placeholder = p.defaultModel ? p.defaultModel : "Model (optional)";
+      var save = document.createElement("button");
+      save.type = "button"; save.className = "btn-primary"; save.textContent = "Save";
+      form.appendChild(key); form.appendChild(model); form.appendChild(save);
+
+      var actions = document.createElement("div");
+      actions.className = "prow-actions";
+      if (saved) {
+        var rm = document.createElement("button");
+        rm.type = "button"; rm.className = "btn-g"; rm.textContent = "Remove key";
+        rm.addEventListener("click", function () {
+          rm.disabled = true; rm.textContent = "Removing…";
+          fetch("/api/account/ai-keys/" + encodeURIComponent(p.id), { method: "DELETE", credentials: "same-origin" })
+            .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+            .then(function (res) {
+              if (!res.ok) throw new Error(res.d.error || "Couldn't remove that key");
+              delete provKeys[p.id];
+              note($("provNote"), p.label + " key removed.", true);
+              renderProviders();
+            })
+            .catch(function (err) {
+              note($("provNote"), err.message, false);
+              rm.disabled = false; rm.textContent = "Remove key";
+            });
+        });
+        actions.appendChild(rm);
+      }
+
+      save.addEventListener("click", function () {
+        var v = key.value.trim();
+        if (!v) { note($("provNote"), "Paste your " + p.label + " API key first.", false); return; }
+        save.disabled = true; save.textContent = "Saving…";
+        fetch("/api/account/ai-keys", {
+          method: "POST", headers: { "Content-Type": "application/json" }, credentials: "same-origin",
+          body: JSON.stringify({ provider: p.id, apiKey: v, model: model.value.trim() || undefined })
+        })
+          .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+          .then(function (res) {
+            if (!res.ok) throw new Error(res.d.error || "Couldn't save that key");
+            provKeys[res.d.provider] = { model: res.d.model, masked: res.d.masked };
+            // Clear it immediately — there is no reason for a live key to
+            // stay sitting in the DOM once the server has it.
+            key.value = "";
+            note($("provNote"), p.label + " is now available in the model picker.", true);
+            renderProviders();
+          })
+          .catch(function (err) { note($("provNote"), err.message, false); })
+          .finally(function () { save.disabled = false; save.textContent = "Save"; });
+      });
+
+      row.appendChild(head); row.appendChild(hint); row.appendChild(form);
+      if (actions.children.length) row.appendChild(actions);
+      list.appendChild(row);
+    });
+  }
+
+  function loadProviders() {
+    Promise.all([
+      fetch("/api/ai/providers").then(function (r) { return r.json(); }),
+      fetch("/api/account/ai-keys", { credentials: "same-origin" }).then(function (r) { return r.json(); })
+    ]).then(function (out) {
+      provCatalogue = out[0].providers || [];
+      provKeys = {};
+      (out[1].keys || []).forEach(function (k) { provKeys[k.provider] = { model: k.model, masked: k.masked }; });
+
+      if (!out[1].signedIn) {
+        signedOutPanel($("provList"), "add your own model provider keys");
+        return;
+      }
+      renderProviders();
+    }).catch(function () {
+      note($("provNote"), "Couldn't load your model providers.", false);
+    });
+  }
+  loadProviders();
 
   /* ---- account ---- */
   var signedIn = false;

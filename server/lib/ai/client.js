@@ -140,10 +140,26 @@ function estimateCost(route, usage) {
  * @param {number} [req.maxTokens]
  * @param {number} [req.temperature]
  * @param {number} [req.timeoutMs]
+ * @param {{provider:string, apiKey:string, model?:string}} [req.byok]
+ *   The USER's own provider credentials (lib/ai/providers.js). When present
+ *   this bypasses `route` entirely — different key, different endpoint,
+ *   different billing party.
+ * @param {boolean} [req.thinking]                extended reasoning, where the provider supports it
  * @returns {Promise<object>} always resolves — never throws for an operational failure
  */
 async function chat(req) {
   ensureInit();
+
+  // ---- BYOK path ----------------------------------------------------
+  // Taken BEFORE the AI_ENABLED / breaker / budget guards on purpose:
+  // every one of those protects SOUQI's keys and SOUQI's spend. A user
+  // running on their own key is not spending Souqi's budget, so blocking
+  // them because Souqi's own DeepSeek route tripped a breaker would be
+  // punishing them for an outage that cannot affect them.
+  if (req.byok && req.byok.apiKey) {
+    return chatByok(req);
+  }
+
   const route = req.route;
   if (!CONFIG.routes[route]) throw new Error("ai/client: unknown route \"" + route + "\" (expected \"prose\" or \"json\")");
 
@@ -206,6 +222,83 @@ async function chat(req) {
     recordFailure(route);
     const timedOut = e.name === "AbortError";
     return { ok: false, error: true, timedOut: timedOut, reason: timedOut ? "timed out after " + (req.timeoutMs || DEFAULT_TIMEOUT_MS) + "ms" : e.message, latencyMs: Date.now() - t0 };
+  }
+}
+
+/**
+ * One call against the USER's own provider credentials.
+ *
+ * Shares the OpenAI chat-completions transport below with the route path
+ * but none of its state: no breaker (a user's key failing says nothing
+ * about Souqi's), no spend recording (Souqi is not being billed), no
+ * budget guard. `costUsd` is still reported so the UI can show what a
+ * build cost on their account — it is information, not a limit.
+ */
+async function chatByok(req) {
+  const providers = require("./providers");
+  const p = providers.get(req.byok.provider);
+  if (!p || !p.byok) return { ok: false, error: true, reason: "unknown model provider \"" + req.byok.provider + "\"" };
+
+  const model = req.byok.model || p.defaultModel;
+
+  if (p.kind === "anthropic") {
+    return require("./anthropic").chat({
+      apiKey: req.byok.apiKey, model: model, messages: req.messages, tools: req.tools,
+      maxTokens: req.maxTokens, timeoutMs: req.timeoutMs, thinking: req.thinking
+    });
+  }
+
+  const t0 = Date.now();
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), req.timeoutMs || DEFAULT_TIMEOUT_MS);
+  try {
+    const res = await CONFIG.fetchImpl(p.baseUrl.replace(/\/$/, "") + "/chat/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": "Bearer " + req.byok.apiKey },
+      body: JSON.stringify({
+        model: model,
+        messages: req.messages,
+        tools: req.tools || undefined,
+        response_format: req.responseFormat || undefined,
+        max_tokens: req.maxTokens || 900,
+        temperature: (req.temperature !== null && req.temperature !== undefined) ? req.temperature : 0.5
+      }),
+      signal: controller.signal
+    });
+    clearTimeout(timer);
+
+    if (!res.ok) {
+      let detail = "";
+      try { detail = JSON.stringify(await res.json()).slice(0, 300); } catch (e) { /* not JSON */ }
+      // Same reasoning as ai/anthropic.js: the user pasted this key, so a
+      // rejection is almost always THEIR key and they can fix it — say so
+      // in words, rather than surfacing a raw provider error body.
+      let reason;
+      if (res.status === 401 || res.status === 403) reason = "your " + p.label + " API key was rejected — check it in the model picker";
+      else if (res.status === 404) reason = "model \"" + model + "\" was not found on your " + p.label + " account";
+      else if (res.status === 429) reason = "your " + p.label + " account is rate limited — try again shortly";
+      else reason = p.label + " returned " + res.status + (detail ? ": " + detail : "");
+      return { ok: false, error: true, status: res.status, reason: reason, latencyMs: Date.now() - t0 };
+    }
+
+    const json = await res.json();
+    const choice = json.choices && json.choices[0];
+    return {
+      ok: true,
+      message: choice ? choice.message : null,
+      finishReason: choice ? choice.finish_reason : null,
+      usage: json.usage || {},
+      costUsd: 0, // billed to the user's own account; Souqi has no rate card for it
+      latencyMs: Date.now() - t0
+    };
+  } catch (e) {
+    clearTimeout(timer);
+    const timedOut = e.name === "AbortError";
+    return {
+      ok: false, error: true, timedOut: timedOut,
+      reason: timedOut ? p.label + " timed out after " + (req.timeoutMs || DEFAULT_TIMEOUT_MS) + "ms" : e.message,
+      latencyMs: Date.now() - t0
+    };
   }
 }
 

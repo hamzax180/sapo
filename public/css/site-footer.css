@@ -1,0 +1,37 @@
+/* =================================================================
+   site-footer.css — the shared marketing footer
+   -----------------------------------------------------------------
+   Lifted verbatim from home.html so every page gets the same one
+   instead of eight near-copies drifting apart. It uses only tokens
+   every page already defines (--line, --mut, --ink-2, --accent-2),
+   so it inherits each page's own light/dark palette with no extra
+   theme wiring.
+
+   Its own .sf-wrap rather than the pages' .wrap: three of the six
+   pages that get this footer have no .wrap at all, and the ones that
+   do size it differently. The footer owns its measure.
+   ================================================================= */
+.site-foot{border-top:1px solid var(--line);padding:clamp(44px,6vw,72px) 0 40px;margin-top:auto}
+.site-foot .sf-wrap{max-width:1240px;margin:0 auto;padding:0 clamp(18px,4vw,36px)}
+.site-foot .sf-grid{display:grid;grid-template-columns:1.6fr repeat(3,1fr);gap:34px}
+.site-foot .sf-brand{display:inline-flex;align-items:center;gap:14px;text-decoration:none;color:inherit;
+  font-family:var(--disp,inherit);font-weight:800;letter-spacing:-.02em;
+  font-size:clamp(2rem,4.4vw,3.2rem);line-height:1}
+.site-foot .sf-brand img{width:44px;height:44px;flex:none;object-fit:contain;border-radius:8px}
+.site-foot h5{font-size:.72rem;letter-spacing:.13em;text-transform:uppercase;color:var(--mut);
+  font-weight:600;margin:0 0 14px}
+.site-foot ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:11px}
+.site-foot li a{font-size:.95rem;color:var(--ink-2);text-decoration:none}
+.site-foot li a:hover{color:var(--accent-2)}
+.site-foot .sf-legal{margin-top:46px;padding-top:22px;border-top:1px solid var(--line);
+  display:flex;flex-wrap:wrap;gap:12px;justify-content:space-between;font-size:.84rem;color:var(--mut)}
+.site-foot .sf-legal a{color:inherit;text-decoration:none}
+.site-foot .sf-legal a:hover{color:var(--accent-2)}
+@media (max-width:860px){
+  .site-foot .sf-grid{grid-template-columns:1fr 1fr}
+  .site-foot .sf-brandcol{grid-column:span 2}
+}
+@media (max-width:520px){
+  .site-foot .sf-grid{grid-template-columns:1fr;gap:26px}
+  .site-foot .sf-brandcol{grid-column:span 1}
+}

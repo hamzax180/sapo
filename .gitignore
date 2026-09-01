@@ -13,3 +13,12 @@ server/.env
 .vercel
 .kilo
 job_log.txt
+
+# MCP server config — entries can carry bearer tokens in `headers`
+# (see server/mcp.example.json, which IS tracked as the template).
+server/mcp.json
+
+# Deployment plane: real secrets and staged user source
+deploy/.env
+deploy/node_modules/
+deploy/builds/

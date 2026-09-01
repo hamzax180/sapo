@@ -3,29 +3,51 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <meta name="theme-color" content="#121214" />
+  <meta name="theme-color" content="#faf7f2" />
   <meta name="description" content="Souqi Mobile — Vibe code from your phone." />
   <title>Souqi Mobile — Vibe code from your phone</title>
   <link rel="icon" type="image/png" href="assets/logo.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <script>
+  (function(){var k="souqi-theme";try{var t=localStorage.getItem(k)||"light";document.documentElement.setAttribute("data-theme",t)}catch(e){}})();
+  </script>
   <style>
+    /* Warm palette, matching home.html / login.html so this page finally
+       shares the site's light-dark setting instead of being permanently
+       cool-grey. Light is a warm paper (#faf7f2), dark a warm near-black
+       (#1c1917) — neither is neutral zinc, which is what made this page
+       feel like a different product. */
+    :root, :root[data-theme="light"]{
+      --paper:#faf7f2; --paper-2:#f3eee6; --card:#ffffff; --surface:#ffffff;
+      --ink:#12202e; --ink-2:#5d6f80; --mut:#8b98a5;
+      --line:#e7e1d7; --line-2:#efe9e0;
+      --accent:#1aa6df; --accent-2:#0f8ec4;
+      --shadow:rgba(18,32,46,.10);
+    }
+    :root[data-theme="dark"]{
+      --paper:#1c1917; --paper-2:#24211e; --card:#2a2622; --surface:#211e1b;
+      --ink:#f0eadc; --ink-2:#a49e92; --mut:#7e766a;
+      --line:#3a352e; --line-2:#332e28;
+      --accent:#1aa6df; --accent-2:#63d0ff;
+      --shadow:rgba(0,0,0,.55);
+    }
     *, *::before, *::after { box-sizing: border-box; }
     html, body {
       margin: 0; padding: 0; min-height: 100vh;
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      -webkit-font-smoothing: antialiased; background: #121214; color: #f4f4f5;
+      -webkit-font-smoothing: antialiased; background: var(--paper); color: var(--ink);
     }
 
     /* TOP NAVIGATION HEADER (EXACT REPLIT STYLING) */
     .mob-nav {
       display: flex; align-items: center; justify-content: space-between;
-      padding: 16px 40px; background: #ffffff; color: #1c1c1e;
-      border-bottom: 1px solid #eaeaea; position: sticky; top: 0; z-index: 100;
+      padding: 16px 40px; background: var(--card); color: var(--ink);
+      border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 100;
     }
     .mob-brand {
-      display: flex; align-items: center; gap: 10px; text-decoration: none; color: #1c1c1e;
+      display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--ink);
       font-weight: 700; font-size: 1.35rem; letter-spacing: -0.02em;
     }
     .mob-brand img { width: 30px; height: 30px; object-fit: contain; }
@@ -34,7 +56,7 @@
       display: flex; align-items: center; gap: 24px; list-style: none; margin: 0; padding: 0;
     }
     .mob-menu a {
-      text-decoration: none; color: #52525b; font-size: 0.92rem; font-weight: 500;
+      text-decoration: none; color: var(--ink-2); font-size: 0.92rem; font-weight: 500;
       transition: color 0.15s ease; display: inline-flex; align-items: center; gap: 4px;
     }
     .mob-menu a:hover { color: #2563eb; }
@@ -44,8 +66,8 @@
     }
 
     .mob-actions { display: flex; align-items: center; gap: 18px; }
-    .mob-actions a { text-decoration: none; font-size: 0.92rem; font-weight: 500; color: #52525b; transition: color 0.15s; }
-    .mob-actions a:hover { color: #1c1c1e; }
+    .mob-actions a { text-decoration: none; font-size: 0.92rem; font-weight: 500; color: var(--ink-2); transition: color 0.15s; }
+    .mob-actions a:hover { color: var(--ink); }
     .btn-create-acc {
       border: 1px solid #2563eb; color: #2563eb !important; padding: 8px 20px;
       border-radius: 99px; font-weight: 600 !important; transition: all 0.15s ease;
@@ -54,7 +76,7 @@
 
     /* HERO SECTION (CLEAN BLUE ACCENT BACKGROUND) */
     .hero-sec {
-      background: #f8fafc; color: #0f172a; padding: 40px 0 0; text-align: center;
+      background: var(--paper-2); color: var(--ink); padding: 40px 0 0; text-align: center;
       position: relative; overflow: hidden; min-height: 580px;
     }
 
@@ -87,10 +109,10 @@
     /* Replit's Exact H1 Font Styling (Weight 500-600, Clean Medium) */
     .hero-h1 {
       font-size: clamp(2.4rem, 4.8vw, 3.6rem); font-weight: 500; line-height: 1.15;
-      letter-spacing: -0.025em; margin: 0 0 20px; color: #1c1c1e;
+      letter-spacing: -0.025em; margin: 0 0 20px; color: var(--ink);
     }
     .hero-sub {
-      font-size: 1.1rem; color: #1c1c1e; line-height: 1.5;
+      font-size: 1.1rem; color: var(--ink); line-height: 1.5;
       max-width: 500px; margin: 0 auto 36px; font-weight: 400;
     }
 
@@ -117,7 +139,7 @@
     }
     .hero-side-phone-right {
       position: absolute; top: 60px; right: -80px; width: 320px; height: 520px;
-      background: #27272a; border: 5px solid #3f3f46; border-radius: 44px;
+      background: var(--line); border: 5px solid #3f3f46; border-radius: 44px;
       box-shadow: 0 24px 60px rgba(0,0,0,0.12); overflow: hidden; padding: 24px 18px;
       text-align: left; color: #fff; z-index: 2;
     }
@@ -125,14 +147,166 @@
       .hero-side-phone-left, .hero-side-phone-right { display: none; }
     }
 
-    /* SHOWCASE SECTION (DARK #121214) */
+    /* SHOWCASE SECTION (DARK var(--paper)) */
     .showcase-sec {
-      background: #121214; padding: 90px 0 50px; text-align: center; overflow: hidden;
+      background: var(--paper); padding: 90px 0 50px; text-align: center; overflow: hidden;
     }
     .showcase-title {
       font-size: clamp(2.1rem, 4.2vw, 3.2rem); font-weight: 600; letter-spacing: -0.025em; margin: 0 0 14px; color: #ffffff;
     }
-    .showcase-sub { font-size: 1.1rem; color: #a1a1aa; margin: 0 0 56px; font-weight: 400; }
+    .showcase-sub { font-size: 1.1rem; color: var(--ink-2); margin: 0 0 56px; font-weight: 400; }
+
+    /* ================= APP-GRADE PHONE SCREENS =================
+       What made the earlier version read as a toy: emoji used as primary
+       content, flat blocks, one type size, and no chrome. Real app UI has
+       a tight type scale (9-13px here), list rows with thumbnails and
+       dividers, muted surfaces rather than saturated fills, and a tab bar
+       or action bar pinning the bottom. That is what this is.
+       Thumbnails are CSS gradients (--c1/--c2 per row) rather than images,
+       so there is no payload and nothing can 404. */
+    .phone-screen.ui{
+      background:linear-gradient(180deg,var(--bg),var(--bg2));
+      padding:7px 0 0;display:flex;flex-direction:column;gap:0;
+      font-size:11px;line-height:1.35;color:#e9eef7;text-align:left;overflow:hidden}
+    .ui-head{display:flex;align-items:center;justify-content:space-between;padding:4px 13px 9px;flex:none}
+    .ui-head h4{margin:1px 0 0;font-size:15px;font-weight:700;letter-spacing:-.02em;color:#fff}
+    .ui-kick{font-size:9px;font-weight:700;letter-spacing:.11em;text-transform:uppercase;color:#7c8799}
+    .ui-hg{display:flex;align-items:center;gap:8px}
+    .ui-nm{font-size:13px;color:#fff}
+    .ui-on{font-size:9.5px;color:#34d399}
+    .ui-av{width:26px;height:26px;border-radius:50%;background:linear-gradient(140deg,#38bdf8,#6d28d9)}
+    .ui-dots{width:4px;height:4px;border-radius:50%;background:#4a5568;box-shadow:0 -6px 0 #4a5568,0 6px 0 #4a5568}
+    .ui-hrt{width:14px;height:13px;background:#ef4466;border-radius:3px;transform:rotate(45deg);position:relative}
+    .ui-hrt::before,.ui-hrt::after{content:"";position:absolute;width:14px;height:13px;background:#ef4466;border-radius:50%}
+    .ui-hrt::before{left:-7px}.ui-hrt::after{top:-7px}
+    .ui-body{flex:1;min-height:0;display:flex;flex-direction:column;gap:9px;padding:0 13px 8px;overflow:hidden}
+
+    /* rows + thumbnails: the single biggest "real app" cue */
+    .ui-row{display:flex;align-items:center;gap:9px;padding:7px 0;flex:none;border-top:1px solid rgba(255,255,255,.07)}
+    .ui-th{width:32px;height:32px;border-radius:9px;flex:none;
+      background:linear-gradient(140deg,var(--c1),var(--c2));box-shadow:inset 0 1px 0 rgba(255,255,255,.25)}
+    .ui-th.sm{width:22px;height:22px;border-radius:50%}
+    .ui-rt{flex:1;min-width:0}
+    .ui-rt b{display:block;font-size:12px;font-weight:600;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .ui-rt small{font-size:10px;color:#7c8799}
+    .ui-tr{font-size:11px;font-weight:600;color:#9aa6b8;flex:none}
+
+    .ui-tabs{display:flex;justify-content:space-around;align-items:center;height:40px;flex:none;
+      border-top:1px solid rgba(255,255,255,.08);background:rgba(0,0,0,.28)}
+    .ui-tabs i{width:17px;height:17px;border-radius:5px;background:rgba(255,255,255,.16)}
+    .ui-tabs i.on{background:#38bdf8;box-shadow:0 0 10px rgba(56,189,248,.6)}
+
+    /* 1 - fitness */
+    .ui-rings{position:relative;width:106px;height:106px;margin:2px auto 0;flex:none}
+    .ui-rings svg{width:100%;height:100%;transform:rotate(-90deg)}
+    .ui-rings circle{fill:none;stroke-linecap:round}
+    .rg-bg{stroke:rgba(255,255,255,.08);stroke-width:9}
+    .rg{stroke-width:9}
+    .rg.a{stroke:#38bdf8;stroke-dasharray:314;stroke-dashoffset:314;animation:rgA 3.6s cubic-bezier(.16,1,.3,1) infinite}
+    .rg.b{stroke:#a78bfa;stroke-width:7;stroke-dasharray:239;stroke-dashoffset:239;animation:rgB 3.6s cubic-bezier(.16,1,.3,1) .2s infinite}
+    @keyframes rgA{0%{stroke-dashoffset:314}55%,100%{stroke-dashoffset:69}}
+    @keyframes rgB{0%{stroke-dashoffset:239}55%,100%{stroke-dashoffset:96}}
+    .ui-rings-c{position:absolute;inset:0;display:grid;place-content:center;text-align:center}
+    .ui-rings-c b{font-size:21px;font-weight:700;color:#fff;line-height:1}
+    .ui-rings-c i{font-style:normal;font-size:8.5px;color:#7c8799}
+    .ui-stats{display:flex;gap:7px;flex:none}
+    .ui-stats>div{flex:1;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:6px 7px}
+    .ui-stats i{display:block;font-style:normal;font-size:8.5px;color:#7c8799}
+    .ui-stats b{display:block;font-size:13px;color:#fff;line-height:1.2}
+    .ui-stats s{text-decoration:none;font-size:8.5px;color:#7c8799}
+    .ui-bars{display:flex;align-items:flex-end;gap:5px;height:38px;flex:none}
+    .ui-bars i{flex:1;height:var(--h);border-radius:3px;transform-origin:bottom;
+      background:linear-gradient(180deg,#38bdf8,#1e40af);animation:uiBar 2.2s ease-in-out infinite alternate}
+    .ui-bars i:nth-child(2n){animation-delay:.3s}.ui-bars i:nth-child(3n){animation-delay:.6s}
+    @keyframes uiBar{from{transform:scaleY(.5)}to{transform:scaleY(1)}}
+
+    /* 2 - music */
+    .ui-cover{position:relative;height:104px;border-radius:14px;flex:none;overflow:hidden;
+      background:linear-gradient(140deg,#f472b6,#7c3aed 55%,#1e1b4b);box-shadow:0 12px 26px rgba(124,58,237,.35)}
+    .ui-cover-sh{position:absolute;inset:0;
+      background:linear-gradient(105deg,transparent 32%,rgba(255,255,255,.22) 50%,transparent 64%);
+      animation:uiSweep 3.6s ease-in-out infinite}
+    @keyframes uiSweep{from{transform:translateX(-120%)}to{transform:translateX(120%)}}
+    .ui-track{flex:none}
+    .ui-track b{display:block;font-size:14px;color:#fff;font-weight:700}
+    .ui-track small{font-size:10.5px;color:#7c8799}
+    .ui-eq{display:flex;align-items:flex-end;gap:3px;height:26px;flex:none}
+    .ui-eq i{flex:1;border-radius:2px;height:100%;transform-origin:bottom;
+      background:linear-gradient(180deg,#f472b6,#6d28d9);animation:uiEq .9s ease-in-out infinite alternate}
+    .ui-eq i:nth-child(3n){animation-delay:.15s}.ui-eq i:nth-child(3n+1){animation-delay:.3s}
+    .ui-eq i:nth-child(4n){animation-delay:.45s}
+    @keyframes uiEq{from{transform:scaleY(.16)}to{transform:scaleY(1)}}
+    .ui-scrub{height:3px;border-radius:99px;background:rgba(255,255,255,.14);flex:none;overflow:hidden}
+    .ui-scrub span{display:block;height:100%;background:#f472b6;border-radius:99px;animation:uiProg 9s linear infinite}
+    @keyframes uiProg{from{width:7%}to{width:100%}}
+    .ui-time{display:flex;justify-content:space-between;flex:none}
+    .ui-time small{font-size:9px;color:#7c8799}
+    .ui-ctrl{display:flex;align-items:center;justify-content:center;gap:24px;flex:none;padding:2px 0}
+    .ui-ctrl .sk{width:0;height:0;border:7px solid transparent;border-right-color:#cbd5e1}
+    .ui-ctrl .sk.r{border:7px solid transparent;border-left-color:#cbd5e1}
+    .ui-ctrl .pl{width:34px;height:34px;border-radius:50%;background:#fff;box-shadow:0 6px 16px rgba(255,255,255,.22)}
+
+    /* 3 - game HUD */
+    .ui-hud{display:flex;align-items:flex-start;justify-content:space-between;padding:2px 13px 8px;flex:none}
+    .ui-hud i{display:block;font-style:normal;font-size:8.5px;letter-spacing:.12em;color:#4b6a8a}
+    .ui-hud b{font-size:19px;font-weight:800;color:#fff;font-variant-numeric:tabular-nums}
+    .ui-hud-r{text-align:right}
+    .pg-hero{position:absolute;left:128px;top:160px;width:24px;height:20px;border-radius:6px 6px 8px 8px;
+      background:linear-gradient(180deg,#4ade80,#15803d);z-index:3;box-shadow:0 3px 0 rgba(0,0,0,.35);
+      animation:pgHop 1.15s cubic-bezier(.3,.85,.4,1) infinite}
+    .pg-hero::after{content:"";position:absolute;top:5px;right:5px;width:4px;height:4px;border-radius:50%;
+      background:#04202e;box-shadow:-8px 0 0 #04202e}
+    .ui-pad{display:flex;justify-content:space-between;padding:8px 16px 10px;flex:none}
+    .ui-pad i{width:38px;height:38px;border-radius:50%;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12)}
+
+    /* 4 - chat */
+    .ui-body.chat{justify-content:flex-end;gap:7px}
+    .ui-day{align-self:center;font-size:9px;color:#7c8799;background:rgba(255,255,255,.06);padding:2px 9px;border-radius:99px;flex:none}
+    .ui-b{display:flex;align-items:flex-end;gap:6px;flex:none;opacity:0;animation:uiIn 9s ease infinite}
+    .ui-b.me{flex-direction:row-reverse;text-align:right}
+    .ui-b small{display:block;font-size:8.5px;color:#7c8799;margin-top:2px;padding:0 3px}
+    .ui-bub{max-width:150px;padding:7px 10px;border-radius:14px 14px 14px 4px;font-size:11.5px;
+      background:rgba(255,255,255,.09);color:#e9eef7}
+    .ui-b.me .ui-bub{border-radius:14px 14px 4px 14px;background:linear-gradient(180deg,#38bdf8,#0284c7);color:#04202e;font-weight:600}
+    .ui-bub.short{max-width:none}
+    .m1{animation-delay:.2s}.m2{animation-delay:1.5s}.m3{animation-delay:2.8s}.m4{animation-delay:4.1s}
+    @keyframes uiIn{0%{opacity:0;transform:translateY(6px)}5%,88%{opacity:1;transform:none}97%,100%{opacity:0}}
+    .ui-bub.typ{display:flex;gap:3px;padding:9px 11px}
+    .ui-bub.typ i{width:5px;height:5px;border-radius:50%;background:#7c8799;animation:uiDot 1.2s ease-in-out infinite}
+    .ui-bub.typ i:nth-child(2){animation-delay:.18s}.ui-bub.typ i:nth-child(3){animation-delay:.36s}
+    @keyframes uiDot{0%,60%,100%{opacity:.3;transform:translateY(0)}30%{opacity:1;transform:translateY(-3px)}}
+    .ui-inp{display:flex;align-items:center;justify-content:space-between;margin:0 11px 10px;flex:none;
+      background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.09);border-radius:99px;
+      padding:8px 8px 8px 13px;font-size:11px;color:#7c8799}
+    .ui-inp b{width:22px;height:22px;border-radius:50%;background:#38bdf8}
+
+    /* 5 - storefront */
+    .ui-hero{position:relative;height:96px;border-radius:14px;flex:none;overflow:hidden;
+      background:linear-gradient(140deg,#166534,#052e16)}
+    .ui-hero-sh{position:absolute;inset:0;
+      background:linear-gradient(105deg,transparent 32%,rgba(255,255,255,.18) 50%,transparent 64%);
+      animation:uiSweep 3.6s ease-in-out infinite}
+    .ui-badge{position:absolute;top:8px;left:8px;font-size:8.5px;font-weight:700;letter-spacing:.06em;
+      text-transform:uppercase;background:rgba(0,0,0,.5);color:#4ade80;padding:3px 8px;border-radius:99px}
+    .ui-price{display:flex;align-items:baseline;justify-content:space-between;flex:none}
+    .ui-price b{font-size:19px;font-weight:700;color:#fff}
+    .ui-rate{font-size:11px;color:#fbbf24;font-weight:600}
+    .ui-rate small{color:#7c8799;font-weight:400}
+    .ui-macros{display:flex;gap:7px;flex:none}
+    .ui-macros>div{flex:1;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.07);
+      border-radius:10px;padding:6px 7px;text-align:center}
+    .ui-macros i{display:block;font-style:normal;font-size:8.5px;color:#7c8799}
+    .ui-macros b{font-size:13px;color:#fff}
+    .ui-cta{margin:0 11px 11px;flex:none;text-align:center;padding:11px;border-radius:13px;
+      font-size:12px;font-weight:700;color:#04202e;background:linear-gradient(180deg,#34d399,#059669);
+      box-shadow:0 8px 20px rgba(5,150,105,.35)}
+
+    @media (prefers-reduced-motion:reduce){
+      .rg,.ui-bars i,.ui-cover-sh,.ui-eq i,.ui-scrub span,.ui-b,.ui-bub.typ i,.ui-hero-sh,.pg-hero{animation:none}
+      .ui-b{opacity:1}
+      .rg.a{stroke-dashoffset:69}.rg.b{stroke-dashoffset:96}
+      .ui-scrub span{width:42%}
+    }
 
     /* PHONE TRACK */
     .phone-track {
@@ -142,48 +316,293 @@
     .phone-track::-webkit-scrollbar { display: none; }
 
     /* BRONZE IPHONE MOCKUP */
+    /* Titanium band, same treatment as the hero devices on home.html and
+       the preview frame on the agent page. The band is a RING, so its
+       highlight has to run around it — bright on the left and right flanks
+       where a rounded edge turns toward the light, dark top and bottom.
+       This was a flat tan border (#d49c6e), which reads as a printed
+       outline rather than metal. */
     .phone-mockup {
-      width: 260px; height: 510px; background: #09090b; border: 5px solid #d49c6e;
-      border-radius: 44px; flex: none; box-shadow: 0 24px 60px rgba(0,0,0,0.8);
+      width: 260px; height: 510px; flex: none;
+      background: linear-gradient(90deg, #6a7488 0%, #333c4f 14%, #262e3e 50%, #333c4f 86%, #6a7488 100%);
+      background-clip: padding-box;
+      border: 5px solid transparent;
+      border-radius: 44px;
+      box-shadow:
+        inset 0 0 0 1px rgba(255,255,255,0.30),     /* polished chamfer */
+        inset 0 2px 3px rgba(255,255,255,0.10),
+        inset 0 -2px 4px rgba(0,0,0,0.55),
+        0 24px 60px rgba(0,0,0,0.8);
       position: relative; overflow: hidden; display: flex; flex-direction: column;
     }
-    .phone-mockup.tall {
-      width: 280px; height: 550px; border-width: 6px; border-color: #e5b083;
+    /* Black glass sitting in the band — keeps the band edge visible all the
+       way round, which is what sells its thickness. */
+    .phone-mockup::before {
+      content: ""; position: absolute; inset: 0; border-radius: 40px;
+      pointer-events: none; z-index: 12;
+      box-shadow: inset 0 0 0 1px rgba(0,0,0,0.85);
     }
+    /* Specular sweep across the glass. Static gradient — never repaints. */
+    .phone-mockup::after {
+      content: ""; position: absolute; inset: 0; border-radius: 40px;
+      pointer-events: none; z-index: 13;
+      background: linear-gradient(122deg,
+        rgba(255,255,255,0.10) 0%, rgba(255,255,255,0.035) 16%,
+        rgba(255,255,255,0) 38%, rgba(255,255,255,0) 100%);
+    }
+    .phone-mockup.tall {
+      width: 280px; height: 550px; border-width: 6px;
+    }
+    /* Dynamic-island pill: cut INTO the glass, not laid on top of it. */
     .phone-notch {
-      width: 90px; height: 24px; background: #000; border-radius: 0 0 14px 14px;
-      margin: 0 auto; position: absolute; top: 0; left: 50%; transform: translateX(-50%); z-index: 10;
+      width: 86px; height: 22px; background: #000; border-radius: 0 0 13px 13px;
+      margin: 0 auto; position: absolute; top: 0; left: 50%; transform: translateX(-50%); z-index: 14;
+      box-shadow: inset 0 -1px 0 rgba(255,255,255,0.06);
     }
     .phone-screen {
       flex: 1; padding: 36px 16px 20px; display: flex; flex-direction: column; justify-content: space-between;
       font-size: 0.82rem; text-align: left;
     }
 
+    /* ---- the middle phone actually plays ----
+       A doodle-jump loop done entirely with looping CSS transforms: the
+       platforms scroll down (which reads as the frog climbing), the frog
+       hops on its own cadence, and the hazard drifts. No JS and no
+       per-frame work — the whole thing is composited.
+       The screens were a single frozen frame before this. */
+    /* PLATFORMER GEOMETRY — these numbers are load-bearing.
+       The frog hops in place and the world scrolls up to meet it, so a
+       platform has to arrive at the landing line exactly when the frog
+       comes down. Before this the hop (1.15s) and the scroll (3.2s over
+       720px) were unrelated cycles, so the frog spent most of its time
+       landing on empty space.
+
+       Tied together:
+         hop period       1.15s
+         platform spacing 180px
+         scroll           360px per 2.3s  ->  180px per 1.15s
+       so exactly one platform advances into the landing line per hop.
+
+       The layer is 1080px (3x the 360px stage) with platforms every 180px
+       across the whole span, and translates by 360px = 2 whole spacings,
+       so the visible frame at the end of a cycle matches the start and the
+       loop has no seam. One continuous layer replaces the old two-copy
+       trick, which is what made the spacing irregular. */
+    .pg-stage { position: relative; height: 360px; overflow: hidden; flex: none; }
+    .pg-scroll { position: absolute; left: 0; right: 0; top: 0; height: 1080px;
+      animation: pgScroll 2.3s linear infinite; }
+    @keyframes pgScroll { from { transform: translateY(-360px); } to { transform: translateY(0); } }
+
+    .pg-plat { position: absolute; width: 54px; height: 8px; background: #22c55e; border-radius: 4px;
+      box-shadow: 0 0 10px rgba(34,197,94,.45); }
+    .pg-frog { position: absolute; left: 128px; top: 160px; font-size: 1.6rem; z-index: 3;
+      animation: pgHop 1.15s cubic-bezier(.3,.85,.4,1) infinite; }
+    @keyframes pgHop {
+      0%,100% { transform: translateY(0) scaleY(1); }
+      12%     { transform: translateY(0) scaleY(.84); }
+      48%     { transform: translateY(-78px) scaleY(1.08); }
+      82%     { transform: translateY(0) scaleY(.94); }
+    }
+    .pg-haz { position: absolute; width: 24px; height: 24px; background: #ef4444; border-radius: 4px; z-index: 2;
+      animation: pgDrift 2.6s ease-in-out infinite alternate; }
+    @keyframes pgDrift { from { transform: translateX(0); } to { transform: translateX(120px); } }
+    /* The score is driven by the script at the bottom of this file, not by
+       CSS. An earlier version tried @keyframes on `content`, which does
+       nothing: content is not animatable on a real element (and is not
+       tweenable even on a pseudo), so the score sat frozen while looking
+       like it was wired up. */
+    @media (prefers-reduced-motion: reduce) {
+      .pg-scroll, .pg-frog, .pg-haz { animation: none; }
+    }
+
+    /* ---- shared screen furniture (all five phones) ---- */
+    .sc-row{display:flex;align-items:center;justify-content:space-between;flex:none}
+    .sc-mut{color:#8a93a6;font-size:.72rem}
+    .sc-card{display:flex;align-items:center;justify-content:space-between;flex:none;
+      background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);
+      border-radius:12px;padding:9px 11px}
+    .sc-card b{font-size:1rem;color:#fff}
+
+    /* 1 · fitness ring + bars */
+    .fit-ring{position:relative;width:118px;height:118px;margin:2px auto;flex:none}
+    .fit-ring svg{width:100%;height:100%;transform:rotate(-90deg)}
+    .fit-ring circle{fill:none;stroke-linecap:round}
+    .fr-bg{stroke:rgba(255,255,255,.09);stroke-width:9}
+    .fr-v{stroke-width:9;stroke-dasharray:314;stroke-dashoffset:314}
+    .fr-v.a{stroke:#38bdf8;animation:frDraw 3.4s var(--e,cubic-bezier(.16,1,.3,1)) infinite}
+    .fr-v.b{stroke:#a78bfa;stroke-width:7;stroke-dasharray:239;stroke-dashoffset:239;
+      animation:frDraw2 3.4s cubic-bezier(.16,1,.3,1) infinite .25s}
+    @keyframes frDraw{0%{stroke-dashoffset:314}55%,100%{stroke-dashoffset:69}}
+    @keyframes frDraw2{0%{stroke-dashoffset:239}55%,100%{stroke-dashoffset:96}}
+    .fit-ring-num{position:absolute;inset:0;display:grid;place-content:center;text-align:center}
+    .fit-ring-num b{font-size:1.5rem;color:#fff;line-height:1}
+    .fit-ring-num i{font-style:normal;font-size:.7rem;color:#8a93a6}
+    .sc-bars{display:flex;align-items:flex-end;gap:5px;height:44px;flex:none}
+    .sc-bars i{flex:1;background:linear-gradient(180deg,#38bdf8,#1d4ed8);border-radius:3px;
+      height:var(--h);animation:scBar 2.2s ease-in-out infinite alternate}
+    .sc-bars i:nth-child(2n){animation-delay:.3s}
+    .sc-bars i:nth-child(3n){animation-delay:.6s}
+    @keyframes scBar{from{transform:scaleY(.55)}to{transform:scaleY(1)}}
+    .sc-bars i{transform-origin:bottom}
+
+    /* 2 · music player */
+    .mp-art{display:grid;place-items:center;flex:none;margin:4px 0}
+    .mp-disc{width:112px;height:112px;border-radius:50%;
+      background:conic-gradient(#c084fc,#f472b6,#38bdf8,#c084fc);
+      box-shadow:0 10px 30px rgba(192,132,252,.35),inset 0 0 0 12px rgba(0,0,0,.35);
+      animation:mpSpin 6s linear infinite}
+    .mp-disc::after{content:"";display:block;width:22px;height:22px;border-radius:50%;
+      background:#0d0713;margin:45px auto}
+    @keyframes mpSpin{to{transform:rotate(360deg)}}
+    .mp-eq{display:flex;align-items:flex-end;gap:4px;height:38px;flex:none}
+    .mp-eq i{flex:1;background:linear-gradient(180deg,#f472b6,#7c3aed);border-radius:2px;
+      height:100%;transform-origin:bottom;animation:mpEq .9s ease-in-out infinite alternate}
+    .mp-eq i:nth-child(2){animation-delay:.12s}.mp-eq i:nth-child(3){animation-delay:.24s}
+    .mp-eq i:nth-child(4){animation-delay:.36s}.mp-eq i:nth-child(5){animation-delay:.06s}
+    .mp-eq i:nth-child(6){animation-delay:.30s}.mp-eq i:nth-child(7){animation-delay:.18s}
+    .mp-eq i:nth-child(8){animation-delay:.42s}.mp-eq i:nth-child(9){animation-delay:.09s}
+    @keyframes mpEq{from{transform:scaleY(.18)}to{transform:scaleY(1)}}
+    .mp-bar{height:4px;border-radius:99px;background:rgba(255,255,255,.14);flex:none;overflow:hidden}
+    .mp-bar span{display:block;height:100%;border-radius:99px;background:#f472b6;
+      animation:mpProg 9s linear infinite}
+    @keyframes mpProg{from{width:6%}to{width:100%}}
+
+    /* 3 · game (pg-* above) */
+
+    /* 4 · chat — each bubble arrives in turn, then the set repeats */
+    .ch-list{flex:1;display:flex;flex-direction:column;gap:7px;justify-content:flex-end;min-height:0}
+    .ch-msg{max-width:80%;padding:7px 10px;border-radius:13px;font-size:.76rem;line-height:1.35;
+      background:rgba(255,255,255,.09);color:#e8eef7;opacity:0;
+      animation:chIn 8s ease infinite}
+    .ch-msg.me{margin-left:auto;background:linear-gradient(180deg,#38bdf8,#0284c7);color:#04202e;font-weight:600}
+    .ch-msg.m1{animation-delay:.2s}.ch-msg.m2{animation-delay:1.4s}
+    .ch-msg.m3{animation-delay:2.6s}.ch-msg.m4{animation-delay:3.8s}
+    @keyframes chIn{
+      0%{opacity:0;transform:translateY(7px) scale(.97)}
+      6%,86%{opacity:1;transform:none}
+      96%,100%{opacity:0;transform:translateY(-4px)}
+    }
+    .ch-typing{display:flex;gap:4px;padding:8px 11px;border-radius:13px;width:fit-content;
+      background:rgba(255,255,255,.09)}
+    .ch-typing i{width:5px;height:5px;border-radius:50%;background:#8a93a6;
+      animation:chDot 1.2s ease-in-out infinite}
+    .ch-typing i:nth-child(2){animation-delay:.18s}
+    .ch-typing i:nth-child(3){animation-delay:.36s}
+    @keyframes chDot{0%,60%,100%{opacity:.3;transform:translateY(0)}30%{opacity:1;transform:translateY(-4px)}}
+    .ch-input{display:flex;align-items:center;justify-content:space-between;flex:none;
+      background:rgba(255,255,255,.07);border-radius:99px;padding:8px 12px}
+    .ch-input b{color:#38bdf8}
+
+    /* 5 · storefront */
+    .sh-hero{position:relative;height:120px;border-radius:16px;flex:none;overflow:hidden;
+      background:linear-gradient(140deg,#134e2b,#0b2f1a);display:grid;place-items:center;font-size:2.6rem}
+    .sh-shimmer{position:absolute;inset:0;
+      background:linear-gradient(105deg,transparent 30%,rgba(255,255,255,.16) 48%,transparent 62%);
+      animation:shSweep 3.4s ease-in-out infinite}
+    @keyframes shSweep{from{transform:translateX(-120%)}to{transform:translateX(120%)}}
+    .sh-stars{color:#fbbf24;font-size:.8rem;flex:none;display:flex;align-items:center;gap:6px}
+    .sh-cta{flex:none;text-align:center;padding:11px;border-radius:13px;font-weight:700;color:#04202e;
+      background:linear-gradient(180deg,#34d399,#059669);animation:shPulse 2.4s ease-in-out infinite alternate}
+    @keyframes shPulse{from{transform:scale(1)}to{transform:scale(1.03)}}
+
+
+    /* ---- chassis depth ----
+       Machined side buttons and a status bar are the two details that most
+       separate "phone" from "rounded rectangle". Both are injected by the
+       script at the bottom so the five markup blocks stay clean. */
+    .ph-btn{position:absolute;z-index:15;border-radius:2px 1px 1px 2px;
+      background:linear-gradient(90deg,#7e879b 0%,#464f66 45%,#2b3244 100%);
+      box-shadow:inset 0 1px 0 rgba(255,255,255,.4),inset 0 -1px 0 rgba(0,0,0,.5)}
+    .ph-btn.v1{left:-6px;top:96px;width:3px;height:34px}
+    .ph-btn.v2{left:-6px;top:140px;width:3px;height:34px}
+    .ph-btn.pw{right:-6px;top:118px;width:3px;height:52px;border-radius:1px 2px 2px 1px;
+      background:linear-gradient(270deg,#7e879b 0%,#464f66 45%,#2b3244 100%)}
+
+    /* iOS status bar.
+       Sits in the SAME vertical band as the notch, not below it: the time
+       occupies the gap to its left and the indicators the gap to its
+       right. The previous version used margin-top:-22px to yank itself up
+       under the notch, which clipped the leading digit off every clock
+       (9:41 rendered as ":41").
+       Inner width is 250px and the notch is 86px centred, so each side
+       gets ~82px — comfortable for both clusters. */
+    .ph-status{display:flex;align-items:center;justify-content:space-between;
+      flex:none;height:22px;padding:0 15px;
+      font-size:11px;font-weight:600;letter-spacing:.01em;color:#fff;
+      font-variant-numeric:tabular-nums}
+    .ph-status .r{display:flex;align-items:center;gap:5px}
+    .ph-status svg{display:block}
+    /* Cellular: four stepped bars, trailing ones dimmed to show strength. */
+    .ph-sig rect{fill:#fff}
+    .ph-sig rect.off{fill:rgba(255,255,255,.32)}
+    /* Battery: hairline shell, nub, and a fill whose width AND colour come
+       from --lvl / --bc so each phone can differ. */
+    .ph-bat{position:relative;width:25px;height:12px;border-radius:3.5px;
+      border:1px solid rgba(255,255,255,.45);display:inline-block}
+    .ph-bat::after{content:"";position:absolute;top:50%;right:-3.5px;transform:translateY(-50%);
+      width:2px;height:4.5px;border-radius:0 1.5px 1.5px 0;background:rgba(255,255,255,.45)}
+    .ph-bat i{position:absolute;inset:1.5px;width:var(--lvl,70%);border-radius:2px;
+      background:var(--bc,#fff)}
+    /* Charging phone gets a bolt and a slow fill pulse. */
+    .ph-bat.chg i{animation:phChg 2.6s ease-in-out infinite alternate}
+    @keyframes phChg{from{opacity:.55}to{opacity:1}}
+    .ph-bolt{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+      width:7px;height:9px;color:#04202e}
+
+
+    /* Screen depth: a soft inner shadow so the display sits BEHIND the
+       glass rather than being flush with it. */
+    .phone-screen{position:relative;box-shadow:inset 0 0 22px rgba(0,0,0,.55)}
+    /* Home indicator. */
+    .phone-mockup .ph-home{position:absolute;bottom:7px;left:50%;transform:translateX(-50%);
+      width:34%;height:4px;border-radius:99px;background:rgba(255,255,255,.4);z-index:14}
+
+    /* The row breathes — each phone on its own offset so they never bob
+       in unison, which would read as one moving block. */
+    .phone-mockup{animation:phFloat 6s ease-in-out infinite alternate}
+    .phone-track .phone-mockup:nth-child(2){animation-delay:-1.2s}
+    .phone-track .phone-mockup:nth-child(3){animation-delay:-2.4s}
+    .phone-track .phone-mockup:nth-child(4){animation-delay:-3.6s}
+    .phone-track .phone-mockup:nth-child(5){animation-delay:-4.8s}
+    @keyframes phFloat{from{transform:translateY(5px)}to{transform:translateY(-7px)}}
+
+    @media (prefers-reduced-motion: reduce){
+      .phone-mockup{animation:none}
+    }
+
+    @media (prefers-reduced-motion: reduce){
+      .fr-v,.sc-bars i,.mp-disc,.mp-eq i,.mp-bar span,.ch-msg,.ch-typing i,
+      .sh-shimmer,.sh-cta{animation:none}
+      .ch-msg{opacity:1}
+      .fr-v.a{stroke-dashoffset:69}.fr-v.b{stroke-dashoffset:96}
+      .mp-bar span{width:42%}
+    }
+
     /* WEB BANNER SECTION */
     .web-banner-sec {
-      background: #121214; border-top: 1px solid #27272a; padding: 90px 24px; text-align: center;
+      background: var(--paper); border-top: 1px solid var(--line); padding: 90px 24px; text-align: center;
     }
     .web-banner-wrap { max-width: 760px; margin: 0 auto; }
-    .web-banner-wrap h2 { font-size: clamp(2rem, 4vw, 2.8rem); font-weight: 600; margin: 0 0 20px; letter-spacing: -0.025em; color: #ffffff; }
-    .web-banner-wrap p { font-size: 1.08rem; color: #a1a1aa; line-height: 1.6; margin: 0; font-weight: 400; }
+    .web-banner-wrap h2 { font-size: clamp(2rem, 4vw, 2.8rem); font-weight: 600; margin: 0 0 20px; letter-spacing: -0.025em; color: var(--ink); }
+    .web-banner-wrap p { font-size: 1.08rem; color: var(--ink-2); line-height: 1.6; margin: 0; font-weight: 400; }
 
     /* FAQ ACCORDION SECTION */
     .faq-sec { padding: 90px 24px; max-width: 840px; margin: 0 auto; }
-    .faq-title { font-size: 2.5rem; font-weight: 600; text-align: center; margin-bottom: 48px; letter-spacing: -0.025em; color: #ffffff; }
+    .faq-title { font-size: 2.5rem; font-weight: 600; text-align: center; margin-bottom: 48px; letter-spacing: -0.025em; color: var(--ink); }
 
-    .faq-item { border-bottom: 1px solid #27272a; padding: 22px 0; }
+    .faq-item { border-bottom: 1px solid var(--line); padding: 22px 0; }
     .faq-q {
       font-size: 1.2rem; font-weight: 600; cursor: pointer; display: flex;
       justify-content: space-between; align-items: center; user-select: none; color: #ffffff;
     }
-    .faq-q .chev { font-size: 1.2rem; color: #71717a; transition: transform 0.2s ease; }
-    .faq-a { font-size: 1rem; color: #a1a1aa; line-height: 1.6; margin-top: 16px; display: none; }
+    .faq-q .chev { font-size: 1.2rem; color: var(--mut); transition: transform 0.2s ease; }
+    .faq-a { font-size: 1rem; color: var(--ink-2); line-height: 1.6; margin-top: 16px; display: none; }
     .faq-item.open .faq-a { display: block; }
     .faq-item.open .chev { transform: rotate(180deg); color: #2563eb; }
 
     /* HOME FOOTER SECTION */
     .footer-sec {
-      background: #0d0d0e; border-top: 1px solid #27272a; padding: 80px 40px 44px; color: #a1a1aa;
+      background: #0d0d0e; border-top: 1px solid var(--line); padding: 80px 40px 44px; color: var(--ink-2);
     }
     .footer-container { max-width: 1200px; margin: 0 auto; }
     .footer-grid {
@@ -200,19 +619,19 @@
     .footer-brand-col { display: flex; flex-direction: column; gap: 14px; }
     .footer-logo { display: flex; align-items: center; gap: 10px; color: #fff; font-weight: 700; font-size: 1.4rem; text-decoration: none; }
     .footer-logo img { width: 30px; height: 30px; }
-    .footer-slogan { font-size: 0.92rem; color: #71717a; max-width: 280px; line-height: 1.5; }
+    .footer-slogan { font-size: 0.92rem; color: var(--mut); max-width: 280px; line-height: 1.5; }
 
     .footer-col h4 { color: #ffffff; font-size: 0.98rem; font-weight: 600; margin: 0 0 20px; }
     .footer-col ul { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 12px; }
-    .footer-col a { color: #a1a1aa; text-decoration: none; font-size: 0.92rem; transition: color 0.15s; }
+    .footer-col a { color: var(--ink-2); text-decoration: none; font-size: 0.92rem; transition: color 0.15s; }
     .footer-col a:hover { color: #ffffff; }
 
     .footer-bot {
-      border-top: 1px solid #27272a; padding-top: 32px; display: flex;
+      border-top: 1px solid var(--line); padding-top: 32px; display: flex;
       justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; font-size: 0.88rem;
     }
     .social-links { display: flex; gap: 18px; }
-    .social-links a { color: #a1a1aa; text-decoration: none; font-size: 1.15rem; transition: color 0.15s; }
+    .social-links a { color: var(--ink-2); text-decoration: none; font-size: 1.15rem; transition: color 0.15s; }
     .social-links a:hover { color: #ffffff; }
   </style>
 </head>
@@ -248,20 +667,20 @@
 
     <!-- Left Giant Side Phone Artwork -->
     <div class="hero-side-phone-left">
-      <div style="font-weight:600; color:#a1a1aa; margin-bottom:12px; font-size:0.9rem;">Hello, Alex</div>
-      <div style="background:#18181b; padding:14px; border-radius:16px; margin-bottom:12px;">
-        <div style="color:#71717a; font-size:0.75rem;">Daily Activity</div>
+      <div style="font-weight:600; color:var(--ink-2); margin-bottom:12px; font-size:0.9rem;">Hello, Alex</div>
+      <div style="background:var(--ink); padding:14px; border-radius:16px; margin-bottom:12px;">
+        <div style="color:var(--mut); font-size:0.75rem;">Daily Activity</div>
         <div style="font-size:1.8rem; font-weight:700; color:#38bdf8;">1,840 kcal</div>
       </div>
-      <div style="background:#18181b; padding:14px; border-radius:16px;">
-        <div style="color:#71717a; font-size:0.75rem;">Steps Target</div>
+      <div style="background:var(--ink); padding:14px; border-radius:16px;">
+        <div style="color:var(--mut); font-size:0.75rem;">Steps Target</div>
         <div style="font-size:1.8rem; font-weight:700; color:#a855f7;">4,521 steps</div>
       </div>
     </div>
 
     <!-- Right Giant Side Piano Synth Artwork -->
     <div class="hero-side-phone-right">
-      <div style="font-weight:600; margin-bottom:12px; font-size:0.9rem; color:#a1a1aa;">Synthesizer Synth</div>
+      <div style="font-weight:600; margin-bottom:12px; font-size:0.9rem; color:var(--ink-2);">Synthesizer Synth</div>
       <div style="display:flex; gap:6px; height:120px; background:#000; padding:8px; border-radius:12px; margin-bottom:16px;">
         <div style="background:#fff; flex:1; border-radius:4px;"></div>
         <div style="background:#fff; flex:1; border-radius:4px;"></div>
@@ -269,8 +688,8 @@
         <div style="background:#fff; flex:1; border-radius:4px;"></div>
       </div>
       <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
-        <div style="background:#27272a; padding:10px; border-radius:10px; font-size:0.75rem; text-align:center;">REVERB</div>
-        <div style="background:#27272a; padding:10px; border-radius:10px; font-size:0.75rem; text-align:center;">VIBRATO</div>
+        <div style="background:var(--line); padding:10px; border-radius:10px; font-size:0.75rem; text-align:center;">REVERB</div>
+        <div style="background:var(--line); padding:10px; border-radius:10px; font-size:0.75rem; text-align:center;">VIBRATO</div>
       </div>
     </div>
 
@@ -312,104 +731,117 @@
     </div>
   </section>
 
-  <!-- SHOWCASE SECTION (DARK #121214) -->
+  <!-- SHOWCASE SECTION (DARK var(--paper)) -->
   <section class="showcase-sec">
     <h2 class="showcase-title">Experience what's being built with Souqi</h2>
     <p class="showcase-sub">Real apps, created in Souqi</p>
 
     <!-- HORIZONTAL PHONE MOCKUPS TRACK -->
     <div class="phone-track">
-      <!-- Mockup 1: Alex's Fitness App -->
+
+      <!-- 1 · Fitness -->
       <div class="phone-mockup">
         <div class="phone-notch"></div>
-        <div class="phone-screen">
-          <div style="display:flex; justify-content:space-between; margin-bottom:12px; font-weight:600; color:#a1a1aa;">
-            <span>Hello, Alex</span>
-            <span>⚡</span>
+        <div class="phone-screen ui" style="--bg:#0b1220;--bg2:#070c16">
+          <div class="ui-head"><div><span class="ui-kick">Tuesday</span><h4>Summary</h4></div><span class="ui-av"></span></div>
+          <div class="ui-body">
+            <div class="ui-rings">
+              <svg viewBox="0 0 120 120">
+                <circle class="rg-bg" cx="60" cy="60" r="50"/><circle class="rg-bg" cx="60" cy="60" r="38"/>
+                <circle class="rg a" cx="60" cy="60" r="50"/><circle class="rg b" cx="60" cy="60" r="38"/>
+              </svg>
+              <div class="ui-rings-c"><b>78</b><i>% of goal</i></div>
+            </div>
+            <div class="ui-stats">
+              <div><i>Move</i><b>1,840</b><s>kcal</s></div>
+              <div><i>Steps</i><b>4,521</b><s>of 6k</s></div>
+              <div><i>Sleep</i><b>7h 12</b><s>min</s></div>
+            </div>
+            <span class="ui-kick">This week</span>
+            <div class="ui-bars"><i style="--h:44%"></i><i style="--h:72%"></i><i style="--h:38%"></i><i style="--h:88%"></i><i style="--h:61%"></i><i style="--h:95%"></i><i style="--h:52%"></i></div>
+            <div class="ui-row"><span class="ui-th" style="--c1:#38bdf8;--c2:#0369a1"></span><div class="ui-rt"><b>Morning run</b><small>5.2 km · 28 min</small></div><span class="ui-tr">+312</span></div>
+            <div class="ui-row"><span class="ui-th" style="--c1:#a78bfa;--c2:#6d28d9"></span><div class="ui-rt"><b>Strength</b><small>Upper body · 40 min</small></div><span class="ui-tr">+186</span></div>
           </div>
-          <div style="background:#18181b; padding:14px; border-radius:14px; margin-bottom:10px;">
-            <div style="color:#71717a; font-size:0.75rem;">Daily Activity</div>
-            <div style="font-size:1.6rem; font-weight:700; color:#38bdf8;">1,840 kcal</div>
-          </div>
-          <div style="background:#18181b; padding:14px; border-radius:14px;">
-            <div style="color:#71717a; font-size:0.75rem;">Steps Target</div>
-            <div style="font-size:1.6rem; font-weight:700; color:#a855f7;">4,521 steps</div>
-          </div>
+          <div class="ui-tabs"><i class="on"></i><i></i><i></i><i></i></div>
         </div>
       </div>
 
-      <!-- Mockup 2: Doodle Jump Arcade Game -->
+      <!-- 2 · Music -->
       <div class="phone-mockup">
         <div class="phone-notch"></div>
-        <div class="phone-screen" style="background:#0b1329;">
-          <div style="display:flex; justify-content:space-between; font-weight:700; font-size:1.2rem; color:#4ade80;">
-            <span>226</span>
-            <span>⚙️</span>
+        <div class="phone-screen ui" style="--bg:#1a0f24;--bg2:#0a0610">
+          <div class="ui-head"><div><span class="ui-kick">Playing from</span><h4>Neon Arcade</h4></div><span class="ui-dots"></span></div>
+          <div class="ui-body">
+            <div class="ui-cover"><div class="ui-cover-sh"></div></div>
+            <div class="ui-track"><b>Midnight Drive</b><small>Kite &amp; Halogen</small></div>
+            <div class="ui-eq"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+            <div class="ui-scrub"><span></span></div>
+            <div class="ui-time"><small>1:24</small><small>3:58</small></div>
+            <div class="ui-ctrl"><i class="sk"></i><i class="pl"></i><i class="sk r"></i></div>
+            <div class="ui-row"><span class="ui-th" style="--c1:#f472b6;--c2:#9d174d"></span><div class="ui-rt"><b>Afterglow</b><small>Kite &amp; Halogen</small></div><span class="ui-tr">3:12</span></div>
           </div>
-          <div style="position:relative; height:280px; margin:20px 0;">
-            <div style="position:absolute; top:30px; left:40px; width:44px; height:8px; background:#22c55e; border-radius:4px;"></div>
-            <div style="position:absolute; top:100px; left:110px; width:44px; height:8px; background:#22c55e; border-radius:4px;"></div>
-            <div style="position:absolute; top:170px; left:30px; width:44px; height:8px; background:#22c55e; border-radius:4px;"></div>
-            <div style="position:absolute; top:130px; left:120px; font-size:1.6rem;">🐸</div>
-          </div>
+          <div class="ui-tabs"><i></i><i class="on"></i><i></i><i></i></div>
         </div>
       </div>
 
-      <!-- Mockup 3: Falling Blocks Game (Center Hero Phone) -->
+      <!-- 3 · Game -->
       <div class="phone-mockup tall">
         <div class="phone-notch"></div>
-        <div class="phone-screen" style="background:#050b14;">
-          <div style="display:flex; justify-content:space-between; font-weight:700; font-size:1.3rem; color:#ffffff;">
-            <span>326</span>
-            <span>⏸</span>
-          </div>
-          <div style="position:relative; height:360px;">
-            <div style="position:absolute; top:30px; left:30px; width:24px; height:24px; background:#ef4444; border-radius:4px;"></div>
-            <div style="position:absolute; top:80px; left:140px; width:54px; height:8px; background:#22c55e; border-radius:4px;"></div>
-            <div style="position:absolute; top:160px; left:60px; width:54px; height:8px; background:#22c55e; border-radius:4px;"></div>
-            <div style="position:absolute; top:240px; left:120px; width:54px; height:8px; background:#22c55e; border-radius:4px;"></div>
-            <div style="position:absolute; top:210px; left:130px; font-size:1.6rem;">🐸</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Mockup 4: Match-3 Gummy Candy Game -->
-      <div class="phone-mockup">
-        <div class="phone-notch"></div>
-        <div class="phone-screen" style="background:#ffffff; color:#18181b;">
-          <div style="display:flex; justify-content:space-between; font-weight:700;">
-            <span>Level 1</span>
-            <span style="color:#e11d48;">Score: 0</span>
-          </div>
-          <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:8px; margin:auto 0; text-align:center; font-size:1.4rem;">
-            <span>🍬</span> <span>🍇</span> <span>🍊</span> <span>🍓</span>
-            <span>🍊</span> <span>🍬</span> <span>🍓</span> <span>🍇</span>
-            <span>🍇</span> <span>🍊</span> <span>🍬</span> <span>🍬</span>
-          </div>
-          <div style="background:#f43f5e; color:#fff; padding:10px; text-align:center; border-radius:12px; font-weight:600;">
-            Shuffle +3D
-          </div>
-        </div>
-      </div>
-
-      <!-- Mockup 5: Vegan Food Macro Details -->
-      <div class="phone-mockup">
-        <div class="phone-notch"></div>
-        <div class="phone-screen" style="background:#18181b;">
-          <div>
-            <div style="font-weight:700; font-size:1.1rem; margin-bottom:8px;">🥗 Vegan Buddha Bowl</div>
-            <div style="background:#27272a; padding:12px; border-radius:12px; margin-bottom:12px;">
-              <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
-                <span>Protein</span> <span>45g</span>
-              </div>
-              <div style="display:flex; justify-content:space-between;">
-                <span>Carbs</span> <span>60g</span>
-              </div>
+        <div class="phone-screen ui" style="--bg:#050b14;--bg2:#02060d">
+          <div class="ui-hud"><div><i>SCORE</i><b class="pg-num">326</b></div><div class="ui-hud-r"><i>BEST</i><b>1,204</b></div></div>
+          <div class="pg-stage">
+            <!-- Every 180px. x stays near the frog's lane (it sits at 128
+                 and is 24 wide; platforms are 54 wide) so each landing
+                 overlaps rather than missing to one side. -->
+            <div class="pg-scroll">
+              <div class="pg-plat" style="top:0px;   left:112px"></div>
+              <div class="pg-plat" style="top:180px; left:132px"></div>
+              <div class="pg-plat" style="top:360px; left:104px"></div>
+              <div class="pg-plat" style="top:540px; left:140px"></div>
+              <div class="pg-plat" style="top:720px; left:118px"></div>
+              <div class="pg-plat" style="top:900px; left:126px"></div>
             </div>
+            <div class="pg-haz" style="top:40px; left:36px"></div>
+            <div class="pg-hero"></div>
           </div>
-          <button type="button" style="background:#22c55e; color:#fff; border:0; padding:12px; border-radius:10px; font-weight:600; cursor:pointer;">Track Meal</button>
+          <div class="ui-pad"><i></i><i></i></div>
         </div>
       </div>
+
+      <!-- 4 · Chat -->
+      <div class="phone-mockup">
+        <div class="phone-notch"></div>
+        <div class="phone-screen ui" style="--bg:#0c1322;--bg2:#070b14">
+          <div class="ui-head"><div class="ui-hg"><span class="ui-th sm" style="--c1:#34d399;--c2:#047857"></span><div><b class="ui-nm">Design team</b><small class="ui-on">3 online</small></div></div><span class="ui-dots"></span></div>
+          <div class="ui-body chat">
+            <div class="ui-day">Today</div>
+            <div class="ui-b m1"><span class="ui-th sm" style="--c1:#38bdf8;--c2:#0369a1"></span><div><div class="ui-bub">Shipped the new checkout flow</div><small>Mara · 9:24</small></div></div>
+            <div class="ui-b me m2"><div><div class="ui-bub">Nice. Did the tests pass?</div><small>You · 9:25</small></div></div>
+            <div class="ui-b m3"><span class="ui-th sm" style="--c1:#a78bfa;--c2:#6d28d9"></span><div><div class="ui-bub">All green — deploying now</div><small>Ilay · 9:26</small></div></div>
+            <div class="ui-b me m4"><div><div class="ui-bub short">Perfect</div><small>You · 9:26</small></div></div>
+            <div class="ui-b"><span class="ui-th sm" style="--c1:#38bdf8;--c2:#0369a1"></span><div class="ui-bub typ"><i></i><i></i><i></i></div></div>
+          </div>
+          <div class="ui-inp"><span>Message</span><b></b></div>
+        </div>
+      </div>
+
+      <!-- 5 · Storefront -->
+      <div class="phone-mockup">
+        <div class="phone-notch"></div>
+        <div class="phone-screen ui" style="--bg:#0a1410;--bg2:#050a08">
+          <div class="ui-head"><div><span class="ui-kick">Bowls</span><h4>Buddha Bowl</h4></div><span class="ui-hrt"></span></div>
+          <div class="ui-body">
+            <div class="ui-hero"><div class="ui-hero-sh"></div><span class="ui-badge">Popular</span></div>
+            <div class="ui-price"><b>$14.50</b><span class="ui-rate">4.9 <small>(218)</small></span></div>
+            <div class="ui-macros"><div><i>Protein</i><b>45g</b></div><div><i>Carbs</i><b>60g</b></div><div><i>Fat</i><b>18g</b></div></div>
+            <span class="ui-kick">Add extras</span>
+            <div class="ui-row"><span class="ui-th" style="--c1:#34d399;--c2:#047857"></span><div class="ui-rt"><b>Avocado</b><small>+ 120 kcal</small></div><span class="ui-tr">$2.00</span></div>
+            <div class="ui-row"><span class="ui-th" style="--c1:#fbbf24;--c2:#b45309"></span><div class="ui-rt"><b>Tofu crisp</b><small>+ 90 kcal</small></div><span class="ui-tr">$1.50</span></div>
+          </div>
+          <div class="ui-cta">Add to order · $14.50</div>
+        </div>
+      </div>
+
     </div>
   </section>
 
@@ -519,5 +951,76 @@
     })();
   </script>
 <script src="js/nav-loading.js?v=1"></script>
+<script>
+(function () {
+  "use strict";
+  // Side buttons, status bar and home indicator are added here rather than
+  // repeated across five markup blocks. Purely decorative chrome.
+  // Per-phone clock and battery so five identical status bars do not give
+  // the mockup away. Icons are inline SVG rather than CSS boxes: at 11-13px
+  // a WiFi arc or a stepped signal ramp cannot be faked with border tricks
+  // without looking like a bar chart.
+  var SIG = '<svg class="ph-sig" width="17" height="11" viewBox="0 0 17 11">' +
+    '<rect x="0"  y="7.5" width="3" height="3.5" rx="1"/>' +
+    '<rect x="4.6" y="5"   width="3" height="6"   rx="1"/>' +
+    '<rect x="9.2" y="2.5" width="3" height="8.5" rx="1"/>' +
+    '<rect class="off" x="13.8" y="0" width="3" height="11" rx="1"/></svg>';
+  var WIFI = '<svg width="15" height="11" viewBox="0 0 15 11" fill="none">' +
+    '<path d="M1 3.4A10.2 10.2 0 0 1 14 3.4" stroke="#fff" stroke-width="1.7" stroke-linecap="round"/>' +
+    '<path d="M3.5 6.1a6.4 6.4 0 0 1 8 0" stroke="#fff" stroke-width="1.7" stroke-linecap="round"/>' +
+    '<path d="M6 8.7a2.7 2.7 0 0 1 3 0" stroke="#fff" stroke-width="1.7" stroke-linecap="round"/>' +
+    '<circle cx="7.5" cy="10.4" r=".9" fill="#fff"/></svg>';
+  var BOLT = '<svg class="ph-bolt" viewBox="0 0 7 9" fill="currentColor">' +
+    '<path d="M4 0 0 5h2.4L3 9l4-5H4.6L4 0z"/></svg>';
+
+  // time, battery %, charging, fill colour
+  var BARS = [
+    ["9:41",  78, false, "#fff"],
+    ["10:24", 46, false, "#fff"],
+    ["14:06", 12, false, "#ff453a"],   // low battery reads red, as it should
+    ["18:52", 63, true,  "#32d74b"],   // charging
+    ["21:15", 91, false, "#fff"]
+  ];
+
+  document.querySelectorAll(".phone-mockup").forEach(function (m, i) {
+    ["v1", "v2", "pw"].forEach(function (c) {
+      var b = document.createElement("i");
+      b.className = "ph-btn " + c;
+      m.appendChild(b);
+    });
+    var home = document.createElement("div");
+    home.className = "ph-home";
+    m.appendChild(home);
+
+    var sc = m.querySelector(".phone-screen");
+    if (!sc) return;
+    var d = BARS[i % BARS.length];
+    var bar = document.createElement("div");
+    bar.className = "ph-status";
+    bar.innerHTML =
+      '<span>' + d[0] + '</span>' +
+      '<span class="r">' + SIG + WIFI +
+        '<span class="ph-bat' + (d[2] ? ' chg' : '') + '" style="--lvl:' + d[1] + '%;--bc:' + d[3] + '">' +
+          '<i></i>' + (d[2] ? BOLT : '') +
+        '</span>' +
+      '</span>';
+    sc.insertBefore(bar, sc.firstChild);
+  });
+
+  // The game score. A CSS `content` animation cannot do this — content is
+  // not animatable on a real element — so an earlier attempt at it silently
+  // did nothing and the score sat frozen. One interval is the honest fix.
+  var score = document.querySelector(".pg-stage");
+  var out = score && score.parentElement.querySelector(".sc-row span");
+  if (out && !matchMedia("(prefers-reduced-motion:reduce)").matches) {
+    var n = 326;
+    setInterval(function () {
+      n += Math.floor(Math.random() * 9) + 3;
+      if (n > 990) n = 118;
+      out.textContent = n;
+    }, 620);
+  }
+})();
+</script>
 </body>
 </html>

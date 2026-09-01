@@ -1,0 +1,26 @@
+{
+  "_comment": [
+    "Copy to server/mcp.json to give Powered Souqi extra tools, or set the",
+    "same JSON as the MCP_SERVERS environment variable (env wins).",
+    "Eco Souqi never loads these — MCP is a Powered Souqi feature.",
+    "",
+    "Two transports are supported:",
+    "  stdio — give a `command` (+ optional `args`, `env`, `cwd`)",
+    "  http  — give a `url` (+ optional `headers`) for a streamable-HTTP server",
+    "Set \"enabled\": false to keep an entry without loading it.",
+    "",
+    "A server that fails to start is skipped with a warning; builds still run."
+  ],
+  "mcpServers": {
+    "docs": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "./docs"],
+      "enabled": false
+    },
+    "github": {
+      "url": "https://api.githubcopilot.com/mcp/",
+      "headers": { "Authorization": "Bearer YOUR_GITHUB_TOKEN" },
+      "enabled": false
+    }
+  }
+}

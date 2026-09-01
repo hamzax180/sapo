@@ -10,6 +10,7 @@
     "build": "echo 'No build step required'"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.122.0",
     "@daytona/sdk": "^0.203.0",
     "archiver": "^7.0.1",
     "bcryptjs": "^2.4.3",

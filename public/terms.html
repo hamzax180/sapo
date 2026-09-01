@@ -35,7 +35,7 @@
   .brand img{width:26px;height:26px;object-fit:contain;border-radius:6px}
   .nav .lnk{margin-inline-start:auto;display:flex;gap:2px;align-items:center}
   .btn-g{padding:9px 15px;border:1px solid var(--line);border-radius:10px;color:var(--ink);font-size:.86rem;font-weight:600;transition:.16s;text-decoration:none}
-  .btn-g:hover{border-color:#c6dbe7;background:rgba(18,32,46,.05)}
+  .btn-g:hover{border-color:var(--mut);background:rgba(240,234,220,.06)}
   .btn-d{padding:9px 17px;border-radius:10px;background:var(--accent);color:#fff;font-size:.86rem;font-weight:700;transition:.16s;text-decoration:none}
   .btn-d:hover{background:var(--accent-2);transform:translateY(-1px)}
 
@@ -53,15 +53,19 @@
      not a full page dark-mode flip. */
   .doc-grid{display:grid;grid-template-columns:230px 1fr;gap:36px;align-items:start}
   @media (max-width:860px){ .doc-grid{grid-template-columns:1fr} }
-  .toc{position:sticky;top:20px;background:#faf7f2;border:1px solid var(--line);border-radius:18px;padding:20px 14px;
-    max-height:calc(100svh - 40px);overflow-y:auto;box-shadow:0 2px 10px rgba(18,32,46,.05)}
+  .toc{position:sticky;top:20px;background:var(--card);border:1px solid var(--line);border-radius:18px;padding:20px 14px;
+    max-height:calc(100svh - 40px);overflow-y:auto;box-shadow:0 2px 12px rgba(0,0,0,.28)}
   @media (max-width:860px){ .toc{position:static;max-height:none} }
-  .toc h2{font-size:.68rem;text-transform:uppercase;letter-spacing:.14em;color:var(--mut);margin-bottom:10px;padding:0 12px}
+  /* --ink-2, not --mut: on the old cream card --mut cleared ~4.4:1, but
+     against the warm dark surface it falls to 3.35:1 — under AA for a
+     label people are meant to read. It still reads as secondary through
+     size, uppercase and letter-spacing rather than through low contrast. */
+  .toc h2{font-size:.68rem;text-transform:uppercase;letter-spacing:.14em;color:var(--ink-2);margin-bottom:10px;padding:0 12px}
   .toc ol{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:2px}
   .toc a{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:11px;color:var(--ink-2);text-decoration:none;font-size:.87rem;transition:background .15s,color .15s}
-  .toc a .dot{width:6px;height:6px;border-radius:50%;background:#cbd2d9;flex:none;transition:background .15s}
-  .toc a:hover{color:var(--ink);background:rgba(18,32,46,.05)}
-  .toc a.active{background:#e5f9f1;color:#0f8a5f;font-weight:600}
+  .toc a .dot{width:6px;height:6px;border-radius:50%;background:var(--mut);flex:none;transition:background .15s}
+  .toc a:hover{color:var(--ink);background:rgba(240,234,220,.06)}
+  .toc a.active{background:rgba(34,197,148,.14);color:#4fd6a5;font-weight:600}
   .toc a.active .dot{background:#22c58f;box-shadow:0 0 0 3px rgba(34,197,148,.18)}
 
   section.sec{margin-bottom:38px;scroll-margin-top:24px}
@@ -88,6 +92,7 @@
   .foot-links a{color:var(--ink-2);text-decoration:none}
   .foot-links a:hover{color:var(--accent-2)}
 </style>
+<link rel="stylesheet" href="css/site-footer.css">
 </head>
 <body>
 
@@ -261,5 +266,6 @@
 
 
 <script src="js/nav-loading.js?v=1"></script>
+<script src="js/site-footer.js" defer></script>
 </body>
 </html>

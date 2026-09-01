@@ -35,6 +35,7 @@
     "ci": "npm run check:schema && npm run check:nlu && npm run lint && npm test && npm run test:nlu && npm run test:agent && npm run test:claim && npm run test:project && npm run test:sse && npm run test:refine && npm run test:microclaim && npm run test:isolation && npm run smoke-test"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.122.0",
     "@daytona/sdk": "^0.203.0",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
