@@ -11,6 +11,10 @@
    admin, mobile, checkout): a marketing footer inside the builder's
    chat column or the settings modal is noise, not navigation.
 
+   Nor to login and signup. Those pages exist to be finished, and a
+   wall of site navigation under the form is an invitation to leave
+   before doing that.
+
    The data-t attributes match home.html's, so on pages that load
    js/ui.js the existing translator picks the footer up; on pages
    that don't, the inline English text is what shows. Either way the
