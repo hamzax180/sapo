@@ -26,6 +26,9 @@
     --body:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
     --mono:ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace;
     --ease:cubic-bezier(.16,1,.3,1);
+    /* Sidebar geometry, matching the builder rail so the two pages feel
+       like one product rather than two that happen to share colours. */
+    --sb-w:238px; --sb-pad:6px; --ease-sb:cubic-bezier(.32,.72,0,1);
   }
   :root[data-theme="dark"]{
     --paper:#1c1917; --paper-2:#24211e; --card:#2a2622;
@@ -46,11 +49,11 @@
 
   /* ---- sidebar: same shell as /projects so navigation feels continuous ---- */
   .ag-history{position:relative !important;height:100vh;flex:0 0 0px;
-    width:0;min-width:0;max-width:240px;overflow:hidden;
+    width:0;min-width:0;max-width:var(--sb-w);overflow:hidden;
     background:var(--paper);border-right:0 solid var(--line);box-sizing:border-box;
     transition:width .26s var(--ease),flex-basis .26s var(--ease),border-color .26s var(--ease);
     display:flex;flex-direction:column;z-index:100}
-  .ag-history.on{width:240px !important;flex:0 0 240px !important;min-width:240px !important;border-right:1px solid var(--line);overflow:visible !important}
+  .ag-history.on{width:var(--sb-w) !important;flex:0 0 var(--sb-w) !important;min-width:var(--sb-w) !important;border-right:1px solid var(--line);overflow:visible !important}
   .ag-hist-head,.ag-hist-tabs,.ag-hist-foot{width:100%;box-sizing:border-box}
   .ag-hist-head{display:flex;align-items:center;gap:8px;padding:10px 10px 12px 114px;width:100%;box-sizing:border-box}
   .ag-hist-mark{width:28px;height:28px;border-radius:8px;background:var(--accent);display:grid;place-items:center;flex:none}
@@ -77,15 +80,60 @@
   .ag-ws-sep{height:1px;background:var(--line);margin:6px 4px}
   .ag-act{display:flex;align-items:center;gap:9px;margin:0 10px 8px;padding:8px 10px;border:1px solid var(--line);background:var(--card);border-radius:9px;color:var(--ink);font-size:.88rem;font-weight:500;cursor:pointer;width:calc(100% - 20px);box-sizing:border-box}
   .ag-act svg{width:16px;height:16px;flex:none;color:var(--ink-2)}
-  .ag-hist-tabs{display:flex;flex-direction:column;gap:2px;padding:4px 12px 6px;width:100%;box-sizing:border-box;flex:0 0 auto;overflow:visible !important}
-  .ag-hist-tab{width:100%;box-sizing:border-box;display:flex;align-items:center;gap:11px;border:0;background:none;color:var(--ink);cursor:pointer;
-    padding:8px 11px;border-radius:8px;font-size:.92rem;font-weight:400;text-align:left;transition:.14s}
-  .ag-hist-tab svg{width:18px;height:18px;flex:none;color:var(--ink-2)}
-  .ag-hist-tab:hover,.ag-hist-tab.on{background:var(--paper-2);font-weight:600}
-  .ag-hist-gap{height:16px;flex:0 0 16px}
-  .ag-hist-foot{margin-top:auto;flex:0 0 auto;padding:10px;border-top:1px solid var(--line);background:var(--paper);width:100%;box-sizing:border-box}
-  .ag-hist-links{display:flex;gap:8px;justify-content:center;font-size:.71rem;color:var(--mut)}
-  .ag-hist-links a:hover{color:var(--ink)}
+  /* ---- nav rows: the builder's shape (18px icon slot, compact row) ---- */
+  .ag-hist-tabs{display:flex;flex-direction:column;gap:2px;padding:2px var(--sb-pad) 4px;width:100%;box-sizing:border-box;flex:0 0 auto;overflow:visible !important}
+  .ag-hist-tab{width:100%;box-sizing:border-box;display:flex;align-items:center;gap:10px;border:0;background:none;color:var(--ink);cursor:pointer;
+    padding:7px 6px;border-radius:8px;font-size:.75rem;font-weight:450;text-align:left;transition:background .14s,color .14s;text-decoration:none}
+  .ag-hist-tab .tab-ic{flex:none;width:18px;height:18px;display:grid;place-items:center;color:var(--ink-2)}
+  .ag-hist-tab .tab-ic svg{width:16px;height:16px}
+  .ag-hist-tab .tab-ic.ring{border:1px solid var(--line);border-radius:50%;background:var(--paper-2)}
+  .ag-hist-tab:hover{background:var(--paper-2)}
+  .ag-hist-tab.on{background:var(--paper-2);font-weight:600}
+  .ag-hist-tab.on .tab-ic,.ag-hist-tab:hover .tab-ic{color:var(--ink)}
+  .ag-hist-tab .lbl{max-width:190px;overflow:hidden;white-space:nowrap}
+  .ag-tab-new{background:var(--card);box-shadow:0 1px 2px rgba(0,0,0,.05)}
+  .ag-tab-new:hover{background:var(--card);filter:brightness(1.06)}
+  .ag-tab-new .tab-ic.ring{color:var(--ink);background:var(--paper-2)}
+
+  /* Recent deployments take the flexible middle, the way chat history does
+     in the builder, so the account row stays pinned to the bottom. */
+  .ag-hist-chats{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;padding:2px 0 4px}
+  .ag-chats-ttl{font-size:.655rem;font-weight:450;color:var(--mut);padding:10px 10px 4px;flex:0 0 auto}
+  .ag-chats-list{flex:1 1 auto;min-height:0;overflow-y:auto;padding:0 var(--sb-pad) 4px;scrollbar-width:thin;display:flex;flex-direction:column;gap:2px}
+  .ag-chats-list::-webkit-scrollbar{width:6px}
+  .ag-chats-list::-webkit-scrollbar-thumb{background:rgba(128,128,128,.28);border-radius:8px}
+  .ag-chat-item{display:flex;align-items:center;gap:10px;width:100%;box-sizing:border-box;
+    padding:7px 6px;border-radius:8px;color:var(--ink-2);text-decoration:none;font-size:.75rem;
+    white-space:nowrap;overflow:hidden;transition:background .14s,color .14s;border:0;background:none;cursor:pointer;text-align:left;font-family:inherit}
+  .ag-chat-item:hover{background:var(--paper-2);color:var(--ink)}
+  .ag-chat-item.current{background:var(--paper-2);color:var(--ink);font-weight:600}
+  .ag-chat-item i{flex:none;width:18px;height:18px;display:grid;place-items:center;color:var(--ink-2);opacity:.95}
+  .ag-chat-item i svg{width:16px;height:16px}
+  .ag-chat-item span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis}
+  /* A dot instead of an icon for anything currently live, so the rail shows
+     what is running without needing the page. */
+  .ag-chat-item .sdot{width:6px;height:6px;border-radius:50%;background:var(--mut);flex:none;margin:0 6px}
+  .ag-chat-item .sdot.run{background:var(--ok)}
+  .ag-chat-item .sdot.move{background:var(--warn)}
+  .ag-chat-item .sdot.bad{background:var(--danger)}
+  .ag-chats-empty{padding:14px;color:var(--mut);font-size:.8rem;line-height:1.5;text-align:center}
+
+  .ag-hist-foot{flex:0 0 auto;padding:6px 0 4px;border-top:0;background:transparent;width:100%;box-sizing:border-box}
+  .ag-hist-foot .ag-foot-link{width:calc(100% - var(--sb-pad)*2);margin:2px var(--sb-pad) 0}
+
+  /* Account row pinned to the very bottom: avatar, name, settings gear. */
+  .ag-hist-user{flex:0 0 auto;display:flex;align-items:center;gap:2px;padding:5px var(--sb-pad) 8px;
+    background:var(--paper-2);width:100%;box-sizing:border-box}
+  .ag-user-main{flex:1;min-width:0;display:flex;align-items:center;gap:8px;border:0;background:none;
+    color:var(--ink);cursor:pointer;padding:5px 6px;border-radius:9px;font:inherit;text-align:left;transition:.14s}
+  .ag-user-main:hover{background:var(--paper)}
+  .ag-user-main .av{flex:none;width:22px;height:22px;border-radius:50%;display:grid;place-items:center;
+    background:linear-gradient(135deg,var(--accent),var(--accent-2));color:#fff;font-size:.76rem;font-weight:700}
+  .ag-user-main .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.72rem;font-weight:500}
+  .ag-user-gear{flex:none;width:24px;height:24px;display:grid;place-items:center;border:0;background:none;
+    color:var(--mut);cursor:pointer;border-radius:9px;transition:.14s}
+  .ag-user-gear:hover{background:var(--paper);color:var(--ink)}
+  .ag-user-gear svg{width:14px;height:14px}
 
   .ag-pv-toggle-btn{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line);background:var(--card);color:var(--ink);
     border-radius:9px;padding:6px 14px;height:34px;font-size:.85rem;font-weight:600;cursor:pointer;
@@ -323,29 +371,45 @@
     </div>
   </div>
 
-  <button type="button" class="ag-act" onclick="location.href='/agent'">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Create something new</button>
+  <div class="ag-hist-tabs" id="agHistTabs" role="tablist">
+    <a class="ag-hist-tab ag-tab-new" href="/agent" title="New chat">
+      <i class="tab-ic ring"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></i><span class="lbl">New</span></a>
 
-  <div class="ag-hist-tabs" role="tablist">
-    <a class="ag-hist-tab" href="/agent">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg>Home</a>
-    <a class="ag-hist-tab" href="/projects">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>Projects</a>
-    <a class="ag-hist-tab on" href="/deployments">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="m3.3 7 8.7 5 8.7-5M12 22V12"/></svg>Deployments</a>
-    <a class="ag-hist-tab" href="/agent#stats">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/></svg>Stats</a>
-    <div class="ag-hist-gap"></div>
-    <a class="ag-hist-tab" href="/terms">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4h7a3 3 0 0 1 3 3v13a2.5 2.5 0 0 0-2.5-2.5H2z"/><path d="M22 4h-7a3 3 0 0 0-3 3v13a2.5 2.5 0 0 1 2.5-2.5H22z"/></svg>Documentation</a>
+    <a class="ag-hist-tab" href="/projects" title="Projects">
+      <i class="tab-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M8 4h9a2 2 0 0 1 2 2v11"/><rect x="4" y="7" width="12" height="13" rx="2"/></svg></i><span class="lbl">Projects</span></a>
+
+    <a class="ag-hist-tab on" href="/deployments" title="Deployments">
+      <i class="tab-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="m3.3 7 8.7 5 8.7-5M12 22V12"/></svg></i><span class="lbl">Deployments</span></a>
+
+    <a class="ag-hist-tab" href="/agent#favorites" title="Favorites">
+      <i class="tab-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8L3.5 9.7l5.9-.9z"/></svg></i><span class="lbl">Favorites</span></a>
+
+    <a class="ag-hist-tab" href="/settings#integrations" title="Integrations">
+      <i class="tab-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="m12 3 9 5-9 5-9-5 9-5z"/><path d="m3 12 9 5 9-5"/><path d="m3 17 9 5 9-5"/></svg></i><span class="lbl">Integrations</span></a>
+
+    <a class="ag-hist-tab" href="/settings#security" title="Security">
+      <i class="tab-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/></svg></i><span class="lbl">Security</span></a>
+  </div>
+
+  <!-- The builder puts recent chats here; the equivalent on this page is
+       the apps themselves, with a live dot so the rail shows what is
+       running without opening anything. -->
+  <div class="ag-hist-chats">
+    <div class="ag-chats-ttl">Recent</div>
+    <div class="ag-chats-list" id="agAppList"><div class="ag-hist-loading ag-chats-empty">Loading…</div></div>
   </div>
 
   <div class="ag-hist-foot">
-    <div class="ag-hist-links">
-      <a href="/terms" target="_blank" rel="noopener">Terms</a><span>·</span>
-      <a href="/privacy" target="_blank" rel="noopener">Privacy</a><span>·</span>
-      <a href="/pricing">Plans</a>
-    </div>
+    <a class="ag-hist-tab ag-foot-link" href="/home" title="Learn more">
+      <i class="tab-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7V18h8v-3.3A7 7 0 0 0 12 2z"/></svg></i><span class="lbl">Learn more</span></a>
+  </div>
+
+  <div class="ag-hist-user">
+    <button type="button" class="ag-user-main" id="agUserMain" title="Account settings">
+      <span class="av" id="agUserAv">S</span>
+      <span class="nm" id="agUserNm">Sign in</span>
+    </button>
+    <button type="button" class="ag-user-gear" id="agUserGear" title="Settings" aria-label="Settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
   </div>
 </aside>
 
@@ -566,7 +630,23 @@
     return true;
   }
 
+  /* The rail's Recent list. Deliberately status-first: the dot is the
+     whole point of having it there, so you can see something has fallen
+     over without opening the page. */
+  function renderRail() {
+    var el = $("agAppList");
+    if (!el) return;
+    if (!loaded) return;
+    if (!all.length) { el.innerHTML = '<div class="ag-chats-empty">Nothing deployed yet</div>'; return; }
+    el.innerHTML = all.slice(0, 12).map(function (r) {
+      var k = r.status === "RUNNING" ? "run" : LIVE[r.status] ? "move" : r.status === "FAILED" ? "bad" : "";
+      return '<button type="button" class="ag-chat-item' + (r.key === openKey ? " current" : "") + '" data-key="' + esc(r.key) + '" title="' + esc(r.title || "") + '">' +
+        '<i class="sdot ' + k + '"></i><span>' + esc(r.title || "Untitled") + "</span></button>";
+    }).join("");
+  }
+
   function renderList() {
+    renderRail();
     $("kpis").innerHTML = loaded ? kpiRow() : "";
 
     if (!configured) {
@@ -750,6 +830,7 @@
     renderDetail._sig = null;          // a different app must always repaint
     location.hash = "#" + key;
     $("viewList").hidden = true; $("viewDetail").hidden = false;
+    renderRail();                      // move the rail's current-row highlight
     $("detailBody").innerHTML = '<div class="sk" style="height:180px"></div>';
     refreshDetail().catch(function () { }).then(schedule);
   }
@@ -763,8 +844,10 @@
   /* ---------------- events ---------------- */
 
   document.addEventListener("click", function (e) {
-    var card = e.target.closest(".app");
-    if (card) { openDetail(card.dataset.key); return; }
+    var card = e.target.closest(".app") || e.target.closest(".ag-chat-item");
+    if (card && card.dataset.key) { openDetail(card.dataset.key); return; }
+
+    if (e.target.closest("#agUserMain") || e.target.closest("#agUserGear")) { location.href = "/settings"; return; }
 
     var chip = e.target.closest(".fchip");
     if (chip) {
@@ -864,10 +947,15 @@
     .then(function (r) { return r.json(); })
     .then(function (d) {
       if (!d || !d.signedIn) return;
+      var who = d.company || d.email || "Account";
+      var initial = String(who).charAt(0).toUpperCase();
       $("agWsSigned").textContent = d.email || "Signed in";
       $("agWsNm").textContent = d.company || "Your Workspace";
-      $("agWsAv").textContent = String(d.company || d.email || "S").charAt(0).toUpperCase();
+      $("agWsAv").textContent = initial;
       $("agWsSignIn").hidden = true;
+      // The account row at the foot of the rail, same as the builder's.
+      $("agUserNm").textContent = d.email || who;
+      $("agUserAv").textContent = initial;
     }).catch(function () { });
 
   /* ---------------- boot ----------------
