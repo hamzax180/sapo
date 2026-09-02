@@ -458,6 +458,331 @@ async function main() {
       "generate() mints a JWT_SECRET, which would reject every main-app session");
   });
 
+  console.log("\n── user databases ───────────────────────────────────");
+
+  const dbproviders = require("../src/dbproviders");
+  const builtinDb = require("../src/dbproviders/builtin");
+  const externalDb = require("../src/dbproviders/external");
+
+  const srcOf = (...p) => fs.readFileSync(path.join(__dirname, "..", ...p), "utf8");
+  /* Several checks below ask whether some code does a thing — and the comment
+     above that code usually uses the same words while explaining why it does
+     NOT. Three of these checks failed on their own prose before this existed. */
+  const codeOnly = (src) => src
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .split(/\r?\n/).filter((l) => !/^\s*\/\//.test(l)).join("\n");
+  const schemaSrc = srcOf("db", "schema.sql");
+  const builtinSrc = srcOf("src", "dbproviders", "builtin.js");
+  const externalSrc = srcOf("src", "dbproviders", "external.js");
+  const pipelineSrc = srcOf("src", "worker", "pipeline.js");
+  const apiSrc = srcOf("src", "api", "server.js");
+  const workerSrc = srcOf("src", "worker", "index.js");
+  const engineSrc = srcOf("src", "docker", "engine.js");
+  const cleanupSrc = srcOf("src", "monitor", "cleanup.js");
+  const userdbSvc = (() => {
+    const from = compose.indexOf("\n  userdb:");
+    const to = compose.indexOf("\n  caddy:");
+    return from === -1 ? "" : compose.slice(from, to === -1 ? undefined : to);
+  })();
+
+  check("builtin and external both satisfy the interface", () => {
+    for (const name of ["builtin", "external"]) {
+      const p = dbproviders.get(name);
+      assert.strictEqual(p.mode, name, "get(" + name + ") returned " + p.mode);
+      for (const m of ["provision", "destroy", "inspect", "ready"]) {
+        assert.strictEqual(typeof p[m], "function", name + " is missing " + m);
+      }
+    }
+  });
+
+  check("an unknown mode falls back instead of throwing mid-deploy", () => {
+    // A bad value in one row must not be able to fail a deployment.
+    assert.strictEqual(dbproviders.get("neon-someday").mode, "builtin");
+    assert.strictEqual(dbproviders.get(null).mode, "builtin");
+  });
+
+  check("the customer database container is never on the platform network", () => {
+    // The load-bearing line of the whole design. souqi-userdb joins each
+    // app's --internal network at deploy time; if it ALSO sat on
+    // souqi_platform, every user container would have a two-hop route to
+    // the platform database and the Caddy admin API through it.
+    assert.ok(userdbSvc, "there is no userdb service in compose");
+    const nets = /networks:\s*\[([^\]]*)\]/.exec(codeOnly(userdbSvc.replace(/^\s*#.*$/gm, "")));
+    assert.ok(nets, "userdb does not declare its networks as an explicit list");
+    const names = nets[1].split(",").map((n) => n.trim()).filter(Boolean);
+    /* Exactly one, and it is the dead-end network. `networks: []` reads like
+       the right answer and is not: compose ignores it, invents a default
+       bridge, and puts the container on that — with a gateway. This check
+       exists because that is what actually happened. */
+    assert.deepStrictEqual(names, ["userdbhome"],
+      "userdb is on " + names.join(", ") + " at boot; it must be on the dead-end network alone");
+    assert.ok(/^\s{2}userdbhome:[\s\S]*?internal:\s*true/m.test(
+      compose.slice(compose.indexOf("\nnetworks:"))),
+      "souqi_userdb_home is not internal, so the customer data cluster has egress");
+  });
+
+  check("the customer database is never published to the host", () => {
+    assert.ok(!/^\s{4}ports:/m.test(userdbSvc), "userdb publishes a port to the host");
+  });
+
+  check("maintenance databases are closed to tenant roles", () => {
+    // Without this a tenant connects to `postgres`, which every role can
+    // reach by default, and works from there — reading pg_database, seeing
+    // every other customer's database name, and probing them one by one.
+    const init = srcOf("db", "userdb-init.sql");
+    assert.ok(/REVOKE\s+CONNECT\s+ON\s+DATABASE\s+postgres/i.test(init),
+      "PUBLIC can still connect to the postgres database");
+    assert.ok(/template1/i.test(init), "template1 is left open to PUBLIC");
+  });
+
+  check("a tenant role cannot grant itself what it lacks", () => {
+    for (const attr of ["NOSUPERUSER", "NOCREATEDB", "NOCREATEROLE", "NOBYPASSRLS"]) {
+      assert.ok(builtinSrc.includes(attr), "tenant roles are not " + attr);
+    }
+    assert.ok(/REVOKE ALL ON DATABASE/.test(builtinSrc),
+      "PUBLIC keeps CONNECT on every tenant database, which makes the per-role grants decoration");
+  });
+
+  check("one tenant cannot exhaust the cluster for the others", () => {
+    assert.ok(/CONNECTION LIMIT/.test(builtinSrc), "no per-role connection limit");
+    assert.ok(/statement_timeout/.test(builtinSrc), "no statement timeout");
+    assert.ok(/idle_in_transaction_session_timeout/.test(builtinSrc),
+      "an idle transaction can pin a backend open for ever");
+  });
+
+  check("database identifiers can never carry user text", () => {
+    // Identifiers cannot be parameterized in Postgres, so these names are
+    // built by concatenation — the one place the "argv array, never a shell
+    // string" guarantee does not carry over. The defence is that they derive
+    // from the project id and nothing else, through a sanitiser.
+    const nasty = 'p"; DROP DATABASE souqi_deploy; --';
+    const name = builtinDb.dbNameFor(nasty);
+    assert.ok(/^db_[a-z0-9_]+$/.test(name), "a hostile project id survived as: " + name);
+    assert.ok(builtinDb.roleNameFor("x".repeat(200)).length <= 63,
+      "an identifier exceeds Postgres's 63-byte limit, where a silent truncation collides two projects");
+  });
+
+  check("an empty project id is refused rather than collapsing to a shared name", () => {
+    // "" and "!!!" both sanitise to nothing, and returning db_ for both
+    // would point two different projects at one database.
+    assert.throws(() => builtinDb.dbNameFor(""), /empty project id/);
+    assert.throws(() => builtinDb.dbNameFor("!!!"), /empty project id/);
+  });
+
+  check("the generated password never reaches a command line", () => {
+    // ps output is readable across the box, and souqi-userdb is a container
+    // that customer code can reach over its own network. Same rule backup.sh
+    // already follows for pg_dump.
+    assert.ok(/child\.stdin\.end\(sql\)/.test(builtinSrc), "SQL is not written to stdin");
+    assert.ok(!/"-c"/.test(builtinSrc), "psql is invoked with -c, which puts the statement in argv");
+  });
+
+  check("a failed DDL cannot echo the password into a log", () => {
+    assert.ok(/function scrub/.test(builtinSrc), "stderr is passed through unscrubbed");
+    assert.ok(/PASSWORD/.test(builtinSrc.slice(builtinSrc.indexOf("function scrub"))),
+      "scrub() does not target PASSWORD literals, which is what a failing CREATE ROLE echoes");
+  });
+
+  check("external URLs are validated before they are stored", () => {
+    assert.ok(!externalDb.parse("mysql://u:p@host/db").ok, "a mysql URL was accepted");
+    assert.ok(!externalDb.parse("https://example.com/db").ok, "an http URL was accepted");
+    assert.ok(!externalDb.parse("postgres://u:p@host").ok, "a URL with no database name was accepted");
+    assert.ok(!externalDb.parse("not a url").ok, "a non-URL was accepted");
+    assert.ok(externalDb.parse("postgres://u:p@db.example.com:5432/app").ok, "a valid URL was rejected");
+  });
+
+  check("an external URL pointing at localhost is refused", () => {
+    // The app container's network is --internal, so localhost in there is
+    // the container itself; from the validator it is the platform host.
+    // Neither is what the customer meant, and one of them is ours.
+    for (const h of ["localhost", "127.0.0.1", "0.0.0.0"]) {
+      assert.ok(!externalDb.parse("postgres://u:p@" + h + ":5432/app").ok, h + " was accepted");
+    }
+  });
+
+  check("deleting a project never drops a database on someone else's account", () => {
+    // We did not create it, so we do not delete it. A project delete here
+    // must not take out a customer's Neon or RDS instance.
+    const destroy = externalSrc.slice(externalSrc.indexOf("async function destroy"));
+    assert.ok(!/DROP\s+DATABASE/i.test(destroy), "the external provider issues a DROP");
+    assert.ok(/skipped: true/.test(destroy), "destroy() does not report itself as a no-op");
+  });
+
+  check("a redeploy does not rotate a live credential", () => {
+    // The running container is holding the old password. Reissuing one on
+    // every deploy would break the app that is already connected.
+    const provision = builtinSrc.slice(builtinSrc.indexOf("async function provision"));
+    assert.ok(/existing && existing\.secret/.test(provision),
+      "provision() ignores the stored credential and mints a new one every time");
+  });
+
+  check("the database is keyed to the project, not the deployment", () => {
+    // A redeploy is a new deployment id on a new network. Keying data to it
+    // would empty the database on every publish.
+    assert.ok(/project_databases \(\s*[\r\n]+\s*project_id\s+TEXT PRIMARY KEY/.test(schemaSrc),
+      "project_databases is not keyed by project");
+    const fn = pipelineSrc.slice(pipelineSrc.indexOf("async function ensureDatabase"));
+    assert.ok(/dep\.project_id/.test(fn), "ensureDatabase does not key on the project");
+  });
+
+  check("a database that cannot be provisioned does not fail the deploy", () => {
+    // An app with no database should still ship, and an app that needs one
+    // says so far more clearly in its own logs than a deploy failure does.
+    const fn = pipelineSrc.slice(pipelineSrc.indexOf("async function ensureDatabase"),
+                                 pipelineSrc.indexOf("/* ---------- the pipeline"));
+    assert.ok(fn.length > 200, "ensureDatabase was not found where expected");
+    assert.ok(!/return fail\(/.test(fn), "ensureDatabase can fail a deployment");
+    assert.ok(/WARNING/.test(fn), "a provisioning failure is silent");
+  });
+
+  check("DATABASE_URL never overwrites a value the user set", () => {
+    assert.ok(/if \(!env\.DATABASE_URL\) env\.DATABASE_URL/.test(pipelineSrc),
+      "the platform clobbers a DATABASE_URL the customer set deliberately");
+    assert.ok(/env\.SOUQI_DATABASE_URL = database\.url/.test(pipelineSrc),
+      "SOUQI_DATABASE_URL is not set, so an app has no name that always means ours");
+  });
+
+  check("deleting a deployment detaches the database before removing the network", () => {
+    // network rm is refused while any member is still attached, and the
+    // failure is silent from there — one leaked network per delete, against
+    // a default address pool of about thirty.
+    const destroy = pipelineSrc.slice(pipelineSrc.indexOf("async function destroy"));
+    const dis = destroy.indexOf("disconnectUserDb");
+    const rm = destroy.indexOf("removeDeploymentNetwork");
+    assert.ok(dis !== -1, "destroy() never disconnects the database container");
+    assert.ok(dis < rm, "the network is removed before the database container has left it");
+  });
+
+  check("deleting one deployment does not drop the project's data", () => {
+    const destroy = codeOnly(pipelineSrc.slice(pipelineSrc.indexOf("async function destroy"),
+                                               pipelineSrc.indexOf("project-level database actions")));
+    assert.ok(!/deleteProjectDatabase\s*\(/.test(destroy),
+      "destroy() drops the database, so every redeploy would start from empty");
+  });
+
+  check("the api cannot reach the builtin provider at all", () => {
+    // Provisioning is `docker exec`, and this container has no socket. The
+    // strongest form of the rule is that the module is not reachable from
+    // server.js, so no handler can grow a silent call to it later.
+    assert.ok(!/require\("\.\.\/dbproviders"\)/.test(apiSrc),
+      "server.js imports dbproviders/index, which pulls in the docker-shelling builtin provider");
+    assert.ok(!/dbproviders\/builtin/.test(codeOnly(apiSrc)), "server.js reaches the builtin provider");
+    for (const fn of ["deleteProjectDatabase", "measureProjectDatabase", "ensureDatabase"]) {
+      assert.ok(!new RegExp("pipeline\\." + fn + "\\s*\\(").test(apiSrc),
+        "server.js calls pipeline." + fn + "(), which shells out to docker without a socket");
+    }
+  });
+
+  check("project actions are queued for the worker and claimed safely", () => {
+    assert.ok(/pending_action='delete'/.test(apiSrc), "deleting a project does not queue anything");
+    const claim = workerSrc.slice(workerSrc.indexOf("async function claimNextProjectAction"));
+    assert.ok(/pending_action IS NOT NULL/.test(claim), "the worker never claims project actions");
+    assert.ok(/SKIP LOCKED/.test(claim), "project action claiming is not concurrency-safe");
+    assert.ok(/pending_action TEXT/.test(schemaSrc.slice(schemaSrc.indexOf("ALTER TABLE projects"))),
+      "the projects table has no queue column");
+  });
+
+  check("a project row outlives the containers it owns", () => {
+    // projects -> deployments is ON DELETE CASCADE. Deleting the row in the
+    // handler would remove every deployment row while their containers were
+    // still running, with nothing left that knew their names.
+    assert.ok(!/DELETE FROM projects/.test(apiSrc),
+      "the api deletes the project row, cascading its deployments away before anything stops them");
+    const fn = workerSrc.slice(workerSrc.indexOf("async function deleteProject"));
+    const destroyAt = fn.indexOf("pipeline.destroy");
+    const rowAt = fn.indexOf("DELETE FROM projects");
+    assert.ok(destroyAt !== -1 && rowAt !== -1 && destroyAt < rowAt,
+      "the project row is deleted before its deployments are torn down");
+  });
+
+  check("switching to an external database keeps the built-in one", () => {
+    // "I changed a setting" must never mean "my data is gone".
+    assert.ok(/builtin_kept/.test(schemaSrc), "the schema cannot record a kept database");
+    const route = codeOnly(apiSrc.slice(apiSrc.indexOf('app.put("/projects/:id/database"'),
+                                        apiSrc.indexOf('app.post("/projects/:id/database/measure"')));
+    assert.ok(/builtin_kept/.test(route), "switching modes does not preserve the built-in database");
+    assert.ok(!/DROP\s+(DATABASE|ROLE)/i.test(route), "switching modes issues a DROP");
+    assert.ok(!/deleteProjectDatabase\s*\(/.test(route), "switching modes destroys the database directly");
+    // Clearing a queued drop is fine — SETTING one is what would be wrong.
+    assert.ok(!/SET\s+pending_action='drop-db'/.test(route),
+      "switching modes queues the built-in database for removal");
+    assert.ok(/pending_action=NULL[\s\S]{0,80}'drop-db'/.test(route),
+      "switching BACK to built-in leaves a queued removal of that same database in flight");
+  });
+
+  check("the worker re-checks before it drops a kept database", () => {
+    /* The api's 409 is a check at request time, and the drop happens later
+       in another process. In between, the customer can switch back to
+       built-in — and then the queued work deletes the database their app is
+       now using. That is not hypothetical: it happened in testing, and the
+       database was gone. The decision has to be re-read at the moment of
+       the destructive act. */
+    const fn = workerSrc.slice(workerSrc.indexOf('"drop-db"'), workerSrc.indexOf("async function tickProjectAction"));
+    assert.ok(fn.length > 200, "the drop-db handler was not found where expected");
+    const readAt = fn.indexOf("SELECT mode");
+    const dropAt = fn.indexOf("deleteProjectDatabase");
+    assert.ok(readAt !== -1 && readAt < dropAt,
+      "drop-db acts on the state that queued it, not the state at the moment it runs");
+    assert.ok(/row\.mode === "builtin"/.test(fn),
+      "drop-db will delete a database the project has switched back to using");
+  });
+
+  check("removing a live built-in database is refused", () => {
+    // There is no undo and no fallback: the next deploy would create an
+    // empty database of the same name, so the only visible result would be
+    // that the data is gone.
+    const route = apiSrc.slice(apiSrc.indexOf('app.delete("/projects/:id/database"'));
+    assert.ok(/409/.test(route), "the delete route never refuses");
+    assert.ok(/row\.mode === "builtin"/.test(route),
+      "the database an app is actively using can be dropped from a settings screen");
+  });
+
+  check("the connection string is never returned to a browser", () => {
+    // It carries a password. The app is handed it through the environment;
+    // a human never needs to read it, so there is no reveal and no copy.
+    const view = apiSrc.slice(apiSrc.indexOf("function databaseView"),
+                              apiSrc.indexOf("async function ownedProject"));
+    assert.ok(view.length > 200, "databaseView was not found where expected");
+    assert.ok(/secrets\.mask/.test(view), "databaseView does not mask the credential");
+    assert.ok(!/\burl\s*:/.test(view), "databaseView returns a url field");
+  });
+
+  check("the shared database container is not counted as an app", () => {
+    // capacity counts docker labels in the worker and deployments rows in
+    // the api. One extra member in the docker count silently desyncs
+    // admission between the two.
+    assert.ok(/label=souqi\.deployment/.test(engineSrc),
+      "listManaged() has no filter that excludes the userdb container");
+    assert.ok(/startsWith\("app-"\)/.test(engineSrc),
+      "listManaged() can return a container whose name is not app-<id>");
+  });
+
+  check("the janitor cannot sweep the customer data cluster", () => {
+    // sweepOrphanContainers treats every managed container without a live
+    // deployment row as an orphan and removes it under a name derived from
+    // the id. userdb has no deployment row and never will.
+    const sweep = cleanupSrc.slice(cleanupSrc.indexOf("async function sweepOrphanContainers"));
+    assert.ok(/engine\.listManaged\(\)/.test(sweep),
+      "the sweep enumerates containers by some route other than listManaged");
+  });
+
+  check("customer data is in the backup", () => {
+    assert.ok(/compose exec -T userdb/.test(backupSrc), "the customer cluster is not dumped at all");
+    assert.ok(/pg_dumpall/.test(backupSrc),
+      "the customer cluster is dumped per-database, which loses the roles that own the tables — " +
+      "and the roles ARE the isolation");
+    assert.ok(/USERDB_NAME/.test(backupSrc),
+      "customer dumps are not named distinctly, so retention cannot see them");
+    assert.ok(/do_restore_userdb/.test(backupSrc), "there is no way to restore the customer dump");
+    /* pg_dumpall signs off with "database CLUSTER dump complete"; pg_dump
+       writes "database dump complete". Checking for the pg_dump wording
+       discarded every good customer dump as truncated. */
+    assert.ok(/PostgreSQL database cluster dump complete/.test(backupSrc),
+      "the customer dump's truncation check looks for pg_dump's marker, which pg_dumpall never writes");
+    assert.ok(/find "\$BACKUP_DIR" -name "\$\{USERDB_NAME\}/.test(backupSrc),
+      "customer dumps are never pruned, so they accumulate until the disk fills");
+  });
+
   console.log("\n" + (failed === 0
     ? "✓ ALL " + passed + " CHECKS PASSED"
     : "✗ " + failed + " FAILED, " + passed + " passed"));

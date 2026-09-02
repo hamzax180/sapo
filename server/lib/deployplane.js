@@ -151,10 +151,33 @@ const putEnv = (cookie, deployProjectId, vars) =>
 const deleteEnvKey = (cookie, deployProjectId, key) =>
   call("DELETE", "/projects/" + encodeURIComponent(deployProjectId) + "/env/" + encodeURIComponent(key), { cookie });
 
+/* ---- the app's database ----
+   Every deployed project gets a Postgres database on the plane's shared
+   customer cluster, injected as SOUQI_DATABASE_URL. getDatabase answers
+   with a MASKED credential and never the real one — the connection string
+   carries a password, the app is handed it through its environment, and
+   nothing in a browser has a reason to read it. */
+const dbPath = (id) => "/projects/" + encodeURIComponent(id) + "/database";
+
+const getDatabase = (cookie, deployProjectId) =>
+  call("GET", dbPath(deployProjectId), { cookie });
+/** {mode:"builtin"} or {mode:"external", url}. The plane validates the URL
+    by connecting to it before it will store one. */
+const setDatabase = (cookie, deployProjectId, body) =>
+  call("PUT", dbPath(deployProjectId), { cookie, body: body });
+/** Refreshes the recorded size; answers with the updated view. */
+const measureDatabase = (cookie, deployProjectId) =>
+  call("POST", dbPath(deployProjectId) + "/measure", { cookie });
+/** Drops a built-in database that is being kept after a switch to
+    external. 202: queued for the worker, like every other docker action. */
+const dropBuiltinDatabase = (cookie, deployProjectId) =>
+  call("DELETE", dbPath(deployProjectId), { cookie });
+
 module.exports = {
   isConfigured, call, ACTIONS,
   health, capacity,
   createProject, createDeployment, uploadSource,
   getDeployment, getStatus, getLogs, action, destroy,
-  getEnv, putEnv, deleteEnvKey
+  getEnv, putEnv, deleteEnvKey,
+  getDatabase, setDatabase, measureDatabase, dropBuiltinDatabase
 };

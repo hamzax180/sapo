@@ -23,6 +23,18 @@ CREATE TABLE IF NOT EXISTS projects (
   updated_at   TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS projects_user_idx ON projects(user_id, updated_at DESC);
+-- delete | drop-db, claimed by the worker. Same reasoning as the column of
+-- the same name on deployments: deleting a project ends in docker commands
+-- (every container, and a DROP DATABASE run through `docker exec`), and the
+-- api has no socket to run them with.
+--
+-- The project row therefore SURVIVES the request that asked for its
+-- deletion, and the worker removes it last. Deleting it in the handler
+-- would cascade the deployments away before anything had stopped their
+-- containers, leaving them running on the host with no row left to say
+-- they existed.
+ALTER TABLE projects ADD COLUMN IF NOT EXISTS pending_action TEXT;
+CREATE INDEX IF NOT EXISTS projects_action_idx ON projects(updated_at) WHERE pending_action IS NOT NULL;
 
 -- Deployment status is a strict forward-only machine; see worker/pipeline.js.
 --   QUEUED -> BUILDING -> STARTING -> RUNNING
@@ -105,6 +117,42 @@ CREATE TABLE IF NOT EXISTS project_env (
   updated_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
   PRIMARY KEY (project_id, key)
 );
+
+-- One database per PROJECT, not per deployment: a redeploy mints a new
+-- deployment id but must keep its data, so this outlives them.
+--
+-- The credential lives here rather than in project_env for two reasons.
+-- project_env cascades on project delete, which would drop the password
+-- while leaving a real database behind on the cluster with no way left to
+-- reach it; and the user can overwrite their own env keys, which would
+-- silently break the app's connection.
+CREATE TABLE IF NOT EXISTS project_databases (
+  project_id    TEXT PRIMARY KEY REFERENCES projects(id) ON DELETE CASCADE,
+  -- builtin: a database on the shared user cluster.
+  -- external: a connection string the customer supplied; we create nothing.
+  mode          TEXT NOT NULL DEFAULT 'builtin',
+  db_name       TEXT,
+  db_role       TEXT,
+  -- AES-256-GCM via src/secrets.js. For builtin this is the generated
+  -- password; for external it is the whole connection string, because that
+  -- carries a password too and deserves the same envelope.
+  secret_enc    TEXT,
+  -- Kept when a project switches to external so "I changed a setting" can
+  -- never mean "my data is gone". Dropping it is a separate, explicit act.
+  builtin_kept  BOOLEAN NOT NULL DEFAULT false,
+  -- Postgres has no per-database quota, so this is observation, not
+  -- enforcement — see monitor/capacity.js.
+  size_bytes    BIGINT,
+  size_seen_at  TIMESTAMPTZ,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+-- Idempotent adds for databases created before this table grew a column.
+ALTER TABLE project_databases ADD COLUMN IF NOT EXISTS builtin_kept BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE project_databases ADD COLUMN IF NOT EXISTS size_bytes   BIGINT;
+ALTER TABLE project_databases ADD COLUMN IF NOT EXISTS size_seen_at TIMESTAMPTZ;
+CREATE INDEX IF NOT EXISTS project_databases_kept_idx
+  ON project_databases(project_id) WHERE builtin_kept;
 
 -- Hosts the scheduler can place work on. One row ('local') in Phase 1;
 -- the table exists now so Phase 5 is a data change, not a migration.

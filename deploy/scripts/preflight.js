@@ -274,7 +274,12 @@ function generate() {
   // Only ever fills a value that is EMPTY. Overwriting a live SECRET_KEY
   // would make every stored env var undecryptable, and overwriting
   // JWT_SECRET would sign out every user of the main app.
-  for (const [key, bytes] of [["SECRET_KEY", 32], ["INTERNAL_TOKEN", 32], ["POSTGRES_PASSWORD", 24]]) {
+  // USERDB_PASSWORD is the customer cluster's superuser password. It is
+  // generated like the others and never defaulted: an empty one makes the
+  // postgres image refuse to initialise at all, which would show up as a
+  // container that will not start rather than as a missing setting.
+  for (const [key, bytes] of [["SECRET_KEY", 32], ["INTERNAL_TOKEN", 32],
+                              ["POSTGRES_PASSWORD", 24], ["USERDB_PASSWORD", 24]]) {
     if (env[key]) continue;
     const value = crypto.randomBytes(bytes).toString("hex");
     const re = new RegExp("^" + key + "=.*$", "m");

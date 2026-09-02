@@ -16,7 +16,7 @@
 
 const path = require("path");
 const { cfg } = require("../config");
-const { pool, query, many } = require("../db");
+const { pool, query, many, one } = require("../db");
 const engine = require("../docker/engine");
 const caddy = require("../proxy/caddy");
 const capacity = require("../monitor/capacity");
@@ -105,6 +105,128 @@ const ACTIONS = {
   restart: (dep) => pipeline.restart(dep),
   destroy: (dep) => pipeline.destroy(dep)
 };
+
+/**
+ * Claim one queued PROJECT action, the same way deployments are claimed.
+ *
+ * Projects have their own queue because deleting one is not a lifecycle
+ * action on any single deployment: it tears down every deployment the
+ * project has AND drops its database, and the two have to happen in that
+ * order on one machine that can see Docker.
+ */
+async function claimNextProjectAction() {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const { rows } = await client.query(
+      `SELECT * FROM projects
+        WHERE pending_action IS NOT NULL
+        ORDER BY updated_at
+        FOR UPDATE SKIP LOCKED
+        LIMIT 1`
+    );
+    if (!rows.length) { await client.query("COMMIT"); return null; }
+    const project = rows[0];
+    await client.query("UPDATE projects SET pending_action=NULL WHERE id=$1", [project.id]);
+    await client.query("COMMIT");
+    return project;
+  } catch (e) {
+    try { await client.query("ROLLBACK"); } catch (e2) { /* already gone */ }
+    console.error("[worker] project action claim failed:", e.message);
+    return null;
+  } finally {
+    client.release();
+  }
+}
+
+/**
+ * Delete a project and everything it owns.
+ *
+ * Order is the whole job. Containers, images, networks and source archives
+ * go first, one deployment at a time, because each is a docker command that
+ * needs its row to know what to remove. The database goes next. The project
+ * row goes LAST, and only then, because deleting it cascades the deployment
+ * rows away — do it any earlier and the containers are still on the host
+ * with nothing left that knows their names.
+ *
+ * Deployments are destroyed inline rather than queued back through
+ * pending_action. This already IS the worker: queueing would mean the
+ * project row had to survive several more ticks in a half-deleted state,
+ * with no way to tell that state apart from a stalled delete.
+ */
+async function deleteProject(project) {
+  const deps = await many(
+    "SELECT * FROM deployments WHERE project_id=$1 AND status <> 'DELETED'",
+    [project.id]
+  );
+  for (const dep of deps) {
+    try { await pipeline.destroy(dep); }
+    catch (e) { console.error("[worker] destroy", dep.id, "during project delete:", e.message); }
+  }
+
+  // keepRow: the DELETE below cascades project_databases away anyway, and
+  // deleting it twice would be two statements saying the same thing.
+  const db = await pipeline.deleteProjectDatabase(project.id, { keepRow: true });
+  if (!db.ok) console.error("[worker] project", project.id, "database:", db.error);
+
+  await query("DELETE FROM projects WHERE id=$1", [project.id]);
+  return { ok: true, deployments: deps.length, database: db };
+}
+
+const PROJECT_ACTIONS = {
+  delete: (project) => deleteProject(project),
+  // The kept built-in database, after a project moved to an external one.
+  // The row survives: the project still HAS a database, just not this one.
+  "drop-db": async (project) => {
+    /* Re-read the mode HERE, not at the request that queued this.
+       The api refuses to drop a database the project is using, but that
+       check happens seconds or minutes before this runs, and in between
+       the customer can switch back to built-in — at which point this is
+       queued work to delete the database their app is now pointed at.
+       It happened in testing: switch to external, ask to remove the kept
+       database, change your mind, and the drop still landed.
+
+       Ownership of the decision belongs to the state at the moment of the
+       destructive act, so it is re-read at the moment of the act. */
+    const row = await one("SELECT mode, builtin_kept FROM project_databases WHERE project_id=$1", [project.id]);
+    if (!row) return { ok: true, skipped: true, reason: "this project has no database" };
+    if (row.mode === "builtin") {
+      console.log("[worker] project", project.id, "is back on its built-in database — drop cancelled");
+      return { ok: true, skipped: true, reason: "the project is using this database again" };
+    }
+    if (!row.builtin_kept) {
+      return { ok: true, skipped: true, reason: "there is no kept built-in database to remove" };
+    }
+
+    const r = await pipeline.deleteProjectDatabase(project.id, { keepRow: true });
+    if (r.ok) {
+      await query(
+        "UPDATE project_databases SET builtin_kept=false, size_bytes=NULL, size_seen_at=NULL, updated_at=now() WHERE project_id=$1",
+        [project.id]
+      );
+    }
+    return r;
+  }
+};
+
+async function tickProjectAction() {
+  const project = await claimNextProjectAction();
+  if (!project) return false;
+  const fn = PROJECT_ACTIONS[project.pending_action];
+  if (!fn) {
+    console.error("[worker] unknown project action", project.pending_action, "on", project.id);
+    return true;
+  }
+  console.log("[worker] project", project.pending_action, project.id);
+  try {
+    const r = await fn(project);
+    console.log("[worker] project", project.id, project.pending_action,
+      r && r.ok === false ? "-> FAILED " + r.error : "-> ok");
+  } catch (e) {
+    console.error("[worker] project", project.id, project.pending_action, "threw:", e.message);
+  }
+  return true;
+}
 
 async function tickAction() {
   const dep = await claimNextAction();
@@ -252,6 +374,15 @@ function startInternalServer() {
     res.json(await engine.inspectState(String(req.params.id)));
   });
 
+  /* Measuring a database means running psql inside the userdb container,
+     which is a Docker command — so it lives here for the same reason the
+     logs endpoint does. The api resolved the project from a row the caller
+     owns; the provider sanitises the id into an identifier regardless. */
+  app.post("/internal/db/measure/:projectId", async (req, res) => {
+    const r = await pipeline.measureProjectDatabase(String(req.params.projectId));
+    res.json(r);
+  });
+
   return app.listen(cfg.workerPort, () =>
     console.log("[worker] internal API on :" + cfg.workerPort));
 }
@@ -285,6 +416,10 @@ async function main() {
       // wait behind a fifteen-minute build is how a runaway container stays
       // up long after the user asked for it to go away.
       worked = await tickAction();
+      // Project actions before builds too. A delete is what a user asked
+      // for most recently, and making it wait behind a fifteen-minute build
+      // means their containers keep serving long after they said stop.
+      if (!worked) worked = await tickProjectAction();
       if (!worked) worked = await tick();
     }
     catch (e) { console.error("[worker] tick failed:", e.message); }

@@ -90,11 +90,38 @@ async function connectProxy(deploymentId) {
   return { ok: r.ok, error: r.stderr };
 }
 
-/** Detach the proxy and drop the network. A network with a member will not
-    delete, so the disconnect has to happen first. */
+/**
+ * Attach the customer-data Postgres to one app's network.
+ *
+ * Same mechanism as connectProxy, and for the same reason: the database
+ * container is on no network of its own, so this is the only way the app
+ * can reach it — and reaching it is all the app can do, because it holds
+ * credentials for exactly one database on that cluster.
+ */
+async function connectUserDb(deploymentId) {
+  const net = networkName(deploymentId);
+  const r = await docker(["network", "connect", net, cfg.userDbContainer], { timeoutMs: 20000 });
+  if (!r.ok && /already exists|already connected/i.test(r.stderr || "")) return { ok: true, existed: true };
+  return { ok: r.ok, error: r.stderr };
+}
+
+async function disconnectUserDb(deploymentId) {
+  const net = networkName(deploymentId);
+  const r = await docker(["network", "disconnect", "--force", net, cfg.userDbContainer], { timeoutMs: 20000 });
+  // Not attached is the desired end state, not a failure.
+  if (!r.ok && /not connected|no such|is not connected/i.test(r.stderr || "")) return { ok: true, existed: false };
+  return { ok: r.ok, error: r.stderr };
+}
+
+/** Detach every platform member and drop the network. A network with a
+    member will not delete, so the disconnects have to happen first —
+    and that is now BOTH of them. Leaving the database attached is enough
+    to make `network rm` fail with "has active endpoints", which would
+    leak one dead network per deleted deployment. */
 async function removeDeploymentNetwork(deploymentId) {
   const net = networkName(deploymentId);
   await docker(["network", "disconnect", "--force", net, cfg.proxyContainer], { timeoutMs: 20000 });
+  await docker(["network", "disconnect", "--force", net, cfg.userDbContainer], { timeoutMs: 20000 });
   return docker(["network", "rm", net], { timeoutMs: 20000 });
 }
 
@@ -245,13 +272,35 @@ async function statsAll() {
  * host that was running several, and, worse, how its MAX_CONTAINERS
  * admission check came to pass unconditionally.
  */
+/**
+ * Every container this platform runs an APP in.
+ *
+ * Both filters matter. `souqi.managed=true` means ours; `souqi.deployment`
+ * is only ever set on an app container, and its absence is what keeps the
+ * shared user-database container out of this list. That container is
+ * managed too, but it belongs to no deployment, and two callers would get
+ * it badly wrong: capacity counts this list against MAX_CONTAINERS while
+ * the api counts `deployments` rows, so one extra member here silently
+ * desyncs admission between them; and the janitor treats anything here
+ * without a live deployment row as an orphan, which would delete the
+ * customer data cluster every fifteen minutes.
+ *
+ * Docker has no negative label filter, so the rule is stated positively:
+ * an app container is one that names a deployment.
+ */
 async function listManaged() {
-  const r = await docker(["ps", "--all", "--filter", "label=souqi.managed=true", "--format", "{{.Names}}|{{.State}}|{{.Image}}"], { timeoutMs: 20000 });
+  const r = await docker(["ps", "--all",
+    "--filter", "label=souqi.managed=true",
+    "--filter", "label=souqi.deployment",
+    "--format", "{{.Names}}|{{.State}}|{{.Image}}"], { timeoutMs: 20000 });
   if (!r.ok) return null;
   return r.stdout.trim().split("\n").filter(Boolean).map((l) => {
     const c = l.split("|");
     return { name: c[0], state: c[1], image: c[2] };
-  });
+  // Belt and braces. Every caller recovers a deployment id by stripping
+  // this prefix, so anything without it would be acted on under a name
+  // that is not its own.
+  }).filter((c) => c.name.startsWith("app-"));
 }
 
 async function pruneImages() {
@@ -269,5 +318,6 @@ module.exports = {
   docker, containerName, imageName, ensureAppNetwork, buildImage, runApp, buildRunArgs,
   stop, start, restart, removeContainer, removeImage, logs, inspectState,
   statsAll, listManaged, pruneImages, version,
-  networkName, ensureDeploymentNetwork, connectProxy, removeDeploymentNetwork
+  networkName, ensureDeploymentNetwork, connectProxy, removeDeploymentNetwork,
+  connectUserDb, disconnectUserDb
 };

@@ -31,6 +31,13 @@ const secrets = require("../secrets");
 const auth = require("./auth");
 const detect = require("../framework/detect");
 const objects = require("../storage/objects");
+// ONLY the external provider, and only for its validator. dbproviders/index
+// would pull in dbproviders/builtin, whose every method shells out to
+// `docker exec` against a socket this container deliberately does not have.
+// The external one needs nothing but a Postgres client and the egress this
+// container already has on souqi_platform — which is exactly why validating
+// a customer's URL is answerable here and provisioning is not.
+const externalDb = require("../dbproviders/external");
 
 const app = express();
 app.disable("x-powered-by");
@@ -433,7 +440,226 @@ app.delete("/projects/:id/env/:key", requireUser, async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
+/* ---------- project database ----------
+   Every deployed app gets a Postgres database, created on its first deploy
+   and injected as SOUQI_DATABASE_URL. These routes let someone see it,
+   point the project at their own database instead, or remove one.
+
+   Nothing here provisions anything. Creating a database means
+   `docker exec souqi-userdb psql`, and this container has no socket — the
+   same rule that sends stop/start/restart/destroy to the worker sends
+   these there too. */
+
+/** The row, in a shape the browser can render, with nothing secret in it. */
+function databaseView(row) {
+  if (!row) {
+    return {
+      configured: false,
+      mode: "builtin",
+      // Not an error state. Every project gets one; this one has simply not
+      // deployed yet, and saying so beats an empty panel.
+      note: "a database will be created for this project on its first deploy"
+    };
+  }
+  let masked = "••••";
+  if (row.secret_enc) {
+    try { masked = secrets.mask(secrets.decrypt(row.secret_enc)); }
+    catch (e) { masked = "••••"; }
+  }
+  return {
+    configured: true,
+    mode: row.mode,
+    name: row.db_name,
+    role: row.db_role,
+    // A connection string carries a password, so the full value never comes
+    // back to a browser — not once, not on a "reveal". The app is handed it
+    // through the environment; a human never needs to read it.
+    masked: masked,
+    builtinKept: row.builtin_kept,
+    sizeBytes: row.size_bytes === null || row.size_bytes === undefined ? null : Number(row.size_bytes),
+    sizeSeenAt: row.size_seen_at,
+    // Postgres has no per-database quota, so this number is observation and
+    // not a limit. Saying so here keeps the UI from implying an enforcement
+    // the storage layer cannot provide.
+    sizeIsAdvisory: true,
+    updatedAt: row.updated_at
+  };
+}
+
+async function ownedProject(req, res) {
+  const project = await one("SELECT * FROM projects WHERE id=$1 AND user_id=$2", [req.params.id, req.userId]);
+  if (!project) { res.status(404).json({ error: "project not found" }); return null; }
+  return project;
+}
+
+app.get("/projects/:id/database", requireUser, async (req, res, next) => {
+  try {
+    const project = await ownedProject(req, res); if (!project) return;
+    const row = await one("SELECT * FROM project_databases WHERE project_id=$1", [project.id]);
+    res.json({ database: databaseView(row) });
+  } catch (e) { next(e); }
+});
+
+/**
+ * PUT /projects/:id/database  { mode: "builtin" | "external", url? }
+ *
+ * Switching to external VALIDATES FIRST: one connection and a SELECT 1,
+ * from this container, which sits on the platform network and has egress.
+ * A URL that does not work is refused here with the reason, instead of
+ * being stored and discovered as a crash loop three minutes into a deploy.
+ */
+app.put("/projects/:id/database", requireUser, async (req, res, next) => {
+  try {
+    const project = await ownedProject(req, res); if (!project) return;
+    const mode = String((req.body && req.body.mode) || "").trim();
+    if (mode !== "builtin" && mode !== "external") {
+      return res.status(400).json({ error: "mode must be builtin or external" });
+    }
+
+    const existing = await one("SELECT * FROM project_databases WHERE project_id=$1", [project.id]);
+
+    if (mode === "external") {
+      const url = String((req.body && req.body.url) || "").trim();
+      if (!url) return res.status(400).json({ error: "url is required to connect an external database" });
+
+      const shape = externalDb.parse(url);
+      if (!shape.ok) return res.status(400).json({ error: shape.error });
+      const reachable = await externalDb.test(url);
+      if (!reachable.ok) return res.status(400).json({ error: reachable.error });
+
+      /* The built-in database is KEPT, not dropped. Changing a setting must
+         never be the thing that destroys someone's data, and a customer who
+         switches and then changes their mind would have no way back.
+         Removing it is the DELETE below, which they have to ask for. */
+      const keep = Boolean(existing && (existing.mode === "builtin" || existing.builtin_kept));
+      await query(
+        `INSERT INTO project_databases (project_id, mode, db_name, db_role, secret_enc, builtin_kept, updated_at)
+              VALUES ($1,'external',$2,$3,$4,$5, now())
+         ON CONFLICT (project_id) DO UPDATE
+              SET mode='external', db_name=$2, db_role=$3,
+                  secret_enc=$4, builtin_kept=$5, updated_at=now()`,
+        [project.id, shape.url.pathname.slice(1), shape.url.username || null, secrets.encrypt(url), keep]
+      );
+      /* db_name and db_role now describe the EXTERNAL database, because
+         that is what the panel shows and what the customer would recognise.
+         Nothing depends on them to find the built-in one: its names are
+         derived from the project id every time (dbproviders/builtin), which
+         is why they can be overwritten here without stranding it. */
+      return res.json({
+        ok: true,
+        mode: "external",
+        builtinKept: keep,
+        note: keep
+          ? "connected — your built-in database is kept and unchanged; redeploy for this to take effect"
+          : "connected — redeploy for this to take effect"
+      });
+    }
+
+    /* Back to built-in. The stored external URL goes with it: it is the
+       customer's credential for someone else's system, and once it is not
+       in use there is no reason for us to still be holding it. */
+    if (existing && existing.mode === "external") {
+      /* Clearing secret_enc means the next deploy reissues the password and
+         writes a new one. That is safe: provision() re-sets the password on
+         the role that already exists, so the database and everything in it
+         is still there — only the credential changes. */
+      await query(
+        `UPDATE project_databases
+            SET mode='builtin', db_name=NULL, db_role=NULL,
+                secret_enc=NULL, builtin_kept=false, updated_at=now()
+          WHERE project_id=$1`,
+        [project.id]
+      );
+      /* Coming back cancels any queued removal of this very database.
+         Asking to delete it and then changing your mind must not leave a
+         worker holding an instruction to delete the database the project
+         is now using — the worker re-checks for exactly this reason, and
+         withdrawing the request here means it never has to. */
+      await query(
+        "UPDATE projects SET pending_action=NULL WHERE id=$1 AND pending_action='drop-db'",
+        [project.id]
+      );
+      return res.json({ ok: true, mode: "builtin", note: "switched back — redeploy for this to take effect" });
+    }
+    res.json({ ok: true, mode: "builtin", note: "already using the built-in database" });
+  } catch (e) { next(e); }
+});
+
+/**
+ * Refresh the recorded size. Reading it means running psql inside the
+ * userdb container, so the worker is asked — the same route runtime logs
+ * take, for the same reason.
+ */
+app.post("/projects/:id/database/measure", requireUser, async (req, res, next) => {
+  try {
+    const project = await ownedProject(req, res); if (!project) return;
+    const row = await one("SELECT * FROM project_databases WHERE project_id=$1", [project.id]);
+    if (!row) return res.status(404).json({ error: "this project has no database yet" });
+
+    try {
+      const r = await fetch(cfg.workerUrl + "/internal/db/measure/" + encodeURIComponent(project.id), {
+        method: "POST",
+        headers: { "x-internal-token": cfg.internalToken },
+        signal: AbortSignal.timeout(15000)
+      });
+      if (!r.ok) return res.status(503).json({ error: "the worker refused the request (HTTP " + r.status + ")" });
+      const out = await r.json();
+      if (!out.ok) return res.status(503).json({ error: out.error || "the database could not be reached" });
+      const fresh = await one("SELECT * FROM project_databases WHERE project_id=$1", [project.id]);
+      return res.json({ database: databaseView(fresh) });
+    } catch (e) {
+      return res.status(503).json({ error: "the worker is not reachable — " + e.message });
+    }
+  } catch (e) { next(e); }
+});
+
+/**
+ * DELETE /projects/:id/database — remove the built-in database for good.
+ *
+ * Refused while it is the one the project is actually using. There is no
+ * undo and no fallback: the next deploy would create an empty database of
+ * the same name, so the only visible result would be that the data is
+ * gone. Connect an external database first, then remove this one — which
+ * makes the destructive step a deliberate second action rather than a
+ * surprise.
+ */
+app.delete("/projects/:id/database", requireUser, async (req, res, next) => {
+  try {
+    const project = await ownedProject(req, res); if (!project) return;
+    const row = await one("SELECT * FROM project_databases WHERE project_id=$1", [project.id]);
+    if (!row) return res.status(404).json({ error: "this project has no database" });
+    if (row.mode === "builtin") {
+      return res.status(409).json({
+        error: "this is the database your app is using — connect an external one first, then remove it"
+      });
+    }
+    if (!row.builtin_kept) {
+      return res.status(409).json({ error: "there is no built-in database to remove for this project" });
+    }
+    await query("UPDATE projects SET pending_action='drop-db', updated_at=now() WHERE id=$1", [project.id]);
+    res.status(202).json({ ok: true, pending: true, note: "removing your built-in database" });
+  } catch (e) { next(e); }
+});
+
 /* ---------- projects ---------- */
+
+/**
+ * DELETE /projects/:id — the whole project.
+ *
+ * Queued, and the row is deliberately left in place for the worker to
+ * remove last. Deleting it here would cascade the deployments away in the
+ * same statement, and their containers, images, networks and source
+ * archives would keep running on the host with nothing left to say they
+ * ever existed.
+ */
+app.delete("/projects/:id", requireUser, async (req, res, next) => {
+  try {
+    const project = await ownedProject(req, res); if (!project) return;
+    await query("UPDATE projects SET pending_action='delete', updated_at=now() WHERE id=$1", [project.id]);
+    res.status(202).json({ ok: true, pending: true, note: "deleting this project and everything in it" });
+  } catch (e) { next(e); }
+});
+
 app.post("/projects", requireUser, async (req, res, next) => {
   try {
     const name = String((req.body && req.body.name) || "").trim().slice(0, 120);

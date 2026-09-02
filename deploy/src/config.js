@@ -79,6 +79,12 @@ const cfg = {
   // Compose names it <project>-caddy-1; override when the project name differs.
   proxyContainer: process.env.PROXY_CONTAINER || "deploy-caddy-1",
 
+  // The customer-data Postgres. Like the proxy, it is attached to each
+  // app's network at deploy time and is otherwise on none — see the
+  // userdb service comment in docker-compose.yml for why it must never
+  // join souqi_platform.
+  userDbContainer: process.env.USERDB_CONTAINER || "souqi-userdb",
+
   // The worker's internal HTTP endpoint. It exists for one reason: some reads
   // genuinely need the Docker socket (runtime logs), and the api must never
   // have one. Never published — platform network only, internal token required.

@@ -454,6 +454,24 @@
   .kv .v{color:var(--mut);font-family:var(--mono);font-size:.8rem;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis}
   .kv .n{color:var(--mut);flex:1}
 
+  /* ---- database panel ---- */
+  .dbnote{padding:12px 16px;font-size:.8rem;color:var(--mut);line-height:1.55;border-bottom:1px solid var(--line)}
+  .dbnote:last-child{border-bottom:0}
+  .dbnote code{font-family:var(--mono);font-size:.75rem;background:var(--paper-2);border:1px solid var(--line);
+    border-radius:5px;padding:1px 5px;color:var(--ink)}
+  .dbform{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:14px 16px;border-bottom:1px solid var(--line)}
+  .dbform:last-child{border-bottom:0}
+  .dbform input{flex:1 1 260px;min-width:0;border:1px solid var(--line);border-radius:9px;padding:8px 11px;
+    font:inherit;font-size:.8rem;font-family:var(--mono);background:var(--card);color:var(--ink)}
+  .dbform input:focus{outline:none;border-color:var(--accent)}
+  .dbmini{border:1px solid var(--line);background:var(--paper-2);color:var(--ink);border-radius:8px;
+    padding:5px 10px;font-size:.75rem;font-weight:600;cursor:pointer;transition:.16s}
+  .dbmini:hover{border-color:var(--accent)}
+  .dbmini:disabled{opacity:.55;cursor:not-allowed}
+  .dbmini.warn{color:var(--danger);border-color:rgba(217,45,32,.3);background:transparent}
+  .dbmini.warn:hover{background:rgba(217,45,32,.08);border-color:rgba(217,45,32,.5)}
+  .kv .kvbtn{flex:none;margin-left:auto}
+
   .res{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:14px;padding:16px}
   .res .r-label{font-size:.75rem;color:var(--mut);font-weight:600;display:flex;justify-content:space-between;margin-bottom:7px}
   .res .r-label span:last-child{color:var(--ink);font-variant-numeric:tabular-nums}
@@ -699,6 +717,16 @@
   var detail = null;     // {status, logs, env, ...} for openKey
   var logPhase = "build";
   var logPinned = true;  // auto-scroll until the reader scrolls away
+
+  /* The app's database. Loaded once when a detail view opens rather than
+     on the status poll: it changes when someone changes it, not every two
+     seconds, and re-fetching it would be traffic for a panel that had not
+     moved. dbTab is which tab the reader has picked, null meaning "follow
+     whatever mode is actually in use"; dbDraft survives a repaint, because
+     a build finishing mid-sentence must not eat a URL being typed. */
+  var dbInfo = null;
+  var dbTab = null;
+  var dbDraft = "";
   var loaded = false;
 
   function tileColor(s) {
@@ -972,7 +1000,121 @@
   function detailSig(d) {
     var c = d.container || {};
     var n = d.logs && d.logs.lines ? d.logs.lines.length : -1;
-    return [d.status, d.url, d.error, c.state, c.restarts, c.exitCode, logPhase, n].join("|");
+    var b = dbInfo || {};
+    return [d.status, d.url, d.error, c.state, c.restarts, c.exitCode, logPhase, n,
+      b.mode, b.configured, b.name, b.masked, b.sizeBytes, b.builtinKept, dbTab].join("|");
+  }
+
+  /* ---------------- database ---------------- */
+
+  function loadDatabase() {
+    var key = openKey;
+    return api("GET", "/api/deploy/" + encodeURIComponent(key) + "/database")
+      .then(function (r) {
+        if (openKey !== key) return;     // navigated away mid-flight
+        dbInfo = (r && r.database) || null;
+        /* Always repaint. A "Refresh" that reads the same size back leaves
+           the signature identical, and the guard would skip the render that
+           puts the button back to saying Refresh. */
+        renderDetail._sig = null;
+        renderDetail();
+      })
+      .catch(function () {
+        // A database panel that cannot load is not a reason to break the
+        // page around it. The panel just says it could not read this.
+        if (openKey !== key) return;
+        dbInfo = { unavailable: true };
+        renderDetail._sig = null;
+        renderDetail();
+      });
+  }
+
+  /* Server notes are written as sentences but not always punctuated as
+     them, and this text is followed by another sentence. Without this the
+     two ran together: "…on its first deploy You will not have to…". */
+  function sentence(text, fallback) {
+    var s = String(text == null || text === "" ? fallback : text).trim();
+    return /[.!?]$/.test(s) ? s : s + ".";
+  }
+
+  function bytes(n) {
+    if (n == null) return "—";
+    if (n < 1024) return n + " B";
+    var u = ["KB", "MB", "GB", "TB"], i = -1, v = n;
+    do { v /= 1024; i++; } while (v >= 1024 && i < u.length - 1);
+    return (v >= 10 ? Math.round(v) : v.toFixed(1)) + " " + u[i];
+  }
+
+  function dbPanel() {
+    var b = dbInfo;
+    if (!b) return '<div class="panel"><div class="panel-h"><b>Database</b></div>' +
+      '<div class="sk" style="height:96px;margin:16px"></div></div>';
+
+    if (b.unavailable) {
+      return '<div class="panel"><div class="panel-h"><b>Database</b></div>' +
+        '<div class="dbnote">Couldn\'t read the database for this app just now. ' +
+        'Nothing has changed — try again in a moment.</div></div>';
+    }
+
+    var tab = dbTab || b.mode || "builtin";
+    var out = '<div class="panel"><div class="panel-h"><b>Database</b>' +
+      '<div class="seg">' +
+        '<button type="button" data-dbtab="builtin" class="' + (tab === "builtin" ? "on" : "") + '">Built-in</button>' +
+        '<button type="button" data-dbtab="external" class="' + (tab === "external" ? "on" : "") + '">Your own</button>' +
+      "</div></div>";
+
+    if (tab === "builtin") {
+      if (b.mode === "builtin" && b.configured) {
+        out += '<div class="kv"><span class="k">database</span><span class="v">' + esc(b.name || "—") + "</span></div>" +
+          '<div class="kv"><span class="k">user</span><span class="v">' + esc(b.role || "—") + "</span></div>" +
+          '<div class="kv"><span class="k">password</span><span class="v">' + esc(b.masked || "••••") + "</span></div>" +
+          '<div class="kv"><span class="k">size</span><span class="v">' + esc(bytes(b.sizeBytes)) + "</span>" +
+          '<button type="button" class="dbmini kvbtn" data-dbact="measure">Refresh</button></div>' +
+          '<div class="dbnote">Your app reads this as <code>SOUQI_DATABASE_URL</code>, and as ' +
+          '<code>DATABASE_URL</code> unless you set that yourself. It is reachable only from ' +
+          'this app — no other app on the platform can connect to it, and neither can the internet.' +
+          (b.sizeBytes != null
+            ? " Size is a reading, not a cap: nothing stops the database growing, so watch it."
+            : "") + "</div>";
+      } else if (b.mode === "external") {
+        out += '<div class="dbnote">This app is using your own database. Switching back uses the ' +
+          "built-in one" + (b.builtinKept ? " — the one you already have, with its data still in it." : ".") +
+          " Your connection URL is forgotten when you switch.</div>" +
+          '<div class="dbform"><button type="button" class="btn-g" data-dbact="use-builtin">Use the built-in database</button></div>';
+      } else {
+        out += '<div class="dbnote">' + esc(sentence(b.note, "A database will be created for this app on its first deploy")) +
+          " You will not have to configure anything — it arrives as <code>SOUQI_DATABASE_URL</code>.</div>";
+      }
+    } else if (!b.configured) {
+      /* The API refuses to set a database for a project that has never
+         deployed, so offering the form here would be offering a button
+         whose only outcome is an error. */
+      out += '<div class="dbnote">You can point this app at your own Postgres — Neon, Supabase, RDS, ' +
+        "anything with a connection string. Deploy it once first, so there is something to connect.</div>";
+    } else {
+      if (b.mode === "external" && b.configured) {
+        out += '<div class="kv"><span class="k">database</span><span class="v">' + esc(b.name || "—") + "</span></div>" +
+          '<div class="kv"><span class="k">user</span><span class="v">' + esc(b.role || "—") + "</span></div>" +
+          '<div class="kv"><span class="k">connection</span><span class="v">' + esc(b.masked || "••••") + "</span></div>";
+      }
+      out += '<div class="dbnote">Point this app at a Postgres you already run — Neon, Supabase, RDS, ' +
+        "anything that gives you a connection string. We check it connects before saving it, and we " +
+        "never create or delete anything on your account.</div>" +
+        '<div class="dbform">' +
+        '<input type="text" id="dbUrl" placeholder="postgres://user:password@host:5432/database" ' +
+        'autocomplete="off" spellcheck="false" value="' + esc(dbDraft) + '">' +
+        '<button type="button" class="btn-d" data-dbact="connect">' +
+        (b.mode === "external" ? "Replace" : "Connect") + "</button></div>";
+
+      if (b.builtinKept) {
+        out += '<div class="dbform"><span class="dbnote" style="padding:0;border:0;flex:1 1 220px">' +
+          "Your built-in database is still here, untouched, in case you want to come back to it." +
+          "</span>" +
+          '<button type="button" class="dbmini warn" data-dbact="drop-builtin">Delete it for good</button></div>';
+      }
+    }
+
+    return out + "</div>";
   }
 
   function renderDetail() {
@@ -1017,6 +1159,8 @@
         '<button type="button" data-phase="runtime" class="' + (logPhase === "runtime" ? "on" : "") + '">Runtime</button></div></div>' +
         '<div class="logs" id="logBox">' + logView(d.logs) + "</div></div>";
 
+      out += dbPanel();
+
       var c = d.container;
       if (c) {
         out += '<div class="panel"><div class="panel-h"><b>Container</b></div>' +
@@ -1034,7 +1178,17 @@
         '<button type="button" class="btn-danger" data-act="destroy">Delete</button></div>';
     }
 
+    /* A repaint driven by a build log line must not take the cursor away
+       from someone mid-way through pasting a connection URL. dbDraft keeps
+       the text; this keeps the caret. */
+    var typing = document.activeElement && document.activeElement.id === "dbUrl";
+
     $("detailBody").innerHTML = out;
+
+    if (typing) {
+      var f = $("dbUrl");
+      if (f) { f.focus(); try { f.setSelectionRange(f.value.length, f.value.length); } catch (e) { } }
+    }
 
     // Re-pin the log tail unless the reader has scrolled up to read.
     var box = $("logBox");
@@ -1045,15 +1199,18 @@
 
   function openDetail(key) {
     openKey = key; detail = null; logPinned = true;
+    dbInfo = null; dbTab = null; dbDraft = "";   // another app, another database
     renderDetail._sig = null;          // a different app must always repaint
     location.hash = "#" + key;
     $("viewList").hidden = true; $("viewDetail").hidden = false;
     renderRail();                      // move the rail's current-row highlight
     $("detailBody").innerHTML = '<div class="sk" style="height:180px"></div>';
     refreshDetail().catch(function () { }).then(schedule);
+    loadDatabase();
   }
   function closeDetail() {
     openKey = null; detail = null;
+    dbInfo = null; dbTab = null; dbDraft = "";
     if (location.hash) location.hash = "";
     $("viewDetail").hidden = true; $("viewList").hidden = false;
     renderList(); schedule();
@@ -1083,9 +1240,67 @@
     var jump = e.target.closest(".jump");
     if (jump) { logPinned = true; var b = $("logBox"); if (b) b.scrollTop = b.scrollHeight; jump.remove(); return; }
 
+    var dbtab = e.target.closest("[data-dbtab]");
+    if (dbtab) { dbTab = dbtab.dataset.dbtab; renderDetail(); return; }
+
+    var dbact = e.target.closest("[data-dbact]");
+    if (dbact) { runDbAction(dbact); return; }
+
     var act = e.target.closest("[data-act]");
     if (act) { runAction(act); return; }
   });
+
+  /* Keep what is being typed. renderDetail rewrites the whole detail body
+     whenever a build produces a log line, and without this the URL would
+     vanish out from under whoever was halfway through pasting it. */
+  document.addEventListener("input", function (e) {
+    if (e.target && e.target.id === "dbUrl") dbDraft = e.target.value;
+  });
+
+  function runDbAction(btn) {
+    var name = btn.dataset.dbact;
+    var key = openKey;
+    if (!key) return;
+    var base = "/api/deploy/" + encodeURIComponent(key) + "/database";
+    var was = btn.textContent;
+    var call, done;
+
+    if (name === "connect") {
+      var url = (dbDraft || "").trim();
+      if (!url) { toast("Paste your connection URL first."); return; }
+      // The plane connects to it before it will store one, so this can take
+      // a moment and can come back with a real reason it did not work.
+      btn.textContent = "Checking…";
+      call = api("PUT", base, { mode: "external", url: url });
+      done = "Connected. Redeploy for your app to use it.";
+    } else if (name === "use-builtin") {
+      btn.textContent = "Switching…";
+      call = api("PUT", base, { mode: "builtin" });
+      done = "Switched. Redeploy for your app to use it.";
+    } else if (name === "measure") {
+      btn.textContent = "Reading…";
+      call = api("POST", base + "/measure");
+      done = null;
+    } else if (name === "drop-builtin") {
+      if (!window.confirm("Delete the built-in database and everything in it?\n\nThis cannot be undone.")) return;
+      btn.textContent = "Deleting…";
+      call = api("DELETE", base);
+      done = "Queued — your built-in database is being removed.";
+    } else {
+      return;
+    }
+
+    btn.disabled = true;
+    call.then(function () {
+      dbDraft = "";
+      dbTab = null;                  // follow whatever mode is now real
+      if (done) toast(done);
+      return loadDatabase();
+    }).catch(function (err) {
+      toast(err.message);
+      btn.disabled = false; btn.textContent = was;
+    });
+  }
 
   function runAction(btn) {
     var name = btn.dataset.act;

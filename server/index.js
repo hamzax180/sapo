@@ -3561,6 +3561,61 @@ app.delete("/api/deploy/:key/env/:name", async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
+/* ---- the app's database ----
+   A project that has never deployed has no database yet, and that is not
+   an error — the plane creates one on the first deploy. These answer with
+   an honest "not yet" rather than a 400, so the panel can say so. */
+
+app.get("/api/deploy/:key/database", async (req, res, next) => {
+  try {
+    const project = await ownedProjectOr404(req, res); if (!project) return;
+    if (!project.deployProjectId) {
+      return res.json({
+        database: {
+          configured: false,
+          mode: "builtin",
+          note: "a database will be created for this project on its first deploy"
+        }
+      });
+    }
+    const r = await deployplane.getDatabase(cookieOf(req), project.deployProjectId);
+    if (!r.ok) return planeError(res, r);
+    res.json(r.body);
+  } catch (e) { next(e); }
+});
+
+app.put("/api/deploy/:key/database", async (req, res, next) => {
+  try {
+    const project = await ownedProjectOr404(req, res); if (!project) return;
+    if (!project.deployProjectId) {
+      return res.status(400).json({ error: "deploy this project once before choosing a database" });
+    }
+    const r = await deployplane.setDatabase(cookieOf(req), project.deployProjectId, req.body || {});
+    if (!r.ok) return planeError(res, r);
+    res.json(r.body);
+  } catch (e) { next(e); }
+});
+
+app.post("/api/deploy/:key/database/measure", async (req, res, next) => {
+  try {
+    const project = await ownedProjectOr404(req, res); if (!project) return;
+    if (!project.deployProjectId) return res.status(400).json({ error: "this project has no database yet" });
+    const r = await deployplane.measureDatabase(cookieOf(req), project.deployProjectId);
+    if (!r.ok) return planeError(res, r);
+    res.json(r.body);
+  } catch (e) { next(e); }
+});
+
+app.delete("/api/deploy/:key/database", async (req, res, next) => {
+  try {
+    const project = await ownedProjectOr404(req, res); if (!project) return;
+    if (!project.deployProjectId) return res.status(400).json({ error: "this project has no database" });
+    const r = await deployplane.dropBuiltinDatabase(cookieOf(req), project.deployProjectId);
+    if (!r.ok) return planeError(res, r);
+    res.status(202).json(r.body || { ok: true, pending: true });
+  } catch (e) { next(e); }
+});
+
 /**
  * POST /api/codeagent/:key/export-android
  * Generates a downloadable Capacitor-wrapped Android project ZIP from
