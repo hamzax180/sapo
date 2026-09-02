@@ -548,10 +548,87 @@
   fetch("/api/projects?kind=code&limit=200").then(function (r) { return r.json(); }).then(function (d) {
     all = d.projects || [];
     render();
+    renderPlan();                 // the Free Apps meter counts what we just loaded
   }).catch(function () {
     var container = $("pListBody");
     if (container) container.innerHTML = '<div class="empty"><h2>Couldn\'t load your projects</h2><p>Try reloading the page.</p></div>';
   });
+
+  /* ---------- account + plan ----------
+     None of this was wired. The workspace name, the avatar, the signed-in
+     line and all three meters were fixed strings in the markup, so the
+     rail said "Your Workspace" / "Not signed in" / "6/10 created" no
+     matter who was looking or what was true. */
+  var account = null;
+  var capacity = null;
+
+  function meter(barId, labId, pct, text) {
+    var bar = $(barId), lab = $(labId);
+    if (!bar || !lab) return;
+    pct = Math.max(0, Math.min(100, Math.round(pct)));
+    bar.style.width = pct + "%";
+    bar.style.background = pct >= 90 ? "#d92d20" : pct >= 70 ? "#e0a11a" : "#3b82f6";
+    lab.textContent = text;
+  }
+
+  function renderPlan() {
+    if (!account) return;
+    var plan = String(account.plan || "free");
+    $("agPlanTtl").textContent = "Your " + plan.charAt(0).toUpperCase() + plan.slice(1) + " Plan";
+
+    var cap = Number(account.freeEdits || 0);
+    var used = all.length;
+    meter("agEditsBar", "agEditsUsed", cap ? (used / cap) * 100 : 0,
+      cap ? used + "/" + cap + " created" : used + " created");
+
+    var budget = Number(account.budgetUsd || 0);
+    var spent = Number(account.spentUsd || 0);
+    var agentPct = budget ? (spent / budget) * 100 : 0;
+    meter("agAgentBar", "agAgentCredits", agentPct, budget ? Math.round(agentPct) + "% used" : "—");
+
+    // Cloud is the host the containers run on, same meaning as on the
+    // deployments page. Absent when no deployment plane is configured.
+    var mem = capacity && capacity.memory && typeof capacity.memory.pct === "number"
+      ? Math.round(capacity.memory.pct) : null;
+    meter("agSpendBar", "agSpendUsed", mem === null ? 0 : mem, mem === null ? "—" : mem + "% memory");
+
+    // Only shown when a limit has actually been reached.
+    $("agPlanAlert").hidden = !(cap && used >= cap) && !(budget && spent >= budget);
+  }
+
+  $("agPlanAlert").hidden = true;   // until we know, claim nothing
+
+  // The sign-out row was in the markup but had no handler — it only stayed
+  // harmless because nothing ever unhid it. Same call the builder makes.
+  if ($("agWsSignOut")) {
+    $("agWsSignOut").addEventListener("click", function () {
+      fetch("/auth/logout", { method: "POST", credentials: "same-origin" })
+        .catch(function () {})
+        .then(function () { location.href = "/agent"; });
+    });
+  }
+
+  fetch("/api/account/me", { credentials: "same-origin" })
+    .then(function (r) { return r.json(); })
+    .then(function (d) {
+      if (!d || !d.signedIn) return;
+      account = d;
+      var who = d.company || d.email || "Your Workspace";
+      $("agWsSigned").textContent = d.email || "Signed in";
+      $("agWsNm").textContent = who;
+      $("agWsAv").textContent = String(who).charAt(0).toUpperCase();
+      if ($("agWsSignIn")) $("agWsSignIn").hidden = true;
+      if ($("agWsSignOut")) $("agWsSignOut").hidden = false;
+      if ($("agWsSignOutSep")) $("agWsSignOutSep").hidden = false;
+      renderPlan();
+    }).catch(function () { });
+
+  // Host capacity for the cloud meter. Quiet on failure: a page about
+  // projects should not report an error because the deploy plane is off.
+  fetch("/api/deploy/overview", { credentials: "same-origin" })
+    .then(function (r) { return r.json(); })
+    .then(function (d) { capacity = d && d.capacity; renderPlan(); })
+    .catch(function () { });
 
   $("q").addEventListener("input", render);
   $("fStatus").addEventListener("change", render);
