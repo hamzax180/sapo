@@ -66,6 +66,7 @@
   .ag-hist-brand-text span{display:block}
   .ag-ws-wrap{position:relative}
   .ag-ws{display:flex;align-items:center;gap:9px;border:1px solid var(--line);background:var(--card);color:var(--ink) !important;border-radius:999px;padding:6px 10px 6px 6px;margin:8px 10px 8px;width:calc(100% - 20px);cursor:pointer;text-align:left;box-sizing:border-box}
+  .ag-ws .av svg,.ag-user-main .av svg{width:13px;height:13px}
   .ag-ws .av{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;color:#fff;background:linear-gradient(135deg,var(--accent),var(--accent-2));font-weight:600;font-size:.8rem}
   .ag-ws .nm{color:var(--ink) !important;flex:1;min-width:0;font-size:.9rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .ag-ws svg{width:16px;height:16px;flex:none;color:var(--ink-2)}
@@ -541,7 +542,7 @@
 
   <div class="ag-ws-wrap">
     <button type="button" class="ag-ws" id="agWs">
-      <span class="av" id="agWsAv">S</span>
+      <span class="av" id="agWsAv"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span>
       <span class="nm" id="agWsNm">Your Workspace</span>
       <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg>
     </button>
@@ -625,7 +626,7 @@
 
   <div class="ag-hist-user">
     <button type="button" class="ag-user-main" id="agUserMain" title="Account settings">
-      <span class="av" id="agUserAv">S</span>
+      <span class="av" id="agUserAv"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span>
       <span class="nm" id="agUserNm">Sign in</span>
     </button>
     <button type="button" class="ag-user-gear" id="agUserGear" title="Settings" aria-label="Settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
@@ -1357,7 +1358,10 @@ document.addEventListener("DOMContentLoaded", function() {
   fetch("/api/account/me", { credentials: "same-origin" })
     .then(function (r) { return r.json(); })
     .then(function (d) {
-      if (!d || !d.signedIn) return;
+      // Signed out is a real state, not a missing one. Leaving the markup's
+      // placeholder in place invented a workspace and an account both
+      // called "S", which is worse than saying nothing.
+      if (!d || !d.signedIn) { $("agWsNm").textContent = "Sign in"; return; }
       var who = d.company || d.email || "Account";
       var initial = String(who).charAt(0).toUpperCase();
       $("agWsSigned").textContent = d.email || "Signed in";
