@@ -79,20 +79,32 @@ const { spawnSync, spawn } = require("child_process");
       ? pass("GET /clients → " + clients.length + " records")
       : await fail("clients list empty or wrong type — got: " + JSON.stringify(clients).slice(0, 120));
 
-    // CRUD: create → read → update → delete
+    /* CRUD: create → read → update → delete.
+
+       The id comes back from the server, it is not the one sent. POST /:c
+       overwrites record.id with a minted ULID on purpose, so a client
+       cannot choose its own primary key — that is what keeps ids unique
+       across tenants and non-enumerable. This test used to send id:"C-TEST"
+       and assert it came back, which asserted the exact behaviour the
+       server refuses, and then addressed the next three requests to a URL
+       that never existed. */
     r = await fetch(base + "/clients", { method: "POST", headers: authHeaders, body: JSON.stringify({ id: "C-TEST", name: "Smoke Test Co", country: "TR", status: "Active" }) });
     created = await r.json();
-    created.id === "C-TEST" ? pass("POST /clients → created C-TEST") : await fail("create failed");
+    /^cli_[0-9A-HJKMNP-TV-Z]{26}$/.test(created.id || "") && created.id !== "C-TEST"
+      ? pass("POST /clients → created with server-minted id " + created.id)
+      : await fail("create failed — expected a server-minted cli_ ULID, got: " + JSON.stringify(created).slice(0, 160));
 
-    r = await fetch(base + "/clients/C-TEST", { headers: authHeaders }); got = await r.json();
-    got.name === "Smoke Test Co" ? pass("GET /clients/C-TEST → persisted") : await fail("read-back failed");
+    const cid = encodeURIComponent(created.id);
 
-    r = await fetch(base + "/clients/C-TEST", { method: "PUT", headers: authHeaders, body: JSON.stringify({ status: "On hold" }) });
+    r = await fetch(base + "/clients/" + cid, { headers: authHeaders }); got = await r.json();
+    got.name === "Smoke Test Co" ? pass("GET /clients/:id → persisted") : await fail("read-back failed");
+
+    r = await fetch(base + "/clients/" + cid, { method: "PUT", headers: authHeaders, body: JSON.stringify({ status: "On hold" }) });
     upd = await r.json();
-    upd.status === "On hold" ? pass("PUT /clients/C-TEST → updated") : await fail("update failed");
+    upd.status === "On hold" ? pass("PUT /clients/:id → updated") : await fail("update failed");
 
-    r = await fetch(base + "/clients/C-TEST", { method: "DELETE", headers: authHeaders }); del = await r.json();
-    del.ok ? pass("DELETE /clients/C-TEST → ok") : await fail("delete failed");
+    r = await fetch(base + "/clients/" + cid, { method: "DELETE", headers: authHeaders }); del = await r.json();
+    del.ok ? pass("DELETE /clients/:id → ok") : await fail("delete failed");
 
     // Password auto-hashed on user insert
     r = await fetch(base + "/users", { method: "POST", headers: authHeaders, body: JSON.stringify({ id: "U-TEST", name: "T", email: "t@x.com", role: "Trade Specialist", active: true, password: "plain123" }) });
