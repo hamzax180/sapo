@@ -61,6 +61,23 @@ jobs:
     name: 🧪 Tests
     runs-on: ubuntu-latest
     needs: pre-deploy-check
+
+    # The same MongoDB sidecar ci.yml gives its smoke-test job. Without it
+    # smoke-test.js falls back to mongodb-memory-server, which downloads a
+    # ~100MB mongod on a cold runner and blows the 5-minute step timeout —
+    # so this gate failed on a timeout while the identical test passed in
+    # CI in about a minute.
+    services:
+      mongodb:
+        image: mongo:7
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --eval 'db.runCommand({ ping: 1 })'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 6
+
     defaults:
       run:
         working-directory: server
@@ -81,9 +98,16 @@ jobs:
           JWT_SECRET: "deploy-gate-secret-abc"
           GEMINI_API_KEY: ""
 
+      # MONGODB_URI and DB_NAME both matter, and DB_NAME is the easy one to
+      # miss: without it the server derives its database name as
+      # "webo_default" while the seeder writes to merveks_sap, so every
+      # seeded login is rejected and the run fails on "invalid credentials"
+      # with a perfectly healthy database sitting next to it.
       - run: npm run smoke-test
         timeout-minutes: 5
         env:
+          MONGODB_URI: mongodb://localhost:27017/merveks_sap_test
+          DB_NAME: merveks_sap_test
           PORT: "4099"
           JWT_SECRET: "deploy-gate-secret-abc"
           GEMINI_API_KEY: ""
