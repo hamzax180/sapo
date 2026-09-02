@@ -70,7 +70,7 @@
   .ag-ws-wrap{position:relative}
   .ag-ws{display:flex;align-items:center;gap:9px;border:1px solid var(--line);background:var(--card);color:var(--ink) !important;border-radius:999px;padding:6px 10px 6px 6px;margin:8px 10px 8px;width:calc(100% - 20px);cursor:pointer;text-align:left;box-sizing:border-box}
   .ag-ws .av svg,.ag-user-main .av svg{width:13px;height:13px}
-  .ag-ws .av{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;color:#fff;background:linear-gradient(135deg,var(--accent),var(--accent-2));font-weight:600;font-size:.8rem}
+  .ag-ws .av{flex:none;width:26px;height:26px;border-radius:50%;display:grid;place-items:center;color:#fff;background:linear-gradient(135deg,var(--accent),var(--accent-2));font-weight:600;font-size:.8rem}
   .ag-ws .nm{color:var(--ink) !important;flex:1;min-width:0;font-size:.9rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .ag-ws svg{width:16px;height:16px;flex:none;color:var(--ink-2)}
   .ag-ws .chev{transition:transform .16s var(--ease)}
@@ -239,7 +239,10 @@
        make the collapsed sidebar a dead end for getting back into one. */
     .ag-history:not(.on):not(:hover):not(.hover-open) .ag-hist-chats{border-top:1px solid var(--line);margin:5px 9px 0;padding-top:6px}
     .ag-history:not(.on):not(:hover):not(.hover-open) .ag-chats-list{padding:0;overflow:hidden}
-    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-chat-item{width:32px;margin:0 auto;padding:7px 0;justify-content:center;gap:0}
+    /* Fills the list box rather than being a fixed 32px inside it: the
+       list is inset 9px each side for its hairline, so a 32px child could
+       not centre in the 26px that leaves and sat 3px right. */
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-chat-item{width:100%;margin:0;padding:7px 0;justify-content:center;gap:0}
     .ag-history:not(.on):not(:hover):not(.hover-open) .ag-chat-item span{display:none}
     .ag-history:not(.on):not(:hover):not(.hover-open) .ag-chats-empty{display:none}
 
@@ -252,7 +255,13 @@
     .ag-history:not(.on):not(:hover):not(.hover-open) .ag-tab-new .tab-ic.ring{background:var(--card);border-color:var(--line);box-shadow:0 1px 2px rgba(0,0,0,.06)}
     .ag-history:not(.on):not(:hover):not(.hover-open) .ag-hist-user{background:transparent;justify-content:center}
     .ag-history:not(.on):not(:hover):not(.hover-open) .ag-ws-wrap{padding:0 !important;display:flex;justify-content:center}
-    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-ws{width:32px;margin:6px auto;padding:3px;justify-content:center}
+    /* gap:0 matters: the name is still a flex item at max-width:0, so the
+       pill's 9px gap was being counted and justify-content:center pushed
+       the avatar ~5px left of the rail. */
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-ws{width:32px;margin:6px auto;padding:3px;justify-content:center;gap:0}
+    /* The dot carries side margins for the expanded row; in the rail they
+       are what pushes it off centre. */
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-chat-item .sdot{margin:0}
 
 
     /* Collapsed: the toggle is an icon, not a labelled button. Same as
@@ -379,74 +388,13 @@
   }
 
 
-  /* ---- upgrade modal ----
-     Copied verbatim from the builder so Upgrade is the same screen
-     wherever it is pressed. Prices live in three places now; if they
-     change, all three have to change together. */
-  .ag-modal-backdrop {
-    position: fixed; inset: 0; background: rgba(0, 0, 0, 0.72);
-    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
-    z-index: 100000000 !important; display: flex; align-items: center; justify-content: center;
-    padding: 20px; opacity: 0; visibility: hidden;
-    transition: opacity 0.1s var(--ease), visibility 0.1s;
-  }
-  .ag-modal-backdrop.open { opacity: 1; visibility: visible; }
-  .ag-modal-card {
-    background: var(--paper); border: 1px solid var(--line); border-radius: 20px;
-    width: 100%; max-width: 1020px; max-height: 94vh; overflow-y: auto;
-    padding: 22px 24px 20px; position: relative;
-    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.4);
-    transform: scale(0.95); transition: transform 0.22s var(--ease);
-    box-sizing: border-box;
-  }
-  .ag-modal-backdrop.open .ag-modal-card { transform: scale(1); }
-  .ag-modal-close {
-    position: absolute; top: 14px; right: 18px; border: 0; background: none;
-    font-size: 1.2rem; color: var(--mut); cursor: pointer; width: 30px; height: 30px;
-    border-radius: 50%; display: grid; place-items: center; transition: background 0.15s, color 0.15s;
-  }
-  .ag-modal-close:hover { background: var(--paper-2); color: var(--ink); }
-
-  .up-header { text-align: center; margin-bottom: 16px; }
-  .up-header h1 { font-family: var(--body) !important; font-size: 1.65rem; font-weight: 700; color: var(--ink); margin: 0 0 2px 0; letter-spacing: -0.02em; }
-  .up-header p { font-family: var(--body) !important; font-size: 0.85rem; color: var(--mut); margin: 0 0 12px 0; }
-  .billing-toggle { display: inline-flex; align-items: center; gap: 4px; background: var(--paper-2); border: 1px solid var(--line); padding: 3px; border-radius: 10px !important; }
-  .billing-toggle button { border: 0; background: none; font-family: var(--body) !important; font-size: 0.8rem; font-weight: 600; color: var(--mut); padding: 6px 14px; border-radius: 8px !important; cursor: pointer; transition: all 0.18s; display: inline-flex; align-items: center; gap: 5px; }
-  .billing-toggle button.active { background: var(--card); color: var(--ink); box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08); }
-  .billing-toggle .discount-pill { background: rgba(0, 112, 243, 0.15); color: #0070f3; font-size: 0.72rem; font-weight: 700; padding: 2px 7px; border-radius: 6px !important; }
-  .up-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; align-items: stretch; margin-bottom: 16px; text-align: left; }
-  .up-card { background: var(--paper-2); border: 1px solid var(--line); border-radius: 16px; padding: 18px 18px 16px; display: flex; flex-direction: column; position: relative; transition: transform 0.2s, box-shadow 0.2s; }
-  .up-card:hover { box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.12); }
-  .up-card.featured { border: 2px solid #0070f3; background: var(--card); box-shadow: 0 0 24px rgba(0, 112, 243, 0.16); }
-  .up-card-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 2px; }
-  .up-card-title { font-family: var(--body) !important; font-size: 1.15rem; font-weight: 700; color: var(--ink); }
-  .up-badge-current { background: var(--stone); color: var(--mut); font-size: 0.72rem; font-weight: 600; padding: 3px 8px; border-radius: 99px; }
-  .up-price-row { margin: 8px 0 2px; display: flex; align-items: baseline; gap: 5px; }
-  .up-price-row .amt { font-family: var(--body) !important; font-size: 2rem; font-weight: 800; color: var(--ink); line-height: 1; letter-spacing: -0.03em; }
-  .up-price-row .unit { font-size: 0.78rem; color: var(--mut); }
-  .up-subtitle { font-size: 0.8rem; color: var(--mut); margin-bottom: 14px; min-height: 28px; line-height: 1.35; }
-  .up-feats { list-style: none; padding: 0; margin: 0 0 14px 0; flex: 1; display: flex; flex-direction: column; gap: 7px; }
-  .up-feat-item { display: flex; align-items: flex-start; gap: 8px; font-size: 0.8rem; color: var(--ink); line-height: 1.3; }
-  .up-feat-item .mark { font-weight: 700; flex: none; width: 14px; text-align: center; }
-  .up-feat-item.check .mark { color: var(--ink); }
-  .up-feat-item.plus .mark { color: var(--mut); }
-  .up-select { width: 100%; padding: 6px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--card); color: var(--ink); font-size: 0.8rem; margin-bottom: 10px; outline: none; cursor: pointer; font-family: var(--body); }
-  .up-btn { width: 100%; padding: 9px 14px; border-radius: 9px; font-family: var(--body); font-size: 0.85rem; font-weight: 600; cursor: pointer; border: 0; display: inline-flex; align-items: center; justify-content: center; gap: 6px; transition: background 0.18s, transform 0.18s; text-decoration: none; }
-  .up-btn-primary { background: #0070f3; color: #ffffff !important; }
-  .up-btn-primary:hover { background: #0051a8; transform: translateY(-1px); }
-  .up-btn-disabled { background: var(--stone); color: var(--mut); cursor: default; }
-  .up-disclaimer { text-align: center; font-size: 0.72rem; color: var(--mut); max-width: 800px; margin: 4px auto 0; line-height: 1.4; }
-  @media (max-width: 860px) {
-    .up-grid { grid-template-columns: 1fr; gap: 16px; }
-    .up-subtitle { min-height: auto; margin-bottom: 16px; }
-    .ag-modal-card { padding: 28px 18px 24px; }
-  }
 
   .empty{text-align:center;padding:80px 20px;color:var(--ink-2)}
   .empty h2{font-size:1.3rem;margin-bottom:8px;color:var(--ink)}
   .empty p{font-size:.92rem;max-width:40ch;margin:0 auto 20px;line-height:1.5}
   .loading{text-align:center;padding:60px 20px;color:var(--mut);font-size:.9rem}
 </style>
+<link rel="stylesheet" href="css/upgrade-modal.css">
 </head>
 <body><div class="ag-hist-backdrop" id="agHistBackdrop"></div>
 <aside class="ag-history on" id="agHistory" aria-label="Your account">
@@ -633,8 +581,7 @@
   document.addEventListener("keydown", function (e) {
     if (e.key !== "Escape") return;
     // Whatever is on top closes first.
-    var um = $("agUpgradeModal");
-    if (um && um.classList.contains("open")) { window.closeUpgradeModal(); return; }
+    if (window.isUpgradeModalOpen && window.isUpgradeModalOpen()) { window.closeUpgradeModal(); return; }
     if (!$("agSetOverlay").hidden) closePanel();
   });
 
@@ -650,7 +597,11 @@
     e.preventDefault();
     // Plans open the builder's own upgrade modal; settings opens the panel.
     var href = a.getAttribute("href") || "";
-    if (a.classList.contains("ag-upgrade") || href.indexOf("/pricing") === 0) window.openUpgradeModal(e);
+    // Falls back to the real pricing page if the shared module is missing,
+    // so Upgrade is never a dead click.
+    if (a.classList.contains("ag-upgrade") || href.indexOf("/pricing") === 0) {
+      if (window.openUpgradeModal) window.openUpgradeModal(e); else location.href = "/pricing";
+    }
     else openPanel(href);
   });
 
@@ -894,144 +845,8 @@
 })();
 </script>
 
-<div class="ag-modal-backdrop" id="agUpgradeModal">
-  <div class="ag-modal-card">
-    <button type="button" class="ag-modal-close" id="agUpgradeModalClose" title="Close">✕</button>
-    <div class="up-header">
-      <h1>Upgrade</h1>
-      <p>Choose the best plan for you</p>
-      
-      <div class="billing-toggle">
-        <button type="button" id="modalBtnMonthly" class="active">Monthly</button>
-        <button type="button" id="modalBtnYearly">Yearly <span class="discount-pill">🏷️ Up to 10% off</span></button>
-      </div>
-    </div>
-
-    <div class="up-grid">
-      <!-- Starter Plan -->
-      <div class="up-card">
-        <div class="up-card-top">
-          <span class="up-card-title">Starter</span>
-          <span class="up-badge-current">Current plan</span>
-        </div>
-        <div class="up-price-row">
-          <span class="amt">Free</span>
-        </div>
-        <div class="up-subtitle">For exploring what's possible</div>
-        <ul class="up-feats">
-          <li class="up-feat-item check"><span class="mark">✓</span><span>Free daily Agent credits</span></li>
-          <li class="up-feat-item check"><span class="mark">✓</span><span>Built-in database for full-stack apps</span></li>
-          <li class="up-feat-item check"><span class="mark">✓</span><span>Create slides, videos, animations</span></li>
-          <li class="up-feat-item check"><span class="mark">✓</span><span>Publish up to 1 project</span></li>
-          <li class="up-feat-item check"><span class="mark">✓</span><span>Publish private or password-protected deployments</span></li>
-        </ul>
-        <button class="up-btn up-btn-disabled" disabled>Your current plan</button>
-      </div>
-
-      <!-- Souqi Core Plan (Featured) -->
-      <div class="up-card featured">
-        <div class="up-card-top">
-          <span class="up-card-title">Souqi Core</span>
-        </div>
-        <div class="up-price-row">
-          <span class="amt" id="modalCorePrice">$20</span>
-          <span class="unit">per month</span>
-        </div>
-        <div class="up-subtitle">For personal projects &amp; simple apps</div>
-        <ul class="up-feats">
-          <li class="up-feat-item plus"><span class="mark">+</span><span>Everything in Starter</span></li>
-          <li class="up-feat-item check"><span class="mark">✓</span><span>$20 of monthly credits</span></li>
-          <li class="up-feat-item check"><span class="mark">✓</span><span>Invite up to 5 collaborators</span></li>
-          <li class="up-feat-item check"><span class="mark">✓</span><span>Work in parallel with up to 2 agents</span></li>
-          <li class="up-feat-item check"><span class="mark">✓</span><span>Publish projects in any region</span></li>
-          <li class="up-feat-item check"><span class="mark">✓</span><span>Unlimited workspaces</span></li>
-          <li class="up-feat-item check"><span class="mark">✓</span><span>Remove "Made with Souqi" badge</span></li>
-          <li class="up-feat-item check"><span class="mark">✓</span><span>Souqi AI Integrations</span></li>
-        </ul>
-        <a href="/checkout?plan=core" class="up-btn up-btn-primary">Continue with Core &rarr;</a>
-      </div>
-
-      <!-- Souqi Pro Plan -->
-      <div class="up-card">
-        <div class="up-card-top">
-          <span class="up-card-title">Souqi Pro</span>
-        </div>
-        <div class="up-price-row">
-          <span class="amt" id="modalProPrice">$100</span>
-          <span class="unit">per month</span>
-        </div>
-        <div class="up-subtitle">For commercial and professional builds</div>
-        <ul class="up-feats">
-          <li class="up-feat-item plus"><span class="mark">+</span><span>Everything in Core</span></li>
-          <li class="up-feat-item check"><span class="mark">✓</span><span>$100 monthly credits</span></li>
-          <li class="up-feat-item check"><span class="mark">✓</span><span>Invite up to 15 collaborators</span></li>
-          <li class="up-feat-item check"><span class="mark">✓</span><span>Invite up to 50 viewers</span></li>
-          <li class="up-feat-item check"><span class="mark">✓</span><span>Work in parallel with up to 10 agents</span></li>
-          <li class="up-feat-item check"><span class="mark">✓</span><span>Access to the most powerful models</span></li>
-          <li class="up-feat-item check"><span class="mark">✓</span><span>Database rollbacks for up to 28 days</span></li>
-        </ul>
-        <select class="up-select" id="modalProCreditSelect">
-          <option value="100">$100 credits</option>
-          <option value="250">$250 credits</option>
-          <option value="500">$500 credits</option>
-        </select>
-        <a href="/checkout?plan=pro" class="up-btn up-btn-primary">Continue with Pro &rarr;</a>
-      </div>
-    </div>
-
-    <div class="up-disclaimer">
-      *Prices are subject to tax depending on your location. Souqi Agent is powered by large language models. While it can produce powerful results, its behavior is probabilistic — meaning it may occasionally make mistakes.
-    </div>
-  </div>
-</div>
-
-<script>
-window.openUpgradeModal = function(e) {
-  if (e && e.preventDefault) e.preventDefault();
-  if (window.SouqiLoading) window.SouqiLoading.hide();
-  var modal = document.getElementById("agUpgradeModal");
-  if (modal) modal.classList.add("open");
-};
-
-window.closeUpgradeModal = function() {
-  var modal = document.getElementById("agUpgradeModal");
-  if (modal) modal.classList.remove("open");
-};
-
-document.addEventListener("DOMContentLoaded", function() {
-  var closeBtn = document.getElementById("agUpgradeModalClose");
-  if (closeBtn) closeBtn.addEventListener("click", window.closeUpgradeModal);
-
-  var modal = document.getElementById("agUpgradeModal");
-  if (modal) {
-    modal.addEventListener("click", function(e) {
-      if (e.target === modal) window.closeUpgradeModal();
-    });
-  }
-
-  var mBtn = document.getElementById("modalBtnMonthly");
-  var yBtn = document.getElementById("modalBtnYearly");
-  var cPrice = document.getElementById("modalCorePrice");
-  var pPrice = document.getElementById("modalProPrice");
-
-  if (mBtn && yBtn) {
-    mBtn.addEventListener("click", function() {
-      mBtn.classList.add("active");
-      yBtn.classList.remove("active");
-      if (cPrice) cPrice.textContent = "$20";
-      if (pPrice) pPrice.textContent = "$100";
-    });
-    yBtn.addEventListener("click", function() {
-      yBtn.classList.add("active");
-      mBtn.classList.remove("active");
-      if (cPrice) cPrice.textContent = "$18";
-      if (pPrice) pPrice.textContent = "$90";
-    });
-  }
-});
-</script>
-
 <script src="js/nav-loading.js?v=1"></script>
+<script src="js/upgrade-modal.js" defer></script>
 <!-- No site-footer.js here on purpose. This is an app shell — sidebar
      rail, workspace switcher, the builder's own nav — and site-footer.js
      says in its own header that the marketing footer does not belong in

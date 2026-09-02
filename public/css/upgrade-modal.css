@@ -1,0 +1,78 @@
+/* =================================================================
+   css/upgrade-modal.css — the plans dialog
+   -----------------------------------------------------------------
+   Pair this with js/upgrade-modal.js, which injects the markup:
+
+     <link rel="stylesheet" href="css/upgrade-modal.css">
+     <script src="js/upgrade-modal.js" defer></script>
+
+   Then call window.openUpgradeModal(event) from anything that should
+   open it.
+
+   Lifted out of code.html, which had grown two copies of it in
+   projects.html and deployments.html. Prices were sitting in three
+   files at once, so changing one meant the product quoted different
+   numbers depending on which screen you pressed Upgrade from.
+
+   The rules assume the host page defines the usual theme tokens
+   (--ink, --mut, --card, --paper-2, --line, --stone, --body). Every
+   page that uses this does.
+   ================================================================= */
+.ag-modal-backdrop {
+  position: fixed; inset: 0; background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  z-index: 100000000 !important; display: flex; align-items: center; justify-content: center;
+  padding: 20px; opacity: 0; visibility: hidden;
+  transition: opacity 0.1s var(--ease), visibility 0.1s;
+}
+.ag-modal-backdrop.open { opacity: 1; visibility: visible; }
+.ag-modal-card {
+  background: var(--paper); border: 1px solid var(--line); border-radius: 20px;
+  width: 100%; max-width: 1020px; max-height: 94vh; overflow-y: auto;
+  padding: 22px 24px 20px; position: relative;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.4);
+  transform: scale(0.95); transition: transform 0.22s var(--ease);
+  box-sizing: border-box;
+}
+.ag-modal-backdrop.open .ag-modal-card { transform: scale(1); }
+.ag-modal-close {
+  position: absolute; top: 14px; right: 18px; border: 0; background: none;
+  font-size: 1.2rem; color: var(--mut); cursor: pointer; width: 30px; height: 30px;
+  border-radius: 50%; display: grid; place-items: center; transition: background 0.15s, color 0.15s;
+}
+.ag-modal-close:hover { background: var(--paper-2); color: var(--ink); }
+
+.up-header { text-align: center; margin-bottom: 16px; }
+.up-header h1 { font-family: var(--body) !important; font-size: 1.65rem; font-weight: 700; color: var(--ink); margin: 0 0 2px 0; letter-spacing: -0.02em; }
+.up-header p { font-family: var(--body) !important; font-size: 0.85rem; color: var(--mut); margin: 0 0 12px 0; }
+.billing-toggle { display: inline-flex; align-items: center; gap: 4px; background: var(--paper-2); border: 1px solid var(--line); padding: 3px; border-radius: 10px !important; }
+.billing-toggle button { border: 0; background: none; font-family: var(--body) !important; font-size: 0.8rem; font-weight: 600; color: var(--mut); padding: 6px 14px; border-radius: 8px !important; cursor: pointer; transition: all 0.18s; display: inline-flex; align-items: center; gap: 5px; }
+.billing-toggle button.active { background: var(--card); color: var(--ink); box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08); }
+.billing-toggle .discount-pill { background: rgba(0, 112, 243, 0.15); color: #0070f3; font-size: 0.72rem; font-weight: 700; padding: 2px 7px; border-radius: 6px !important; }
+.up-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; align-items: stretch; margin-bottom: 16px; text-align: left; }
+.up-card { background: var(--paper-2); border: 1px solid var(--line); border-radius: 16px; padding: 18px 18px 16px; display: flex; flex-direction: column; position: relative; transition: transform 0.2s, box-shadow 0.2s; }
+.up-card:hover { box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.12); }
+.up-card.featured { border: 2px solid #0070f3; background: var(--card); box-shadow: 0 0 24px rgba(0, 112, 243, 0.16); }
+.up-card-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 2px; }
+.up-card-title { font-family: var(--body) !important; font-size: 1.15rem; font-weight: 700; color: var(--ink); }
+.up-badge-current { background: var(--stone); color: var(--mut); font-size: 0.72rem; font-weight: 600; padding: 3px 8px; border-radius: 99px; }
+.up-price-row { margin: 8px 0 2px; display: flex; align-items: baseline; gap: 5px; }
+.up-price-row .amt { font-family: var(--body) !important; font-size: 2rem; font-weight: 800; color: var(--ink); line-height: 1; letter-spacing: -0.03em; }
+.up-price-row .unit { font-size: 0.78rem; color: var(--mut); }
+.up-subtitle { font-size: 0.8rem; color: var(--mut); margin-bottom: 14px; min-height: 28px; line-height: 1.35; }
+.up-feats { list-style: none; padding: 0; margin: 0 0 14px 0; flex: 1; display: flex; flex-direction: column; gap: 7px; }
+.up-feat-item { display: flex; align-items: flex-start; gap: 8px; font-size: 0.8rem; color: var(--ink); line-height: 1.3; }
+.up-feat-item .mark { font-weight: 700; flex: none; width: 14px; text-align: center; }
+.up-feat-item.check .mark { color: var(--ink); }
+.up-feat-item.plus .mark { color: var(--mut); }
+.up-select { width: 100%; padding: 6px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--card); color: var(--ink); font-size: 0.8rem; margin-bottom: 10px; outline: none; cursor: pointer; font-family: var(--body); }
+.up-btn { width: 100%; padding: 9px 14px; border-radius: 9px; font-family: var(--body); font-size: 0.85rem; font-weight: 600; cursor: pointer; border: 0; display: inline-flex; align-items: center; justify-content: center; gap: 6px; transition: background 0.18s, transform 0.18s; text-decoration: none; }
+.up-btn-primary { background: #0070f3; color: #ffffff !important; }
+.up-btn-primary:hover { background: #0051a8; transform: translateY(-1px); }
+.up-btn-disabled { background: var(--stone); color: var(--mut); cursor: default; }
+.up-disclaimer { text-align: center; font-size: 0.72rem; color: var(--mut); max-width: 800px; margin: 4px auto 0; line-height: 1.4; }
+@media (max-width: 860px) {
+  .up-grid { grid-template-columns: 1fr; gap: 16px; }
+  .up-subtitle { min-height: auto; margin-bottom: 16px; }
+  .ag-modal-card { padding: 28px 18px 24px; }
+}
