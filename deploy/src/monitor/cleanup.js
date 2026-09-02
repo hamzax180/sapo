@@ -88,6 +88,8 @@ async function sweepOrphanContainers() {
     if (keep.has(id)) continue;
     await engine.removeContainer(id);
     await engine.removeImage(id);
+    // The per-deployment network is part of the orphan, not a separate thing.
+    await engine.removeDeploymentNetwork(id);
     removed++;
     console.log("[cleanup] removed orphan container app-" + id);
   }

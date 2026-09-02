@@ -65,6 +65,66 @@ async function claimNext() {
   }
 }
 
+/**
+ * Claim one queued lifecycle action, the same way deployments are claimed.
+ *
+ * These live in the worker rather than the API because they end in docker
+ * commands, and the API has no socket to run them against.
+ */
+async function claimNextAction() {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const { rows } = await client.query(
+      `SELECT * FROM deployments
+        WHERE pending_action IS NOT NULL AND host_id = $1
+        ORDER BY updated_at
+        FOR UPDATE SKIP LOCKED
+        LIMIT 1`,
+      [cfg.hostId]
+    );
+    if (!rows.length) { await client.query("COMMIT"); return null; }
+    const dep = rows[0];
+    // Clear it inside the same transaction: a crash mid-action must not leave
+    // the row spinning through the same command forever.
+    await client.query("UPDATE deployments SET pending_action=NULL WHERE id=$1", [dep.id]);
+    await client.query("COMMIT");
+    return dep;
+  } catch (e) {
+    try { await client.query("ROLLBACK"); } catch (e2) { /* already gone */ }
+    console.error("[worker] action claim failed:", e.message);
+    return null;
+  } finally {
+    client.release();
+  }
+}
+
+const ACTIONS = {
+  stop: (dep) => pipeline.stop(dep),
+  start: (dep) => pipeline.start(dep),
+  restart: (dep) => pipeline.restart(dep),
+  destroy: (dep) => pipeline.destroy(dep)
+};
+
+async function tickAction() {
+  const dep = await claimNextAction();
+  if (!dep) return false;
+  const fn = ACTIONS[dep.pending_action];
+  if (!fn) {
+    console.error("[worker] unknown action", dep.pending_action, "on", dep.id);
+    return true;
+  }
+  console.log("[worker]", dep.pending_action, dep.id);
+  try {
+    const r = await fn(dep);
+    console.log("[worker]", dep.id, dep.pending_action, r && r.ok === false ? "-> FAILED " + r.error : "-> ok");
+  } catch (e) {
+    console.error("[worker]", dep.id, dep.pending_action, "threw:", e.message);
+    await pipeline.log(dep.id, "system", dep.pending_action + " failed: " + e.message, "stderr");
+  }
+  return true;
+}
+
 function sourceDirFor(dep) {
   // Phase 1: the API writes the upload here. Phase 2 swaps this for a pull
   // from object storage using dep.source_key — the pipeline takes a
@@ -109,6 +169,15 @@ async function reconcile() {
       if (dep.status === "BUILDING") continue;
 
       const st = await engine.inspectState(dep.id);
+      // Record what Docker says, so the API can answer questions about the
+      // container without needing a socket it deliberately does not have.
+      await query(
+        `UPDATE deployments
+            SET container_state=$2, container_exit_code=$3, container_restarts=$4, container_seen_at=now()
+          WHERE id=$1`,
+        [dep.id, st.exists ? st.status : "absent",
+         st.exists ? st.exitCode : null, st.exists ? st.restarts : null]
+      );
       if (!st.exists) {
         await pipeline.setStatus(dep.id, "STOPPED", { error: "the container is no longer present on this host" });
         await caddy.removeRoute(dep.domain);
@@ -128,6 +197,14 @@ async function reconcile() {
       }
     }
 
+    // Heartbeat. Cheap, and it is what lets /health distinguish "the worker
+    // is fine" from "nothing has processed a deployment for an hour".
+    const dockerVersion = await engine.version();
+    await query(
+      "UPDATE hosts SET docker_version=$2, worker_seen_at=now() WHERE id=$1",
+      [cfg.hostId, dockerVersion || null]
+    );
+
     const health = await capacity.alerts();
     for (const a of health.alerts) {
       console.warn("[alert]", a.level, a.metric, a.message);
@@ -135,6 +212,48 @@ async function reconcile() {
   } catch (e) {
     console.error("[worker] reconcile failed:", e.message);
   }
+}
+
+/**
+ * The worker's internal read API.
+ *
+ * Runtime logs are `docker logs`, and only this process can run it. The api
+ * used to call engine.logs() itself, which always failed there for want of a
+ * socket and was reported to the user as "the container is not running" — a
+ * statement about the api's own permissions dressed up as a fact about their
+ * app. So the api asks here instead.
+ *
+ * Not published, platform network only, and the internal token is required.
+ */
+function startInternalServer() {
+  const express = require("express");
+  const app = express();
+
+  app.use((req, res, next) => {
+    if (!cfg.internalToken) return res.status(503).json({ error: "internal API is not configured" });
+    const given = req.header("x-internal-token") || "";
+    const a = Buffer.from(given), b = Buffer.from(cfg.internalToken);
+    const crypto = require("crypto");
+    if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
+      return res.status(403).json({ error: "forbidden" });
+    }
+    next();
+  });
+
+  app.get("/internal/logs/:id", async (req, res) => {
+    const tail = Math.min(Number(req.query.tail) || 500, 2000);
+    // The id comes from the api, which resolved it from a row the caller
+    // owns; engine.logs sanitises it into a container name regardless.
+    const l = await engine.logs(String(req.params.id), { tail });
+    res.json({ ok: l.ok, out: l.ok ? l.out : "", error: l.ok ? null : "the container has no logs on this host" });
+  });
+
+  app.get("/internal/state/:id", async (req, res) => {
+    res.json(await engine.inspectState(String(req.params.id)));
+  });
+
+  return app.listen(cfg.workerPort, () =>
+    console.log("[worker] internal API on :" + cfg.workerPort));
 }
 
 async function main() {
@@ -149,7 +268,9 @@ async function main() {
 
   await engine.ensureAppNetwork();
 
-  const shutdown = () => { running = false; console.log("[worker] draining"); };
+  const internal = startInternalServer();
+
+  const shutdown = () => { running = false; internal.close(); console.log("[worker] draining"); };
   process.on("SIGTERM", shutdown);
   process.on("SIGINT", shutdown);
 
@@ -159,7 +280,13 @@ async function main() {
 
   while (running) {
     let worked = false;
-    try { worked = await tick(); }
+    try {
+      // Lifecycle actions first: they are seconds of work, and making a stop
+      // wait behind a fifteen-minute build is how a runaway container stays
+      // up long after the user asked for it to go away.
+      worked = await tickAction();
+      if (!worked) worked = await tick();
+    }
     catch (e) { console.error("[worker] tick failed:", e.message); }
     // Only idle when there was nothing to do, so a backlog drains at full
     // speed instead of one deployment every two seconds.
@@ -172,4 +299,4 @@ async function main() {
 
 if (require.main === module) main();
 
-module.exports = { claimNext, tick, reconcile, sourceDirFor };
+module.exports = { claimNext, tick, reconcile, sourceDirFor, claimNextAction, tickAction, ACTIONS };

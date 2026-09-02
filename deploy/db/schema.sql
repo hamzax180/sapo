@@ -50,14 +50,31 @@ CREATE TABLE IF NOT EXISTS deployments (
   pids_limit     INTEGER      NOT NULL DEFAULT 100,
   source_key     TEXT,                      -- object-storage key of the source archive
   error          TEXT,
+  -- stop | start | restart | destroy, claimed by the worker.
+  -- Lifecycle actions CANNOT run in the API: the api container has no Docker
+  -- socket (deliberately), so a docker command issued there fails silently
+  -- and the caller is told the container stopped when it is still running.
+  pending_action TEXT,
   created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at     TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+-- Idempotent add for databases created before pending_action existed.
+ALTER TABLE deployments ADD COLUMN IF NOT EXISTS pending_action TEXT;
+
+-- Container facts, observed by the worker and written here.
+-- The API serves these from the database because it has no Docker socket to
+-- ask with: it is the worker that can see Docker, so it is the worker that
+-- records what it saw, and container_seen_at says how long ago that was.
+ALTER TABLE deployments ADD COLUMN IF NOT EXISTS container_state     TEXT;
+ALTER TABLE deployments ADD COLUMN IF NOT EXISTS container_exit_code INTEGER;
+ALTER TABLE deployments ADD COLUMN IF NOT EXISTS container_restarts  INTEGER;
+ALTER TABLE deployments ADD COLUMN IF NOT EXISTS container_seen_at   TIMESTAMPTZ;
 CREATE INDEX IF NOT EXISTS deployments_project_idx ON deployments(project_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS deployments_user_idx    ON deployments(user_id, created_at DESC);
 -- The worker claims work with this; partial index keeps it small as the
 -- table grows, since only QUEUED rows are ever polled.
 CREATE INDEX IF NOT EXISTS deployments_queue_idx   ON deployments(created_at) WHERE status = 'QUEUED';
+CREATE INDEX IF NOT EXISTS deployments_action_idx  ON deployments(updated_at) WHERE pending_action IS NOT NULL;
 CREATE INDEX IF NOT EXISTS deployments_host_idx    ON deployments(host_id) WHERE status IN ('RUNNING','STARTING');
 
 CREATE TABLE IF NOT EXISTS deployment_logs (
@@ -101,5 +118,12 @@ CREATE TABLE IF NOT EXISTS hosts (
   status        TEXT NOT NULL DEFAULT 'ACTIVE',
   created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+-- The worker's heartbeat. It is the only process that can see Docker, so it
+-- reports the version here and stamps the time; /health reads both. A stale
+-- worker_seen_at is the signal that the worker has died — a failure the API
+-- previously had no way to notice at all.
+ALTER TABLE hosts ADD COLUMN IF NOT EXISTS docker_version  TEXT;
+ALTER TABLE hosts ADD COLUMN IF NOT EXISTS worker_seen_at  TIMESTAMPTZ;
+
 INSERT INTO hosts (id, provider, status) VALUES ('local','local','ACTIVE')
   ON CONFLICT (id) DO NOTHING;

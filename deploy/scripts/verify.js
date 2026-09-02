@@ -72,8 +72,19 @@ async function main() {
   check("pids limit applied", () => {
     const i = a.indexOf("--pids-limit"); assert.ok(i >= 0 && a[i + 1] === "100");
   });
-  check("joins the internal app network", () => {
-    const i = a.indexOf("--network"); assert.ok(i >= 0 && a[i + 1] === "souqi_apps");
+  check("joins its OWN internal network, not a shared one", () => {
+    const i = a.indexOf("--network");
+    assert.ok(i >= 0, "no --network flag");
+    assert.strictEqual(a[i + 1], "souqi_app_dep_test",
+      "the container is on a shared network, so it can reach other user containers");
+  });
+  check("two deployments never share a network", () => {
+    const other = engine.buildRunArgs({
+      deploymentId: "dep_other", port: 3000, cpu: 0.5, memoryMb: 512, pids: 100, env: {}
+    }).args;
+    const netA = a[a.indexOf("--network") + 1];
+    const netB = other[other.indexOf("--network") + 1];
+    assert.notStrictEqual(netA, netB, "both deployments landed on " + netA);
   });
   check("read-only root filesystem", () => assert.ok(a.includes("--read-only")));
   check("writable tmpfs is noexec", () => assert.ok(argstr.includes("noexec")));
@@ -183,6 +194,18 @@ async function main() {
     const y = fs.readFileSync(path.join(__dirname, "..", "docker-compose.yml"), "utf8");
     assert.ok(!/["']2019:2019["']/.test(y), "the Caddy admin API is published to the host");
   });
+  check("admin API does not listen on a wildcard address", () => {
+    // Caddy is a member of every app network in order to proxy to the
+    // containers, so 0.0.0.0 would expose the admin API — and with it the
+    // power to re-route any hostname — to every untrusted user container.
+    const listen = caddy.baseConfig("http://api:4500/internal/tls-ask").admin.listen;
+    assert.ok(!/^(0\.0\.0\.0|::|\[::\]):/.test(listen),
+      "admin listens on " + listen + ", which every user container can reach");
+    const fs = require("fs"), path = require("path");
+    const boot = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "caddy", "caddy.json"), "utf8"));
+    assert.ok(!/^(0\.0\.0\.0|::|\[::\]):/.test(boot.admin.listen),
+      "the bootstrap config still binds " + boot.admin.listen);
+  });
 
   console.log("\n── compose boundaries ───────────────────────────────");
 
@@ -204,6 +227,59 @@ async function main() {
   check("postgres publishes no port", () => {
     const pg = compose.split("postgres:")[1].split(/^  \w/m)[0];
     assert.ok(!/^\s+ports:/m.test(pg));
+  });
+
+  console.log("\n── the api never runs docker ────────────────────────");
+
+  check("the api does not import the docker engine at all", () => {
+    // The strongest form of the rule: if the module is not reachable from
+    // server.js, no handler can grow a silent docker call later.
+    const src = fs.readFileSync(path.join(__dirname, "..", "src", "api", "server.js"), "utf8");
+    assert.ok(!/^\s*const\s+engine\s*=\s*require\(/m.test(src),
+      "server.js imports docker/engine, which it has no socket to use");
+    assert.ok(!/\bengine\.\w+\(/.test(src), "server.js still calls engine.*()");
+  });
+  check("runtime logs are fetched from the worker, not from docker", () => {
+    const src = fs.readFileSync(path.join(__dirname, "..", "src", "api", "server.js"), "utf8");
+    assert.ok(/internal\/logs/.test(src), "the api does not ask the worker for runtime logs");
+    const worker = fs.readFileSync(path.join(__dirname, "..", "src", "worker", "index.js"), "utf8");
+    assert.ok(/internal\/logs/.test(worker), "the worker exposes no logs endpoint");
+    assert.ok(/timingSafeEqual/.test(worker), "the worker's internal API is not authenticated");
+  });
+  check("the worker's internal API is never published to the host", () => {
+    const y = fs.readFileSync(path.join(__dirname, "..", "docker-compose.yml"), "utf8");
+    assert.ok(!/["']\d+:4600["']/.test(y), "the worker's internal API is published");
+  });
+
+  check("no API route calls a docker-touching pipeline action", () => {
+    // The api container has no Docker socket, so any docker command issued
+    // from a request handler fails silently and the caller is told the
+    // opposite of the truth. These belong to the worker.
+    const src = fs.readFileSync(path.join(__dirname, "..", "src", "api", "server.js"), "utf8");
+    for (const fn of ["stop", "start", "restart", "destroy"]) {
+      const re = new RegExp("pipeline\\." + fn + "\\s*\\(");
+      assert.ok(!re.test(src),
+        "server.js calls pipeline." + fn + "(), which shells out to docker without a socket");
+    }
+  });
+  check("lifecycle routes queue an action for the worker", () => {
+    const src = fs.readFileSync(path.join(__dirname, "..", "src", "api", "server.js"), "utf8");
+    assert.ok(/pending_action/.test(src), "no route queues a pending_action");
+  });
+  check("the worker claims and runs those actions", () => {
+    const src = fs.readFileSync(path.join(__dirname, "..", "src", "worker", "index.js"), "utf8");
+    assert.ok(/pending_action IS NOT NULL/.test(src), "the worker never claims queued actions");
+    assert.ok(/SKIP LOCKED/.test(src.slice(src.indexOf("claimNextAction"))),
+      "action claiming is not concurrency-safe");
+    for (const fn of ["stop", "start", "restart", "destroy"]) {
+      assert.ok(new RegExp("pipeline\\." + fn + "\\(").test(src), "the worker cannot run " + fn);
+    }
+  });
+  check("deleting a deployment also removes its network", () => {
+    const src = fs.readFileSync(path.join(__dirname, "..", "src", "worker", "pipeline.js"), "utf8");
+    const destroy = src.slice(src.indexOf("async function destroy"));
+    assert.ok(/removeDeploymentNetwork/.test(destroy),
+      "destroy() leaves a dead network behind for every deleted deployment");
   });
 
   console.log("\n── provider abstraction ─────────────────────────────");

@@ -19,7 +19,11 @@ const path = require("path");
 
 const { cfg, assertProductionReady } = require("../config");
 const { query, one, many } = require("../db");
-const engine = require("../docker/engine");
+// NOTE: docker/engine is deliberately NOT imported here. This process has no
+// Docker socket, so every call it could make fails silently and gets reported
+// as a fact about the user's app rather than a limit of this service. Work
+// that needs the daemon is queued for the worker (lifecycle) or asked of the
+// worker's internal API (runtime logs).
 const caddy = require("../proxy/caddy");
 const capacity = require("../monitor/capacity");
 const pipeline = require("../worker/pipeline");
@@ -88,9 +92,36 @@ const publicView = (d) => ({
 
 /* ---------- health & capacity ---------- */
 
-app.get("/health", async (req, res) => {
-  const dockerVersion = await engine.version();
-  res.json({ ok: true, docker: dockerVersion, caddy: await caddy.health(), host: cfg.hostId });
+/**
+ * Docker facts come from the hosts row, not from a docker command.
+ *
+ * This process has no Docker socket on purpose, so it cannot ask the daemon
+ * anything; calling out to it here only ever produced a silent failure
+ * reported as `"docker": null`, which reads as "no Docker" rather than "this
+ * service cannot see Docker". The worker writes what it observes and the
+ * heartbeat age is reported alongside, so a dead worker is now visible
+ * instead of being indistinguishable from a healthy one.
+ */
+const WORKER_STALE_MS = 5 * 60 * 1000;
+
+app.get("/health", async (req, res, next) => {
+  try {
+    const host = await one("SELECT docker_version, worker_seen_at FROM hosts WHERE id=$1", [cfg.hostId]);
+    const seenAt = host && host.worker_seen_at ? new Date(host.worker_seen_at) : null;
+    const ageMs = seenAt ? Date.now() - seenAt.getTime() : null;
+    const workerOk = ageMs !== null && ageMs < WORKER_STALE_MS;
+    res.json({
+      ok: workerOk,
+      host: cfg.hostId,
+      caddy: await caddy.health(),
+      worker: {
+        ok: workerOk,
+        docker: (host && host.docker_version) || null,
+        lastSeen: seenAt ? seenAt.toISOString() : null,
+        staleSeconds: ageMs === null ? null : Math.round(ageMs / 1000)
+      }
+    });
+  } catch (e) { next(e); }
 });
 
 app.get("/capacity", requireUser, async (req, res, next) => {
@@ -209,16 +240,26 @@ app.get("/deployments/:id", requireUser, async (req, res, next) => {
 app.get("/deployments/:id/status", requireUser, async (req, res, next) => {
   try {
     const dep = await ownedDeployment(req, res); if (!dep) return;
-    const container = dep.status === "RUNNING" || dep.status === "STARTING"
-      ? await engine.inspectState(dep.id)
-      : { exists: false };
+    // Read the worker's last observation rather than inspecting Docker, which
+    // this container cannot do. seenAt is included so a caller can tell a
+    // current answer from one the worker recorded before it died.
+    const seen = dep.container_seen_at ? new Date(dep.container_seen_at) : null;
+    const present = dep.container_state && dep.container_state !== "absent";
     res.json({
       status: dep.status,
       url: dep.domain ? "https://" + dep.domain : null,
       error: dep.error || null,
-      container: container.exists
-        ? { state: container.status, exitCode: container.exitCode, restarts: container.restarts }
-        : null
+      container: present
+        ? {
+            state: dep.container_state,
+            exitCode: dep.container_exit_code,
+            restarts: dep.container_restarts,
+            seenAt: seen ? seen.toISOString() : null,
+            ageSeconds: seen ? Math.round((Date.now() - seen.getTime()) / 1000) : null
+          }
+        : null,
+      // Distinguishes "no container" from "nobody has looked yet".
+      observed: Boolean(seen)
     });
   } catch (e) { next(e); }
 });
@@ -236,40 +277,34 @@ async function enqueue(req, res) {
 app.post("/deployments/:id/deploy", requireUser, enqueue);
 app.post("/deployments/:id/redeploy", requireUser, enqueue);
 
-/* Lifecycle actions run inline: stop, start and restart are seconds, not
-   minutes, so queueing them would add latency and a state to explain for
-   no benefit. */
-app.post("/deployments/:id/stop", requireUser, async (req, res, next) => {
-  try {
-    const dep = await ownedDeployment(req, res); if (!dep) return;
-    await pipeline.stop(dep);
-    res.json({ ok: true, status: "STOPPED" });
-  } catch (e) { next(e); }
-});
+/* Lifecycle actions are QUEUED for the worker, not run here.
+   They used to run inline, on the reasoning that stop/start/restart take
+   seconds. The reasoning was sound and the code still could not work: every
+   one of them ends in a docker command, and this container has no Docker
+   socket by design. The docker CLI failed, the failure was not surfaced, and
+   the caller got {"ok":true,"status":"STOPPED"} for a container that was
+   still running — and, on delete, a row marked DELETED with the container,
+   image, network and build directory all left behind for good.
+   The worker holds the socket, so the worker does the work. */
+async function queueAction(req, res, action) {
+  const dep = await ownedDeployment(req, res); if (!dep) return;
+  await query("UPDATE deployments SET pending_action=$2, updated_at=now() WHERE id=$1", [dep.id, action]);
+  await pipeline.log(dep.id, "system", "Queued: " + action);
+  // 202: accepted, not done. Clients poll /status for the result.
+  res.status(202).json({ ok: true, action, status: dep.status, pending: true });
+}
 
-app.post("/deployments/:id/start", requireUser, async (req, res, next) => {
-  try {
-    const dep = await ownedDeployment(req, res); if (!dep) return;
-    const r = await pipeline.start(dep);
-    res.status(r.ok ? 200 : 500).json(r.ok ? { ok: true, status: "RUNNING" } : { error: r.error });
-  } catch (e) { next(e); }
-});
+app.post("/deployments/:id/stop", requireUser, (req, res, next) =>
+  queueAction(req, res, "stop").catch(next));
 
-app.post("/deployments/:id/restart", requireUser, async (req, res, next) => {
-  try {
-    const dep = await ownedDeployment(req, res); if (!dep) return;
-    const r = await pipeline.restart(dep);
-    res.status(r.ok ? 200 : 500).json(r.ok ? { ok: true, status: "RUNNING" } : { error: r.error });
-  } catch (e) { next(e); }
-});
+app.post("/deployments/:id/start", requireUser, (req, res, next) =>
+  queueAction(req, res, "start").catch(next));
 
-app.delete("/deployments/:id", requireUser, async (req, res, next) => {
-  try {
-    const dep = await ownedDeployment(req, res); if (!dep) return;
-    await pipeline.destroy(dep);
-    res.json({ ok: true, status: "DELETED" });
-  } catch (e) { next(e); }
-});
+app.post("/deployments/:id/restart", requireUser, (req, res, next) =>
+  queueAction(req, res, "restart").catch(next));
+
+app.delete("/deployments/:id", requireUser, (req, res, next) =>
+  queueAction(req, res, "destroy").catch(next));
 
 /**
  * GET /deployments/:id/logs
@@ -284,11 +319,28 @@ app.get("/deployments/:id/logs", requireUser, async (req, res, next) => {
     const tail = Math.min(Number(req.query.tail) || 500, 2000);
 
     if (phase === "runtime") {
-      const l = await engine.logs(dep.id, { tail });
+      // Asked of the worker, which holds the Docker socket. Doing it here
+      // cannot work and previously reported the failure as "the container is
+      // not running", which was frequently untrue.
+      let l = null, why = null;
+      try {
+        const r = await fetch(cfg.workerUrl + "/internal/logs/" + encodeURIComponent(dep.id) + "?tail=" + tail, {
+          headers: { "x-internal-token": cfg.internalToken },
+          signal: AbortSignal.timeout(10000)
+        });
+        if (r.ok) l = await r.json();
+        // Distinguish "cannot reach the worker" from "the worker said no" —
+        // the two have completely different fixes.
+        else why = "the worker refused the request (HTTP " + r.status + ")";
+      } catch (e) { why = "the worker is not reachable — " + e.message; }
+
+      if (!l) {
+        return res.status(503).json({ phase: "runtime", lines: [], note: "runtime logs are unavailable — " + why });
+      }
       return res.json({
         phase: "runtime",
-        lines: l.ok ? l.out.split("\n").filter(Boolean) : [],
-        note: l.ok ? null : "no runtime logs — the container is not running"
+        lines: l.ok ? String(l.out || "").split("\n").filter(Boolean) : [],
+        note: l.ok ? null : l.error
       });
     }
 

@@ -144,7 +144,13 @@ async function deploy(dep, sourceDir) {
     await setStatus(id, "STARTING", { image_name: engine.imageName(id), internal_port: spec.port });
     await log(id, "system", "Starting the container");
 
-    await engine.ensureAppNetwork();
+    // This deployment's own isolated network, so it shares one with no other
+    // user container.
+    const net = await engine.ensureDeploymentNetwork(id);
+    if (!net.ok) {
+      await cleanupBuildContext(id);
+      return fail(id, "could not create the app network — " + (net.error || "unknown error"));
+    }
     // A previous revision may still be up; replacing it is what makes
     // redeploy actually mean redeploy.
     await engine.removeContainer(id);
@@ -168,6 +174,14 @@ async function deploy(dep, sourceDir) {
     }
 
     // --- 6. route -----------------------------------------------------
+    // Caddy has to join this app's network before it can dial the container;
+    // on its own network the app is reachable by nothing at all.
+    const attached = await engine.connectProxy(id);
+    if (!attached.ok) {
+      await log(id, "system", "WARNING: could not attach the proxy to the app network — " +
+        (attached.error || ""), "stderr");
+    }
+
     const routed = await caddy.addRoute(dep.domain, run.name, spec.port);
     if (!routed.ok) {
       // Not fatal. The container is healthy and the route can be reconciled;
@@ -263,6 +277,9 @@ async function destroy(dep) {
   await caddy.removeRoute(dep.domain);
   await engine.removeContainer(dep.id);
   await engine.removeImage(dep.id);
+  // After the container is gone, or the network still has a member and the
+  // rm is refused — leaking one dead network per deleted deployment.
+  await engine.removeDeploymentNetwork(dep.id);
   await cleanupBuildContext(dep.id);
   await setStatus(dep.id, "DELETED", { container_name: null, image_name: null });
   await log(dep.id, "system", "Deleted");

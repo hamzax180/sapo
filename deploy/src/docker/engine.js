@@ -57,14 +57,52 @@ function docker(args, opts = {}) {
 const containerName = (id) => "app-" + String(id).replace(/[^a-zA-Z0-9_.-]/g, "");
 const imageName = (id) => "platform-app:" + String(id).replace(/[^a-zA-Z0-9_.-]/g, "");
 
-/* ---------- network ---------- */
+/* ---------- network ----------
+   ONE NETWORK PER DEPLOYMENT, and the reason is the spec line "never allow a
+   user's application container to access other application containers".
+
+   A single shared app network does not deliver that. --internal stops egress
+   off the box, but it says nothing about traffic BETWEEN members: a Docker
+   bridge lets any member dial any other member's container port directly, and
+   embedded DNS will even resolve the other container's name. Nothing being
+   published to the host is irrelevant — the containers are on the same L2.
+
+   So each deployment gets its own --internal bridge whose only other member
+   is Caddy, which is attached at deploy time. Two user containers are then
+   never on a network together and have no route to each other at all. */
+const networkName = (id) => "souqi_app_" + String(id).replace(/[^a-zA-Z0-9_.-]/g, "");
+
+async function ensureDeploymentNetwork(deploymentId) {
+  const net = networkName(deploymentId);
+  const found = await docker(["network", "ls", "--filter", "name=^" + net + "$", "--format", "{{.Name}}"]);
+  if (found.stdout.trim() === net) return { ok: true, existed: true, network: net };
+  const made = await docker(["network", "create", "--driver", "bridge", "--internal",
+    "--label", "souqi.managed=true", "--label", "souqi.deployment=" + deploymentId, net]);
+  return { ok: made.ok, existed: false, network: net, error: made.stderr };
+}
+
+/** Attach the proxy to one app's network. Without this the app is unroutable. */
+async function connectProxy(deploymentId) {
+  const net = networkName(deploymentId);
+  const r = await docker(["network", "connect", net, cfg.proxyContainer], { timeoutMs: 20000 });
+  // Already-connected is success, not failure — redeploys re-run this.
+  if (!r.ok && /already exists|already connected/i.test(r.stderr || "")) return { ok: true, existed: true };
+  return { ok: r.ok, error: r.stderr };
+}
+
+/** Detach the proxy and drop the network. A network with a member will not
+    delete, so the disconnect has to happen first. */
+async function removeDeploymentNetwork(deploymentId) {
+  const net = networkName(deploymentId);
+  await docker(["network", "disconnect", "--force", net, cfg.proxyContainer], { timeoutMs: 20000 });
+  return docker(["network", "rm", net], { timeoutMs: 20000 });
+}
+
+/* Kept for the boot path: the shared network still exists for Caddy itself,
+   but no user container is placed on it any more. */
 async function ensureAppNetwork() {
   const found = await docker(["network", "ls", "--filter", "name=^" + cfg.appNetwork + "$", "--format", "{{.Name}}"]);
   if (found.stdout.trim() === cfg.appNetwork) return { ok: true, existed: true };
-  // --internal: containers on this network have NO route off the box. They
-  // cannot reach the Docker API, the host, a cloud metadata service, or each
-  // other over anything published, because nothing is published. Caddy is the
-  // only member also attached to a routable network.
   const made = await docker(["network", "create", "--driver", "bridge", "--internal", cfg.appNetwork]);
   return { ok: made.ok, existed: false, error: made.stderr };
 }
@@ -118,9 +156,10 @@ function buildRunArgs({ deploymentId, port, cpu, memoryMb, pids, env, readOnly =
     "--security-opt", "no-new-privileges",
     "--cap-drop", "ALL",
 
-    // The app network is --internal, so this container has no route to the
-    // host, the internet, or the Docker API. Caddy reaches it by name.
-    "--network", cfg.appNetwork,
+    // This deployment's OWN --internal network: no route to the host, the
+    // internet, the Docker API, or any other user container. Caddy is
+    // attached separately and is the only other member.
+    "--network", networkName(deploymentId),
 
     // NOTHING is published. There is no -p flag anywhere in this file.
     // The only path to an app is through the reverse proxy.
@@ -214,5 +253,6 @@ async function version() {
 module.exports = {
   docker, containerName, imageName, ensureAppNetwork, buildImage, runApp, buildRunArgs,
   stop, start, restart, removeContainer, removeImage, logs, inspectState,
-  statsAll, listManaged, pruneImages, version
+  statsAll, listManaged, pruneImages, version,
+  networkName, ensureDeploymentNetwork, connectProxy, removeDeploymentNetwork
 };

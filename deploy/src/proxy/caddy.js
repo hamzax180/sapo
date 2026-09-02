@@ -22,6 +22,19 @@ const { cfg } = require("../config");
 const SERVER = "srv0";           // the http server Caddy creates by default
 const ROUTES = "/config/apps/http/servers/" + SERVER + "/routes";
 
+// Where the admin API listens. NOT 0.0.0.0: Caddy joins the app networks in
+// order to proxy to user containers, and a wildcard bind would put the admin
+// API on an interface every untrusted container can reach — which is enough
+// to re-route any hostname on the platform. Must match docker-compose.yml.
+const ADMIN_LISTEN = process.env.CADDY_ADMIN_LISTEN ||
+  ((process.env.CADDY_ADMIN_IP || "10.89.0.10") + ":2019");
+
+// Host values the admin API will answer to. "caddy:2019" is the compose
+// service name the api and worker dial. This is a compatibility check, not
+// a security control — a Host header is trivially forged, so the bind
+// address above is what actually keeps user containers out.
+const ADMIN_ORIGINS = ["caddy:2019", ADMIN_LISTEN, "localhost:2019", "127.0.0.1:2019", "[::1]:2019"];
+
 async function api(method, path, body) {
   // Every network failure becomes a return value, never a throw. Caddy may
   // legitimately not be listening yet — compose depends_on waits for the
@@ -32,7 +45,15 @@ async function api(method, path, body) {
   try {
     res = await fetch(cfg.caddyAdmin + path, {
       method,
-      headers: body ? { "Content-Type": "application/json" } : undefined,
+      // Origin is explicit because Caddy guards a non-loopback admin endpoint
+      // with an origin allowlist, and Node's fetch sends Sec-Fetch-Mode: cors
+      // with no Origin header — which Caddy reads as the empty origin and
+      // refuses with 403, rather than falling back to Host the way curl and
+      // wget get to. Sending it ourselves does not depend on that fallback.
+      headers: Object.assign(
+        { Origin: cfg.caddyAdmin },
+        body ? { "Content-Type": "application/json" } : null
+      ),
       body: body ? JSON.stringify(body) : undefined,
       signal: AbortSignal.timeout(5000)
     });
@@ -126,7 +147,11 @@ function baseConfig(askUrl) {
     }
   };
   return {
-    admin: { listen: "0.0.0.0:2019" },
+    // Caddy enforces an origin allowlist on any admin endpoint that is not
+    // on loopback, and the check is against the request's Host header. The
+    // api and worker reach it cross-container as "caddy:2019", so without
+    // this every route call comes back 403 and no app is ever routable.
+    admin: { listen: ADMIN_LISTEN, origins: ADMIN_ORIGINS },
     apps: {
       http: {
         servers: {

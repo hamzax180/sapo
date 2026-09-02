@@ -56,11 +56,23 @@ services:
     environment:
       # Admin API on the platform network only. Anyone who reaches it can
       # route any hostname anywhere, so it must never be published.
-      CADDY_ADMIN: "0.0.0.0:2019"
-    command: ["caddy", "run", "--config", "/config/caddy.json", "--adapter", "json", "--resume"]
-    networks: [platform, apps]
+      #
+      # It is bound to THIS address and not 0.0.0.0 for a reason that is easy
+      # to get wrong: Caddy is a member of the app networks too (it has to be,
+      # to proxy to the containers), so a 0.0.0.0 bind puts the admin API on
+      # an interface every untrusted user container can reach. Binding the
+      # platform address means the socket does not exist on those networks.
+      CADDY_ADMIN: "${CADDY_ADMIN_IP:-10.89.0.10}:2019"
+    networks:
+      platform:
+        ipv4_address: ${CADDY_ADMIN_IP:-10.89.0.10}
+      apps: {}
+    # JSON is Caddy's native config format, so there is no "json" adapter to
+    # name here — passing --adapter json makes Caddy exit before it binds.
+    command: ["caddy", "run", "--config", "/config/caddy.json", "--resume"]
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:2019/config/"]
+      # Follows the admin bind above — localhost no longer has a listener.
+      test: ["CMD-SHELL", "wget --spider -q http://${CADDY_ADMIN_IP:-10.89.0.10}:2019/config/"]
       interval: 15s
       timeout: 5s
       retries: 5
@@ -104,6 +116,11 @@ services:
       BUILD_ROOT: /opt/platform/builds
       SECRET_KEY: ${SECRET_KEY:-}
       HOST_ID: ${HOST_ID:-local}
+      # Authenticates the worker's internal read API, which the api calls for
+      # anything that needs the Docker socket (runtime logs). Must match the
+      # api's value or every such read is refused.
+      INTERNAL_TOKEN: ${INTERNAL_TOKEN:-}
+      WORKER_PORT: "4600"
       DEFAULT_CPU: ${DEFAULT_CPU:-0.5}
       DEFAULT_MEMORY_MB: ${DEFAULT_MEMORY_MB:-512}
       DEFAULT_PIDS: ${DEFAULT_PIDS:-100}
@@ -133,6 +150,13 @@ services:
 networks:
   platform:
     name: souqi_platform
+    # Fixed subnet so Caddy can hold a known address to bind its admin API to.
+    # If it collides with something on the host, set PLATFORM_SUBNET and
+    # CADDY_ADMIN_IP in .env — preflight checks that they agree with
+    # caddy/caddy.json, which cannot read environment variables.
+    ipam:
+      config:
+        - subnet: ${PLATFORM_SUBNET:-10.89.0.0/24}
   apps:
     name: souqi_apps
     # Created here so Caddy can join it at boot; the worker also ensures it
