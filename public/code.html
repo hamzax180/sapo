@@ -987,6 +987,25 @@
      room to sit any higher than its own padding allowed. .ag-preview
      itself doesn't clip, so this can sit right at the top of the panel,
      centered above whichever device mockup .ag-pv-stage is showing. */
+  /* ---- Publish ----
+     The class has been styled since the beginning (see the phone rule
+     further down, which reflows "label + device toggle + Publish") but no
+     element ever carried it, so the button did not exist. It sits opposite
+     the device toggle rather than inside it: those switch a preview size,
+     this ships the app, and they should not look like the same kind of
+     control. */
+  .ag-pv-publish{position:absolute;top:6px;right:10px;z-index:46;
+    display:inline-flex;align-items:center;gap:7px;height:32px;padding:0 14px;
+    border:0;border-radius:9px;background:var(--accent);color:#fff;
+    font-family:var(--body);font-size:.82rem;font-weight:600;cursor:pointer;
+    box-shadow:0 4px 14px -6px rgba(11,22,38,.4);transition:background .15s,opacity .15s}
+  .ag-pv-publish:hover{background:var(--accent-2)}
+  .ag-pv-publish:disabled{opacity:.55;cursor:default}
+  .ag-pv-publish svg{width:14px;height:14px;flex:none}
+  /* Once it is live the button becomes the way to the app. */
+  .ag-pv-publish.live{background:#22a565}
+  .ag-pv-publish.live:hover{background:#1b8b53}
+
   .ag-pv-devices{position:absolute;top:6px;left:50%;transform:translateX(-50%);z-index:45;
     display:flex;gap:2px;align-items:center;background:var(--card);border:1px solid var(--line);
     border-radius:9px;padding:3px;box-shadow:0 4px 14px -6px rgba(11,22,38,.28)}
@@ -2231,7 +2250,7 @@
     }
   }
 </style>
-<link rel="stylesheet" href="css/upgrade-modal.css">
+<link rel="stylesheet" href="/css/upgrade-modal.css">
 </head>
 <body>
 
@@ -2527,6 +2546,10 @@
   </section>
 
   <section class="ag-preview tab-hidden" id="agPreview">
+    <button type="button" class="ag-pv-publish" id="agPvPublish" hidden>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg>
+      <span id="agPvPublishLabel">Publish</span>
+    </button>
     <div class="ag-pv-devices" id="agPvDevices" role="group" aria-label="Device size" style="display:none">
       <button type="button" data-size="desktop" aria-label="Desktop">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="13" rx="1.5"/><path d="M8 21h8M12 17v4"/></svg></button>
@@ -2837,6 +2860,127 @@
   function el(cls, html) { const d = document.createElement("div"); d.className = cls; if (html != null) d.innerHTML = html; return d; }
   function esc(t) { const d = document.createElement("span"); d.textContent = t == null ? "" : t; return d.innerHTML; }
   function toBottom() { agLog.scrollTop = agLog.scrollHeight; }
+
+  /* ================= Publish =================
+     Ships the current project into its own container through the deploy
+     plane, rather than the old path of stuffing a built dist into Mongo:
+     that only ever worked for static output, and an app with a server had
+     nowhere to run.
+
+     The deploy plane queues the work, so this polls rather than waiting on
+     one long request — and it reports what actually happened rather than
+     claiming success the moment the request is accepted. */
+  const agPvPublish = $("agPvPublish");
+  const agPvPublishLabel = $("agPvPublishLabel");
+  let publishPoll = null, publishedUrl = null;
+
+  function setPublishBtn(text, opts) {
+    const o = opts || {};
+    if (!agPvPublish) return;
+    agPvPublish.hidden = !projectSlug;
+    agPvPublish.disabled = !!o.busy;
+    agPvPublish.classList.toggle("live", !!o.live);
+    if (agPvPublishLabel) agPvPublishLabel.textContent = text;
+  }
+
+  async function publishNow() {
+    if (!projectSlug) {
+      say('<span class="muted">Build something first — there is nothing to publish yet.</span>');
+      return;
+    }
+    // Already live: the button is how you get to the app.
+    if (publishedUrl && !agPvPublish.disabled && agPvPublish.classList.contains("live")) {
+      window.open(publishedUrl, "_blank", "noopener");
+      return;
+    }
+
+    setPublishBtn("Publishing…", { busy: true });
+    say('<span class="muted">Publishing — building your app into its own container.</span>');
+
+    let started;
+    try {
+      const r = await fetch("/api/deploy/" + encodeURIComponent(projectSlug) + "/deploy",
+        { method: "POST", credentials: "same-origin" });
+      const d = await r.json().catch(() => null);
+      if (!r.ok) throw new Error((d && (typeof d.error === "string" ? d.error : d.error && d.error.message)) || "publish failed");
+      started = d;
+    } catch (e) {
+      setPublishBtn("Publish", {});
+      say('<span class="muted">Could not publish — ' + esc(e.message) + "</span>");
+      return;
+    }
+
+    if (started && started.detected) {
+      say('<span class="muted">Detected a ' + esc(started.detected) + " app — building it now.</span>");
+    }
+    watchPublish();
+  }
+
+  /* Polls until it settles. Two seconds while it is moving, and it gives
+     up loudly rather than leaving the button saying "Publishing…" for
+     ever. */
+  function watchPublish() {
+    clearTimeout(publishPoll);
+    const deadline = Date.now() + 15 * 60 * 1000;
+    let last = "";
+
+    (async function tick() {
+      if (Date.now() > deadline) {
+        setPublishBtn("Publish", {});
+        say('<span class="muted">Still building after 15 minutes — check the Deployments page for what happened.</span>');
+        return;
+      }
+      let s = null;
+      try {
+        const r = await fetch("/api/deploy/" + encodeURIComponent(projectSlug) + "/status",
+          { credentials: "same-origin" });
+        s = await r.json();
+      } catch (e) { /* transient — try again below */ }
+
+      if (s && s.status && s.status !== last) {
+        last = s.status;
+        if (s.status === "BUILDING") setPublishBtn("Building…", { busy: true });
+        else if (s.status === "STARTING") setPublishBtn("Starting…", { busy: true });
+      }
+
+      if (s && s.status === "RUNNING" && s.url) {
+        publishedUrl = s.url;
+        setPublishBtn("Open app", { live: true });
+        say('Your app is live at <a href="' + esc(s.url) + '" target="_blank" rel="noopener">' +
+            esc(String(s.url).replace(/^https?:\/\//, "")) + "</a>");
+        return;
+      }
+      if (s && (s.status === "FAILED" || s.status === "STOPPED")) {
+        setPublishBtn("Publish", {});
+        say('<span class="muted">Publish failed' + (s.error ? " — " + esc(s.error) : "") +
+            '. The build log is on the <a href="/deployments">Deployments</a> page.</span>');
+        return;
+      }
+      publishPoll = setTimeout(tick, 2000);
+    })();
+  }
+
+  if (agPvPublish) agPvPublish.addEventListener("click", publishNow);
+
+  /* If this project is already deployed, say so on load rather than
+     offering to publish something that is already live. */
+  async function refreshPublishState() {
+    if (!projectSlug || !agPvPublish) return;
+    setPublishBtn("Publish", {});
+    try {
+      const r = await fetch("/api/deploy/" + encodeURIComponent(projectSlug) + "/status",
+        { credentials: "same-origin" });
+      if (!r.ok) return;
+      const s = await r.json();
+      if (s.status === "RUNNING" && s.url) {
+        publishedUrl = s.url;
+        setPublishBtn("Open app", { live: true });
+      } else if (s.status === "BUILDING" || s.status === "STARTING" || s.status === "QUEUED") {
+        setPublishBtn("Building…", { busy: true });
+        watchPublish();
+      }
+    } catch (e) { /* not deployed, or deployments are not configured here */ }
+  }
 
   const ICON = {
     dot: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/></svg>',
@@ -3295,7 +3439,9 @@
         return;
       }
       if (publishRequested) {
-        say('<span class="muted">Publishing isn\'t available from chat right now.</span>');
+        // Asking the agent to publish now does the same thing the button
+        // does, rather than telling the user to go and find it.
+        publishNow();
         return;
       }
       if (gate) {
@@ -3316,6 +3462,7 @@
 
       const isFirstBuild = !projectId;
       projectId = result.projectId; projectSlug = result.slug;
+      refreshPublishState();   // a freshly built app can be published
       if (isFirstBuild) {
         try { history.replaceState(null, "", "/agent/" + projectSlug); } catch (e) { /* non-fatal */ }
         $("agNewExtras").hidden = true;
@@ -4148,6 +4295,7 @@
       projectId = data.project.id;
       projectSlug = data.project.slug;
       try { history.replaceState(null, "", "/agent/" + projectSlug); } catch (e) {}
+      refreshPublishState();
 
       // Hide onboarding, reveal chat UI
       $("agNewExtras").hidden = true;
@@ -4440,6 +4588,7 @@
       if (!res.ok) throw new Error("gone");
       const data = await res.json();
       projectId = data.project.id; projectSlug = data.project.slug;
+      refreshPublishState();   // opening an existing project: it may already be live
       $("agNewExtras").hidden = true;
       $("agRecent").hidden = true;
       agSection.classList.remove("is-new");
@@ -4490,7 +4639,7 @@
 </script>
 
 <!-- Replit-style Upgrade Modal overlay for inside app/chat -->
-<script src="js/nav-loading.js?v=1"></script>
-<script src="js/upgrade-modal.js" defer></script>
+<script src="/js/nav-loading.js?v=1"></script>
+<script src="/js/upgrade-modal.js" defer></script>
 </body>
 </html>
