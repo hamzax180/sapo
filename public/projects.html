@@ -272,7 +272,6 @@
   .empty p{font-size:.92rem;max-width:40ch;margin:0 auto 20px;line-height:1.5}
   .loading{text-align:center;padding:60px 20px;color:var(--mut);font-size:.9rem}
 </style>
-<link rel="stylesheet" href="css/site-footer.css">
 </head>
 <body><div class="ag-hist-backdrop" id="agHistBackdrop"></div>
 <aside class="ag-history on" id="agHistory" aria-label="Your account">
@@ -574,6 +573,10 @@
 </script>
 
 <script src="js/nav-loading.js?v=1"></script>
-<script src="js/site-footer.js" defer></script>
+<!-- No site-footer.js here on purpose. This is an app shell — sidebar
+     rail, workspace switcher, the builder's own nav — and site-footer.js
+     says in its own header that the marketing footer does not belong in
+     one. It was rendering inside the flex layout beside the sidebar,
+     pushed off to the right under a stray rule. -->
 </body>
 </html>
