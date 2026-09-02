@@ -179,6 +179,12 @@ function buildRunArgs({ deploymentId, port, cpu, memoryMb, pids, env, readOnly =
     args.push("--read-only");
     args.push("--tmpfs", "/tmp:rw,noexec,nosuid,size=64m");
     args.push("--tmpfs", "/run:rw,noexec,nosuid,size=8m");
+    // nginx creates /var/cache/nginx/client_temp before it binds, so a
+    // read-only root stopped every static site from starting at all:
+    //   [emerg] mkdir() "/var/cache/nginx/client_temp" failed (30: ...)
+    // The root stays immutable; this is scratch that vanishes on restart.
+    // Costs nothing for the runtimes that never touch it.
+    args.push("--tmpfs", "/var/cache/nginx:rw,noexec,nosuid,size=16m");
   }
 
   for (const [k, v] of Object.entries(env || {})) {

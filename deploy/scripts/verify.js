@@ -88,6 +88,12 @@ async function main() {
   });
   check("read-only root filesystem", () => assert.ok(a.includes("--read-only")));
   check("writable tmpfs is noexec", () => assert.ok(argstr.includes("noexec")));
+  check("nginx has somewhere to write its cache", () => {
+    // Without this a read-only root kills every static deployment at boot:
+    // nginx mkdir()s /var/cache/nginx/client_temp before it binds.
+    assert.ok(argstr.includes("/var/cache/nginx"),
+      "static sites cannot start: nginx has no writable cache dir");
+  });
   check("labelled as managed", () => assert.ok(argstr.includes("souqi.managed=true")));
   check("env passed as one argv element (no shell splitting)", () => {
     assert.ok(a.includes("API_KEY=secret-value"));
@@ -129,6 +135,16 @@ async function main() {
   check("python runtime runs as a non-root user", () => {
     const d = dockerfiles.generate({ framework: "python", startCommand: "python main.py", port: 8000 });
     assert.ok(d.dockerfile.includes("USER app"));
+  });
+  check("a python app with no dependencies still builds", () => {
+    // pip --user only creates /root/.local when it installs something, so
+    // without the mkdir the runtime stage's COPY --from=build fails on
+    // every dependency-free app.
+    const d = dockerfiles.generate({ framework: "python", startCommand: "python main.py", port: 8000 });
+    assert.ok(/mkdir -p \/root\/\.local/.test(d.dockerfile),
+      "COPY --from=build /root/.local will fail when nothing was installed");
+    assert.ok(!/\|\| true/.test(d.dockerfile),
+      "a failing pip install is being swallowed, so missing deps surface as a crash loop instead");
   });
   check("secrets are excluded from every build context", () => {
     const ig = dockerfiles.dockerignore();
@@ -175,11 +191,20 @@ async function main() {
     }));
     assert.strictEqual(detect.detect(dir).framework, "static");
   });
-  check("a static app is always served on port 80", () => {
+  check("a static app is always served on the port nginx actually binds", () => {
+    // 8080, not 80: nginx runs unprivileged in these containers and cannot
+    // bind a low port without CAP_NET_BIND_SERVICE. A declared port would
+    // point the proxy at something nothing listens on.
     const fs = require("fs"), os = require("os"), path = require("path");
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "det-"));
     fs.writeFileSync(path.join(dir, "deploy.json"), JSON.stringify({ framework: "static", port: 4173 }));
-    assert.strictEqual(detect.detect(dir).port, 80, "a declared port would point the proxy at nothing");
+    assert.strictEqual(detect.detect(dir).port, 8080);
+  });
+  check("the static image serves as a non-root user", () => {
+    const d = dockerfiles.generate({ framework: "static", outputDir: ".", port: 8080 });
+    assert.ok(/^USER 101$/m.test(d.dockerfile), "nginx would start as root and need CAP_CHOWN");
+    assert.ok(/listen 8080/.test(d.extraFiles["nginx.conf"]), "nginx is not listening where the proxy dials");
+    assert.ok(/\/tmp\//.test(d.extraFiles["nginx.conf"]), "nginx writes outside the tmpfs on a read-only root");
   });
 
   console.log("\n── proxy ────────────────────────────────────────────");
