@@ -1350,8 +1350,32 @@ const GREETINGS = new Set([
   "hola","salam","salaam","assalamualaikum","bonjour","ciao","merhaba","selam",
   "haha","hahaha","hehe","lol","lmao","xd","ok","okay","k","kk","yes","no","yep","nope",
   "thanks","thank","thx","ty","cool","nice","wow","hmm","hm","huh",
-  "test","testing","ping","you there","anyone there","are you there"
+  "test","testing","ping","you there","anyone there","are you there",
+  "ay","aye","yay","oi","hiya","howdy","greetings","morning","evening","gm","gn",
+  "ah","oh","eh","uh","um","yeah","yea","nah","idk","hru","wyd"
 ]);
+
+/**
+ * Collapse the way people actually type interjections.
+ *
+ * "yooooo" reached the model and came back clear, so a nonsense greeting
+ * produced a full plan card for a website nobody asked for. The set above
+ * already carried "hii", "hiii" and "heyy" by hand, which is the tell that
+ * enumerating elongations never finishes — there is always one more o.
+ *
+ * Runs of THREE or more, never two: English is full of real doubles
+ * ("hello", "success", "coffee", "add"), and collapsing those would start
+ * mangling genuine requests. No ordinary word repeats a letter three times
+ * running, so this is safe on anything real.
+ *
+ * The second rule catches repeated pairs — "hahahaha", "hehehe" — leaving
+ * two so the result still matches the doubled forms already in the set.
+ */
+function collapseElongation(s) {
+  return String(s)
+    .replace(/(.)\1{2,}/g, "$1")        // yooooo -> yo, heyyyy -> hey, hmmmm -> hm
+    .replace(/^(..)\1{2,}$/, "$1$1");   // hahahaha -> haha
+}
 
 const ABOUT_AGENT = /^(who|what)\s+(are|is|r)\s+(you|u)\b|^are\s+(you|u)\b|what\s+can\s+(you|u)\s+do/i;
 
@@ -1378,7 +1402,9 @@ function quickAssess(userPrompt) {
   const norm = raw.toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, "").replace(/\s+/g, " ").trim();
   if (!norm) return { clear: false, reply: hi };
 
-  if (GREETINGS.has(norm)) return { clear: false, reply: hi };
+  // Checked against both forms: "yo" and "yooooo" are the same message.
+  const collapsed = collapseElongation(norm);
+  if (GREETINGS.has(norm) || GREETINGS.has(collapsed)) return { clear: false, reply: hi };
   if (ABOUT_AGENT.test(norm)) {
     return { clear: false, reply: "Yep, that's me — the Souqi agent. 🙂 What should I build for you?" };
   }
@@ -1388,7 +1414,10 @@ function quickAssess(userPrompt) {
   // rejecting real requests.
   const words = norm.split(" ");
   if (words.length <= 2) {
-    const squished = norm.replace(/\s/g, "");
+    // Judged on the collapsed form, so "yoooo" is measured as the "yo" it
+    // is. Otherwise padding a two-letter noise word with vowels was enough
+    // to clear a length check and reach the model.
+    const squished = collapsed.replace(/\s/g, "");
     const letters = squished.replace(/[^a-z]/g, "");
     if (REPEATED_CHAR.test(squished)) return { clear: false, reply: hi };      // HHH, aaaa, zzz
     if (squished.length < 3) return { clear: false, reply: hi };               // "ok", "a"
