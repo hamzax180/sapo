@@ -118,8 +118,34 @@
   .ag-chat-item .sdot.bad{background:var(--danger)}
   .ag-chats-empty{padding:14px;color:var(--mut);font-size:.8rem;line-height:1.5;text-align:center}
 
-  .ag-hist-foot{flex:0 0 auto;padding:6px 0 4px;border-top:0;background:transparent;width:100%;box-sizing:border-box}
-  .ag-hist-foot .ag-foot-link{width:calc(100% - var(--sb-pad)*2);margin:2px var(--sb-pad) 0}
+  /* ---- plan block, same shape as the one on /projects ----
+     The numbers here are real rather than the static placeholders that
+     page ships: apps created against the free allowance, agent spend
+     against the monthly budget, and — since this is the deployments
+     page — host capacity as the cloud meter, which is the thing that
+     actually decides whether the next deploy is accepted. */
+  .ag-hist-foot{flex:0 0 auto;padding:8px 10px 8px;border-top:1px solid var(--line);background:var(--paper);width:100%;box-sizing:border-box}
+  .ag-hist-foot .ttl{font-size:.84rem;font-weight:600;padding:0 2px;margin-bottom:4px;color:var(--ink)}
+  .ag-plan-alert{background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.25);color:#f87171;font-size:.76rem;
+    font-weight:500;padding:4px 8px;border-radius:6px;margin-bottom:6px;text-align:center;width:100%;box-sizing:border-box}
+  .ag-meter-row{display:flex;align-items:center;gap:7px;padding:2px 0;width:100%;box-sizing:border-box}
+  .ag-meter-row svg{width:14px;height:14px;flex:none;color:var(--ink-2)}
+  .ag-meter-row .lab{flex:1;min-width:0;font-size:.78rem;color:var(--ink);font-weight:500}
+  .ag-meter-row .lab i{display:block;font-style:normal;color:var(--mut);font-size:.70rem;font-weight:400;margin-top:0}
+  .ag-meter{width:54px;height:5px;border-radius:999px;background:rgba(128,128,128,.18);overflow:hidden;flex:none}
+  .ag-meter i{display:block;height:100%;border-radius:999px;background:#3b82f6;transition:width .4s var(--ease)}
+  .ag-meter i.warn{background:var(--warn)}
+  .ag-meter i.hot{background:var(--danger)}
+  .ag-upgrade{display:flex;align-items:center;justify-content:center;gap:7px;margin-top:8px;padding:9px 12px;
+    border:0;border-radius:9px;background:#0077ff;color:#fff;font-size:.9rem;font-weight:600;
+    cursor:pointer;width:100%;box-sizing:border-box;text-decoration:none;transition:.15s}
+  .ag-upgrade:hover{background:#0062cc}
+  .ag-hist-install{display:flex;align-items:center;justify-content:center;gap:5px;margin-top:6px;font-size:.72rem;color:var(--mut);width:100%;box-sizing:border-box}
+  .ag-hist-install svg{width:13px;height:13px;color:var(--ink-2);flex:none;transition:color .15s ease,transform .15s ease;cursor:pointer}
+  .ag-hist-install svg:hover{color:#0077ff !important;transform:scale(1.15)}
+  .ag-hist-install a:hover{color:var(--ink)}
+  .ag-hist-links{display:flex;gap:8px;justify-content:center;margin-top:5px;font-size:.71rem;color:var(--mut);width:100%;box-sizing:border-box}
+  .ag-hist-links a:hover{color:var(--ink)}
 
   /* Account row pinned to the very bottom: avatar, name, settings gear. */
   .ag-hist-user{flex:0 0 auto;display:flex;align-items:center;gap:2px;padding:5px var(--sb-pad) 8px;
@@ -400,8 +426,36 @@
   </div>
 
   <div class="ag-hist-foot">
-    <a class="ag-hist-tab ag-foot-link" href="/home" title="Learn more">
-      <i class="tab-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7V18h8v-3.3A7 7 0 0 0 12 2z"/></svg></i><span class="lbl">Learn more</span></a>
+    <div class="ttl" id="agPlanTtl">Your Free Plan</div>
+    <div class="ag-plan-alert" id="agPlanAlert" hidden>You've reached your usage limit</div>
+    <div class="ag-meter-row">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m16 18 6-6-6-6M8 6l-6 6 6 6"/></svg>
+      <span class="lab">Free Apps<i id="agEditsUsed">—</i></span>
+      <span class="ag-meter"><i id="agEditsBar" style="width:0%"></i></span>
+    </div>
+    <div class="ag-meter-row">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.5" cy="8.5" r="2.5"/><circle cx="16.5" cy="8.5" r="2.5"/><circle cx="12" cy="6" r="3"/><path d="M12 13c-2.8 0-6 1.4-6 3.5V18h12v-1.5c0-2.1-3.2-3.5-6-3.5z"/></svg>
+      <span class="lab">Agent credits<i id="agAgentCredits">—</i></span>
+      <span class="ag-meter"><i id="agAgentBar" style="width:0%"></i></span>
+    </div>
+    <div class="ag-meter-row">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 10a4 4 0 0 0-7.8-1.2A3.5 3.5 0 1 0 7 16h10.5a3.5 3.5 0 0 0 .5-6z"/></svg>
+      <span class="lab">Cloud credits<i id="agSpendUsed">—</i></span>
+      <span class="ag-meter"><i id="agSpendBar" style="width:0%"></i></span>
+    </div>
+    <a class="ag-upgrade" href="/pricing">✦ Upgrade</a>
+    <div class="ag-hist-install">
+      <span>Install Souqi on</span>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2" width="10" height="20" rx="2"/><line x1="11" y1="18" x2="13" y2="18"/></svg>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+      <span>•</span>
+      <a href="/changelog">Changelog</a>
+    </div>
+    <div class="ag-hist-links">
+      <a href="/terms" target="_blank" rel="noopener">Terms</a><span>·</span>
+      <a href="/privacy" target="_blank" rel="noopener">Privacy</a><span>·</span>
+      <a href="/pricing">Plans</a>
+    </div>
   </div>
 
   <div class="ag-hist-user">
@@ -484,6 +538,7 @@
 
   var all = [];          // rows from /api/deploy/overview
   var capacity = null;
+  var account = null;    // /api/account/me, for the plan block
   var configured = true;
   var filter = "all";
   var openKey = null;    // detail view, or null for the list
@@ -594,6 +649,18 @@
     });
   }
 
+  /* The capacity payload is nested — memory.pct, containers.running,
+     disk.pct — so read it in one place rather than guessing its shape at
+     each call site. */
+  function hostMemory() {
+    var m = capacity && capacity.memory;
+    return m && typeof m.pct === "number" ? Math.round(m.pct) : null;
+  }
+  function hostContainers() {
+    var c = capacity && capacity.containers;
+    return c && typeof c.running === "number" ? c : null;
+  }
+
   function kpiRow() {
     var running = all.filter(function (r) { return r.status === "RUNNING"; }).length;
     var moving = all.filter(function (r) { return LIVE[r.status]; }).length;
@@ -604,18 +671,14 @@
 
     // Capacity is the number that decides whether the next deploy is even
     // accepted, so it belongs on the first screen — not buried.
-    if (capacity) {
-      var pct = null, sub = "host";
-      if (typeof capacity.memoryPct === "number") { pct = Math.round(capacity.memoryPct); sub = "memory used"; }
-      else if (typeof capacity.containers === "number" && capacity.maxContainers) {
-        pct = Math.round(capacity.containers / capacity.maxContainers * 100); sub = capacity.containers + " of " + capacity.maxContainers + " containers";
-      }
-      if (pct !== null) {
-        var k = pct >= 85 ? " hot" : pct >= 70 ? " warn" : "";
-        out += '<div class="kpi"><div class="k-label">Capacity</div><div class="k-val">' + pct + '%</div>' +
-          '<div class="k-sub">' + esc(sub) + '</div>' +
-          '<div class="k-meter"><i class="' + k.trim() + '" style="width:' + Math.min(100, pct) + '%"></i></div></div>';
-      }
+    var pct = hostMemory();
+    if (pct !== null) {
+      var c = hostContainers();
+      var sub = c ? c.running + " container" + (c.running === 1 ? "" : "s") + " running" : "host memory";
+      var k = pct >= 85 ? "hot" : pct >= 70 ? "warn" : "";
+      out += '<div class="kpi"><div class="k-label">Host memory</div><div class="k-val">' + pct + '%</div>' +
+        '<div class="k-sub">' + esc(sub) + '</div>' +
+        '<div class="k-meter"><i class="' + k + '" style="width:' + Math.min(100, pct) + '%"></i></div></div>';
     }
     return out;
   }
@@ -647,6 +710,7 @@
 
   function renderList() {
     renderRail();
+    renderPlan();          // app count and host capacity both live here too
     $("kpis").innerHTML = loaded ? kpiRow() : "";
 
     if (!configured) {
@@ -956,7 +1020,53 @@
       // The account row at the foot of the rail, same as the builder's.
       $("agUserNm").textContent = d.email || who;
       $("agUserAv").textContent = initial;
+      account = d;
+      renderPlan();
     }).catch(function () { });
+
+  /**
+   * The plan block.
+   *
+   * /projects ships these three meters with the numbers hard-coded in the
+   * markup and no code that ever fills them in, so they read the same on
+   * every account. Here they are wired to what the API actually returns —
+   * and the cloud meter is host capacity, because on this page that is the
+   * number that decides whether the next deploy is admitted at all.
+   */
+  function meter(barId, labId, pct, text) {
+    var bar = $(barId), lab = $(labId);
+    if (!bar || !lab) return;
+    pct = Math.max(0, Math.min(100, Math.round(pct)));
+    bar.style.width = pct + "%";
+    bar.className = pct >= 90 ? "hot" : pct >= 70 ? "warn" : "";
+    lab.textContent = text;
+  }
+
+  function renderPlan() {
+    if (!account) return;
+    var plan = String(account.plan || "free");
+    $("agPlanTtl").textContent = "Your " + plan.charAt(0).toUpperCase() + plan.slice(1) + " Plan";
+
+    var cap = Number(account.freeEdits || 0);
+    var used = all.length;
+    var appsPct = cap ? (used / cap) * 100 : 0;
+    meter("agEditsBar", "agEditsUsed", appsPct, cap ? used + "/" + cap + " created" : used + " created");
+
+    var budget = Number(account.budgetUsd || 0);
+    var spent = Number(account.spentUsd || 0);
+    var agentPct = budget ? (spent / budget) * 100 : 0;
+    meter("agAgentBar", "agAgentCredits", agentPct, budget ? Math.round(agentPct) + "% used" : "—");
+
+    // Cloud = the host, not a billing figure. Memory is the right one to
+    // show: it is what admission control refuses new deployments on.
+    var mem = hostMemory();
+    meter("agSpendBar", "agSpendUsed",
+      mem === null ? 0 : mem,
+      mem === null ? "no host data" : mem + "% memory");
+
+    // Only claim a limit has been hit when one actually has been.
+    $("agPlanAlert").hidden = !(cap && used >= cap) && !(budget && spent >= budget);
+  }
 
   /* ---------------- boot ----------------
      A hash means someone linked or reloaded straight into one app, so go
