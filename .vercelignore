@@ -2,6 +2,13 @@
 # Express app now ships as a Vercel serverless function. Excluding it
 # would build a frontend whose every /api call 404s.
 
+# The container deployment plane. It is a Docker stack that runs on its own
+# VM — compose file, worker, Postgres schema — and nothing under server/ or
+# api/ require()s it. On Vercel it is 4MB of source that can never execute,
+# and its own package.json sitting in the tree only gives the build another
+# manifest to get confused by.
+deploy/
+
 # Dev/build scratch
 scratch/
 *.py
