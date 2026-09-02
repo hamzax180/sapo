@@ -1864,7 +1864,10 @@
   .ag-user-main{flex:1;min-width:0;display:flex;align-items:center;gap:8px;border:0;background:none;
     color:var(--ink);cursor:pointer;padding:5px 6px;border-radius:9px;font:inherit;text-align:left;transition:.14s}
   .ag-user-main:hover{background:var(--paper-2)}
-  .ag-ws .av svg,.ag-user-main .av svg{width:13px;height:13px}
+  /* color:#fff is load-bearing: .ag-ws svg paints every icon in the pill
+     --ink-2 for the chevron, and that blanket rule was catching the avatar
+     glyph too, drawing it grey on the blue circle. */
+  .ag-ws .av svg,.ag-user-main .av svg{width:13px;height:13px;color:#fff}
   .ag-user-main .av{flex:none;width:22px;height:22px;border-radius:50%;display:grid;place-items:center;
     background:linear-gradient(135deg,var(--accent),var(--accent-2));color:#fff;font-size:.76rem;font-weight:700}
   .ag-user-main .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.72rem;font-weight:500}

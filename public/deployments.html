@@ -66,7 +66,10 @@
   .ag-hist-brand-text span{display:block}
   .ag-ws-wrap{position:relative}
   .ag-ws{display:flex;align-items:center;gap:9px;border:1px solid var(--line);background:var(--card);color:var(--ink) !important;border-radius:999px;padding:6px 10px 6px 6px;margin:8px 10px 8px;width:calc(100% - 20px);cursor:pointer;text-align:left;box-sizing:border-box}
-  .ag-ws .av svg,.ag-user-main .av svg{width:13px;height:13px}
+  /* color:#fff is load-bearing: .ag-ws svg paints every icon in the pill
+     --ink-2 for the chevron, and that blanket rule was catching the avatar
+     glyph too, drawing it grey on the blue circle. */
+  .ag-ws .av svg,.ag-user-main .av svg{width:13px;height:13px;color:#fff}
   .ag-ws .av{flex:none;width:26px;height:26px;border-radius:50%;display:grid;place-items:center;color:#fff;background:linear-gradient(135deg,var(--accent),var(--accent-2));font-weight:600;font-size:.8rem}
   .ag-ws .nm{color:var(--ink) !important;flex:1;min-width:0;font-size:.9rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .ag-ws svg{width:16px;height:16px;flex:none;color:var(--ink-2)}
