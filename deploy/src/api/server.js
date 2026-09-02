@@ -30,6 +30,7 @@ const pipeline = require("../worker/pipeline");
 const secrets = require("../secrets");
 const auth = require("./auth");
 const detect = require("../framework/detect");
+const objects = require("../storage/objects");
 
 const app = express();
 app.disable("x-powered-by");
@@ -225,7 +226,34 @@ app.post("/deployments/:id/source", requireUser, express.json({ limit: "24mb" })
       await query("UPDATE deployments SET framework=$2 WHERE id=$1", [dep.id, spec.framework]);
       await query("UPDATE projects SET framework=$2, updated_at=now() WHERE id=$1", [dep.project_id, spec.framework]);
     }
-    res.json({ ok: true, files: Object.keys(files).length, detected: spec ? spec.framework : null });
+
+    /* The build directory is scratch — cleanup wipes it after every
+       deploy, and it only exists on one VM. Archiving here is what makes
+       the source survive losing the box, and what lets a redeploy work
+       on a host that has never seen this project.
+
+       A storage failure does NOT fail the upload: the source is already
+       staged locally and the deploy can proceed from it. It is reported
+       instead, so "this is only on the VM" is visible rather than
+       assumed. */
+    let archived = null;
+    if (objects.isConfigured()) {
+      const put = await objects.putSource(dep.id, files);
+      if (put.ok) {
+        await query("UPDATE deployments SET source_key=$2 WHERE id=$1", [dep.id, put.key]);
+        archived = { key: put.key, bytes: put.bytes };
+      } else {
+        archived = { error: put.error };
+        console.warn("[api] source archive failed for " + dep.id + ": " + put.error);
+      }
+    }
+
+    res.json({
+      ok: true,
+      files: Object.keys(files).length,
+      detected: spec ? spec.framework : null,
+      archived: archived
+    });
   } catch (e) { next(e); }
 });
 

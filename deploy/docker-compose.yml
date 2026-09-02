@@ -97,6 +97,13 @@ services:
       INTERNAL_TOKEN: ${INTERNAL_TOKEN:-}
       ALLOW_DEV_AUTH: ${ALLOW_DEV_AUTH:-0}
       NODE_ENV: ${NODE_ENV:-development}
+      # Where source archives live. Unset = archives stay on this VM only,
+      # which the spec warns against and preflight flags.
+      S3_ENDPOINT: ${S3_ENDPOINT:-}
+      S3_BUCKET: ${S3_BUCKET:-}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:-}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:-}
+      S3_REGION: ${S3_REGION:-auto}
     volumes:
       # Shared with the worker so an upload lands where the build reads it.
       - builds:/opt/platform/builds
@@ -125,6 +132,13 @@ services:
       DEFAULT_MEMORY_MB: ${DEFAULT_MEMORY_MB:-512}
       DEFAULT_PIDS: ${DEFAULT_PIDS:-100}
       MAX_CONTAINERS: ${MAX_CONTAINERS:-40}
+      # The worker restores source from here when the build directory is
+      # gone, and removes the archive when a deployment is deleted.
+      S3_ENDPOINT: ${S3_ENDPOINT:-}
+      S3_BUCKET: ${S3_BUCKET:-}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:-}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:-}
+      S3_REGION: ${S3_REGION:-auto}
     volumes:
       - builds:/opt/platform/builds
       # THE trust boundary of this whole system.

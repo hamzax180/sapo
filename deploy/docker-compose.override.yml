@@ -28,3 +28,44 @@ services:
   api:
     ports:
       - "127.0.0.1:4500:4500"
+
+  # ---------------------------------------------------------------
+  #  Object storage for source archives, locally.
+  #
+  #  In production this is R2 or S3. Here it is MinIO, which speaks the
+  #  same API, so the archive path is exercised for real rather than
+  #  stubbed — the SigV4 signing in src/storage/objects.js is hand-rolled
+  #  and worth testing against a server that will reject a bad signature.
+  #
+  #  Point .env at it:
+  #    S3_ENDPOINT=http://souqi-minio:9000
+  #    S3_BUCKET=souqi-sources
+  #    S3_ACCESS_KEY=souqitest
+  #    S3_SECRET_KEY=souqitest12345
+  #
+  #  Credentials are deliberately throwaway and this whole block is
+  #  dev-only, like the published port above.
+  # ---------------------------------------------------------------
+  minio:
+    image: minio/minio:latest
+    container_name: souqi-minio
+    command: ["server", "/data"]
+    environment:
+      MINIO_ROOT_USER: souqitest
+      MINIO_ROOT_PASSWORD: souqitest12345
+    ports:
+      - "127.0.0.1:9000:9000"     # loopback only, same reasoning as the api
+    networks: [platform]
+
+  # MinIO has no auto-create, so the bucket is made once and the container
+  # exits. Re-running compose is harmless — mb on an existing bucket is a
+  # no-op we swallow.
+  minio-init:
+    image: minio/mc:latest
+    depends_on: [minio]
+    entrypoint: >
+      sh -c "until mc alias set m http://souqi-minio:9000 souqitest souqitest12345 >/dev/null 2>&1;
+             do sleep 1; done;
+             mc mb m/souqi-sources >/dev/null 2>&1 || true;
+             echo 'bucket souqi-sources ready'"
+    networks: [platform]

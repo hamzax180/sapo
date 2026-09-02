@@ -21,6 +21,7 @@ const secrets = require("../src/secrets");
 const caddy = require("../src/proxy/caddy");
 const providers = require("../src/providers");
 const auth = require("../src/api/auth");
+const objects = require("../src/storage/objects");
 
 let passed = 0, failed = 0;
 function check(name, fn) {
@@ -252,6 +253,45 @@ async function main() {
   check("postgres publishes no port", () => {
     const pg = compose.split("postgres:")[1].split(/^  \w/m)[0];
     assert.ok(!/^\s+ports:/m.test(pg));
+  });
+
+  console.log("\n── source archives ──────────────────────────────────");
+
+  check("object storage is optional, not assumed", () => {
+    // Asserting isConfigured() === false here would only be testing whose
+    // machine this ran on. What matters is that both callers ASK before
+    // they use storage, so a host without a bucket still deploys.
+    assert.strictEqual(typeof objects.isConfigured, "function");
+    const api = fs.readFileSync(path.join(__dirname, "..", "src", "api", "server.js"), "utf8");
+    assert.ok(/objects\.isConfigured\(\)/.test(api),
+      "the upload uses object storage unconditionally, so a host without a bucket would fail");
+    const pipe = fs.readFileSync(path.join(__dirname, "..", "src", "worker", "pipeline.js"), "utf8");
+    assert.ok(/isConfigured\(\)/.test(pipe) || /skipped/.test(pipe) || /source_key/.test(pipe),
+      "the worker assumes an archive exists");
+  });
+  check("archive keys cannot escape their prefix", () => {
+    assert.strictEqual(objects.keyFor("dep_x; rm -rf /"), "sources/dep_xrm-rf.json.gz");
+    assert.ok(objects.keyFor("../../etc/passwd").startsWith("sources/"));
+  });
+  check("the S3 credentials actually reach the containers", () => {
+    // They lived in .env.example and config.js but were never passed
+    // through compose, so the feature could not have worked at all.
+    const y = fs.readFileSync(path.join(__dirname, "..", "docker-compose.yml"), "utf8");
+    for (const svc of ["S3_BUCKET", "S3_ACCESS_KEY", "S3_SECRET_KEY", "S3_ENDPOINT"]) {
+      const hits = (y.match(new RegExp(svc + ":", "g")) || []).length;
+      assert.ok(hits >= 2, svc + " reaches " + hits + " services; the api and the worker both need it");
+    }
+  });
+  check("a deleted deployment takes its archive with it", () => {
+    const src = fs.readFileSync(path.join(__dirname, "..", "src", "worker", "pipeline.js"), "utf8");
+    const destroy = src.slice(src.indexOf("async function destroy"));
+    assert.ok(/deleteSource/.test(destroy),
+      "a deleted customer's source would stay in object storage");
+  });
+  check("a missing build directory is restored, not blamed on the user", () => {
+    const src = fs.readFileSync(path.join(__dirname, "..", "src", "worker", "pipeline.js"), "utf8");
+    assert.ok(/ensureSource/.test(src), "the pipeline never tries to restore an archived source");
+    assert.ok(/source_key/.test(src), "the pipeline ignores the archive key");
   });
 
   console.log("\n── the api never runs docker ────────────────────────");

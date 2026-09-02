@@ -24,6 +24,7 @@ const capacity = require("../monitor/capacity");
 const detect = require("../framework/detect");
 const dockerfiles = require("../framework/dockerfiles");
 const secrets = require("../secrets");
+const objects = require("../storage/objects");
 
 /* ---------- logging ----------
    Build output goes to the database, not only to the container, because the
@@ -89,6 +90,46 @@ async function cleanupBuildContext(deploymentId) {
   catch (e) { console.error("[worker] could not clean", dir, e.message); }
 }
 
+/**
+ * Make sure the source is on disk before the build looks for it.
+ *
+ * Present already: nothing to do — the common case, straight after an
+ * upload. Missing with an archive: restore it. Missing with no archive:
+ * say so plainly, because "could not work out how to build this" would
+ * blame the user's project for a file that was never there.
+ */
+async function ensureSource(dep, sourceDir) {
+  let present = false;
+  try { present = (await fsp.readdir(sourceDir)).length > 0; } catch (e) { present = false; }
+  if (present) return { ok: true, fromArchive: false };
+
+  if (!dep.source_key) {
+    return {
+      ok: false,
+      error: objects.isConfigured()
+        ? "the source for this deployment is gone — it was never archived, so there is nothing to restore"
+        : "the source for this deployment is gone from this host, and object storage is not configured, so it cannot be restored"
+    };
+  }
+
+  const got = await objects.getSource(dep.source_key);
+  if (!got.ok) return { ok: false, error: "could not restore the source — " + (got.error || "unknown") };
+
+  await fsp.mkdir(sourceDir, { recursive: true });
+  for (const rel of Object.keys(got.files)) {
+    // Same traversal check the upload does. The archive is our own, but a
+    // path that escapes the staging directory must not be writable just
+    // because it took a different route in.
+    const clean = String(rel).replace(/\\/g, "/");
+    if (clean.startsWith("/") || clean.split("/").includes("..")) continue;
+    const dest = path.join(sourceDir, clean);
+    if (!dest.startsWith(sourceDir + path.sep)) continue;
+    await fsp.mkdir(path.dirname(dest), { recursive: true });
+    await fsp.writeFile(dest, String(got.files[rel]), "utf8");
+  }
+  return { ok: true, fromArchive: true };
+}
+
 /* ---------- the pipeline ---------- */
 
 /**
@@ -108,6 +149,14 @@ async function deploy(dep, sourceDir) {
     // --- 2. detect ----------------------------------------------------
     await setStatus(id, "BUILDING");
     await log(id, "system", "Inspecting the project");
+
+    /* The build directory is scratch: cleanup wipes it after a deploy,
+       and on a second VM it never existed. When it is not there and the
+       source was archived, restore it — this is what makes a redeploy
+       weeks later, or on a different host, work at all. */
+    const restored = await ensureSource(dep, sourceDir);
+    if (!restored.ok) return fail(id, restored.error);
+    if (restored.fromArchive) await log(id, "system", "Restored the source from object storage");
 
     const spec = detect.detect(sourceDir);
     if (!spec) {
@@ -280,6 +329,14 @@ async function destroy(dep) {
   // After the container is gone, or the network still has a member and the
   // rm is refused — leaking one dead network per deleted deployment.
   await engine.removeDeploymentNetwork(dep.id);
+  // The archive goes with it. Keeping a deleted customer's source in
+  // object storage is the kind of thing you only discover during an audit.
+  if (dep.source_key) {
+    const gone = await objects.deleteSource(dep.source_key);
+    if (!gone.ok && !gone.skipped) {
+      await log(dep.id, "system", "WARNING: the source archive could not be removed from storage", "stderr");
+    }
+  }
   await cleanupBuildContext(dep.id);
   await setStatus(dep.id, "DELETED", { container_name: null, image_name: null });
   await log(dep.id, "system", "Deleted");
