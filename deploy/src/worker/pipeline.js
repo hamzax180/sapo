@@ -516,8 +516,49 @@ async function measureProjectDatabase(projectId) {
   return { ok: true, sizeBytes: got.sizeBytes ?? null, reachable: got.reachable };
 }
 
+
+/**
+ * Read a project's own data, for the dashboard's browser.
+ *
+ * Read-only by construction rather than by promise: `what` names a table
+ * and a page, never a statement. No SQL crosses the wire from a browser,
+ * and the table name is re-read out of the catalogue before it is used —
+ * see dbproviders/builtin.js, where that is the whole security boundary.
+ *
+ * External databases are not browsable, and this says so rather than
+ * returning an empty table list that looks like an empty database. The
+ * built-in cluster is reachable over the Docker socket the worker already
+ * holds; someone else's Neon is an outbound connection with credentials
+ * they gave us, which is a different decision about what we open and how
+ * long we hold it.
+ */
+async function browseProjectDatabase(projectId, what) {
+  const row = await one("SELECT * FROM project_databases WHERE project_id=$1", [projectId]);
+  if (!row) return { ok: false, error: "this project has no database yet" };
+  if (row.mode !== "builtin") {
+    return { ok: false, error: "browsing is only available for the built-in database" };
+  }
+
+  const builtin = dbproviders.get("builtin");
+  if (!(await builtin.ready())) return { ok: false, error: "the database service is not responding" };
+
+  const w = what || {};
+  if (w.table) return builtin.readRows(projectId, w.table, { limit: w.limit, offset: w.offset });
+
+  const listed = await builtin.listTables(projectId);
+  if (!listed.ok) return { ok: false, error: listed.error };
+  return {
+    ok: true,
+    tables: listed.value.map((t) => ({
+      name: t.name,
+      approxRows: t.approx_rows == null ? null : Number(t.approx_rows),
+      bytes: Number(t.bytes) || 0
+    }))
+  };
+}
+
 module.exports = {
   deploy, stop, start, restart, destroy,
-  ensureDatabase, deleteProjectDatabase, measureProjectDatabase,
+  ensureDatabase, deleteProjectDatabase, measureProjectDatabase, browseProjectDatabase,
   setStatus, log, waitForRunning, cleanupBuildContext, projectEnv
 };

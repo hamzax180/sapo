@@ -614,6 +614,44 @@ app.post("/projects/:id/database/measure", requireUser, async (req, res, next) =
 });
 
 /**
+ * GET /projects/:id/database/browse         — the tables
+ * GET /projects/:id/database/browse?table=x — one page of one table
+ *
+ * Read-only, and read-only because of what it CANNOT express rather than
+ * a rule it follows: the client names a table and a page. There is no
+ * parameter here that carries SQL, and the table name is checked against
+ * the database's own catalogue before it is used, so the string that
+ * reaches a query is one Postgres produced.
+ *
+ * Asked of the worker, like every other read that needs the socket.
+ */
+app.get("/projects/:id/database/browse", requireUser, async (req, res, next) => {
+  try {
+    const project = await ownedProject(req, res); if (!project) return;
+
+    const qs = new URLSearchParams();
+    if (req.query.table) qs.set("table", String(req.query.table));
+    if (req.query.limit) qs.set("limit", String(req.query.limit));
+    if (req.query.offset) qs.set("offset", String(req.query.offset));
+
+    try {
+      const r = await fetch(cfg.workerUrl + "/internal/db/browse/" + encodeURIComponent(project.id) +
+        (qs.toString() ? "?" + qs.toString() : ""), {
+        headers: { "x-internal-token": cfg.internalToken },
+        signal: AbortSignal.timeout(20000)
+      });
+      if (!r.ok) return res.status(503).json({ error: "the worker refused the request (HTTP " + r.status + ")" });
+      const out = await r.json();
+      // A table that is not there is the caller's mistake, not an outage.
+      if (!out.ok) return res.status(out.notFound ? 404 : 503).json({ error: out.error || "could not read the database" });
+      return res.json(out);
+    } catch (e) {
+      return res.status(503).json({ error: "the worker is not reachable — " + e.message });
+    }
+  } catch (e) { next(e); }
+});
+
+/**
  * DELETE /projects/:id/database — remove the built-in database for good.
  *
  * Refused while it is the one the project is actually using. There is no

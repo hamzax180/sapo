@@ -3609,6 +3609,28 @@ app.post("/api/deploy/:key/database/measure", async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
+/**
+ * GET /api/deploy/:key/database/browse            — the tables
+ * GET /api/deploy/:key/database/browse?table=x    — one page of one table
+ *
+ * The data browser behind the Data tab. Read-only: the query string names
+ * a table and a page and cannot express anything else, and the plane
+ * resolves the table against its own catalogue before it builds SQL.
+ */
+app.get("/api/deploy/:key/database/browse", async (req, res, next) => {
+  try {
+    const project = await ownedProjectOr404(req, res); if (!project) return;
+    if (!project.deployProjectId) return res.json({ ok: true, tables: [] });
+    const r = await deployplane.browseDatabase(cookieOf(req), project.deployProjectId, {
+      table: req.query.table ? String(req.query.table) : null,
+      limit: req.query.limit,
+      offset: req.query.offset
+    });
+    if (!r.ok) return planeError(res, r);
+    res.json(r.body);
+  } catch (e) { next(e); }
+});
+
 app.delete("/api/deploy/:key/database", async (req, res, next) => {
   try {
     const project = await ownedProjectOr404(req, res); if (!project) return;

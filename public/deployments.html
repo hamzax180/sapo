@@ -68,10 +68,11 @@
     display:flex;flex-direction:column;z-index:100}
   .ag-history.on{width:var(--sb-w) !important;flex:0 0 var(--sb-w) !important;min-width:var(--sb-w) !important;border-right:1px solid var(--line);overflow:visible !important}
   .ag-hist-head,.ag-hist-tabs,.ag-hist-foot{width:100%;box-sizing:border-box}
-  .ag-hist-head{display:flex;align-items:center;gap:8px;padding:10px 10px 12px 114px;width:100%;box-sizing:border-box}
+  /* --- header: logo left, controls right --- */
+  .ag-hist-head{display:flex;align-items:center;gap:8px;padding:10px 10px 12px 12px;width:100%;box-sizing:border-box}
   .ag-hist-mark{width:28px;height:28px;display:grid;place-items:center;flex:none}
   .ag-hist-mark svg{width:23px;height:23px;display:block;overflow:visible}
-  .ag-hist-brand-text{display:flex;flex-direction:column;line-height:1.05;font-family:var(--disp);font-weight:800;font-size:.88rem;color:var(--ink);letter-spacing:-.01em;margin-left:6px}
+  .ag-hist-brand-text{display:none;flex-direction:column;line-height:1.05;font-family:var(--disp);font-weight:800;font-size:.88rem;color:var(--ink);letter-spacing:-.01em;margin-left:6px}
   .ag-hist-brand-text span{display:block}
   .ag-ws-wrap{position:relative}
   .ag-ws{display:flex;align-items:center;gap:9px;border:1px solid var(--line);background:var(--card);color:var(--ink) !important;border-radius:999px;padding:6px 10px 6px 6px;margin:8px 10px 8px;width:calc(100% - 20px);cursor:pointer;text-align:left;box-sizing:border-box}
@@ -191,7 +192,7 @@
   #agDeskSidebarToggle{position:fixed !important;top:10px !important;left:10px !important;z-index:999999 !important;
     padding:5px 10px !important;height:32px !important;font-size:.82rem !important}
   .ag-pv-toggle-btn:hover{border-color:#cbd5e1;background:var(--paper-2);color:var(--ink)}
-  .ag-pv-toggle-btn.on{background:var(--card);color:var(--ink);border-color:var(--accent);box-shadow:0 0 8px rgba(26,166,223,.35),0 0 0 1px var(--accent)}
+  .ag-pv-toggle-btn.on{background:var(--card);color:var(--ink)}
   .ag-pv-toggle-btn .pane-left{transition:fill .2s ease;fill:transparent}
   .ag-pv-toggle-btn.on .pane-left{fill:var(--accent)}
   .ag-pv-toggle-btn svg{width:16px;height:16px;flex:none}
@@ -280,7 +281,8 @@
        the builder — the word "Sidebar" beside a 44px rail is wider than
        the rail it describes. */
     #agDeskSidebarToggle:not(.on) span{display:none !important}
-    #agDeskSidebarToggle:not(.on){padding:4px !important;width:28px !important;height:28px !important;left:56px !important;justify-content:center !important}
+    #agDeskSidebarToggle:not(.on){padding:4px !important;width:30px !important;height:30px !important;
+      left:calc(var(--sb-w) - 40px) !important;justify-content:center !important}
     /* Collapsed = the logo and nothing else, the way the reference does
        it. The toggle is not merely unlabelled in the rail, it is gone: a
        floating button parked beside a 44px column is the one thing there
@@ -291,6 +293,15 @@
     .ag-history:not(.on) ~ #agDeskSidebarToggle{opacity:0;pointer-events:none;transition:opacity .18s ease}
     .ag-history:not(.on):hover ~ #agDeskSidebarToggle,
     .ag-history:not(.on).hover-open ~ #agDeskSidebarToggle{opacity:1;pointer-events:auto}
+    /* OPEN: the icon alone, at the right edge of the sidebar header —
+       where the reference puts its controls. The word "Sidebar" was the
+       widest thing in that row and only named what the icon already
+       shows; dropping it is what lets the mark sit at the far left with
+       the control at the far right instead of both bunched together.
+       The .on glow stays: that, not the label, is the state cue. */
+    #agDeskSidebarToggle.on span{display:none !important}
+    #agDeskSidebarToggle.on{padding:4px !important;width:30px !important;height:30px !important;
+      justify-content:center !important;left:calc(var(--sb-w) - 40px) !important}
 
     /* The content column sits beside the rail, so it only needs to clear
        the fixed toggle button, not the whole panel. */
@@ -481,6 +492,33 @@
   .dbmini.warn{color:var(--danger);border-color:rgba(217,45,32,.3);background:transparent}
   .dbmini.warn:hover{background:rgba(217,45,32,.08);border-color:rgba(217,45,32,.5)}
   .kv .kvbtn{flex:none;margin-left:auto}
+
+  /* ---- data browser ---- */
+  .dbtable-row{display:flex;align-items:center;gap:10px;width:100%;text-align:left;cursor:pointer;
+    padding:11px 16px;border:0;border-bottom:1px solid var(--line);background:none;color:var(--ink);font:inherit}
+  .dbtable-row:last-child{border-bottom:0}
+  .dbtable-row:hover{background:var(--paper-2)}
+  .dbtable-row .nm{flex:1;min-width:0;font-family:var(--mono);font-size:.82rem;overflow:hidden;text-overflow:ellipsis}
+  .dbtable-row .meta{flex:none;color:var(--mut);font-size:.74rem;font-variant-numeric:tabular-nums}
+  .dbtable-row .go{flex:none;width:14px;height:14px;color:var(--mut)}
+  /* The grid scrolls sideways on its own. A wide table must never be what
+     makes the whole page scroll horizontally. */
+  .dbgrid-wrap{overflow-x:auto;border-bottom:1px solid var(--line);max-height:420px;overflow-y:auto}
+  table.dbgrid{border-collapse:collapse;width:100%;font-family:var(--mono);font-size:.76rem}
+  table.dbgrid th,table.dbgrid td{text-align:left;padding:7px 12px;border-bottom:1px solid var(--line);
+    white-space:nowrap;max-width:300px;overflow:hidden;text-overflow:ellipsis}
+  table.dbgrid th{position:sticky;top:0;z-index:1;background:var(--paper-2);color:var(--ink);font-weight:600}
+  table.dbgrid th .ty{display:block;font-weight:400;color:var(--mut);font-size:.67rem;letter-spacing:0}
+  table.dbgrid td{color:var(--ink-2)}
+  /* NULL is not the empty string, and a browser that renders both as an
+     empty cell hides a real difference in the data. */
+  table.dbgrid td.nul{color:var(--mut);font-style:italic}
+  table.dbgrid tr:last-child td{border-bottom:0}
+  .dbpager{display:flex;align-items:center;gap:8px;padding:10px 16px}
+  .dbpager .sp{flex:1;min-width:0;color:var(--mut);font-size:.75rem}
+  .dbcrumb{display:flex;align-items:center;gap:8px;padding:10px 16px;border-bottom:1px solid var(--line)}
+  .dbcrumb .nm{font-family:var(--mono);font-size:.82rem;color:var(--ink);flex:1;min-width:0;
+    overflow:hidden;text-overflow:ellipsis}
 
   .res{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:14px;padding:16px}
   .res .r-label{font-size:.75rem;color:var(--mut);font-weight:600;display:flex;justify-content:space-between;margin-bottom:7px}
@@ -737,6 +775,15 @@
   var dbInfo = null;
   var dbTab = null;
   var dbDraft = "";
+
+  /* The data browser. dbTables is the list, dbTable the one being read,
+     dbRows the page currently on screen. All three reset when the detail
+     view changes app, because none of them mean anything for another. */
+  var dbTables = null;
+  var dbTable = null;
+  var dbRows = null;
+  var dbDataErr = null;
+  var PAGE = 25;
   var loaded = false;
 
   function tileColor(s) {
@@ -1055,6 +1102,127 @@
     return (v >= 10 ? Math.round(v) : v.toFixed(1)) + " " + u[i];
   }
 
+  /* ---------------- the data browser ----------------
+     Two screens: the tables in the database, and one page of one table.
+     Nothing here composes a query — it names a table and an offset, and
+     the plane resolves the name against the database's own catalogue
+     before it builds any SQL. */
+
+  function loadTables() {
+    var key = openKey;
+    dbDataErr = null;
+    return api("GET", "/api/deploy/" + encodeURIComponent(key) + "/database/browse")
+      .then(function (r) {
+        if (openKey !== key) return;
+        dbTables = (r && r.tables) || [];
+      })
+      .catch(function (err) {
+        if (openKey !== key) return;
+        dbTables = [];
+        dbDataErr = err.message;
+      })
+      .then(function () {
+        if (openKey !== key) return;
+        renderDetail._sig = null; renderDetail();
+      });
+  }
+
+  function loadRows(table, offset) {
+    var key = openKey;
+    dbDataErr = null;
+    return api("GET", "/api/deploy/" + encodeURIComponent(key) + "/database/browse" +
+      "?table=" + encodeURIComponent(table) + "&limit=" + PAGE + "&offset=" + Math.max(offset || 0, 0))
+      .then(function (r) {
+        if (openKey !== key) return;
+        dbTable = table;
+        dbRows = r;
+      })
+      .catch(function (err) {
+        if (openKey !== key) return;
+        dbDataErr = err.message;
+      })
+      .then(function () {
+        if (openKey !== key) return;
+        renderDetail._sig = null; renderDetail();
+      });
+  }
+
+  /** Bytes, and row counts that may honestly be unknown. */
+  function approx(n) {
+    if (n == null) return "";
+    if (n < 1000) return n + " rows";
+    if (n < 1e6) return Math.round(n / 100) / 10 + "k rows";
+    return Math.round(n / 1e5) / 10 + "M rows";
+  }
+
+  function dataView() {
+    if (dbDataErr) {
+      return '<div class="dbnote">' + esc(dbDataErr) + "</div>" +
+        '<div class="dbform"><button type="button" class="dbmini" data-dbact="data-retry">Try again</button></div>';
+    }
+
+    /* One table, open. */
+    if (dbTable && dbRows) {
+      var cols = dbRows.columns || [];
+      var rows = dbRows.rows || [];
+      var out = '<div class="dbcrumb">' +
+        '<button type="button" class="dbmini" data-dbact="data-back">← Tables</button>' +
+        '<span class="nm">' + esc(dbTable) + "</span></div>";
+
+      if (!cols.length) {
+        return out + '<div class="dbnote">This table has no columns yet.</div>';
+      }
+
+      out += '<div class="dbgrid-wrap"><table class="dbgrid"><thead><tr>' +
+        cols.map(function (c) {
+          return "<th>" + esc(c.name) + '<span class="ty">' + esc(c.type) + "</span></th>";
+        }).join("") + "</tr></thead><tbody>";
+
+      if (!rows.length) {
+        out += '<tr><td class="nul" colspan="' + cols.length + '">' +
+          (dbRows.offset ? "no more rows" : "no rows yet") + "</td></tr>";
+      } else {
+        out += rows.map(function (r) {
+          return "<tr>" + cols.map(function (c) {
+            var v = r[c.name];
+            if (v === null || v === undefined) return '<td class="nul">null</td>';
+            return "<td>" + esc(String(v)) + "</td>";
+          }).join("") + "</tr>";
+        }).join("");
+      }
+      out += "</tbody></table></div>";
+
+      var from = (dbRows.offset || 0) + 1;
+      var to = (dbRows.offset || 0) + rows.length;
+      out += '<div class="dbpager">' +
+        '<button type="button" class="dbmini" data-dbact="data-prev"' +
+          ((dbRows.offset || 0) <= 0 ? " disabled" : "") + ">Previous</button>" +
+        '<button type="button" class="dbmini" data-dbact="data-next"' +
+          (dbRows.hasMore ? "" : " disabled") + ">Next</button>" +
+        '<span class="sp">' + (rows.length ? "rows " + from + "–" + to : "no rows") +
+        (dbRows.approxRows != null ? " of about " + dbRows.approxRows : "") + "</span></div>";
+      return out;
+    }
+
+    /* The list of tables. */
+    if (dbTables === null) return '<div class="sk" style="height:90px;margin:16px"></div>';
+    if (!dbTables.length) {
+      return '<div class="dbnote">Nothing in here yet. When your app creates its first table it ' +
+        "will show up, and you can read the rows from this page.</div>" +
+        '<div class="dbform"><button type="button" class="dbmini" data-dbact="data-retry">Refresh</button></div>';
+    }
+
+    var chev = '<svg class="go" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" ' +
+      'stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>';
+    return dbTables.map(function (t) {
+      var meta = [approx(t.approxRows), bytes(t.bytes)].filter(Boolean).join(" · ");
+      return '<button type="button" class="dbtable-row" data-dbopen="' + esc(t.name) + '">' +
+        '<span class="nm">' + esc(t.name) + "</span>" +
+        '<span class="meta">' + esc(meta) + "</span>" + chev + "</button>";
+    }).join("") +
+    '<div class="dbnote">Read-only. This shows what your app has stored — it does not change it.</div>';
+  }
+
   function dbPanel() {
     var b = dbInfo;
     if (!b) return '<div class="panel"><div class="panel-h"><b>Database</b></div>' +
@@ -1067,11 +1235,22 @@
     }
 
     var tab = dbTab || b.mode || "builtin";
+    /* Data is only offered where it can actually be delivered: the
+       built-in cluster, once it exists. Showing the tab for an external
+       database would be offering a screen that can only apologise. */
+    var canBrowse = b.mode === "builtin" && b.configured;
+    if (tab === "data" && !canBrowse) tab = "builtin";
+
     var out = '<div class="panel"><div class="panel-h"><b>Database</b>' +
       '<div class="seg">' +
         '<button type="button" data-dbtab="builtin" class="' + (tab === "builtin" ? "on" : "") + '">Built-in</button>' +
         '<button type="button" data-dbtab="external" class="' + (tab === "external" ? "on" : "") + '">Your own</button>' +
+        (canBrowse
+          ? '<button type="button" data-dbtab="data" class="' + (tab === "data" ? "on" : "") + '">Data</button>'
+          : "") +
       "</div></div>";
+
+    if (tab === "data") return out + dataView() + "</div>";
 
     if (tab === "builtin") {
       if (b.mode === "builtin" && b.configured) {
@@ -1210,6 +1389,7 @@
   function openDetail(key) {
     openKey = key; detail = null; logPinned = true;
     dbInfo = null; dbTab = null; dbDraft = "";   // another app, another database
+    dbTables = null; dbTable = null; dbRows = null; dbDataErr = null;
     renderDetail._sig = null;          // a different app must always repaint
     location.hash = "#" + key;
     $("viewList").hidden = true; $("viewDetail").hidden = false;
@@ -1221,6 +1401,7 @@
   function closeDetail() {
     openKey = null; detail = null;
     dbInfo = null; dbTab = null; dbDraft = "";
+    dbTables = null; dbTable = null; dbRows = null; dbDataErr = null;
     if (location.hash) location.hash = "";
     $("viewDetail").hidden = true; $("viewList").hidden = false;
     renderList(); schedule();
@@ -1251,7 +1432,18 @@
     if (jump) { logPinned = true; var b = $("logBox"); if (b) b.scrollTop = b.scrollHeight; jump.remove(); return; }
 
     var dbtab = e.target.closest("[data-dbtab]");
-    if (dbtab) { dbTab = dbtab.dataset.dbtab; renderDetail(); return; }
+    if (dbtab) {
+      dbTab = dbtab.dataset.dbtab;
+      // The table list is fetched the first time the tab is opened, not on
+      // every detail poll: it changes when the app writes to its database,
+      // not every two seconds.
+      if (dbTab === "data" && dbTables === null) { loadTables(); }
+      renderDetail();
+      return;
+    }
+
+    var dbopen = e.target.closest("[data-dbopen]");
+    if (dbopen) { loadRows(dbopen.dataset.dbopen, 0); return; }
 
     var dbact = e.target.closest("[data-dbact]");
     if (dbact) { runDbAction(dbact); return; }
@@ -1291,6 +1483,19 @@
       btn.textContent = "Reading…";
       call = api("POST", base + "/measure");
       done = null;
+    } else if (name === "data-back") {
+      dbTable = null; dbRows = null;
+      renderDetail._sig = null; renderDetail();
+      return;
+    } else if (name === "data-retry") {
+      dbTables = null; dbTable = null; dbRows = null;
+      renderDetail._sig = null; renderDetail();
+      loadTables();
+      return;
+    } else if (name === "data-prev" || name === "data-next") {
+      var step = name === "data-next" ? PAGE : -PAGE;
+      loadRows(dbTable, (dbRows.offset || 0) + step);
+      return;
     } else if (name === "drop-builtin") {
       if (!window.confirm("Delete the built-in database and everything in it?\n\nThis cannot be undone.")) return;
       btn.textContent = "Deleting…";

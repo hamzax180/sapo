@@ -383,6 +383,21 @@ function startInternalServer() {
     res.json(r);
   });
 
+  /* The data browser. Same reason as the two above: reading a tenant's
+     tables is `docker exec … psql`, and only this process has the socket.
+
+     The api resolved the project from a row the caller owns, and the
+     table name is validated against the catalogue inside the provider —
+     nothing here concatenates a client string into a query. */
+  app.get("/internal/db/browse/:projectId", async (req, res) => {
+    const r = await pipeline.browseProjectDatabase(String(req.params.projectId), {
+      table: req.query.table ? String(req.query.table) : null,
+      limit: req.query.limit,
+      offset: req.query.offset
+    });
+    res.json(r);
+  });
+
   return app.listen(cfg.workerPort, () =>
     console.log("[worker] internal API on :" + cfg.workerPort));
 }

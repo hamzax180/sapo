@@ -86,7 +86,12 @@ function psql(sql, opts) {
   if (o.tuplesOnly) args.push("-t", "-A");
 
   return new Promise((resolve) => {
-    const child = execFile("docker", args, { timeout: o.timeoutMs || 30000 }, (err, stdout, stderr) => {
+    // maxBuffer matters for the data browser: a page of rows comes back as
+    // one JSON document, and the 1MB default would truncate it into invalid
+    // JSON rather than fail loudly.
+    const child = execFile("docker", args,
+      { timeout: o.timeoutMs || 30000, maxBuffer: o.maxBuffer || 12 * 1024 * 1024 },
+      (err, stdout, stderr) => {
       resolve({
         ok: !err,
         stdout: String(stdout || "").trim(),
@@ -228,9 +233,145 @@ async function ready() {
   return r.ok && r.stdout === "1";
 }
 
+/* ---------- the data browser ----------
+   Read-only, and read-only in a way the transport enforces rather than
+   the caller promising. No statement the browser sends is ever executed:
+   the client names a table and a page, and everything else is built here.
+
+   Results come back as ONE json document rather than psql's own text
+   output. Parsing aligned columns means guessing where a value ends, and
+   a value that contains the separator — a Markdown table in a text
+   column, say — silently shifts every field after it. json_agg puts that
+   problem on Postgres, which cannot get it wrong.
+
+   THE IDENTIFIER RULE, again. A table name cannot be a bound parameter,
+   so a browse request could otherwise concatenate user text into SQL. The
+   name is therefore never trusted as given: it is looked up in the
+   catalogue first, and the string that reaches the query is the one
+   Postgres handed back, not the one the client sent. */
+
+/** Row cap per page, and per-cell cap. Both exist so one `SELECT *` on a
+    table of large blobs cannot pull the worker's memory over. */
+const MAX_ROWS = 200;
+const MAX_CELL = 2000;
+
+/** Reads one JSON value out of the tenant's own database. */
+async function readJson(projectId, sql, opts) {
+  const r = await psql(sql, Object.assign({ database: dbNameFor(projectId), tuplesOnly: true }, opts || {}));
+  if (!r.ok) return { ok: false, error: r.error };
+  try {
+    return { ok: true, value: JSON.parse(r.stdout || "[]") };
+  } catch (e) {
+    return { ok: false, error: "the database returned something that could not be read" };
+  }
+}
+
+/**
+ * Every table the app has made, with an approximate row count.
+ *
+ * reltuples is the planner's estimate, not a count. That is deliberate:
+ * an exact count(*) is a full scan of every table on the page, which on a
+ * table worth browsing is exactly when it hurts. The UI says "about".
+ */
+async function listTables(projectId) {
+  return readJson(projectId, [
+    "SELECT coalesce(json_agg(t ORDER BY t.name), '[]')::text FROM (",
+    "  SELECT c.relname AS name,",
+    /* NULL, not 0, when the planner has no estimate yet. reltuples is -1
+       on a table that has never been analysed, which is the normal state
+       of a table an app just created — and "about 0 rows" over a table
+       with data in it is worse than saying nothing at all. */
+    "         CASE WHEN c.reltuples < 0 THEN NULL ELSE c.reltuples::bigint END AS approx_rows,",
+    "         pg_total_relation_size(c.oid)::bigint AS bytes",
+    "    FROM pg_class c",
+    "    JOIN pg_namespace n ON n.oid = c.relnamespace",
+    /* public only. A tenant cannot reach another database at all, but its
+       own catalogue also holds Postgres's internal schemas, and listing
+       those as if they were the customer's tables is just noise. */
+    "   WHERE n.nspname = 'public' AND c.relkind IN ('r','p','v','m')",
+    ") t;"
+  ].join("\n"));
+}
+
+/**
+ * Resolve a client-supplied table name to the real one, or nothing.
+ *
+ * This is the security boundary for the whole browser. The returned
+ * string comes from pg_class, so by the time it is concatenated into a
+ * query it is a name Postgres itself produced.
+ */
+async function resolveTable(projectId, wanted) {
+  const listed = await listTables(projectId);
+  if (!listed.ok) return { ok: false, error: listed.error };
+  const hit = listed.value.find((t) => t.name === String(wanted));
+  if (!hit) return { ok: false, notFound: true, error: "no table by that name in this database" };
+  // null stays null: "we do not know" is a different answer from "zero".
+  const approx = hit.approx_rows == null ? null : Number(hit.approx_rows);
+  return { ok: true, name: hit.name, approxRows: Number.isFinite(approx) ? approx : null };
+}
+
+/**
+ * One page of a table.
+ *
+ * Columns are read separately from rows because a table with no rows
+ * still has a shape, and a browser that shows nothing at all for an empty
+ * table looks broken rather than empty.
+ *
+ * ORDER BY ctid is not a meaningful sort — it is physical position — but
+ * it is stable within a page, and without any ORDER BY, LIMIT/OFFSET can
+ * return the same row twice across two pages and never show another.
+ */
+async function readRows(projectId, table, opts) {
+  const o = opts || {};
+  const limit = Math.min(Math.max(parseInt(o.limit, 10) || 50, 1), MAX_ROWS);
+  const offset = Math.max(parseInt(o.offset, 10) || 0, 0);
+
+  const found = await resolveTable(projectId, table);
+  if (!found.ok) return found;
+  const t = q(found.name);
+
+  const cols = await readJson(projectId, [
+    "SELECT coalesce(json_agg(a ORDER BY a.pos), '[]')::text FROM (",
+    "  SELECT attname AS name, format_type(atttypid, atttypmod) AS type, attnum AS pos",
+    "    FROM pg_attribute",
+    "   WHERE attrelid = " + lit("public." + found.name) + "::regclass",
+    "     AND attnum > 0 AND NOT attisdropped",
+    ") a;"
+  ].join("\n"));
+  if (!cols.ok) return { ok: false, error: cols.error };
+
+  /* Every column is cast to text and truncated HERE, in the database.
+     Doing it after the fact would mean the oversized value had already
+     been serialised, buffered and shipped — the cap has to bite before
+     the row leaves Postgres to be worth anything. */
+  const projection = cols.value.map((c) =>
+    "left(" + q(c.name) + "::text, " + MAX_CELL + ") AS " + q(c.name)
+  ).join(", ") || "1";
+
+  const rows = await readJson(projectId, [
+    "SELECT coalesce(json_agg(r), '[]')::text FROM (",
+    "  SELECT " + projection + " FROM public." + t + " ORDER BY ctid LIMIT " + limit + " OFFSET " + offset,
+    ") r;"
+  ].join("\n"), { timeoutMs: 20000 });
+  if (!rows.ok) return { ok: false, error: rows.error };
+
+  return {
+    ok: true,
+    table: found.name,
+    columns: cols.value.map((c) => ({ name: c.name, type: c.type })),
+    rows: rows.value,
+    limit, offset,
+    approxRows: found.approxRows,
+    // The page is full, so there is probably more. Cheaper and more
+    // honest than a count(*) that would scan the table to say so.
+    hasMore: rows.value.length === limit
+  };
+}
+
 module.exports = {
   mode: "builtin",
   provision, destroy, inspect, ready,
+  listTables, readRows, resolveTable,
   dbNameFor, roleNameFor, ident,
   CONTAINER
 };

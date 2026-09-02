@@ -168,6 +168,24 @@ const setDatabase = (cookie, deployProjectId, body) =>
 /** Refreshes the recorded size; answers with the updated view. */
 const measureDatabase = (cookie, deployProjectId) =>
   call("POST", dbPath(deployProjectId) + "/measure", { cookie });
+/**
+ * The data browser: the table list, or one page of one table.
+ *
+ * Nothing here carries SQL. The plane checks the table name against the
+ * database's own catalogue before it builds a query, so a name that
+ * reaches this function is only ever a lookup key — which is why it is
+ * safe to let a browser choose one.
+ */
+const browseDatabase = (cookie, deployProjectId, opts) => {
+  const o = opts || {};
+  const qs = new URLSearchParams();
+  if (o.table) qs.set("table", o.table);
+  if (o.limit) qs.set("limit", String(o.limit));
+  if (o.offset) qs.set("offset", String(o.offset));
+  const tail = qs.toString() ? "?" + qs.toString() : "";
+  return call("GET", dbPath(deployProjectId) + "/browse" + tail, { cookie });
+};
+
 /** Drops a built-in database that is being kept after a switch to
     external. 202: queued for the worker, like every other docker action. */
 const dropBuiltinDatabase = (cookie, deployProjectId) =>
@@ -179,5 +197,5 @@ module.exports = {
   createProject, createDeployment, uploadSource,
   getDeployment, getStatus, getLogs, action, destroy,
   getEnv, putEnv, deleteEnvKey,
-  getDatabase, setDatabase, measureDatabase, dropBuiltinDatabase
+  getDatabase, setDatabase, measureDatabase, dropBuiltinDatabase, browseDatabase
 };

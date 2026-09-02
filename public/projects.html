@@ -62,10 +62,11 @@
     display:flex;flex-direction:column;z-index:100}
   .ag-history.on{width:var(--sb-w) !important;flex:0 0 var(--sb-w) !important;min-width:var(--sb-w) !important;border-right:1px solid var(--line);overflow:visible !important}
   .ag-hist-head,.ag-hist-tabs,.ag-hist-foot{width:100%;box-sizing:border-box}
-  .ag-hist-head{display:flex;align-items:center;gap:8px;padding:10px 10px 12px 114px;width:100%;box-sizing:border-box}
+  /* --- header: logo left, controls right --- */
+  .ag-hist-head{display:flex;align-items:center;gap:8px;padding:10px 10px 12px 12px;width:100%;box-sizing:border-box}
   .ag-hist-mark{width:28px;height:28px;display:grid;place-items:center;flex:none}
   .ag-hist-mark svg{width:23px;height:23px;display:block;overflow:visible}
-  .ag-hist-brand-text{display:flex;flex-direction:column;line-height:1.05;font-family:var(--disp);font-weight:800;font-size:.88rem;color:var(--ink);letter-spacing:-.01em;margin-left:6px}
+  .ag-hist-brand-text{display:none;flex-direction:column;line-height:1.05;font-family:var(--disp);font-weight:800;font-size:.88rem;color:var(--ink);letter-spacing:-.01em;margin-left:6px}
   .ag-hist-brand-text span{display:block}
   .ag-ws-wrap{position:relative}
   .ag-ws{display:flex;align-items:center;gap:9px;border:1px solid var(--line);background:var(--card);color:var(--ink) !important;border-radius:999px;padding:6px 10px 6px 6px;margin:8px 10px 8px;width:calc(100% - 20px);cursor:pointer;text-align:left;box-sizing:border-box}
@@ -185,7 +186,7 @@
   #agDeskSidebarToggle{position:fixed !important;top:10px !important;left:10px !important;z-index:999999 !important;
     padding:5px 10px !important;height:32px !important;font-size:.82rem !important}
   .ag-pv-toggle-btn:hover{border-color:#cbd5e1;background:var(--paper-2);color:var(--ink)}
-  .ag-pv-toggle-btn.on{background:var(--card);color:var(--ink);border-color:var(--accent);box-shadow:0 0 8px rgba(26,166,223,.35),0 0 0 1px var(--accent)}
+  .ag-pv-toggle-btn.on{background:var(--card);color:var(--ink)}
   .ag-pv-toggle-btn .pane-left{transition:fill .2s ease;fill:transparent}
   .ag-pv-toggle-btn.on .pane-left{fill:var(--accent)}
   .ag-pv-toggle-btn svg{width:16px;height:16px;flex:none}
@@ -274,7 +275,8 @@
        the builder — the word "Sidebar" beside a 44px rail is wider than
        the rail it describes. */
     #agDeskSidebarToggle:not(.on) span{display:none !important}
-    #agDeskSidebarToggle:not(.on){padding:4px !important;width:28px !important;height:28px !important;left:56px !important;justify-content:center !important}
+    #agDeskSidebarToggle:not(.on){padding:4px !important;width:30px !important;height:30px !important;
+      left:calc(var(--sb-w) - 40px) !important;justify-content:center !important}
     /* Collapsed = the logo and nothing else, the way the reference does
        it. The toggle is not merely unlabelled in the rail, it is gone: a
        floating button parked beside a 44px column is the one thing there
@@ -285,6 +287,15 @@
     .ag-history:not(.on) ~ #agDeskSidebarToggle{opacity:0;pointer-events:none;transition:opacity .18s ease}
     .ag-history:not(.on):hover ~ #agDeskSidebarToggle,
     .ag-history:not(.on).hover-open ~ #agDeskSidebarToggle{opacity:1;pointer-events:auto}
+    /* OPEN: the icon alone, at the right edge of the sidebar header —
+       where the reference puts its controls. The word "Sidebar" was the
+       widest thing in that row and only named what the icon already
+       shows; dropping it is what lets the mark sit at the far left with
+       the control at the far right instead of both bunched together.
+       The .on glow stays: that, not the label, is the state cue. */
+    #agDeskSidebarToggle.on span{display:none !important}
+    #agDeskSidebarToggle.on{padding:4px !important;width:30px !important;height:30px !important;
+      justify-content:center !important;left:calc(var(--sb-w) - 40px) !important}
 
     /* The content column sits beside the rail, so it only needs to clear
        the fixed toggle button, not the whole panel. */
