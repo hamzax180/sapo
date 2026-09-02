@@ -50,7 +50,10 @@
   @media (prefers-reduced-motion:reduce){.rvl,.rvl-s{opacity:1;transform:none;transition:none}}
 
   /* ---------- nav ---------- */
-  .nav{position:static;z-index:40;display:flex;align-items:center;gap:20px;padding:14px clamp(18px,4vw,40px);
+  /* Padding matches home.html's nav exactly (18px / clamp(18px,4vw,44px))
+     so the bar sits in the same place on both pages — moving between them
+     should not nudge the header up and in. */
+  .nav{position:static;z-index:40;display:flex;align-items:center;gap:20px;padding:18px clamp(18px,4vw,44px);
     background:#0d2338}
   .brand{display:flex;align-items:center;gap:10px;font-family:var(--disp);font-weight:800;font-size:1.1rem;color:#fff}
   .nav .lnk{margin-left:auto;display:flex;gap:2px}
@@ -1283,7 +1286,7 @@
      and the decorative browser mockups drop to 2 columns.
      ============================================================ */
   @media (max-width:600px){
-    .nav{gap:6px;padding:11px 12px}
+    .nav{gap:6px;padding:11px 10px}   /* same as home's phone nav */
     .brand{font-size:1rem;gap:6px}
     .brand svg{width:22px;height:22px}
     .lang-dropdown{display:inline-block}
