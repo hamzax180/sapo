@@ -72,6 +72,14 @@
   .ag-hist-head{display:flex;align-items:center;gap:8px;padding:10px 10px 12px 12px;width:100%;box-sizing:border-box}
   .ag-hist-mark{width:28px;height:28px;display:grid;place-items:center;flex:none}
   .ag-hist-mark svg{width:23px;height:23px;display:block;overflow:visible}
+  /* Sits between the mark and the toggle, the way the reference does.
+     margin-left:auto pushes it to the right end of the header; the right
+     margin is the width the fixed toggle occupies at the very edge. */
+  .ag-hist-search{margin-left:auto;margin-right:38px;flex:none;width:30px;height:30px;
+    display:grid;place-items:center;border:1px solid transparent;border-radius:9px;
+    background:none;color:var(--ink-2);cursor:pointer;transition:background .15s ease,color .15s ease}
+  .ag-hist-search:hover{background:var(--paper-2);color:var(--ink)}
+  .ag-hist-search svg{width:16px;height:16px}
   .ag-hist-brand-text{display:none;flex-direction:column;line-height:1.05;font-family:var(--disp);font-weight:800;font-size:.88rem;color:var(--ink);letter-spacing:-.01em;margin-left:6px}
   .ag-hist-brand-text span{display:block}
   .ag-ws-wrap{position:relative}
@@ -259,6 +267,9 @@
     /* Height clears the fixed sidebar toggle sitting at top-left. */
     .ag-history:not(.on):not(:hover):not(.hover-open) .ag-hist-head{padding:8px 0 4px !important;height:44px !important;flex:0 0 44px !important;overflow:hidden;justify-content:center}
     .ag-history:not(.on):not(:hover):not(.hover-open) .ag-hist-mark{margin:0 auto}
+    /* The rail is 44px of logo. Nothing else fits, and the search box it
+       would focus is not on screen there either. */
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-hist-search{display:none !important}
     .ag-history:not(.on):not(:hover):not(.hover-open) .ag-hist-tabs{padding:4px 0 6px !important;align-items:center}
     .ag-history:not(.on):not(:hover):not(.hover-open) .ag-hist-tab{width:32px;padding:7px 0;justify-content:center;gap:0}
     .ag-history:not(.on):not(:hover):not(.hover-open) .ag-tab-new{background:transparent;box-shadow:none}
@@ -585,7 +596,7 @@
 <body><div class="ag-hist-backdrop" id="agHistBackdrop"></div>
 <aside class="ag-history on" id="agHistory" aria-label="Your account">
   <div class="ag-hist-head">
-    <span class="ag-hist-mark"><svg viewBox="0 0 24 24" fill="none" stroke="url(#souqiBag)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><defs><linearGradient id="souqiBag" x1="4" y1="4" x2="20" y2="20" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#1f8ae0"/><stop offset="1" stop-color="#22c55e"/></linearGradient></defs><path d="M5.2 8h13.6a1.4 1.4 0 0 1 1.39 1.55l-.86 9.4a1.9 1.9 0 0 1-1.89 1.75H6.56a1.9 1.9 0 0 1-1.89-1.75l-.86-9.4A1.4 1.4 0 0 1 5.2 8Z"/><path d="M8.9 10.4V4.9h6.2v5.5"/></svg></span>
+    <span class="ag-hist-mark"><svg viewBox="0 0 24 24" fill="none" stroke="url(#souqiBag)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><defs><linearGradient id="souqiBag" x1="4" y1="4" x2="20" y2="20" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#1f8ae0"/><stop offset="1" stop-color="#22c55e"/></linearGradient></defs><path d="M5.2 8h13.6a1.4 1.4 0 0 1 1.39 1.55l-.86 9.4a1.9 1.9 0 0 1-1.89 1.75H6.56a1.9 1.9 0 0 1-1.89-1.75l-.86-9.4A1.4 1.4 0 0 1 5.2 8Z"/><path d="M8.9 10.4V4.9h6.2v5.5"/></svg></span><button type="button" class="ag-hist-search" id="agHistSearch" title="Search" aria-label="Search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.6-3.6"/></svg></button>
     <b class="ag-hist-brand-text"><span>Souqi</span><span>Code</span></b>
   </div>
 
@@ -1723,8 +1734,40 @@
     var btn = document.getElementById('agDeskSidebarToggle');
     var aside = document.getElementById('agHistory');
     if (!btn || !aside) return;
-    btn.addEventListener('mouseenter', function () { aside.classList.add('hover-open'); });
-    btn.addEventListener('mouseleave', function () { aside.classList.remove('hover-open'); });
+    /* Closing has to close NOW, not whenever the pointer wanders off.
+       hover-open is what keeps the panel from collapsing while you reach
+       for the button — but after a click that closed the sidebar the
+       pointer is still ON the button, so that same class held the panel
+       open and the button visible, and the close looked like it had not
+       worked. suppress drops the hold until the pointer leaves. */
+    var suppress = false;
+    btn.addEventListener('mouseenter', function () {
+      if (!suppress) aside.classList.add('hover-open');
+    });
+    btn.addEventListener('mouseleave', function () {
+      suppress = false;
+      aside.classList.remove('hover-open');
+    });
+    // Runs after the handler that toggles .on, so this reads the NEW state.
+    btn.addEventListener('click', function () {
+      if (!aside.classList.contains('on')) {
+        suppress = true;
+        aside.classList.remove('hover-open');
+      }
+    });
+  })();
+
+  /* The header's search button is a shortcut to the one search this page
+     already has, not a second one. Same target as the / key. */
+  (function () {
+    var sb = document.getElementById('agHistSearch');
+    if (!sb) return;
+    sb.addEventListener('click', function () {
+      var q = document.getElementById('q');
+      if (!q) return;
+      q.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      q.focus(); q.select();
+    });
   })();
 </script>
 </body>

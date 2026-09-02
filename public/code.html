@@ -4715,8 +4715,27 @@
     var btn = document.getElementById('agDeskSidebarToggle');
     var aside = document.getElementById('agHistory');
     if (!btn || !aside) return;
-    btn.addEventListener('mouseenter', function () { aside.classList.add('hover-open'); });
-    btn.addEventListener('mouseleave', function () { aside.classList.remove('hover-open'); });
+    /* Closing has to close NOW, not whenever the pointer wanders off.
+       hover-open is what keeps the panel from collapsing while you reach
+       for the button — but after a click that closed the sidebar the
+       pointer is still ON the button, so that same class held the panel
+       open and the button visible, and the close looked like it had not
+       worked. suppress drops the hold until the pointer leaves. */
+    var suppress = false;
+    btn.addEventListener('mouseenter', function () {
+      if (!suppress) aside.classList.add('hover-open');
+    });
+    btn.addEventListener('mouseleave', function () {
+      suppress = false;
+      aside.classList.remove('hover-open');
+    });
+    // Runs after the handler that toggles .on, so this reads the NEW state.
+    btn.addEventListener('click', function () {
+      if (!aside.classList.contains('on')) {
+        suppress = true;
+        aside.classList.remove('hover-open');
+      }
+    });
   })();
 </script>
 </body>
