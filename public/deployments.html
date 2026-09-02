@@ -41,7 +41,11 @@
   .ag-main, .wrap{overflow-x:hidden}
   body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--body);-webkit-font-smoothing:antialiased;display:flex;min-height:100vh}
   a{color:inherit;text-decoration:none}
-  button{font:inherit}
+  /* color:inherit matters as much as font. A <button> does NOT inherit
+     colour — it falls back to the UA's ButtonText, which is black — so any
+     button styled as a surface (the app cards) rendered black-on-dark in
+     dark mode while every other element followed the theme. */
+  button{font:inherit;color:inherit}
   button:focus, button:focus-visible, a:focus, a:focus-visible{outline:none !important;box-shadow:none !important}
   h1,h2{font-family:var(--disp);font-weight:700;letter-spacing:-.02em;margin:0}
 
@@ -435,6 +439,23 @@
   .empty h2{font-size:1.25rem;margin-bottom:8px;color:var(--ink)}
   .empty p{font-size:.92rem;max-width:44ch;margin:0 auto 20px;line-height:1.55}
 
+  /* ---- in-place panel ----
+     Settings and plans open over the page instead of navigating away, the
+     way the builder does it. Same overlay for both: one iframe, whichever
+     page it is pointed at. Hosting the real /settings and /pricing rather
+     than re-implementing them here is what keeps a price from being right
+     on one screen and stale on another. */
+  .ag-set-overlay{position:fixed;inset:0;z-index:9999999 !important;background:rgba(8,7,6,.32);
+    display:flex;align-items:center;justify-content:center;padding:clamp(8px,3.5vh,40px);
+    -webkit-backdrop-filter:blur(14px) saturate(115%);backdrop-filter:blur(14px) saturate(115%)}
+  .ag-set-overlay[hidden]{display:none !important;pointer-events:none !important;visibility:hidden !important}
+  .ag-set-overlay iframe{width:min(1393px,92vw);height:min(700px,80vh);border:0;border-radius:13px;
+    background:var(--card);box-shadow:0 30px 90px -28px rgba(0,0,0,.55)}
+  @media (max-width:900px){
+    .ag-set-overlay{padding:0}
+    .ag-set-overlay iframe{width:100%;height:100%;border-radius:0}
+  }
+
   .toast{position:fixed;left:50%;bottom:24px;transform:translate(-50%,20px);opacity:0;pointer-events:none;
     background:var(--ink);color:var(--paper);border-radius:10px;padding:10px 16px;font-size:.86rem;font-weight:500;
     z-index:999999;transition:opacity .2s,transform .2s var(--ease);max-width:min(440px,90vw)}
@@ -598,6 +619,10 @@
     </button>
     <div id="detailBody"></div>
   </div>
+</div>
+
+<div class="ag-set-overlay" id="agSetOverlay" hidden>
+  <iframe id="agSetFrame" title="Panel" src="about:blank"></iframe>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -991,7 +1016,7 @@
     var card = e.target.closest(".app") || e.target.closest(".ag-chat-item");
     if (card && card.dataset.key) { openDetail(card.dataset.key); return; }
 
-    if (e.target.closest("#agUserMain") || e.target.closest("#agUserGear")) { location.href = "/settings"; return; }
+    if (e.target.closest("#agUserMain") || e.target.closest("#agUserGear")) { openPanel("/settings"); return; }
 
     var chip = e.target.closest(".fchip");
     if (chip) {
@@ -1064,10 +1089,46 @@
 
   document.addEventListener("keydown", function (e) {
     if (e.key === "/" && document.activeElement !== $("q")) { e.preventDefault(); $("q").focus(); return; }
-    if (e.key === "Escape") { if (openKey) closeDetail(); else $("q").blur(); return; }
+    // The panel is on top, so it closes first.
+    if (e.key === "Escape") {
+      if (!$("agSetOverlay").hidden) { closePanel(); return; }
+      if (openKey) closeDetail(); else $("q").blur();
+      return;
+    }
     if (e.key === "r" && openKey && !/^(INPUT|TEXTAREA)$/.test(document.activeElement.tagName)) {
       var b = document.querySelector('[data-act="redeploy"]'); if (b && !b.disabled) b.click();
     }
+  });
+
+  /* ---------- in-place panel ----------
+     Settings and plans open over this page rather than navigating to
+     them, which is what the builder does and what keeps a deploy you are
+     watching on screen while you check a setting. */
+  function openPanel(src) {
+    var f = $("agSetFrame");
+    if (f.getAttribute("src") !== src) f.setAttribute("src", src);
+    $("agSetOverlay").hidden = false;
+    if (window.SouqiLoading) window.SouqiLoading.hide();
+  }
+  function closePanel() { $("agSetOverlay").hidden = true; }
+
+  $("agSetOverlay").addEventListener("click", function (e) {
+    if (e.target === $("agSetOverlay")) closePanel();
+  });
+  // The settings page's own X is inside the iframe and cannot reach this
+  // handler, so it posts up instead.
+  window.addEventListener("message", function (e) {
+    if (e.data === "souqi:settings:close") closePanel();
+  });
+
+  /* Anything that would have navigated to /settings or /pricing opens the
+     panel instead — the sidebar rows, the workspace menu, the account
+     gear, and Upgrade. Ctrl/cmd-click still goes to the real page. */
+  document.addEventListener("click", function (e) {
+    var a = e.target.closest('a[href^="/settings"], a[href^="/pricing"], .ag-upgrade');
+    if (!a || e.metaKey || e.ctrlKey || e.shiftKey || a.target === "_blank") return;
+    e.preventDefault();
+    openPanel(a.getAttribute("href") || "/pricing");
   });
 
   /* sidebar shell — same behaviour as /projects */

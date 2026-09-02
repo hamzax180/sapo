@@ -73,8 +73,10 @@ async function sweepImages() {
 
 /** Containers on the host with no live row behind them. */
 async function sweepOrphanContainers() {
+  // null means the daemon was unreachable. Sweeping on that would be
+  // reasoning about an empty list that only looks empty, so do nothing.
   const managed = await engine.listManaged();
-  if (!managed.length) return { removed: 0 };
+  if (!managed || !managed.length) return { removed: 0 };
 
   const ids = managed.map((c) => c.name.replace(/^app-/, ""));
   const alive = await many(

@@ -229,10 +229,19 @@ async function statsAll() {
   });
 }
 
-/** Only containers this platform created — never anything else on the host. */
+/**
+ * Only containers this platform created — never anything else on the host.
+ *
+ * Returns NULL, not [], when the daemon could not be reached. The two mean
+ * opposite things and callers have to tell them apart: [] is "there are no
+ * containers", null is "nobody could look". Returning [] for both is how
+ * the api — which has no Docker socket — came to report 0 containers on a
+ * host that was running several, and, worse, how its MAX_CONTAINERS
+ * admission check came to pass unconditionally.
+ */
 async function listManaged() {
   const r = await docker(["ps", "--all", "--filter", "label=souqi.managed=true", "--format", "{{.Names}}|{{.State}}|{{.Image}}"], { timeoutMs: 20000 });
-  if (!r.ok) return [];
+  if (!r.ok) return null;
   return r.stdout.trim().split("\n").filter(Boolean).map((l) => {
     const c = l.split("|");
     return { name: c[0], state: c[1], image: c[2] };
