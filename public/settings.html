@@ -94,7 +94,10 @@
   ::-webkit-scrollbar-thumb:hover { background: var(--mut); }
 
   .side{padding:10px 10px 16px 14px;overflow-y:auto;max-height:min(74vh,660px);
-    background:var(--sidebg);border-right:1px solid var(--line)}
+    background:var(--sidebg);border-right:1px solid var(--line);
+    /* A column, so the nav below can claim the leftover height and push
+       its last group down. Nothing here changes the panel's size. */
+    display:flex;flex-direction:column}
   .wsbadge{display:flex;align-items:center;gap:10px;width:100%;border:1px solid var(--line);background:var(--card);
     color:var(--ink);border-radius:9px;padding:5px 9px 5px 5px;margin-bottom:16px;text-align:left;cursor:pointer}
   .wsbadge .av{width:24px;height:24px;border-radius:50%;flex:none;display:grid;place-items:center;color:#fff;
@@ -105,7 +108,13 @@
      tiny uppercase eyebrows a settings page usually uses. */
   .grp{font-size:.7rem;font-weight:600;color:var(--ink);padding:0 8px;margin:16px 0 3px}
   .grp:first-of-type{margin-top:0}
-  .snav{display:flex;flex-direction:column;gap:4px}
+  .snav{display:flex;flex-direction:column;gap:4px;flex:1}
+  /* The last group — User, ending in Promotions & Referrals — sits at the
+     bottom of the column. The empty space in this sidebar was collecting
+     UNDER the final item, which reads as a list that stopped early. Put
+     it between the groups instead and the column has a top and a bottom:
+     what you do with the workspace up here, who you are down there. */
+  .snav .grp:last-of-type{margin-top:auto}
   .snav button{display:flex;align-items:center;gap:10px;width:100%;text-align:left;border:0;background:none;
     color:var(--ink-2);padding:8px;border-radius:8px;font-size:.81rem;font-weight:400;cursor:pointer;transition:.14s}
   .snav button svg{width:16px;height:16px;flex:none}

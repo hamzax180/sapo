@@ -69,8 +69,8 @@
   .ag-history.on{width:var(--sb-w) !important;flex:0 0 var(--sb-w) !important;min-width:var(--sb-w) !important;border-right:1px solid var(--line);overflow:visible !important}
   .ag-hist-head,.ag-hist-tabs,.ag-hist-foot{width:100%;box-sizing:border-box}
   .ag-hist-head{display:flex;align-items:center;gap:8px;padding:10px 10px 12px 114px;width:100%;box-sizing:border-box}
-  .ag-hist-mark{width:28px;height:28px;border-radius:8px;background:var(--accent);display:grid;place-items:center;flex:none}
-  .ag-hist-mark svg{width:15px;height:15px;color:#fff}
+  .ag-hist-mark{width:28px;height:28px;display:grid;place-items:center;flex:none}
+  .ag-hist-mark svg{width:23px;height:23px;display:block;overflow:visible}
   .ag-hist-brand-text{display:flex;flex-direction:column;line-height:1.05;font-family:var(--disp);font-weight:800;font-size:.88rem;color:var(--ink);letter-spacing:-.01em;margin-left:6px}
   .ag-hist-brand-text span{display:block}
   .ag-ws-wrap{position:relative}
@@ -256,8 +256,8 @@
     .ag-history:not(.on):not(:hover):not(.hover-open) .ag-chats-empty{display:none}
 
     /* Height clears the fixed sidebar toggle sitting at top-left. */
-    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-hist-head{padding:0 !important;height:38px !important;flex:0 0 38px !important;overflow:hidden}
-    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-hist-mark{display:none !important}
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-hist-head{padding:8px 0 4px !important;height:44px !important;flex:0 0 44px !important;overflow:hidden;justify-content:center}
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-hist-mark{margin:0 auto}
     .ag-history:not(.on):not(:hover):not(.hover-open) .ag-hist-tabs{padding:4px 0 6px !important;align-items:center}
     .ag-history:not(.on):not(:hover):not(.hover-open) .ag-hist-tab{width:32px;padding:7px 0;justify-content:center;gap:0}
     .ag-history:not(.on):not(:hover):not(.hover-open) .ag-tab-new{background:transparent;box-shadow:none}
@@ -280,7 +280,17 @@
        the builder — the word "Sidebar" beside a 44px rail is wider than
        the rail it describes. */
     #agDeskSidebarToggle:not(.on) span{display:none !important}
-    #agDeskSidebarToggle:not(.on){padding:4px !important;width:28px !important;height:28px !important;left:8px !important;justify-content:center !important}
+    #agDeskSidebarToggle:not(.on){padding:4px !important;width:28px !important;height:28px !important;left:56px !important;justify-content:center !important}
+    /* Collapsed = the logo and nothing else, the way the reference does
+       it. The toggle is not merely unlabelled in the rail, it is gone: a
+       floating button parked beside a 44px column is the one thing there
+       that is not navigation. It fades back in while the rail is hovered
+       — which is also when the panel opens — so pinning it open is still
+       one click, and hover-open below is what stops it collapsing out
+       from under that click. */
+    .ag-history:not(.on) ~ #agDeskSidebarToggle{opacity:0;pointer-events:none;transition:opacity .18s ease}
+    .ag-history:not(.on):hover ~ #agDeskSidebarToggle,
+    .ag-history:not(.on).hover-open ~ #agDeskSidebarToggle{opacity:1;pointer-events:auto}
 
     /* The content column sits beside the rail, so it only needs to clear
        the fixed toggle button, not the whole panel. */
@@ -537,7 +547,7 @@
 <body><div class="ag-hist-backdrop" id="agHistBackdrop"></div>
 <aside class="ag-history on" id="agHistory" aria-label="Your account">
   <div class="ag-hist-head">
-    <span class="ag-hist-mark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 16 4-4-4-4M6 8l-4 4 4 4M14.5 4l-5 16"/></svg></span>
+    <span class="ag-hist-mark"><svg viewBox="0 0 24 24" fill="none" stroke="url(#souqiBag)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><defs><linearGradient id="souqiBag" x1="4" y1="4" x2="20" y2="20" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#1f8ae0"/><stop offset="1" stop-color="#22c55e"/></linearGradient></defs><path d="M5.2 8h13.6a1.4 1.4 0 0 1 1.39 1.55l-.86 9.4a1.9 1.9 0 0 1-1.89 1.75H6.56a1.9 1.9 0 0 1-1.89-1.75l-.86-9.4A1.4 1.4 0 0 1 5.2 8Z"/><path d="M8.9 10.4V4.9h6.2v5.5"/></svg></span>
     <b class="ag-hist-brand-text"><span>Souqi</span><span>Code</span></b>
   </div>
 
@@ -1499,6 +1509,18 @@
     else if (!h && openKey) closeDetail();
   });
 })();
+
+  /* The toggle is a SIBLING of the sidebar, not a child, so moving the
+     pointer off the rail and onto the button ends :hover — collapsing the
+     panel and hiding the button out from under the click that was coming.
+     hover-open holds both open for as long as the pointer is on it. */
+  (function () {
+    var btn = document.getElementById('agDeskSidebarToggle');
+    var aside = document.getElementById('agHistory');
+    if (!btn || !aside) return;
+    btn.addEventListener('mouseenter', function () { aside.classList.add('hover-open'); });
+    btn.addEventListener('mouseleave', function () { aside.classList.remove('hover-open'); });
+  })();
 </script>
 </body>
 </html>
