@@ -1960,7 +1960,7 @@ app.post("/api/projects/:key/micro-claim", microClaimLimiter, validateBody(micro
 const codeAgentRuntimeReg = require("./lib/codeagent/runtime");
 const daytonaRuntimeModule = require("./lib/codeagent/runtimes/daytona-runtime"); // registers "daytona"
 const { makeTools: makeCodeAgentTools } = require("./lib/codeagent/tools");
-const { proposeChanges, proposeWithRepair, proposeWithClientBuild, assessPrompt, buildPlan } = require("./lib/codeagent/model-loop");
+const { proposeChanges, proposeWithRepair, proposeWithClientBuild, assessPrompt, buildPlan, buildCodebaseContext } = require("./lib/codeagent/model-loop");
 const codeAgentUsage = require("./lib/codeagent/usage");
 codeAgentUsage.init({ getMasterDb });
 
@@ -2919,13 +2919,21 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
       // change one part without breaking the rest.
       const head = await projects.head(project.id);
       const files = head && head.config && head.config.files;
-      const fileEntries = files ? Object.entries(files).filter(([k]) => k.startsWith("src/")) : [];
-      if (fileEntries.length) {
-        let context = "";
-        for (const [path, content] of fileEntries) {
-          context += "File: " + path + "\n```\n" + String(content).slice(0, 8000) + "\n```\n\n";
+      const srcFiles = {};
+      for (const [k, v] of Object.entries(files || {})) if (k.startsWith("src/")) srcFiles[k] = v;
+
+      if (Object.keys(srcFiles).length) {
+        // buildCodebaseContext fits whole files where it can, marks any
+        // excerpt in the prompt itself, and names what it left out. The
+        // old inline version cut every file at 8000 chars without saying
+        // so, which is how a model came to rewrite a file from the half
+        // it had been shown and delete the other half.
+        const ctx = buildCodebaseContext(srcFiles, { prompt: prompt });
+        effectivePrompt = "Here is the current codebase:\n\n" + ctx.text + "Change request: " + prompt;
+        if (ctx.excerpted.length || ctx.omitted.length) {
+          console.warn("[codeagent] context budget hit for " + project.id +
+            ": excerpted=" + ctx.excerpted.join(",") + " omitted=" + ctx.omitted.join(","));
         }
-        effectivePrompt = "Here is the current codebase:\n\n" + context + "Change request: " + prompt;
       } else {
         effectivePrompt = prompt;
       }

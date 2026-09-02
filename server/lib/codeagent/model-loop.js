@@ -669,7 +669,12 @@ const CALL_TIMEOUT_MS = 60000;
 // CODE-AGENT-PLAN.md §10's own pricing table), so the 2000 figure was never
 // a deliberate cost tradeoff, just sized for a short freeform first prompt
 // and never revisited for what a follow-up actually needs to carry.
-const MAX_USER_PROMPT_CHARS = 30000;
+/* Sized to hold the code budget plus the request around it, so this is a
+   backstop rather than the thing that decides what the model sees —
+   buildCodebaseContext does that, and it says out loud when it drops
+   something. A silent .slice() here would undo that honesty, so it is
+   kept comfortably above MAX_CODE_CONTEXT_CHARS. */
+const MAX_USER_PROMPT_CHARS = Number(process.env.CODEAGENT_MAX_PROMPT_CHARS || 140000);
 
 /* ---- conversation history ----------------------------------------
    The codebase goes into the user message; this is the talking that led
@@ -690,6 +695,102 @@ const MAX_HISTORY_TURNS = 12;
 const MAX_HISTORY_CHARS = 6000;
 const MAX_HISTORY_TURN_CHARS = 700;
 const MAX_HISTORY_AGENT_TURN_CHARS = 300;
+
+/* ---- codebase context ---------------------------------------------
+   The follow-up prompt carries the project's source so the model can
+   edit it. It used to be assembled with two hard slices — 8000 chars per
+   file, 30000 for the whole prompt — and both cut silently. A model
+   handed the first 8000 characters of a file has no way to know the rest
+   exists, so it rewrites what it was shown and deletes the remainder.
+   That is the worst possible failure: not a refusal, a plausible-looking
+   edit that drops code.
+
+   So: fit whole files where they fit, mark any excerpt loudly, and name
+   the files that did not make it. The model can then ask rather than
+   guess. Nothing is cut without saying so in the prompt itself.
+
+   The budget is a real limit, just a much larger one — at $0.27/M input
+   tokens, 120K chars is well under a cent per edit, so the old 30K was
+   never a cost tradeoff. */
+const MAX_CODE_CONTEXT_CHARS = Number(process.env.CODEAGENT_MAX_CODE_CHARS || 120000);
+// Below this an excerpt teaches the model less than an honest "omitted".
+const MIN_USEFUL_EXCERPT = 1200;
+
+/**
+ * Assemble the "here is the current codebase" block.
+ *
+ * @returns {{text:string, included:string[], excerpted:string[], omitted:string[]}}
+ */
+function buildCodebaseContext(files, opts) {
+  const o = opts || {};
+  const budget = o.budget || MAX_CODE_CONTEXT_CHARS;
+  const ask = String(o.prompt || "").toLowerCase();
+
+  const entries = Object.entries(files || {}).filter(([, v]) => v != null);
+  if (!entries.length) return { text: "", included: [], excerpted: [], omitted: [] };
+
+  /* Order decides what survives a tight budget, so it is not arbitrary:
+     a file the request names is the one being edited, entry points frame
+     the app, and after that smallest-first fits the most COMPLETE files
+     in — several whole files beat one big excerpt. */
+  const rank = (p) => {
+    const base = p.split("/").pop().toLowerCase();
+    const stem = base.replace(/\.[^.]+$/, "");
+    if (ask.includes(base) || (stem.length > 3 && ask.includes(stem))) return 0;
+    if (/(^|\/)(app|main|index)\.[tj]sx?$/i.test(p)) return 1;
+    return 2;
+  };
+  const sorted = entries.slice().sort((a, b) => {
+    const d = rank(a[0]) - rank(b[0]);
+    return d !== 0 ? d : String(a[1]).length - String(b[1]).length;
+  });
+
+  const parts = [], included = [], excerpted = [], omitted = [];
+  let used = 0;
+
+  for (const [p, raw] of sorted) {
+    const content = String(raw);
+    const head = "File: " + p + "\n```\n";
+    const foot = "\n```\n\n";
+    const whole = head.length + content.length + foot.length;
+    const left = budget - used;
+
+    if (whole <= left) {
+      parts.push(head + content + foot);
+      used += whole;
+      included.push(p);
+      continue;
+    }
+
+    // Doesn't fit whole. An excerpt is only worth it if enough of the file
+    // survives to be informative — and it must announce itself.
+    const room = left - head.length - foot.length - 320;
+    if (room >= MIN_USEFUL_EXCERPT) {
+      const keepTop = Math.floor(room * 0.7);
+      const keepEnd = room - keepTop;
+      const cut = content.length - keepTop - keepEnd;
+      const marker = "\n\n/* ---- " + cut + " characters omitted from the middle of this file ----\n" +
+        "   You are seeing an EXCERPT of " + p + ", not the whole file.\n" +
+        "   Do NOT rewrite this file in full — you would delete the part you\n" +
+        "   cannot see. Change only what you can see here, or say which part\n" +
+        "   you need in full. ---- */\n\n";
+      parts.push(head + content.slice(0, keepTop) + marker + content.slice(-keepEnd) + foot);
+      used = budget;
+      excerpted.push(p);
+    } else {
+      omitted.push(p);
+    }
+  }
+
+  let text = parts.join("");
+  if (omitted.length) {
+    // Naming them matters: "there are files you cannot see" is actionable,
+    // silently shipping a partial app is not.
+    text += "Also in this project, but not shown here (ask if you need one):\n" +
+      omitted.map((p) => "  - " + p).join("\n") + "\n\n";
+  }
+  return { text, included, excerpted, omitted };
+}
 
 /**
  * Stored turns -> chat messages, newest-first within a budget.
@@ -1335,6 +1436,6 @@ async function assessPrompt(userPrompt) {
 
 module.exports = {
   quickAssess, buildPlan, proposeChanges, proposeWithRepair, proposeWithClientBuild, assessPrompt, TOOLS_SCHEMA, SYSTEM_PROMPT,
-  buildHistory,
+  buildHistory, buildCodebaseContext,
   systemPromptFor, parseToolCalls, validateWriteFileArgs, cacheKey, clearCache
 };
