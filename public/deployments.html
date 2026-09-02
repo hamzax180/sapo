@@ -49,7 +49,16 @@
   button:focus, button:focus-visible, a:focus, a:focus-visible{outline:none !important;box-shadow:none !important}
   h1,h2{font-family:var(--disp);font-weight:700;letter-spacing:-.02em;margin:0}
 
-  .ag-main{flex:1;min-width:0;display:flex;flex-direction:column;height:100vh;overflow-y:auto}
+  /* The page's own scroll container, so it carries the page's own
+     scrollbar — left alone it renders the OS default, which on Windows is
+     a wide grey trough that looks like a 2010 desktop app bolted onto the
+     side of the page. Same treatment the app list already gets. */
+  .ag-main{flex:1;min-width:0;display:flex;flex-direction:column;height:100vh;overflow-y:auto;
+    scrollbar-width:thin;scrollbar-color:rgba(128,128,128,.35) transparent}
+  .ag-main::-webkit-scrollbar{width:8px}
+  .ag-main::-webkit-scrollbar-track{background:transparent}
+  .ag-main::-webkit-scrollbar-thumb{background:rgba(128,128,128,.32);border-radius:8px}
+  .ag-main::-webkit-scrollbar-thumb:hover{background:rgba(128,128,128,.5)}
 
   /* ---- sidebar: same shell as /projects so navigation feels continuous ---- */
   .ag-history{position:relative !important;height:100vh;flex:0 0 0px;
@@ -490,6 +499,19 @@
     .grid{grid-template-columns:1fr}
     .step{width:64px}
     .step .lb{font-size:.68rem}
+
+    /* The KPI tiles read as a row of numbers, not as cards — stacked, they
+       pushed the apps themselves below the fold on a phone. flex with
+       flex:1 1 0 keeps them on ONE line whatever their count, where the
+       grid's 160px minimum forced a wrap at any phone width. */
+    .kpis{display:flex;gap:8px;margin-bottom:16px}
+    .kpi{flex:1 1 0;min-width:0;padding:10px 8px;border-radius:12px}
+    .k-label{font-size:.58rem;letter-spacing:.06em;line-height:1.2}
+    .k-val{font-size:1.15rem;margin-top:3px}
+    /* The sub-line is the first thing to go: at ~80px wide it wraps to
+       three lines and says less than the number above it. */
+    .k-sub{display:none}
+    .k-meter{margin-top:6px}
   }
 </style>
 <link rel="stylesheet" href="/css/upgrade-modal.css">
