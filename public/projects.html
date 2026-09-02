@@ -254,6 +254,13 @@
     .ag-history:not(.on):not(:hover):not(.hover-open) .ag-ws-wrap{padding:0 !important;display:flex;justify-content:center}
     .ag-history:not(.on):not(:hover):not(.hover-open) .ag-ws{width:32px;margin:6px auto;padding:3px;justify-content:center}
 
+
+    /* Collapsed: the toggle is an icon, not a labelled button. Same as
+       the builder — the word "Sidebar" beside a 44px rail is wider than
+       the rail it describes. */
+    #agDeskSidebarToggle:not(.on) span{display:none !important}
+    #agDeskSidebarToggle:not(.on){padding:4px !important;width:28px !important;height:28px !important;left:8px !important;justify-content:center !important}
+
     /* The content column sits beside the rail, so it only needs to clear
        the fixed toggle button, not the whole panel. */
     .ag-main .nav{padding-left:96px}
