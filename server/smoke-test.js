@@ -58,11 +58,9 @@ const { spawnSync, spawn } = require("child_process");
     r = await fetch(base + "/health"); h = await r.json();
     h.ok ? pass("GET /health → ok") : await fail("health check failed");
 
-    // List clients (seeded)
-    r = await fetch(base + "/clients"); clients = await r.json();
-    Array.isArray(clients) && clients.length >= 1
-      ? pass("GET /clients → " + clients.length + " records")
-      : await fail("clients list empty or wrong type — got: " + JSON.stringify(clients).slice(0, 120));
+    // Unauthenticated request rejected
+    r = await fetch(base + "/clients");
+    r.status === 401 ? pass("GET /clients (no token) → 401") : await fail("unauthenticated access should return 401");
 
     // Wrong password rejected
     r = await fetch(base + "/auth/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email: "owner@merveks.com", password: "wrong" }) });
@@ -73,23 +71,31 @@ const { spawnSync, spawn } = require("child_process");
     login = await r.json();
     login.token && login.user.role === "Owner" ? pass("POST /auth/login correct → token + Owner role") : await fail("login should succeed with correct password");
 
+    const authHeaders = { "Content-Type": "application/json", "Authorization": "Bearer " + login.token };
+
+    // List clients (seeded, authenticated)
+    r = await fetch(base + "/clients", { headers: authHeaders }); clients = await r.json();
+    Array.isArray(clients) && clients.length >= 1
+      ? pass("GET /clients → " + clients.length + " records")
+      : await fail("clients list empty or wrong type — got: " + JSON.stringify(clients).slice(0, 120));
+
     // CRUD: create → read → update → delete
-    r = await fetch(base + "/clients", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: "C-TEST", name: "Smoke Test Co", country: "TR", status: "Active" }) });
+    r = await fetch(base + "/clients", { method: "POST", headers: authHeaders, body: JSON.stringify({ id: "C-TEST", name: "Smoke Test Co", country: "TR", status: "Active" }) });
     created = await r.json();
     created.id === "C-TEST" ? pass("POST /clients → created C-TEST") : await fail("create failed");
 
-    r = await fetch(base + "/clients/C-TEST"); got = await r.json();
+    r = await fetch(base + "/clients/C-TEST", { headers: authHeaders }); got = await r.json();
     got.name === "Smoke Test Co" ? pass("GET /clients/C-TEST → persisted") : await fail("read-back failed");
 
-    r = await fetch(base + "/clients/C-TEST", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: "On hold" }) });
+    r = await fetch(base + "/clients/C-TEST", { method: "PUT", headers: authHeaders, body: JSON.stringify({ status: "On hold" }) });
     upd = await r.json();
     upd.status === "On hold" ? pass("PUT /clients/C-TEST → updated") : await fail("update failed");
 
-    r = await fetch(base + "/clients/C-TEST", { method: "DELETE" }); del = await r.json();
+    r = await fetch(base + "/clients/C-TEST", { method: "DELETE", headers: authHeaders }); del = await r.json();
     del.ok ? pass("DELETE /clients/C-TEST → ok") : await fail("delete failed");
 
     // Password auto-hashed on user insert
-    r = await fetch(base + "/users", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: "U-TEST", name: "T", email: "t@x.com", role: "Trade Specialist", active: true, password: "plain123" }) });
+    r = await fetch(base + "/users", { method: "POST", headers: authHeaders, body: JSON.stringify({ id: "U-TEST", name: "T", email: "t@x.com", role: "Trade Specialist", active: true, password: "plain123" }) });
     nu = await r.json();
     nu.password && nu.password.startsWith("$2") ? pass("POST /users → password auto-hashed") : await fail("password not hashed");
 
