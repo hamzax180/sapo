@@ -1,0 +1,890 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#faf7f2">
+<meta name="robots" content="noindex">
+<link rel="icon" type="image/png" href="/assets/logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Jost:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<title>Deployments — Souqi</title>
+<script>
+(function(){var k="souqi-theme";try{var t=localStorage.getItem(k)||"light";document.documentElement.setAttribute("data-theme",t)}catch(e){}})();
+</script>
+<style>
+  *,*::before,*::after{box-sizing:border-box}
+  *[hidden], [hidden]{display:none !important;pointer-events:none !important;visibility:hidden !important}
+  :root{
+    --paper:#faf7f2; --paper-2:#f3eee6; --card:#ffffff;
+    --ink:#12202e; --ink-2:#5d6f80; --mut:#8b98a5;
+    --accent:#1aa6df; --accent-2:#0f8ec4;
+    --tint-2:#e7f5fd; --line:#e7e1d7;
+    --ok:#22a565; --warn:#e0a11a; --danger:#d92d20;
+    --disp:'Jost','Century Gothic',system-ui,sans-serif;
+    --body:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+    --mono:ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace;
+    --ease:cubic-bezier(.16,1,.3,1);
+  }
+  :root[data-theme="dark"]{
+    --paper:#1c1917; --paper-2:#24211e; --card:#2a2622;
+    --ink:#f0eadc; --ink-2:#a49e92; --mut:#7e766a;
+    --tint:#3d3428; --tint-2:#2d2420;
+    --stone:#2e2a26; --dark:#0a0908; --line:#3a352e; --navy-800:#0d0b0a;
+    --accent:#1aa6df; --accent-2:#118cc0; --accent-ink:#e6edf3;
+  }
+  html, body{background:var(--paper);overscroll-behavior-x:none;overflow-x:hidden}
+  .ag-main, .wrap{overflow-x:hidden}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--body);-webkit-font-smoothing:antialiased;display:flex;min-height:100vh}
+  a{color:inherit;text-decoration:none}
+  button{font:inherit}
+  button:focus, button:focus-visible, a:focus, a:focus-visible{outline:none !important;box-shadow:none !important}
+  h1,h2{font-family:var(--disp);font-weight:700;letter-spacing:-.02em;margin:0}
+
+  .ag-main{flex:1;min-width:0;display:flex;flex-direction:column;height:100vh;overflow-y:auto}
+
+  /* ---- sidebar: same shell as /projects so navigation feels continuous ---- */
+  .ag-history{position:relative !important;height:100vh;flex:0 0 0px;
+    width:0;min-width:0;max-width:240px;overflow:hidden;
+    background:var(--paper);border-right:0 solid var(--line);box-sizing:border-box;
+    transition:width .26s var(--ease),flex-basis .26s var(--ease),border-color .26s var(--ease);
+    display:flex;flex-direction:column;z-index:100}
+  .ag-history.on{width:240px !important;flex:0 0 240px !important;min-width:240px !important;border-right:1px solid var(--line);overflow:visible !important}
+  .ag-hist-head,.ag-hist-tabs,.ag-hist-foot{width:100%;box-sizing:border-box}
+  .ag-hist-head{display:flex;align-items:center;gap:8px;padding:10px 10px 12px 114px;width:100%;box-sizing:border-box}
+  .ag-hist-mark{width:28px;height:28px;border-radius:8px;background:var(--accent);display:grid;place-items:center;flex:none}
+  .ag-hist-mark svg{width:15px;height:15px;color:#fff}
+  .ag-hist-brand-text{display:flex;flex-direction:column;line-height:1.05;font-family:var(--disp);font-weight:800;font-size:.88rem;color:var(--ink);letter-spacing:-.01em;margin-left:6px}
+  .ag-hist-brand-text span{display:block}
+  .ag-ws-wrap{position:relative}
+  .ag-ws{display:flex;align-items:center;gap:9px;border:1px solid var(--line);background:var(--card);color:var(--ink) !important;border-radius:999px;padding:6px 10px 6px 6px;margin:8px 10px 8px;width:calc(100% - 20px);cursor:pointer;text-align:left;box-sizing:border-box}
+  .ag-ws .av{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;color:#fff;background:linear-gradient(135deg,var(--accent),var(--accent-2));font-weight:600;font-size:.8rem}
+  .ag-ws .nm{color:var(--ink) !important;flex:1;min-width:0;font-size:.9rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ag-ws svg{width:16px;height:16px;flex:none;color:var(--ink-2)}
+  .ag-ws .chev{transition:transform .16s var(--ease)}
+  .ag-ws.open .chev{transform:rotate(180deg)}
+  .ag-ws-menu{position:absolute;left:10px;right:10px;top:calc(100% - 2px);z-index:60;
+    background:var(--card);border:1px solid var(--line);border-radius:14px;padding:8px;
+    box-shadow:0 16px 40px -10px rgba(11,22,38,.32);
+    opacity:0;visibility:hidden;transform:translateY(-4px);
+    transition:opacity .16s ease,transform .16s ease,visibility .16s ease}
+  .ag-ws-menu.open{opacity:1;visibility:visible;transform:none}
+  .ag-ws-signed{padding:8px 10px 10px;font-size:.78rem;color:var(--mut);border-bottom:1px solid var(--line);margin-bottom:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .ag-ws-item{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:9px;font-size:.88rem;color:var(--ink);transition:.13s;text-decoration:none;border:0;background:none;width:100%;text-align:left;cursor:pointer}
+  .ag-ws-item:hover{background:var(--paper-2)}
+  .ag-ws-item svg{width:15px;height:15px;flex:none}
+  .ag-ws-sep{height:1px;background:var(--line);margin:6px 4px}
+  .ag-act{display:flex;align-items:center;gap:9px;margin:0 10px 8px;padding:8px 10px;border:1px solid var(--line);background:var(--card);border-radius:9px;color:var(--ink);font-size:.88rem;font-weight:500;cursor:pointer;width:calc(100% - 20px);box-sizing:border-box}
+  .ag-act svg{width:16px;height:16px;flex:none;color:var(--ink-2)}
+  .ag-hist-tabs{display:flex;flex-direction:column;gap:2px;padding:4px 12px 6px;width:100%;box-sizing:border-box;flex:0 0 auto;overflow:visible !important}
+  .ag-hist-tab{width:100%;box-sizing:border-box;display:flex;align-items:center;gap:11px;border:0;background:none;color:var(--ink);cursor:pointer;
+    padding:8px 11px;border-radius:8px;font-size:.92rem;font-weight:400;text-align:left;transition:.14s}
+  .ag-hist-tab svg{width:18px;height:18px;flex:none;color:var(--ink-2)}
+  .ag-hist-tab:hover,.ag-hist-tab.on{background:var(--paper-2);font-weight:600}
+  .ag-hist-gap{height:16px;flex:0 0 16px}
+  .ag-hist-foot{margin-top:auto;flex:0 0 auto;padding:10px;border-top:1px solid var(--line);background:var(--paper);width:100%;box-sizing:border-box}
+  .ag-hist-links{display:flex;gap:8px;justify-content:center;font-size:.71rem;color:var(--mut)}
+  .ag-hist-links a:hover{color:var(--ink)}
+
+  .ag-pv-toggle-btn{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line);background:var(--card);color:var(--ink);
+    border-radius:9px;padding:6px 14px;height:34px;font-size:.85rem;font-weight:600;cursor:pointer;
+    transition:all .2s var(--ease);box-shadow:0 2px 6px rgba(0,0,0,.03);outline:none !important}
+  #agDeskSidebarToggle{position:fixed !important;top:10px !important;left:10px !important;z-index:999999 !important;
+    padding:5px 10px !important;height:32px !important;font-size:.82rem !important}
+  .ag-pv-toggle-btn:hover{border-color:#cbd5e1;background:var(--paper-2);color:var(--ink)}
+  .ag-pv-toggle-btn.on{background:var(--card);color:var(--ink);border-color:var(--accent);box-shadow:0 0 8px rgba(26,166,223,.35),0 0 0 1px var(--accent)}
+  .ag-pv-toggle-btn .pane-left{transition:fill .2s ease;fill:transparent}
+  .ag-pv-toggle-btn.on .pane-left{fill:var(--accent)}
+  .ag-pv-toggle-btn svg{width:16px;height:16px;flex:none}
+
+  @media (max-width:900px){
+    .ag-history{position:fixed !important;top:0 !important;left:0 !important;bottom:0 !important;
+      height:100vh !important;width:240px !important;max-width:80vw !important;z-index:999999 !important;
+      transform:translateX(-100%) !important;transition:transform .28s var(--ease) !important;box-shadow:4px 0 24px rgba(0,0,0,.5)}
+    .ag-history.on{transform:translateX(0) !important}
+    .ag-hist-backdrop{display:block !important;position:fixed !important;inset:0 !important;background:rgba(0,0,0,.65) !important;
+      backdrop-filter:blur(3px) !important;z-index:999998 !important;opacity:0 !important;pointer-events:none !important;transition:opacity .28s ease !important}
+    .ag-hist-backdrop.on{opacity:1 !important;pointer-events:auto !important}
+  }
+
+  .nav{display:flex;align-items:center;gap:16px;padding:14px clamp(18px,4vw,40px) 14px 114px;background:var(--paper);transition:padding-left .26s var(--ease)}
+  .ag-history.on ~ .ag-main .nav{padding-left:clamp(18px,4vw,40px)}
+  .nav .sp{margin-left:auto}
+  .btn-g{padding:9px 15px;border:1px solid var(--line);border-radius:10px;font-size:.86rem;font-weight:600;transition:.16s;background:var(--card);color:var(--ink);cursor:pointer}
+  .btn-g:hover{border-color:#c6dbe7}
+  .btn-d{padding:9px 17px;border-radius:10px;background:var(--accent);color:#fff;font-size:.86rem;font-weight:600;transition:.16s;border:0;cursor:pointer}
+  .btn-d:hover{background:var(--accent-2)}
+  .btn-d:disabled,.btn-g:disabled{opacity:.55;cursor:not-allowed}
+  .btn-danger{padding:9px 15px;border:1px solid rgba(217,45,32,.35);border-radius:10px;background:transparent;color:var(--danger);font-size:.86rem;font-weight:600;cursor:pointer;transition:.16s}
+  .btn-danger:hover{background:rgba(217,45,32,.08)}
+
+  .wrap{max-width:1180px;margin:0 auto;padding:clamp(26px,5vw,46px) clamp(18px,4vw,40px) 80px;width:100%}
+  .phead{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+  .phead svg.ic{width:22px;height:22px;color:var(--ink)}
+  .phead h1{font-size:clamp(1.5rem,3vw,1.9rem)}
+  .psub{color:var(--mut);font-size:.9rem;margin:0 0 22px}
+
+  /* ---- KPI row ---- */
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:22px}
+  .kpi{border:1px solid var(--line);background:var(--card);border-radius:14px;padding:14px 16px}
+  .k-label{font-size:.72rem;letter-spacing:.13em;text-transform:uppercase;color:var(--mut);font-weight:600}
+  .k-val{font-family:var(--disp);font-weight:700;font-size:1.6rem;letter-spacing:-.02em;margin-top:6px;font-variant-numeric:tabular-nums}
+  .k-sub{font-size:.78rem;color:var(--mut);margin-top:2px}
+  .k-meter{height:5px;border-radius:999px;background:var(--paper-2);overflow:hidden;margin-top:9px}
+  .k-meter i{display:block;height:100%;border-radius:999px;background:var(--ok);transition:width .5s var(--ease),background .3s}
+  .k-meter i.warn{background:var(--warn)}
+  .k-meter i.hot{background:var(--danger)}
+
+  .toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:20px}
+  .search{position:relative;width:min(260px,100%)}
+  .search svg{position:absolute;left:12px;top:50%;transform:translateY(-50%);width:16px;height:16px;color:var(--mut)}
+  .search input{width:100%;border:1px solid var(--line);border-radius:10px;padding:9px 12px 9px 34px;font:inherit;font-size:.9rem;background:var(--card);color:var(--ink)}
+  .search input:focus{outline:none;border-color:var(--accent)}
+  .search kbd{position:absolute;right:10px;top:50%;transform:translateY(-50%);font-family:var(--mono);font-size:.7rem;color:var(--mut);
+    border:1px solid var(--line);border-radius:5px;padding:1px 5px;background:var(--paper-2)}
+  .chips{display:flex;gap:6px;flex-wrap:wrap}
+  .fchip{border:1px solid var(--line);background:var(--card);color:var(--ink-2);border-radius:999px;padding:6px 13px;font-size:.82rem;font-weight:500;cursor:pointer;transition:.15s}
+  .fchip:hover{border-color:#c6dbe7;color:var(--ink)}
+  .fchip.on{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+  .toolbar .sp{margin-left:auto}
+
+  /* ---- status pills ----
+     Colour carries the meaning; motion carries "this is still moving".
+     A settled state must be visually still, or everything looks busy. */
+  .pill{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:4px 11px 4px 9px;
+    font-size:.76rem;font-weight:600;letter-spacing:.01em;white-space:nowrap;position:relative;overflow:hidden}
+  .pill .dot{width:6px;height:6px;border-radius:50%;background:currentColor;flex:none}
+  .pill.s-none{color:var(--mut);background:rgba(139,152,165,.14)}
+  .pill.s-queued{color:var(--mut);background:rgba(139,152,165,.16)}
+  .pill.s-building{color:#a9760a;background:rgba(224,161,26,.16)}
+  .pill.s-starting{color:var(--accent-2);background:rgba(26,166,223,.16)}
+  .pill.s-running{color:#187a4b;background:rgba(34,165,101,.16)}
+  .pill.s-stopped{color:var(--mut);background:rgba(139,152,165,.14)}
+  .pill.s-failed{color:var(--danger);background:rgba(217,45,32,.14)}
+  :root[data-theme="dark"] .pill.s-building{color:#e0a11a}
+  :root[data-theme="dark"] .pill.s-running{color:#3ecb84}
+  :root[data-theme="dark"] .pill.s-failed{color:#f87171}
+  /* A build is the one state where a sweep is honest: work is happening
+     that we cannot show a percentage for. */
+  .pill.s-building::after{content:"";position:absolute;inset:0;
+    background:linear-gradient(90deg,transparent,rgba(224,161,26,.35),transparent);
+    transform:translateX(-100%);animation:sweep 1.7s var(--ease) infinite}
+  @keyframes sweep{to{transform:translateX(100%)}}
+  .pill.s-starting .dot,.pill.s-queued .dot{animation:blip 1.2s ease-in-out infinite}
+  @keyframes blip{0%,100%{opacity:1}50%{opacity:.25}}
+  .pill.s-running .dot{animation:breathe 2.4s ease-in-out infinite}
+  @keyframes breathe{0%,100%{box-shadow:0 0 0 0 rgba(34,165,101,.55)}70%{box-shadow:0 0 0 5px rgba(34,165,101,0)}}
+
+  /* ---- app cards ---- */
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px}
+  .app{display:flex;flex-direction:column;gap:10px;text-align:left;border:1px solid var(--line);background:var(--card);
+    border-radius:16px;padding:15px 16px 14px;cursor:pointer;transition:transform .26s var(--ease),box-shadow .26s var(--ease),border-color .16s;width:100%}
+  .app:hover{border-color:#c6dbe7;box-shadow:0 10px 26px -14px rgba(11,22,38,.32);transform:translateY(-2px)}
+  .app .top{display:flex;align-items:center;gap:10px}
+  .app .tile{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;flex:none;
+    font-family:var(--disp);font-weight:700;font-size:1rem;color:#fff}
+  .app .nm{flex:1;min-width:0}
+  .app .nm b{display:block;font-size:.95rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .app .nm i{display:block;font-style:normal;font-size:.76rem;color:var(--mut);margin-top:2px}
+  .app .foot{display:flex;align-items:center;gap:8px;font-size:.78rem;color:var(--mut);min-height:20px}
+  .app .foot .url{color:var(--accent-2);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  :root[data-theme="dark"] .app .foot .url{color:var(--accent)}
+
+  /* ---- skeletons: a shape that says "nearly there", not a spinner ---- */
+  .sk{border:1px solid var(--line);background:var(--card);border-radius:16px;padding:15px 16px;height:104px;position:relative;overflow:hidden}
+  .sk::after{content:"";position:absolute;inset:0;transform:translateX(-100%);
+    background:linear-gradient(90deg,transparent,rgba(139,152,165,.13),transparent);animation:sweep 1.4s var(--ease) infinite}
+  .sk .bar{height:10px;border-radius:6px;background:var(--paper-2);margin-bottom:9px}
+
+  /* ---- detail ---- */
+  .back{display:inline-flex;align-items:center;gap:7px;color:var(--ink-2);font-size:.86rem;font-weight:500;cursor:pointer;border:0;background:none;padding:0;margin-bottom:16px}
+  .back:hover{color:var(--ink)}
+  .back svg{width:15px;height:15px}
+  .hero{border:1px solid var(--line);background:var(--card);border-radius:16px;padding:20px 22px;margin-bottom:16px}
+  .hero .h-top{display:flex;align-items:flex-start;gap:14px;flex-wrap:wrap}
+  .hero h2{font-size:1.35rem;flex:1;min-width:0}
+  .hero .h-url{display:inline-flex;align-items:center;gap:6px;font-size:.86rem;color:var(--accent-2);font-weight:500;margin-top:6px}
+  .hero .h-url svg{width:13px;height:13px}
+  .hero .h-err{margin-top:12px;border:1px solid rgba(217,45,32,.3);background:rgba(217,45,32,.07);color:var(--danger);
+    border-radius:10px;padding:10px 12px;font-size:.85rem;line-height:1.45}
+
+  /* ---- the deploy stepper: the signature element ----
+     Four states the deploy plane actually reports, drawn as a track that
+     fills. It turns a status string into something you can watch. */
+  .steps{display:flex;align-items:center;margin:22px 0 4px;padding:0 2px}
+  .step{display:flex;flex-direction:column;align-items:center;gap:7px;flex:none;width:78px}
+  .step .bead{width:26px;height:26px;border-radius:50%;border:2px solid var(--line);background:var(--card);
+    display:grid;place-items:center;transition:all .4s var(--ease);color:var(--mut)}
+  .step .bead svg{width:13px;height:13px;opacity:0;transition:opacity .3s}
+  .step .lb{font-size:.74rem;color:var(--mut);font-weight:500;transition:color .3s}
+  .step.done .bead{border-color:var(--ok);background:var(--ok);color:#fff}
+  .step.done .bead svg{opacity:1}
+  .step.done .lb{color:var(--ink-2)}
+  .step.now .bead{border-color:var(--accent);background:var(--card);color:var(--accent);animation:halo 2s ease-in-out infinite}
+  .step.now .lb{color:var(--ink);font-weight:600}
+  .step.fail .bead{border-color:var(--danger);background:var(--danger);color:#fff}
+  .step.fail .bead svg{opacity:1}
+  .step.fail .lb{color:var(--danger);font-weight:600}
+  @keyframes halo{0%,100%{box-shadow:0 0 0 0 rgba(26,166,223,.5)}70%{box-shadow:0 0 0 8px rgba(26,166,223,0)}}
+  .strut{flex:1;height:2px;background:var(--line);position:relative;margin-bottom:22px;border-radius:2px;overflow:hidden}
+  .strut i{position:absolute;inset:0;width:0;background:linear-gradient(90deg,var(--ok),var(--accent));transition:width .5s var(--ease)}
+  .strut.full i{width:100%}
+  @media (prefers-reduced-motion:reduce){
+    .step.now .bead{animation:none}
+    .pill.s-building::after,.pill .dot{animation:none !important}
+    .sk::after{animation:none}
+  }
+
+  .acts{display:flex;gap:8px;flex-wrap:wrap;margin-top:18px;padding-top:16px;border-top:1px solid var(--line)}
+
+  .panel{border:1px solid var(--line);background:var(--card);border-radius:16px;margin-bottom:16px;overflow:hidden}
+  .panel-h{display:flex;align-items:center;gap:10px;padding:13px 16px;border-bottom:1px solid var(--line)}
+  .panel-h b{font-size:.92rem;font-weight:600;flex:1}
+  .seg{display:flex;border:1px solid var(--line);border-radius:9px;overflow:hidden;background:var(--paper-2)}
+  .seg button{border:0;background:none;color:var(--mut);padding:5px 12px;font-size:.8rem;font-weight:600;cursor:pointer;transition:.15s}
+  .seg button.on{background:var(--card);color:var(--ink)}
+
+  /* ---- log viewer ----
+     Deliberately dark in BOTH themes. A terminal that follows the page
+     theme stops reading as a terminal, and build output is the one place
+     people expect a console. */
+  .logs{position:relative;background:#0d1117;max-height:420px;overflow-y:auto;overflow-x:auto}
+  .logs pre{margin:0;padding:14px 16px;font-family:var(--mono);font-size:.78rem;line-height:1.65;color:#c9d1d9;white-space:pre;min-height:80px}
+  .logs .ts{color:#4d5866;font-variant-numeric:tabular-nums}
+  .logs .err{color:#f87171}
+  .logs .sys{color:#58a6ff}
+  .logs-empty{padding:26px 16px;color:#6e7681;font-family:var(--mono);font-size:.78rem}
+  .jump{position:sticky;bottom:10px;float:right;margin-right:14px;border:0;border-radius:999px;background:var(--accent);color:#fff;
+    font-size:.75rem;font-weight:600;padding:5px 12px;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.35)}
+
+  .kv{display:flex;align-items:center;gap:10px;padding:11px 16px;border-bottom:1px solid var(--line);font-size:.85rem}
+  .kv:last-child{border-bottom:0}
+  .kv .k{font-family:var(--mono);font-size:.8rem;color:var(--ink);font-weight:500;flex:none;min-width:150px}
+  .kv .v{color:var(--mut);font-family:var(--mono);font-size:.8rem;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis}
+  .kv .n{color:var(--mut);flex:1}
+
+  .res{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:14px;padding:16px}
+  .res .r-label{font-size:.75rem;color:var(--mut);font-weight:600;display:flex;justify-content:space-between;margin-bottom:7px}
+  .res .r-label span:last-child{color:var(--ink);font-variant-numeric:tabular-nums}
+  .meter{height:6px;border-radius:999px;background:var(--paper-2);overflow:hidden}
+  .meter i{display:block;height:100%;border-radius:999px;background:var(--accent);transition:width .5s var(--ease)}
+
+  .danger{border:1px solid rgba(217,45,32,.3);border-radius:16px;padding:16px;margin-top:22px}
+  .danger b{display:block;font-size:.9rem;margin-bottom:4px}
+  .danger p{margin:0 0 12px;font-size:.84rem;color:var(--mut);line-height:1.5}
+  .danger input{border:1px solid var(--line);border-radius:9px;padding:8px 11px;font:inherit;font-size:.85rem;
+    background:var(--card);color:var(--ink);width:min(240px,100%);margin-right:8px}
+  .danger input:focus{outline:none;border-color:var(--danger)}
+
+  .empty{text-align:center;padding:70px 20px;color:var(--ink-2)}
+  .empty h2{font-size:1.25rem;margin-bottom:8px;color:var(--ink)}
+  .empty p{font-size:.92rem;max-width:44ch;margin:0 auto 20px;line-height:1.55}
+
+  .toast{position:fixed;left:50%;bottom:24px;transform:translate(-50%,20px);opacity:0;pointer-events:none;
+    background:var(--ink);color:var(--paper);border-radius:10px;padding:10px 16px;font-size:.86rem;font-weight:500;
+    z-index:999999;transition:opacity .2s,transform .2s var(--ease);max-width:min(440px,90vw)}
+  .toast.on{opacity:1;transform:translate(-50%,0)}
+
+  @media (max-width:640px){
+    .grid{grid-template-columns:1fr}
+    .step{width:64px}
+    .step .lb{font-size:.68rem}
+  }
+</style>
+</head>
+<body><div class="ag-hist-backdrop" id="agHistBackdrop"></div>
+<aside class="ag-history on" id="agHistory" aria-label="Your account">
+  <div class="ag-hist-head">
+    <span class="ag-hist-mark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 16 4-4-4-4M6 8l-4 4 4 4M14.5 4l-5 16"/></svg></span>
+    <b class="ag-hist-brand-text"><span>Souqi</span><span>Code</span></b>
+  </div>
+
+  <div class="ag-ws-wrap">
+    <button type="button" class="ag-ws" id="agWs">
+      <span class="av" id="agWsAv">S</span>
+      <span class="nm" id="agWsNm">Your Workspace</span>
+      <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg>
+    </button>
+    <div class="ag-ws-menu" id="agWsMenu">
+      <div class="ag-ws-signed" id="agWsSigned">Not signed in</div>
+      <a class="ag-ws-item" href="/settings">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        Settings
+      </a>
+      <a class="ag-ws-item" href="/pricing">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2l2.4 6.4L21 10l-5.2 4.2L17.2 21 12 17.3 6.8 21l1.4-6.8L3 10l6.6-1.6z"/></svg>
+        Plans &amp; pricing
+      </a>
+      <a class="ag-ws-item" href="/login" id="agWsSignIn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><path d="M10 17l5-5-5-5"/><path d="M15 12H3"/></svg>
+        Sign in
+      </a>
+    </div>
+  </div>
+
+  <button type="button" class="ag-act" onclick="location.href='/agent'">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Create something new</button>
+
+  <div class="ag-hist-tabs" role="tablist">
+    <a class="ag-hist-tab" href="/agent">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg>Home</a>
+    <a class="ag-hist-tab" href="/projects">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>Projects</a>
+    <a class="ag-hist-tab on" href="/deployments">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="m3.3 7 8.7 5 8.7-5M12 22V12"/></svg>Deployments</a>
+    <a class="ag-hist-tab" href="/agent#stats">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/></svg>Stats</a>
+    <div class="ag-hist-gap"></div>
+    <a class="ag-hist-tab" href="/terms">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4h7a3 3 0 0 1 3 3v13a2.5 2.5 0 0 0-2.5-2.5H2z"/><path d="M22 4h-7a3 3 0 0 0-3 3v13a2.5 2.5 0 0 1 2.5-2.5H22z"/></svg>Documentation</a>
+  </div>
+
+  <div class="ag-hist-foot">
+    <div class="ag-hist-links">
+      <a href="/terms" target="_blank" rel="noopener">Terms</a><span>·</span>
+      <a href="/privacy" target="_blank" rel="noopener">Privacy</a><span>·</span>
+      <a href="/pricing">Plans</a>
+    </div>
+  </div>
+</aside>
+
+<button type="button" class="ag-pv-toggle-btn on" id="agDeskSidebarToggle" title="Toggle Sidebar">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="3" y="3" width="18" height="18" rx="3.5"/><path d="M9 3v18"/>
+    <rect class="pane-left" x="3.8" y="3.8" width="5.2" height="16.4" rx="1" fill="transparent" stroke="none"/>
+  </svg>
+  <span>Sidebar</span>
+</button>
+
+<div class="ag-main">
+  <header class="nav">
+    <span class="sp"></span>
+    <a class="btn-g" href="/projects">All projects</a>
+    <a class="btn-d" href="/agent">Open builder</a>
+  </header>
+
+  <!-- ============ LIST ============ -->
+  <div class="wrap" id="viewList">
+    <div class="phead">
+      <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="m3.3 7 8.7 5 8.7-5M12 22V12"/></svg>
+      <h1>Deployments</h1>
+    </div>
+    <p class="psub">Your apps, running in isolated containers on Souqi infrastructure.</p>
+
+    <div class="kpis" id="kpis"></div>
+
+    <div class="toolbar">
+      <div class="search">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+        <input type="search" id="q" placeholder="Search apps…" aria-label="Search apps">
+        <kbd>/</kbd>
+      </div>
+      <div class="chips" id="chips">
+        <button type="button" class="fchip on" data-f="all">All</button>
+        <button type="button" class="fchip" data-f="live">Live</button>
+        <button type="button" class="fchip" data-f="building">Building</button>
+        <button type="button" class="fchip" data-f="stopped">Stopped</button>
+        <button type="button" class="fchip" data-f="undeployed">Not deployed</button>
+      </div>
+    </div>
+
+    <div id="listBody"></div>
+  </div>
+
+  <!-- ============ DETAIL ============ -->
+  <div class="wrap" id="viewDetail" hidden>
+    <button type="button" class="back" id="btnBack">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+      All deployments
+    </button>
+    <div id="detailBody"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="js/nav-loading.js?v=1"></script>
+<script>
+(function () {
+  "use strict";
+
+  var $ = function (id) { return document.getElementById(id); };
+  function esc(t) { var d = document.createElement("span"); d.textContent = t == null ? "" : t; return d.innerHTML; }
+
+  /* Statuses the deploy plane actually reports. Anything unknown falls
+     back to "none" rather than rendering a broken pill. */
+  var FLOW = ["QUEUED", "BUILDING", "STARTING", "RUNNING"];
+  var LIVE = { QUEUED: 1, BUILDING: 1, STARTING: 1 };   // still moving → poll fast
+  var TILE = ["#1aa6df", "#7c5cff", "#f59e0b", "#ec4899", "#10b981", "#6b6ff0"];
+
+  var all = [];          // rows from /api/deploy/overview
+  var capacity = null;
+  var configured = true;
+  var filter = "all";
+  var openKey = null;    // detail view, or null for the list
+  var detail = null;     // {status, logs, env, ...} for openKey
+  var logPhase = "build";
+  var logPinned = true;  // auto-scroll until the reader scrolls away
+  var loaded = false;
+
+  function tileColor(s) {
+    var n = 0, i; s = String(s || "");
+    for (i = 0; i < s.length; i++) n = (n * 31 + s.charCodeAt(i)) >>> 0;
+    return TILE[n % TILE.length];
+  }
+  function timeAgo(iso) {
+    if (!iso) return "";
+    var s = (Date.now() - new Date(iso)) / 1000;
+    if (s < 60) return "just now";
+    if (s < 3600) return Math.max(1, Math.round(s / 60)) + "m ago";
+    if (s < 86400) return Math.round(s / 3600) + "h ago";
+    if (s < 86400 * 30) return Math.round(s / 86400) + "d ago";
+    return Math.round(s / (86400 * 30)) + "mo ago";
+  }
+  function toast(msg) {
+    var t = $("toast"); t.textContent = msg; t.classList.add("on");
+    clearTimeout(toast._t); toast._t = setTimeout(function () { t.classList.remove("on"); }, 2600);
+  }
+
+  function pill(status) {
+    var s = status || "NONE";
+    var cls = "s-" + String(s).toLowerCase();
+    if (FLOW.indexOf(s) < 0 && ["STOPPED", "FAILED"].indexOf(s) < 0) { cls = "s-none"; s = "Not deployed"; }
+    return '<span class="pill ' + cls + '"><span class="dot"></span>' + esc(String(s).toLowerCase()) + '</span>';
+  }
+
+  /* ---------------- API ----------------
+     One helper so every call surfaces the server's message rather than a
+     bare status code — the two error envelopes in this app are handled
+     the same way the settings page handles them. */
+  function api(method, path, body) {
+    return fetch(path, {
+      method: method, credentials: "same-origin",
+      headers: body ? { "Content-Type": "application/json" } : undefined,
+      body: body ? JSON.stringify(body) : undefined
+    }).then(function (r) {
+      return r.text().then(function (txt) {
+        var d = null; try { d = txt ? JSON.parse(txt) : null; } catch (e) { }
+        if (!r.ok) {
+          var m = d && (typeof d.error === "string" ? d.error : (d.error && d.error.message));
+          throw new Error(m || ("request failed (" + r.status + ")"));
+        }
+        return d;
+      });
+    });
+  }
+
+  /* ---------------- polling ----------------
+     setTimeout chains, never setInterval: an interval stacks requests
+     when one runs long, and a slow host is exactly when that happens.
+     The cadence follows what is on screen — fast only while something is
+     actually moving — and stops dead in a background tab. */
+  var timer = null, backoff = 0;
+
+  function cadence() {
+    if (document.hidden) return 0;
+    if (openKey) {
+      var st = detail && detail.status;
+      return LIVE[st] ? 2000 : 6000;
+    }
+    var moving = all.some(function (r) { return LIVE[r.status]; });
+    return moving ? 2500 : 20000;
+  }
+
+  function schedule() {
+    clearTimeout(timer);
+    var ms = cadence();
+    if (!ms) return;                       // hidden tab: stop entirely
+    if (backoff) ms = Math.max(ms, backoff);
+    timer = setTimeout(tick, ms);
+  }
+
+  function tick() {
+    var job = openKey ? refreshDetail(true) : refreshList(true);
+    job.then(function () { backoff = 0; })
+      .catch(function () { backoff = backoff ? Math.min(backoff * 2, 30000) : 4000; })
+      .then(schedule);
+  }
+
+  document.addEventListener("visibilitychange", function () {
+    if (document.hidden) { clearTimeout(timer); return; }
+    tick();                                // catch up immediately on return
+  });
+
+  /* ---------------- list ---------------- */
+
+  function refreshList(quiet) {
+    return api("GET", "/api/deploy/overview").then(function (d) {
+      configured = d.configured !== false;
+      all = d.projects || [];
+      capacity = d.capacity || null;
+      loaded = true;
+      if (!openKey) renderList();
+    }).catch(function (err) {
+      if (!quiet) {
+        $("listBody").innerHTML = '<div class="empty"><h2>Couldn\'t load your deployments</h2><p>' +
+          esc(err.message) + '</p><button type="button" class="btn-d" id="retry">Try again</button></div>';
+      }
+      throw err;
+    });
+  }
+
+  function kpiRow() {
+    var running = all.filter(function (r) { return r.status === "RUNNING"; }).length;
+    var moving = all.filter(function (r) { return LIVE[r.status]; }).length;
+    var out = "";
+    out += '<div class="kpi"><div class="k-label">Live</div><div class="k-val">' + running + '</div><div class="k-sub">running now</div></div>';
+    out += '<div class="kpi"><div class="k-label">In flight</div><div class="k-val">' + moving + '</div><div class="k-sub">building or starting</div></div>';
+    out += '<div class="kpi"><div class="k-label">Apps</div><div class="k-val">' + all.length + '</div><div class="k-sub">in this workspace</div></div>';
+
+    // Capacity is the number that decides whether the next deploy is even
+    // accepted, so it belongs on the first screen — not buried.
+    if (capacity) {
+      var pct = null, sub = "host";
+      if (typeof capacity.memoryPct === "number") { pct = Math.round(capacity.memoryPct); sub = "memory used"; }
+      else if (typeof capacity.containers === "number" && capacity.maxContainers) {
+        pct = Math.round(capacity.containers / capacity.maxContainers * 100); sub = capacity.containers + " of " + capacity.maxContainers + " containers";
+      }
+      if (pct !== null) {
+        var k = pct >= 85 ? " hot" : pct >= 70 ? " warn" : "";
+        out += '<div class="kpi"><div class="k-label">Capacity</div><div class="k-val">' + pct + '%</div>' +
+          '<div class="k-sub">' + esc(sub) + '</div>' +
+          '<div class="k-meter"><i class="' + k.trim() + '" style="width:' + Math.min(100, pct) + '%"></i></div></div>';
+      }
+    }
+    return out;
+  }
+
+  function matches(r) {
+    var q = ($("q").value || "").trim().toLowerCase();
+    if (q && String(r.title || "").toLowerCase().indexOf(q) < 0) return false;
+    if (filter === "live") return r.status === "RUNNING";
+    if (filter === "building") return !!LIVE[r.status];
+    if (filter === "stopped") return r.status === "STOPPED" || r.status === "FAILED";
+    if (filter === "undeployed") return !r.status;
+    return true;
+  }
+
+  function renderList() {
+    $("kpis").innerHTML = loaded ? kpiRow() : "";
+
+    if (!configured) {
+      $("listBody").innerHTML = '<div class="empty"><h2>Deployments aren\'t configured here</h2>' +
+        '<p>This environment has no deployment plane connected, so there is nothing to show yet. ' +
+        'Set DEPLOY_API_URL on the server to switch it on.</p></div>';
+      return;
+    }
+    if (!loaded) {
+      var sk = "";
+      for (var i = 0; i < 6; i++) sk += '<div class="sk"><div class="bar" style="width:45%"></div><div class="bar" style="width:70%"></div><div class="bar" style="width:30%"></div></div>';
+      $("listBody").innerHTML = '<div class="grid">' + sk + "</div>";
+      return;
+    }
+    if (!all.length) {
+      $("listBody").innerHTML = '<div class="empty"><h2>Nothing to deploy yet</h2>' +
+        '<p>Build an app first and it will show up here, ready to ship into its own container.</p>' +
+        '<a class="btn-d" href="/agent">Open the builder</a></div>';
+      return;
+    }
+    var list = all.filter(matches);
+    if (!list.length) {
+      $("listBody").innerHTML = '<div class="empty"><h2>No matches</h2><p>Nothing here fits that search or filter.</p></div>';
+      return;
+    }
+
+    $("listBody").innerHTML = '<div class="grid">' + list.map(function (r) {
+      var title = r.title || "Untitled app";
+      var live = r.status === "RUNNING" && r.url;
+      return '<button type="button" class="app" data-key="' + esc(r.key) + '">' +
+        '<span class="top">' +
+          '<span class="tile" style="background:' + tileColor(r.key) + '">' + esc(title.charAt(0).toUpperCase() || "A") + '</span>' +
+          '<span class="nm"><b>' + esc(title) + '</b><i>' + esc(timeAgo(r.updatedAt)) + '</i></span>' +
+          pill(r.status) +
+        '</span>' +
+        '<span class="foot">' +
+          (live ? '<span class="url">' + esc(String(r.url).replace(/^https?:\/\//, "")) + "</span>"
+                : '<span>' + (r.status ? "" : "never deployed") + "</span>") +
+        "</span></button>";
+    }).join("") + "</div>";
+  }
+
+  /* ---------------- detail ---------------- */
+
+  function refreshDetail(quiet) {
+    var key = openKey;
+    return Promise.all([
+      api("GET", "/api/deploy/" + encodeURIComponent(key) + "/status"),
+      api("GET", "/api/deploy/" + encodeURIComponent(key) + "/logs?phase=" + logPhase + "&tail=500").catch(function () { return null; })
+    ]).then(function (r) {
+      if (openKey !== key) return;         // navigated away mid-flight
+      detail = r[0] || {};
+      detail.logs = r[1];
+      renderDetail();
+    }).catch(function (err) {
+      if (!quiet && openKey === key) {
+        $("detailBody").innerHTML = '<div class="empty"><h2>Couldn\'t load this deployment</h2><p>' + esc(err.message) + "</p></div>";
+      }
+      throw err;
+    });
+  }
+
+  function row() {
+    for (var i = 0; i < all.length; i++) if (all[i].key === openKey) return all[i];
+    return { key: openKey, title: openKey };
+  }
+
+  function stepper(status) {
+    var failed = status === "FAILED";
+    var idx = FLOW.indexOf(status);
+    if (status === "RUNNING") idx = 3;
+    if (status === "STOPPED" || !status) idx = -1;
+    var tick = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>';
+    var out = '<div class="steps">';
+    for (var i = 0; i < FLOW.length; i++) {
+      var cls = "step";
+      if (failed && i === Math.max(0, idx)) cls += " fail";
+      else if (idx > i) cls += " done";
+      else if (idx === i) cls += (status === "RUNNING" ? " done" : " now");
+      out += '<div class="' + cls + '"><span class="bead">' + tick + '</span><span class="lb">' +
+        FLOW[i].charAt(0) + FLOW[i].slice(1).toLowerCase() + "</span></div>";
+      if (i < FLOW.length - 1) out += '<div class="strut' + (idx > i ? " full" : "") + '"><i></i></div>';
+    }
+    return out + "</div>";
+  }
+
+  function logView(logs) {
+    if (!logs || !logs.lines || !logs.lines.length) {
+      return '<div class="logs-empty">' + esc((logs && logs.note) || "No output yet.") + "</div>";
+    }
+    var body = logs.lines.map(function (l) {
+      if (typeof l === "string") return esc(l);
+      var t = l.at ? '<span class="ts">' + esc(String(l.at).replace("T", " ").slice(0, 19)) + "</span>  " : "";
+      var cls = l.stream === "stderr" ? "err" : (l.phase === "system" || l.stream === "system" ? "sys" : "");
+      return t + (cls ? '<span class="' + cls + '">' + esc(l.line) + "</span>" : esc(l.line));
+    }).join("\n");
+    return "<pre>" + body + "</pre>";
+  }
+
+  /* A poll that repaints an unchanged view is worse than no poll: it
+     drops focus, clears any text the reader has selected in the log, and
+     can yank a button out from under a click. So the whole detail body is
+     only rewritten when something a reader would actually notice has
+     changed. */
+  function detailSig(d) {
+    var c = d.container || {};
+    var n = d.logs && d.logs.lines ? d.logs.lines.length : -1;
+    return [d.status, d.url, d.error, c.state, c.restarts, c.exitCode, logPhase, n].join("|");
+  }
+
+  function renderDetail() {
+    var r = row(), d = detail || {};
+    var st = d.status || null;
+
+    var sig = detailSig(d);
+    if (sig === renderDetail._sig && $("detailBody").children.length) return;
+    renderDetail._sig = sig;
+    var busy = !!LIVE[st];
+    var title = r.title || "App";
+
+    var out = '<div class="hero"><div class="h-top">' +
+      "<div style=\"flex:1;min-width:0\"><h2>" + esc(title) + "</h2>" +
+      (d.url && st === "RUNNING"
+        ? '<a class="h-url" href="' + esc(d.url) + '" target="_blank" rel="noopener">' +
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><path d="M15 3h6v6M10 14 21 3"/></svg>' +
+          esc(String(d.url).replace(/^https?:\/\//, "")) + "</a>"
+        : "") +
+      "</div>" + pill(st) + "</div>";
+
+    if (st) out += stepper(st);
+    if (d.error) out += '<div class="h-err">' + esc(d.error) + "</div>";
+
+    /* Every button here is queued work on the deploy plane, so each one
+       goes disabled with a present-tense label and the poll decides when
+       it is really done. Claiming success on the 202 would be a lie. */
+    out += '<div class="acts">';
+    if (!st) {
+      out += '<button type="button" class="btn-d" data-act="deploy">Deploy</button>';
+    } else {
+      out += '<button type="button" class="btn-d" data-act="redeploy"' + (busy ? " disabled" : "") + ">Redeploy</button>";
+      if (st === "RUNNING") out += '<button type="button" class="btn-g" data-act="stop">Stop</button>';
+      else if (st === "STOPPED") out += '<button type="button" class="btn-g" data-act="start">Start</button>';
+      if (st === "RUNNING") out += '<button type="button" class="btn-g" data-act="restart">Restart</button>';
+    }
+    out += "</div></div>";
+
+    if (st) {
+      out += '<div class="panel"><div class="panel-h"><b>Logs</b>' +
+        '<div class="seg"><button type="button" data-phase="build" class="' + (logPhase === "build" ? "on" : "") + '">Build</button>' +
+        '<button type="button" data-phase="runtime" class="' + (logPhase === "runtime" ? "on" : "") + '">Runtime</button></div></div>' +
+        '<div class="logs" id="logBox">' + logView(d.logs) + "</div></div>";
+
+      var c = d.container;
+      if (c) {
+        out += '<div class="panel"><div class="panel-h"><b>Container</b></div>' +
+          '<div class="kv"><span class="k">state</span><span class="v">' + esc(c.state || "—") + "</span></div>" +
+          '<div class="kv"><span class="k">restarts</span><span class="v">' + esc(String(c.restarts == null ? "—" : c.restarts)) + "</span></div>" +
+          '<div class="kv"><span class="k">exit code</span><span class="v">' + esc(String(c.exitCode == null ? "—" : c.exitCode)) + "</span></div>" +
+          '<div class="kv"><span class="k">observed</span><span class="v">' +
+            (c.ageSeconds == null ? "—" : esc(c.ageSeconds + "s ago")) + "</span></div></div>";
+      }
+
+      out += '<div class="danger"><b>Delete this deployment</b>' +
+        "<p>Stops the container, removes its image and its network, and frees the capacity. " +
+        "Your source is untouched — you can deploy again at any time.</p>" +
+        '<input type="text" id="delConfirm" placeholder="Type the app name to confirm" autocomplete="off">' +
+        '<button type="button" class="btn-danger" data-act="destroy">Delete</button></div>';
+    }
+
+    $("detailBody").innerHTML = out;
+
+    // Re-pin the log tail unless the reader has scrolled up to read.
+    var box = $("logBox");
+    if (box && logPinned) box.scrollTop = box.scrollHeight;
+  }
+
+  /* ---------------- navigation ---------------- */
+
+  function openDetail(key) {
+    openKey = key; detail = null; logPinned = true;
+    renderDetail._sig = null;          // a different app must always repaint
+    location.hash = "#" + key;
+    $("viewList").hidden = true; $("viewDetail").hidden = false;
+    $("detailBody").innerHTML = '<div class="sk" style="height:180px"></div>';
+    refreshDetail().catch(function () { }).then(schedule);
+  }
+  function closeDetail() {
+    openKey = null; detail = null;
+    if (location.hash) location.hash = "";
+    $("viewDetail").hidden = true; $("viewList").hidden = false;
+    renderList(); schedule();
+  }
+
+  /* ---------------- events ---------------- */
+
+  document.addEventListener("click", function (e) {
+    var card = e.target.closest(".app");
+    if (card) { openDetail(card.dataset.key); return; }
+
+    var chip = e.target.closest(".fchip");
+    if (chip) {
+      filter = chip.dataset.f;
+      Array.prototype.forEach.call(document.querySelectorAll(".fchip"), function (c) { c.classList.toggle("on", c === chip); });
+      renderList(); return;
+    }
+
+    var seg = e.target.closest("[data-phase]");
+    if (seg) { logPhase = seg.dataset.phase; logPinned = true; refreshDetail().catch(function () { }); return; }
+
+    if (e.target.closest("#btnBack")) { closeDetail(); return; }
+    if (e.target.closest("#retry")) { loaded = false; renderList(); refreshList().catch(function () { }); return; }
+
+    var jump = e.target.closest(".jump");
+    if (jump) { logPinned = true; var b = $("logBox"); if (b) b.scrollTop = b.scrollHeight; jump.remove(); return; }
+
+    var act = e.target.closest("[data-act]");
+    if (act) { runAction(act); return; }
+  });
+
+  function runAction(btn) {
+    var name = btn.dataset.act;
+    var key = openKey;
+    if (!key) return;
+
+    if (name === "destroy") {
+      var typed = ($("delConfirm") && $("delConfirm").value || "").trim();
+      if (typed !== (row().title || "").trim()) { toast("Type the app name exactly to confirm."); return; }
+    }
+
+    var was = btn.textContent;
+    var verb = { deploy: "Deploying…", redeploy: "Redeploying…", stop: "Stopping…", start: "Starting…", restart: "Restarting…", destroy: "Deleting…" };
+    btn.disabled = true; btn.textContent = verb[name] || "Working…";
+
+    var call = name === "destroy"
+      ? api("DELETE", "/api/deploy/" + encodeURIComponent(key))
+      : api("POST", "/api/deploy/" + encodeURIComponent(key) + "/" + name);
+
+    call.then(function () {
+      // Accepted, not finished. Refresh the list so the card reflects
+      // reality, then let the poll report what actually happened.
+      toast(name === "destroy" ? "Delete queued." : "Queued — watching for the result.");
+      if (name === "destroy") { refreshList().catch(function () { }); closeDetail(); return; }
+      return refreshDetail().catch(function () { });
+    }).catch(function (err) {
+      toast(err.message);
+      btn.disabled = false; btn.textContent = was;
+    }).then(function () { refreshList().catch(function () { }); schedule(); });
+  }
+
+  // Releasing the pin the moment the reader scrolls up is what separates a
+  // log viewer from a box that fights you.
+  document.addEventListener("scroll", function (e) {
+    var box = e.target;
+    if (!box || box.id !== "logBox") return;
+    var atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 24;
+    if (atBottom) { logPinned = true; var j = box.querySelector(".jump"); if (j) j.remove(); }
+    else if (logPinned) {
+      logPinned = false;
+      if (!box.querySelector(".jump")) {
+        var b = document.createElement("button");
+        b.type = "button"; b.className = "jump"; b.textContent = "↓ Jump to latest";
+        box.appendChild(b);
+      }
+    }
+  }, true);
+
+  $("q").addEventListener("input", renderList);
+
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "/" && document.activeElement !== $("q")) { e.preventDefault(); $("q").focus(); return; }
+    if (e.key === "Escape") { if (openKey) closeDetail(); else $("q").blur(); return; }
+    if (e.key === "r" && openKey && !/^(INPUT|TEXTAREA)$/.test(document.activeElement.tagName)) {
+      var b = document.querySelector('[data-act="redeploy"]'); if (b && !b.disabled) b.click();
+    }
+  });
+
+  /* sidebar shell — same behaviour as /projects */
+  var side = $("agHistory"), backdrop = $("agHistBackdrop"), toggle = $("agDeskSidebarToggle");
+  function setSide(on) {
+    side.classList.toggle("on", on); toggle.classList.toggle("on", on);
+    if (backdrop) backdrop.classList.toggle("on", on && window.innerWidth <= 900);
+  }
+  toggle.addEventListener("click", function () { setSide(!side.classList.contains("on")); });
+  if (backdrop) backdrop.addEventListener("click", function () { setSide(false); });
+  if (window.innerWidth <= 900) setSide(false);
+
+  var ws = $("agWs");
+  ws.addEventListener("click", function (e) {
+    e.stopPropagation();
+    ws.classList.toggle("open"); $("agWsMenu").classList.toggle("open");
+  });
+  document.addEventListener("click", function () { ws.classList.remove("open"); $("agWsMenu").classList.remove("open"); });
+
+  fetch("/api/account/me", { credentials: "same-origin" })
+    .then(function (r) { return r.json(); })
+    .then(function (d) {
+      if (!d || !d.signedIn) return;
+      $("agWsSigned").textContent = d.email || "Signed in";
+      $("agWsNm").textContent = d.company || "Your Workspace";
+      $("agWsAv").textContent = String(d.company || d.email || "S").charAt(0).toUpperCase();
+      $("agWsSignIn").hidden = true;
+    }).catch(function () { });
+
+  /* ---------------- boot ----------------
+     A hash means someone linked or reloaded straight into one app, so go
+     there rather than flashing the list first. */
+  renderList();
+  refreshList().then(function () {
+    var h = (location.hash || "").replace(/^#/, "");
+    if (h) openDetail(h); else schedule();
+  }).catch(function () { schedule(); });
+
+  window.addEventListener("hashchange", function () {
+    var h = (location.hash || "").replace(/^#/, "");
+    if (h && h !== openKey) openDetail(h);
+    else if (!h && openKey) closeDetail();
+  });
+})();
+</script>
+</body>
+</html>

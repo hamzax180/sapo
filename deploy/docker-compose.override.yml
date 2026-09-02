@@ -1,0 +1,30 @@
+# =================================================================
+#  LOCAL DEVELOPMENT ONLY — do not copy this to a server.
+#  -----------------------------------------------------------------
+#  The api service publishes no port in docker-compose.yml, and that
+#  is deliberate: Caddy is the only service with a route in from
+#  outside, and scripts/verify.js asserts it stays that way.
+#
+#  But the main Souqi app runs OUTSIDE this compose project (node
+#  server/index.js on :4000), so on a laptop it has no way to reach
+#  the deploy API at all. This file gives it one.
+#
+#  The bind address matters. "127.0.0.1:4500" publishes to loopback
+#  ONLY — not 0.0.0.0 — so nothing on the local network, and nothing
+#  on the internet, can reach it. Writing it as "4500:4500" would
+#  bind every interface and hand the deploy API to anyone on the
+#  same wifi.
+#
+#  Compose merges docker-compose.override.yml automatically, so this
+#  applies with a plain `docker compose up` and needs no flags. It is
+#  also why the security check in verify.js still passes: that check
+#  reads docker-compose.yml, which is the file that ships.
+#
+#  In production the main app reaches the API through Caddy on a
+#  control-plane hostname instead — see src/proxy/caddy.js.
+# =================================================================
+
+services:
+  api:
+    ports:
+      - "127.0.0.1:4500:4500"

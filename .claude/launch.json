@@ -2,23 +2,11 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "merveks-sap",
-      "runtimeExecutable": "npx",
-      "runtimeArgs": ["serve", "-l", "3100", "public"],
-      "port": 3100
-    },
-    {
-      "name": "sapo-api",
+      "name": "souqi-server",
       "runtimeExecutable": "node",
       "runtimeArgs": ["server/index.js"],
       "port": 4000,
       "autoPort": true
-    },
-    {
-      "name": "admin-verify",
-      "runtimeExecutable": "node",
-      "runtimeArgs": ["server/dev-admin-verify.js"],
-      "port": 4010
     }
   ]
 }

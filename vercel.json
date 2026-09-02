@@ -79,6 +79,10 @@
       "destination": "/projects"
     },
     {
+      "source": "/deployments",
+      "destination": "/deployments"
+    },
+    {
       "source": "/mobile",
       "destination": "/mobile"
     },
