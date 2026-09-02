@@ -28,7 +28,7 @@
     --ease:cubic-bezier(.16,1,.3,1);
     /* Sidebar geometry, matching the builder rail so the two pages feel
        like one product rather than two that happen to share colours. */
-    --sb-w:238px; --sb-pad:6px; --ease-sb:cubic-bezier(.32,.72,0,1);
+    --rail:44px; --sb-w:238px; --sb-pad:6px; --ease-sb:cubic-bezier(.32,.72,0,1);
   }
   :root[data-theme="dark"]{
     --paper:#1c1917; --paper-2:#24211e; --card:#2a2622;
@@ -90,7 +90,14 @@
   .ag-hist-tab:hover{background:var(--paper-2)}
   .ag-hist-tab.on{background:var(--paper-2);font-weight:600}
   .ag-hist-tab.on .tab-ic,.ag-hist-tab:hover .tab-ic{color:var(--ink)}
-  .ag-hist-tab .lbl{max-width:190px;overflow:hidden;white-space:nowrap}
+  /* Labels reveal by max-width + opacity rather than display:none, so the
+     rail's open/close reads as one continuous motion. Toggling display
+     makes the text pop in at full size the instant the width starts
+     animating — nothing is broken, the label simply was not part of the
+     movement. */
+  .ag-hist-tab .lbl,.ag-user-main .nm,.ag-ws .nm,.ag-hist-brand-text{
+    max-width:190px;opacity:1;overflow:hidden;white-space:nowrap;
+    transition:max-width .26s var(--ease-sb),opacity .18s ease .06s}
   .ag-tab-new{background:var(--card);box-shadow:0 1px 2px rgba(0,0,0,.05)}
   .ag-tab-new:hover{background:var(--card);filter:brightness(1.06)}
   .ag-tab-new .tab-ic.ring{color:var(--ink);background:var(--paper-2)}
@@ -171,6 +178,79 @@
   .ag-pv-toggle-btn .pane-left{transition:fill .2s ease;fill:transparent}
   .ag-pv-toggle-btn.on .pane-left{fill:var(--accent)}
   .ag-pv-toggle-btn svg{width:16px;height:16px;flex:none}
+
+  /* ================= desktop rail =================
+     COLLAPSED = an icon rail, not nothing. Taking the sidebar to width:0
+     throws away every navigation affordance on the page — the only way
+     back to Projects or the builder becomes "reopen the drawer first".
+     At --rail the icons and their titles stay reachable while the content
+     column gets back most of the width. */
+  @media (min-width:901px){
+    .ag-history{
+      flex:0 0 var(--rail) !important;width:var(--rail) !important;min-width:var(--rail) !important;
+      border-right:1px solid var(--line);overflow:hidden;
+      transition:width .34s var(--ease-sb),flex-basis .34s var(--ease-sb),margin-right .34s var(--ease-sb),
+                 border-color .34s var(--ease-sb),box-shadow .34s var(--ease-sb);
+      /* Delays the CLOSE only — the hover rule zeroes it — so a pointer
+         clipping the rail on its way somewhere else does not make the
+         panel flash open and shut. */
+      transition-delay:.16s;will-change:width;z-index:100}
+    .ag-history.on{width:var(--sb-w) !important;flex:0 0 var(--sb-w) !important;min-width:var(--sb-w) !important;
+      overflow:visible !important;box-shadow:none;margin-right:0}
+
+    /* HOVER TO OPEN. The negative margin is what keeps this an OVERLAY
+       rather than a push: the flex item measures --sb-w but the margin
+       cancels all but --rail of it, so the content column never moves.
+       Expanding it in place would reflow the whole page on every
+       mouse-over, which is unusable. */
+    @media (hover:hover) and (pointer:fine){
+      .ag-history:not(.on):hover,
+      .ag-history.hover-open:not(.on){
+        width:var(--sb-w) !important;flex-basis:var(--sb-w) !important;
+        margin-right:calc(var(--rail) - var(--sb-w));
+        overflow:visible !important;z-index:400 !important;transition-delay:0s;
+        box-shadow:6px 0 28px -8px rgba(11,22,38,.28)}
+    }
+
+    /* --- what the rail actually shows --- */
+    .ag-history:not(.on):not(:hover):not(.hover-open) .lbl,
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-hist-brand-text,
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-user-main .nm,
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-ws .nm{max-width:0 !important;opacity:0 !important;transition-delay:0s}
+
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-ws .chev,
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-chats-ttl,
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-hist-foot,
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-user-gear{display:none !important}
+
+    /* Click-opened, so letting it render inside a panel that vanishes on
+       mouse-out would strand it. */
+    .ag-history:not(.on) .ag-ws-menu{display:none !important}
+
+    /* The apps stay in the rail as bare status dots — dropping them would
+       make the collapsed sidebar a dead end for getting back into one. */
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-hist-chats{border-top:1px solid var(--line);margin:5px 9px 0;padding-top:6px}
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-chats-list{padding:0;overflow:hidden}
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-chat-item{width:32px;margin:0 auto;padding:7px 0;justify-content:center;gap:0}
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-chat-item span{display:none}
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-chats-empty{display:none}
+
+    /* Height clears the fixed sidebar toggle sitting at top-left. */
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-hist-head{padding:0 !important;height:38px !important;flex:0 0 38px !important;overflow:hidden}
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-hist-mark{display:none !important}
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-hist-tabs{padding:4px 0 6px !important;align-items:center}
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-hist-tab{width:32px;padding:7px 0;justify-content:center;gap:0}
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-tab-new{background:transparent;box-shadow:none}
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-tab-new .tab-ic.ring{background:var(--card);border-color:var(--line);box-shadow:0 1px 2px rgba(0,0,0,.06)}
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-hist-user{background:transparent;justify-content:center}
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-ws-wrap{padding:0 !important;display:flex;justify-content:center}
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-ws{width:32px;margin:6px auto;padding:3px;justify-content:center}
+
+    /* The content column sits beside the rail, so it only needs to clear
+       the fixed toggle button, not the whole panel. */
+    .ag-main .nav{padding-left:96px}
+    .ag-history.on ~ .ag-main .nav{padding-left:clamp(18px,4vw,40px)}
+  }
 
   @media (max-width:900px){
     .ag-history{position:fixed !important;top:0 !important;left:0 !important;bottom:0 !important;
