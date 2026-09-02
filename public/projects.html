@@ -258,7 +258,10 @@
     /* gap:0 matters: the name is still a flex item at max-width:0, so the
        pill's 9px gap was being counted and justify-content:center pushed
        the avatar ~5px left of the rail. */
-    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-ws{width:32px;margin:6px auto;padding:3px;justify-content:center;gap:0}
+    /* No pill chrome in the rail. The white background and border make
+       it read as a dropdown when the name and chevron are there; with only
+       the avatar showing they are just a ring drawn around a circle. */
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-ws{width:32px;margin:6px auto;padding:3px;justify-content:center;gap:0;background:transparent;border-color:transparent}
     /* The dot carries side margins for the expanded row; in the rail they
        are what pushes it off centre. */
     .ag-history:not(.on):not(:hover):not(.hover-open) .ag-chat-item .sdot{margin:0}

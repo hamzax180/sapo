@@ -1991,7 +1991,10 @@
     .ag-history:not(.on):not(.focus):not(:hover):not(.hover-open) .ag-tab-new .tab-ic.ring{background:var(--card);border-color:var(--line);box-shadow:0 1px 2px rgba(0,0,0,.06)}
     .ag-history:not(.on):not(.focus):not(:hover):not(.hover-open) .ag-hist-user{background:transparent}
     .ag-history:not(.on):not(.focus):not(:hover):not(.hover-open) .ag-ws-wrap{padding:0 !important;display:flex;justify-content:center}
-    .ag-history:not(.on):not(.focus):not(:hover):not(.hover-open) .ag-ws{width:32px;padding:5px 0;justify-content:center;gap:0}
+    /* No pill chrome in the rail. The white background and border make
+       it read as a dropdown when the name and chevron are there; with only
+       the avatar showing they are just a ring drawn around a circle. */
+    .ag-history:not(.on):not(.focus):not(:hover):not(.hover-open) .ag-ws{width:32px;padding:5px 0;justify-content:center;gap:0;background:transparent;border-color:transparent}
     .ag-history:not(.on):not(.focus):not(:hover):not(.hover-open) .ag-hist-foot{border-top:0;padding:0 !important}
     .ag-history:not(.on):not(.focus):not(:hover):not(.hover-open) .ag-foot-link{width:32px;margin:0 auto;padding:7px 0;justify-content:center;gap:0}
     .ag-history:not(.on):not(.focus):not(:hover):not(.hover-open) .ag-hist-user{margin-top:auto;padding:8px 0 !important;justify-content:center}
