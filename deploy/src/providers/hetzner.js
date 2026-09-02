@@ -70,11 +70,23 @@ function userData() {
     "  - ufw allow 443/tcp",
     "  - ufw --force enable",
     "  - mkdir -p /opt/platform/builds",
-    // Unbounded container logs are the second most common way a deployment
-    // host fills its disk, after images.
+    // Two settings, both of which bite only in production.
+    //
+    // log-opts: unbounded container logs are the second most common way a
+    // deployment host fills its disk, after images.
+    //
+    // default-address-pools: every deployment gets its OWN docker network so
+    // that no two user containers can reach each other. Docker's built-in
+    // pools yield roughly 31 networks in total, which MAX_CONTAINERS=40 would
+    // exhaust — and once exhausted, network creation fails and every further
+    // deploy fails with it. 10.200.0.0/16 carved into /24s gives 256.
     "  - |",
     "    cat > /etc/docker/daemon.json <<EOF",
-    "    { \"log-driver\": \"json-file\", \"log-opts\": { \"max-size\": \"10m\", \"max-file\": \"3\" } }",
+    "    {",
+    "      \"log-driver\": \"json-file\",",
+    "      \"log-opts\": { \"max-size\": \"10m\", \"max-file\": \"3\" },",
+    "      \"default-address-pools\": [ { \"base\": \"10.200.0.0/16\", \"size\": 24 } ]",
+    "    }",
     "    EOF",
     "  - systemctl restart docker"
   ].join("\n");

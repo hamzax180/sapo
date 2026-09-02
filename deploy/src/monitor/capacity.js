@@ -51,13 +51,40 @@ function disk(pathToCheck) {
 
 async function snapshot() {
   const [containers, d] = await Promise.all([engine.listManaged(), disk(cfg.buildRoot)]);
-  const running = containers.filter((c) => /running/i.test(c.state)).length;
+
+  /* listManaged() returns null when the daemon could not be reached, which
+     is the normal case in the api — it has no Docker socket on purpose.
+     Treating that as "zero containers" reported an empty host while apps
+     were running, and quietly made the MAX_CONTAINERS admission check
+     below pass no matter what. The database knows what this host is meant
+     to be running, so it answers instead, and the caller is told which
+     source it got. */
+  let counts, from;
+  if (containers) {
+    from = "docker";
+    counts = {
+      total: containers.length,
+      running: containers.filter((c) => /running/i.test(c.state)).length
+    };
+  } else {
+    from = "database";
+    const row = await one(
+      `SELECT COUNT(*)::int AS total,
+              COUNT(*) FILTER (WHERE status = 'RUNNING')::int AS running
+         FROM deployments
+        WHERE host_id = $1 AND status <> 'DELETED'`,
+      [cfg.hostId]
+    );
+    counts = { total: row ? row.total : 0, running: row ? row.running : 0 };
+  }
+
   return {
     hostId: cfg.hostId,
     memory: memory(),
     cpuPct: loadPct(),
     disk: d,
-    containers: { total: containers.length, running },
+    containers: counts,
+    containersFrom: from,
     at: new Date().toISOString()
   };
 }
@@ -110,8 +137,10 @@ async function alerts() {
   }
   // Crash loops: a container Docker keeps restarting is failing, and the
   // restart policy hides it from every other signal.
+  // null = no socket here, so there is nothing to inspect. Only the worker
+  // can answer this one.
   const managed = await engine.listManaged();
-  for (const c of managed) {
+  for (const c of managed || []) {
     const id = c.name.replace(/^app-/, "");
     const st = await engine.inspectState(id);
     if (st.exists && st.restarts >= 5) {

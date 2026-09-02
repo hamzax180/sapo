@@ -19,13 +19,25 @@ const path = require("path");
 
 const { cfg, assertProductionReady } = require("../config");
 const { query, one, many } = require("../db");
-const engine = require("../docker/engine");
+// NOTE: docker/engine is deliberately NOT imported here. This process has no
+// Docker socket, so every call it could make fails silently and gets reported
+// as a fact about the user's app rather than a limit of this service. Work
+// that needs the daemon is queued for the worker (lifecycle) or asked of the
+// worker's internal API (runtime logs).
 const caddy = require("../proxy/caddy");
 const capacity = require("../monitor/capacity");
 const pipeline = require("../worker/pipeline");
 const secrets = require("../secrets");
 const auth = require("./auth");
 const detect = require("../framework/detect");
+const objects = require("../storage/objects");
+// ONLY the external provider, and only for its validator. dbproviders/index
+// would pull in dbproviders/builtin, whose every method shells out to
+// `docker exec` against a socket this container deliberately does not have.
+// The external one needs nothing but a Postgres client and the egress this
+// container already has on souqi_platform — which is exactly why validating
+// a customer's URL is answerable here and provisioning is not.
+const externalDb = require("../dbproviders/external");
 
 const app = express();
 app.disable("x-powered-by");
@@ -88,9 +100,36 @@ const publicView = (d) => ({
 
 /* ---------- health & capacity ---------- */
 
-app.get("/health", async (req, res) => {
-  const dockerVersion = await engine.version();
-  res.json({ ok: true, docker: dockerVersion, caddy: await caddy.health(), host: cfg.hostId });
+/**
+ * Docker facts come from the hosts row, not from a docker command.
+ *
+ * This process has no Docker socket on purpose, so it cannot ask the daemon
+ * anything; calling out to it here only ever produced a silent failure
+ * reported as `"docker": null`, which reads as "no Docker" rather than "this
+ * service cannot see Docker". The worker writes what it observes and the
+ * heartbeat age is reported alongside, so a dead worker is now visible
+ * instead of being indistinguishable from a healthy one.
+ */
+const WORKER_STALE_MS = 5 * 60 * 1000;
+
+app.get("/health", async (req, res, next) => {
+  try {
+    const host = await one("SELECT docker_version, worker_seen_at FROM hosts WHERE id=$1", [cfg.hostId]);
+    const seenAt = host && host.worker_seen_at ? new Date(host.worker_seen_at) : null;
+    const ageMs = seenAt ? Date.now() - seenAt.getTime() : null;
+    const workerOk = ageMs !== null && ageMs < WORKER_STALE_MS;
+    res.json({
+      ok: workerOk,
+      host: cfg.hostId,
+      caddy: await caddy.health(),
+      worker: {
+        ok: workerOk,
+        docker: (host && host.docker_version) || null,
+        lastSeen: seenAt ? seenAt.toISOString() : null,
+        staleSeconds: ageMs === null ? null : Math.round(ageMs / 1000)
+      }
+    });
+  } catch (e) { next(e); }
 });
 
 app.get("/capacity", requireUser, async (req, res, next) => {
@@ -194,7 +233,34 @@ app.post("/deployments/:id/source", requireUser, express.json({ limit: "24mb" })
       await query("UPDATE deployments SET framework=$2 WHERE id=$1", [dep.id, spec.framework]);
       await query("UPDATE projects SET framework=$2, updated_at=now() WHERE id=$1", [dep.project_id, spec.framework]);
     }
-    res.json({ ok: true, files: Object.keys(files).length, detected: spec ? spec.framework : null });
+
+    /* The build directory is scratch — cleanup wipes it after every
+       deploy, and it only exists on one VM. Archiving here is what makes
+       the source survive losing the box, and what lets a redeploy work
+       on a host that has never seen this project.
+
+       A storage failure does NOT fail the upload: the source is already
+       staged locally and the deploy can proceed from it. It is reported
+       instead, so "this is only on the VM" is visible rather than
+       assumed. */
+    let archived = null;
+    if (objects.isConfigured()) {
+      const put = await objects.putSource(dep.id, files);
+      if (put.ok) {
+        await query("UPDATE deployments SET source_key=$2 WHERE id=$1", [dep.id, put.key]);
+        archived = { key: put.key, bytes: put.bytes };
+      } else {
+        archived = { error: put.error };
+        console.warn("[api] source archive failed for " + dep.id + ": " + put.error);
+      }
+    }
+
+    res.json({
+      ok: true,
+      files: Object.keys(files).length,
+      detected: spec ? spec.framework : null,
+      archived: archived
+    });
   } catch (e) { next(e); }
 });
 
@@ -209,16 +275,26 @@ app.get("/deployments/:id", requireUser, async (req, res, next) => {
 app.get("/deployments/:id/status", requireUser, async (req, res, next) => {
   try {
     const dep = await ownedDeployment(req, res); if (!dep) return;
-    const container = dep.status === "RUNNING" || dep.status === "STARTING"
-      ? await engine.inspectState(dep.id)
-      : { exists: false };
+    // Read the worker's last observation rather than inspecting Docker, which
+    // this container cannot do. seenAt is included so a caller can tell a
+    // current answer from one the worker recorded before it died.
+    const seen = dep.container_seen_at ? new Date(dep.container_seen_at) : null;
+    const present = dep.container_state && dep.container_state !== "absent";
     res.json({
       status: dep.status,
       url: dep.domain ? "https://" + dep.domain : null,
       error: dep.error || null,
-      container: container.exists
-        ? { state: container.status, exitCode: container.exitCode, restarts: container.restarts }
-        : null
+      container: present
+        ? {
+            state: dep.container_state,
+            exitCode: dep.container_exit_code,
+            restarts: dep.container_restarts,
+            seenAt: seen ? seen.toISOString() : null,
+            ageSeconds: seen ? Math.round((Date.now() - seen.getTime()) / 1000) : null
+          }
+        : null,
+      // Distinguishes "no container" from "nobody has looked yet".
+      observed: Boolean(seen)
     });
   } catch (e) { next(e); }
 });
@@ -236,40 +312,34 @@ async function enqueue(req, res) {
 app.post("/deployments/:id/deploy", requireUser, enqueue);
 app.post("/deployments/:id/redeploy", requireUser, enqueue);
 
-/* Lifecycle actions run inline: stop, start and restart are seconds, not
-   minutes, so queueing them would add latency and a state to explain for
-   no benefit. */
-app.post("/deployments/:id/stop", requireUser, async (req, res, next) => {
-  try {
-    const dep = await ownedDeployment(req, res); if (!dep) return;
-    await pipeline.stop(dep);
-    res.json({ ok: true, status: "STOPPED" });
-  } catch (e) { next(e); }
-});
+/* Lifecycle actions are QUEUED for the worker, not run here.
+   They used to run inline, on the reasoning that stop/start/restart take
+   seconds. The reasoning was sound and the code still could not work: every
+   one of them ends in a docker command, and this container has no Docker
+   socket by design. The docker CLI failed, the failure was not surfaced, and
+   the caller got {"ok":true,"status":"STOPPED"} for a container that was
+   still running — and, on delete, a row marked DELETED with the container,
+   image, network and build directory all left behind for good.
+   The worker holds the socket, so the worker does the work. */
+async function queueAction(req, res, action) {
+  const dep = await ownedDeployment(req, res); if (!dep) return;
+  await query("UPDATE deployments SET pending_action=$2, updated_at=now() WHERE id=$1", [dep.id, action]);
+  await pipeline.log(dep.id, "system", "Queued: " + action);
+  // 202: accepted, not done. Clients poll /status for the result.
+  res.status(202).json({ ok: true, action, status: dep.status, pending: true });
+}
 
-app.post("/deployments/:id/start", requireUser, async (req, res, next) => {
-  try {
-    const dep = await ownedDeployment(req, res); if (!dep) return;
-    const r = await pipeline.start(dep);
-    res.status(r.ok ? 200 : 500).json(r.ok ? { ok: true, status: "RUNNING" } : { error: r.error });
-  } catch (e) { next(e); }
-});
+app.post("/deployments/:id/stop", requireUser, (req, res, next) =>
+  queueAction(req, res, "stop").catch(next));
 
-app.post("/deployments/:id/restart", requireUser, async (req, res, next) => {
-  try {
-    const dep = await ownedDeployment(req, res); if (!dep) return;
-    const r = await pipeline.restart(dep);
-    res.status(r.ok ? 200 : 500).json(r.ok ? { ok: true, status: "RUNNING" } : { error: r.error });
-  } catch (e) { next(e); }
-});
+app.post("/deployments/:id/start", requireUser, (req, res, next) =>
+  queueAction(req, res, "start").catch(next));
 
-app.delete("/deployments/:id", requireUser, async (req, res, next) => {
-  try {
-    const dep = await ownedDeployment(req, res); if (!dep) return;
-    await pipeline.destroy(dep);
-    res.json({ ok: true, status: "DELETED" });
-  } catch (e) { next(e); }
-});
+app.post("/deployments/:id/restart", requireUser, (req, res, next) =>
+  queueAction(req, res, "restart").catch(next));
+
+app.delete("/deployments/:id", requireUser, (req, res, next) =>
+  queueAction(req, res, "destroy").catch(next));
 
 /**
  * GET /deployments/:id/logs
@@ -284,11 +354,28 @@ app.get("/deployments/:id/logs", requireUser, async (req, res, next) => {
     const tail = Math.min(Number(req.query.tail) || 500, 2000);
 
     if (phase === "runtime") {
-      const l = await engine.logs(dep.id, { tail });
+      // Asked of the worker, which holds the Docker socket. Doing it here
+      // cannot work and previously reported the failure as "the container is
+      // not running", which was frequently untrue.
+      let l = null, why = null;
+      try {
+        const r = await fetch(cfg.workerUrl + "/internal/logs/" + encodeURIComponent(dep.id) + "?tail=" + tail, {
+          headers: { "x-internal-token": cfg.internalToken },
+          signal: AbortSignal.timeout(10000)
+        });
+        if (r.ok) l = await r.json();
+        // Distinguish "cannot reach the worker" from "the worker said no" —
+        // the two have completely different fixes.
+        else why = "the worker refused the request (HTTP " + r.status + ")";
+      } catch (e) { why = "the worker is not reachable — " + e.message; }
+
+      if (!l) {
+        return res.status(503).json({ phase: "runtime", lines: [], note: "runtime logs are unavailable — " + why });
+      }
       return res.json({
         phase: "runtime",
-        lines: l.ok ? l.out.split("\n").filter(Boolean) : [],
-        note: l.ok ? null : "no runtime logs — the container is not running"
+        lines: l.ok ? String(l.out || "").split("\n").filter(Boolean) : [],
+        note: l.ok ? null : l.error
       });
     }
 
@@ -353,7 +440,226 @@ app.delete("/projects/:id/env/:key", requireUser, async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
+/* ---------- project database ----------
+   Every deployed app gets a Postgres database, created on its first deploy
+   and injected as SOUQI_DATABASE_URL. These routes let someone see it,
+   point the project at their own database instead, or remove one.
+
+   Nothing here provisions anything. Creating a database means
+   `docker exec souqi-userdb psql`, and this container has no socket — the
+   same rule that sends stop/start/restart/destroy to the worker sends
+   these there too. */
+
+/** The row, in a shape the browser can render, with nothing secret in it. */
+function databaseView(row) {
+  if (!row) {
+    return {
+      configured: false,
+      mode: "builtin",
+      // Not an error state. Every project gets one; this one has simply not
+      // deployed yet, and saying so beats an empty panel.
+      note: "a database will be created for this project on its first deploy"
+    };
+  }
+  let masked = "••••";
+  if (row.secret_enc) {
+    try { masked = secrets.mask(secrets.decrypt(row.secret_enc)); }
+    catch (e) { masked = "••••"; }
+  }
+  return {
+    configured: true,
+    mode: row.mode,
+    name: row.db_name,
+    role: row.db_role,
+    // A connection string carries a password, so the full value never comes
+    // back to a browser — not once, not on a "reveal". The app is handed it
+    // through the environment; a human never needs to read it.
+    masked: masked,
+    builtinKept: row.builtin_kept,
+    sizeBytes: row.size_bytes === null || row.size_bytes === undefined ? null : Number(row.size_bytes),
+    sizeSeenAt: row.size_seen_at,
+    // Postgres has no per-database quota, so this number is observation and
+    // not a limit. Saying so here keeps the UI from implying an enforcement
+    // the storage layer cannot provide.
+    sizeIsAdvisory: true,
+    updatedAt: row.updated_at
+  };
+}
+
+async function ownedProject(req, res) {
+  const project = await one("SELECT * FROM projects WHERE id=$1 AND user_id=$2", [req.params.id, req.userId]);
+  if (!project) { res.status(404).json({ error: "project not found" }); return null; }
+  return project;
+}
+
+app.get("/projects/:id/database", requireUser, async (req, res, next) => {
+  try {
+    const project = await ownedProject(req, res); if (!project) return;
+    const row = await one("SELECT * FROM project_databases WHERE project_id=$1", [project.id]);
+    res.json({ database: databaseView(row) });
+  } catch (e) { next(e); }
+});
+
+/**
+ * PUT /projects/:id/database  { mode: "builtin" | "external", url? }
+ *
+ * Switching to external VALIDATES FIRST: one connection and a SELECT 1,
+ * from this container, which sits on the platform network and has egress.
+ * A URL that does not work is refused here with the reason, instead of
+ * being stored and discovered as a crash loop three minutes into a deploy.
+ */
+app.put("/projects/:id/database", requireUser, async (req, res, next) => {
+  try {
+    const project = await ownedProject(req, res); if (!project) return;
+    const mode = String((req.body && req.body.mode) || "").trim();
+    if (mode !== "builtin" && mode !== "external") {
+      return res.status(400).json({ error: "mode must be builtin or external" });
+    }
+
+    const existing = await one("SELECT * FROM project_databases WHERE project_id=$1", [project.id]);
+
+    if (mode === "external") {
+      const url = String((req.body && req.body.url) || "").trim();
+      if (!url) return res.status(400).json({ error: "url is required to connect an external database" });
+
+      const shape = externalDb.parse(url);
+      if (!shape.ok) return res.status(400).json({ error: shape.error });
+      const reachable = await externalDb.test(url);
+      if (!reachable.ok) return res.status(400).json({ error: reachable.error });
+
+      /* The built-in database is KEPT, not dropped. Changing a setting must
+         never be the thing that destroys someone's data, and a customer who
+         switches and then changes their mind would have no way back.
+         Removing it is the DELETE below, which they have to ask for. */
+      const keep = Boolean(existing && (existing.mode === "builtin" || existing.builtin_kept));
+      await query(
+        `INSERT INTO project_databases (project_id, mode, db_name, db_role, secret_enc, builtin_kept, updated_at)
+              VALUES ($1,'external',$2,$3,$4,$5, now())
+         ON CONFLICT (project_id) DO UPDATE
+              SET mode='external', db_name=$2, db_role=$3,
+                  secret_enc=$4, builtin_kept=$5, updated_at=now()`,
+        [project.id, shape.url.pathname.slice(1), shape.url.username || null, secrets.encrypt(url), keep]
+      );
+      /* db_name and db_role now describe the EXTERNAL database, because
+         that is what the panel shows and what the customer would recognise.
+         Nothing depends on them to find the built-in one: its names are
+         derived from the project id every time (dbproviders/builtin), which
+         is why they can be overwritten here without stranding it. */
+      return res.json({
+        ok: true,
+        mode: "external",
+        builtinKept: keep,
+        note: keep
+          ? "connected — your built-in database is kept and unchanged; redeploy for this to take effect"
+          : "connected — redeploy for this to take effect"
+      });
+    }
+
+    /* Back to built-in. The stored external URL goes with it: it is the
+       customer's credential for someone else's system, and once it is not
+       in use there is no reason for us to still be holding it. */
+    if (existing && existing.mode === "external") {
+      /* Clearing secret_enc means the next deploy reissues the password and
+         writes a new one. That is safe: provision() re-sets the password on
+         the role that already exists, so the database and everything in it
+         is still there — only the credential changes. */
+      await query(
+        `UPDATE project_databases
+            SET mode='builtin', db_name=NULL, db_role=NULL,
+                secret_enc=NULL, builtin_kept=false, updated_at=now()
+          WHERE project_id=$1`,
+        [project.id]
+      );
+      /* Coming back cancels any queued removal of this very database.
+         Asking to delete it and then changing your mind must not leave a
+         worker holding an instruction to delete the database the project
+         is now using — the worker re-checks for exactly this reason, and
+         withdrawing the request here means it never has to. */
+      await query(
+        "UPDATE projects SET pending_action=NULL WHERE id=$1 AND pending_action='drop-db'",
+        [project.id]
+      );
+      return res.json({ ok: true, mode: "builtin", note: "switched back — redeploy for this to take effect" });
+    }
+    res.json({ ok: true, mode: "builtin", note: "already using the built-in database" });
+  } catch (e) { next(e); }
+});
+
+/**
+ * Refresh the recorded size. Reading it means running psql inside the
+ * userdb container, so the worker is asked — the same route runtime logs
+ * take, for the same reason.
+ */
+app.post("/projects/:id/database/measure", requireUser, async (req, res, next) => {
+  try {
+    const project = await ownedProject(req, res); if (!project) return;
+    const row = await one("SELECT * FROM project_databases WHERE project_id=$1", [project.id]);
+    if (!row) return res.status(404).json({ error: "this project has no database yet" });
+
+    try {
+      const r = await fetch(cfg.workerUrl + "/internal/db/measure/" + encodeURIComponent(project.id), {
+        method: "POST",
+        headers: { "x-internal-token": cfg.internalToken },
+        signal: AbortSignal.timeout(15000)
+      });
+      if (!r.ok) return res.status(503).json({ error: "the worker refused the request (HTTP " + r.status + ")" });
+      const out = await r.json();
+      if (!out.ok) return res.status(503).json({ error: out.error || "the database could not be reached" });
+      const fresh = await one("SELECT * FROM project_databases WHERE project_id=$1", [project.id]);
+      return res.json({ database: databaseView(fresh) });
+    } catch (e) {
+      return res.status(503).json({ error: "the worker is not reachable — " + e.message });
+    }
+  } catch (e) { next(e); }
+});
+
+/**
+ * DELETE /projects/:id/database — remove the built-in database for good.
+ *
+ * Refused while it is the one the project is actually using. There is no
+ * undo and no fallback: the next deploy would create an empty database of
+ * the same name, so the only visible result would be that the data is
+ * gone. Connect an external database first, then remove this one — which
+ * makes the destructive step a deliberate second action rather than a
+ * surprise.
+ */
+app.delete("/projects/:id/database", requireUser, async (req, res, next) => {
+  try {
+    const project = await ownedProject(req, res); if (!project) return;
+    const row = await one("SELECT * FROM project_databases WHERE project_id=$1", [project.id]);
+    if (!row) return res.status(404).json({ error: "this project has no database" });
+    if (row.mode === "builtin") {
+      return res.status(409).json({
+        error: "this is the database your app is using — connect an external one first, then remove it"
+      });
+    }
+    if (!row.builtin_kept) {
+      return res.status(409).json({ error: "there is no built-in database to remove for this project" });
+    }
+    await query("UPDATE projects SET pending_action='drop-db', updated_at=now() WHERE id=$1", [project.id]);
+    res.status(202).json({ ok: true, pending: true, note: "removing your built-in database" });
+  } catch (e) { next(e); }
+});
+
 /* ---------- projects ---------- */
+
+/**
+ * DELETE /projects/:id — the whole project.
+ *
+ * Queued, and the row is deliberately left in place for the worker to
+ * remove last. Deleting it here would cascade the deployments away in the
+ * same statement, and their containers, images, networks and source
+ * archives would keep running on the host with nothing left to say they
+ * ever existed.
+ */
+app.delete("/projects/:id", requireUser, async (req, res, next) => {
+  try {
+    const project = await ownedProject(req, res); if (!project) return;
+    await query("UPDATE projects SET pending_action='delete', updated_at=now() WHERE id=$1", [project.id]);
+    res.status(202).json({ ok: true, pending: true, note: "deleting this project and everything in it" });
+  } catch (e) { next(e); }
+});
+
 app.post("/projects", requireUser, async (req, res, next) => {
   try {
     const name = String((req.body && req.body.name) || "").trim().slice(0, 120);

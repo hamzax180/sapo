@@ -987,6 +987,25 @@
      room to sit any higher than its own padding allowed. .ag-preview
      itself doesn't clip, so this can sit right at the top of the panel,
      centered above whichever device mockup .ag-pv-stage is showing. */
+  /* ---- Publish ----
+     The class has been styled since the beginning (see the phone rule
+     further down, which reflows "label + device toggle + Publish") but no
+     element ever carried it, so the button did not exist. It sits opposite
+     the device toggle rather than inside it: those switch a preview size,
+     this ships the app, and they should not look like the same kind of
+     control. */
+  .ag-pv-publish{position:absolute;top:6px;right:10px;z-index:46;
+    display:inline-flex;align-items:center;gap:7px;height:32px;padding:0 14px;
+    border:0;border-radius:9px;background:var(--accent);color:#fff;
+    font-family:var(--body);font-size:.82rem;font-weight:600;cursor:pointer;
+    box-shadow:0 4px 14px -6px rgba(11,22,38,.4);transition:background .15s,opacity .15s}
+  .ag-pv-publish:hover{background:var(--accent-2)}
+  .ag-pv-publish:disabled{opacity:.55;cursor:default}
+  .ag-pv-publish svg{width:14px;height:14px;flex:none}
+  /* Once it is live the button becomes the way to the app. */
+  .ag-pv-publish.live{background:#22a565}
+  .ag-pv-publish.live:hover{background:#1b8b53}
+
   .ag-pv-devices{position:absolute;top:6px;left:50%;transform:translateX(-50%);z-index:45;
     display:flex;gap:2px;align-items:center;background:var(--card);border:1px solid var(--line);
     border-radius:9px;padding:3px;box-shadow:0 4px 14px -6px rgba(11,22,38,.28)}
@@ -1857,6 +1876,14 @@
   .ag-chat-item.current{background:var(--paper-2);color:var(--ink);font-weight:600}
   .ag-chat-item i{flex:none;width:18px;height:18px;display:grid;place-items:center;color:var(--ink-2);opacity:.95}
   .ag-chat-item i svg{width:16px;height:16px}
+  /* A status dot rather than a document icon, matching the rails on
+     /projects and /deployments. Every row here was the same glyph, which
+     told you nothing; the dot says which of these are live. Green is
+     published, grey is not. */
+  .ag-chat-item .sdot{width:6px;height:6px;border-radius:50%;background:var(--mut);flex:none;margin:0 6px}
+  .ag-chat-item .sdot.run{background:#22a565}
+  .ag-chat-item .sdot.move{background:#e0a11a}
+  .ag-chat-item .sdot.bad{background:#d92d20}
   .ag-chat-item span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis}
   .ag-chats-empty{padding:14px;color:var(--mut);font-size:.8rem;line-height:1.5;text-align:center}
 
@@ -1867,6 +1894,10 @@
   .ag-user-main{flex:1;min-width:0;display:flex;align-items:center;gap:8px;border:0;background:none;
     color:var(--ink);cursor:pointer;padding:5px 6px;border-radius:9px;font:inherit;text-align:left;transition:.14s}
   .ag-user-main:hover{background:var(--paper-2)}
+  /* color:#fff is load-bearing: .ag-ws svg paints every icon in the pill
+     --ink-2 for the chevron, and that blanket rule was catching the avatar
+     glyph too, drawing it grey on the blue circle. */
+  .ag-ws .av svg,.ag-user-main .av svg{width:13px;height:13px;color:#fff}
   .ag-user-main .av{flex:none;width:22px;height:22px;border-radius:50%;display:grid;place-items:center;
     background:linear-gradient(135deg,var(--accent),var(--accent-2));color:#fff;font-size:.76rem;font-weight:700}
   .ag-user-main .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.72rem;font-weight:500}
@@ -1897,64 +1928,6 @@
   .ag-hist-links a:hover{color:var(--ink)}
 
   /* Replit Upgrade Modal in App */
-  .ag-modal-backdrop {
-    position: fixed; inset: 0; background: rgba(0, 0, 0, 0.72);
-    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
-    z-index: 100000000 !important; display: flex; align-items: center; justify-content: center;
-    padding: 20px; opacity: 0; visibility: hidden;
-    transition: opacity 0.1s var(--ease), visibility 0.1s;
-  }
-  .ag-modal-backdrop.open { opacity: 1; visibility: visible; }
-  .ag-modal-card {
-    background: var(--paper); border: 1px solid var(--line); border-radius: 20px;
-    width: 100%; max-width: 1020px; max-height: 94vh; overflow-y: auto;
-    padding: 22px 24px 20px; position: relative;
-    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.4);
-    transform: scale(0.95); transition: transform 0.22s var(--ease);
-    box-sizing: border-box;
-  }
-  .ag-modal-backdrop.open .ag-modal-card { transform: scale(1); }
-  .ag-modal-close {
-    position: absolute; top: 14px; right: 18px; border: 0; background: none;
-    font-size: 1.2rem; color: var(--mut); cursor: pointer; width: 30px; height: 30px;
-    border-radius: 50%; display: grid; place-items: center; transition: background 0.15s, color 0.15s;
-  }
-  .ag-modal-close:hover { background: var(--paper-2); color: var(--ink); }
-
-  .up-header { text-align: center; margin-bottom: 16px; }
-  .up-header h1 { font-family: var(--body) !important; font-size: 1.65rem; font-weight: 700; color: var(--ink); margin: 0 0 2px 0; letter-spacing: -0.02em; }
-  .up-header p { font-family: var(--body) !important; font-size: 0.85rem; color: var(--mut); margin: 0 0 12px 0; }
-  .billing-toggle { display: inline-flex; align-items: center; gap: 4px; background: var(--paper-2); border: 1px solid var(--line); padding: 3px; border-radius: 10px !important; }
-  .billing-toggle button { border: 0; background: none; font-family: var(--body) !important; font-size: 0.8rem; font-weight: 600; color: var(--mut); padding: 6px 14px; border-radius: 8px !important; cursor: pointer; transition: all 0.18s; display: inline-flex; align-items: center; gap: 5px; }
-  .billing-toggle button.active { background: var(--card); color: var(--ink); box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08); }
-  .billing-toggle .discount-pill { background: rgba(0, 112, 243, 0.15); color: #0070f3; font-size: 0.72rem; font-weight: 700; padding: 2px 7px; border-radius: 6px !important; }
-  .up-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; align-items: stretch; margin-bottom: 16px; text-align: left; }
-  .up-card { background: var(--paper-2); border: 1px solid var(--line); border-radius: 16px; padding: 18px 18px 16px; display: flex; flex-direction: column; position: relative; transition: transform 0.2s, box-shadow 0.2s; }
-  .up-card:hover { box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.12); }
-  .up-card.featured { border: 2px solid #0070f3; background: var(--card); box-shadow: 0 0 24px rgba(0, 112, 243, 0.16); }
-  .up-card-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 2px; }
-  .up-card-title { font-family: var(--body) !important; font-size: 1.15rem; font-weight: 700; color: var(--ink); }
-  .up-badge-current { background: var(--stone); color: var(--mut); font-size: 0.72rem; font-weight: 600; padding: 3px 8px; border-radius: 99px; }
-  .up-price-row { margin: 8px 0 2px; display: flex; align-items: baseline; gap: 5px; }
-  .up-price-row .amt { font-family: var(--body) !important; font-size: 2rem; font-weight: 800; color: var(--ink); line-height: 1; letter-spacing: -0.03em; }
-  .up-price-row .unit { font-size: 0.78rem; color: var(--mut); }
-  .up-subtitle { font-size: 0.8rem; color: var(--mut); margin-bottom: 14px; min-height: 28px; line-height: 1.35; }
-  .up-feats { list-style: none; padding: 0; margin: 0 0 14px 0; flex: 1; display: flex; flex-direction: column; gap: 7px; }
-  .up-feat-item { display: flex; align-items: flex-start; gap: 8px; font-size: 0.8rem; color: var(--ink); line-height: 1.3; }
-  .up-feat-item .mark { font-weight: 700; flex: none; width: 14px; text-align: center; }
-  .up-feat-item.check .mark { color: var(--ink); }
-  .up-feat-item.plus .mark { color: var(--mut); }
-  .up-select { width: 100%; padding: 6px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--card); color: var(--ink); font-size: 0.8rem; margin-bottom: 10px; outline: none; cursor: pointer; font-family: var(--body); }
-  .up-btn { width: 100%; padding: 9px 14px; border-radius: 9px; font-family: var(--body); font-size: 0.85rem; font-weight: 600; cursor: pointer; border: 0; display: inline-flex; align-items: center; justify-content: center; gap: 6px; transition: background 0.18s, transform 0.18s; text-decoration: none; }
-  .up-btn-primary { background: #0070f3; color: #ffffff !important; }
-  .up-btn-primary:hover { background: #0051a8; transform: translateY(-1px); }
-  .up-btn-disabled { background: var(--stone); color: var(--mut); cursor: default; }
-  .up-disclaimer { text-align: center; font-size: 0.72rem; color: var(--mut); max-width: 800px; margin: 4px auto 0; line-height: 1.4; }
-  @media (max-width: 860px) {
-    .up-grid { grid-template-columns: 1fr; gap: 16px; }
-    .up-subtitle { min-height: auto; margin-bottom: 16px; }
-    .ag-modal-card { padding: 28px 18px 24px; }
-  }
 
   /* Permanent rail from 901px up — Replit's sidebar has no manual close
      control. The drawer behaviour (and the hamburger and X that drive it)
@@ -2039,6 +2012,9 @@
     .ag-history:not(.on):not(.focus):not(:hover):not(.hover-open) .ag-hist-chats.is-empty{border-top:0;margin:0;padding-top:0}
     .ag-history:not(.on):not(.focus):not(:hover):not(.hover-open) .ag-chats-list{padding:0;overflow:hidden}
     .ag-history:not(.on):not(.focus):not(:hover):not(.hover-open) .ag-chat-item{width:32px;margin:0 auto;padding:7px 0;justify-content:center;gap:0}
+    /* The dot carries side margins for the expanded row; in the rail they
+       are what push it off centre. Same fix as the other two pages. */
+    .ag-history:not(.on):not(.focus):not(:hover):not(.hover-open) .ag-chat-item .sdot{margin:0}
     .ag-history:not(.on):not(.focus):not(:hover):not(.hover-open) .ag-chat-item span{display:none}
     .ag-history:not(.on):not(.focus):not(:hover):not(.hover-open) .ag-chats-empty{display:none}
 
@@ -2051,7 +2027,10 @@
     .ag-history:not(.on):not(.focus):not(:hover):not(.hover-open) .ag-tab-new .tab-ic.ring{background:var(--card);border-color:var(--line);box-shadow:0 1px 2px rgba(0,0,0,.06)}
     .ag-history:not(.on):not(.focus):not(:hover):not(.hover-open) .ag-hist-user{background:transparent}
     .ag-history:not(.on):not(.focus):not(:hover):not(.hover-open) .ag-ws-wrap{padding:0 !important;display:flex;justify-content:center}
-    .ag-history:not(.on):not(.focus):not(:hover):not(.hover-open) .ag-ws{width:32px;padding:5px 0;justify-content:center;gap:0}
+    /* No pill chrome in the rail. The white background and border make
+       it read as a dropdown when the name and chevron are there; with only
+       the avatar showing they are just a ring drawn around a circle. */
+    .ag-history:not(.on):not(.focus):not(:hover):not(.hover-open) .ag-ws{width:32px;padding:5px 0;justify-content:center;gap:0;background:transparent;border-color:transparent}
     .ag-history:not(.on):not(.focus):not(:hover):not(.hover-open) .ag-hist-foot{border-top:0;padding:0 !important}
     .ag-history:not(.on):not(.focus):not(:hover):not(.hover-open) .ag-foot-link{width:32px;margin:0 auto;padding:7px 0;justify-content:center;gap:0}
     .ag-history:not(.on):not(.focus):not(:hover):not(.hover-open) .ag-hist-user{margin-top:auto;padding:8px 0 !important;justify-content:center}
@@ -2285,6 +2264,7 @@
     }
   }
 </style>
+<link rel="stylesheet" href="/css/upgrade-modal.css">
 </head>
 <body>
 
@@ -2320,7 +2300,7 @@
 
   <div class="ag-ws-wrap">
     <button type="button" class="ag-ws" id="agWs">
-      <span class="av" id="agWsAv">S</span>
+      <span class="av" id="agWsAv"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span>
       <span class="nm" id="agWsNm">Your Workspace</span>
       <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg>
     </button>
@@ -2408,7 +2388,7 @@
 
   <div class="ag-hist-user" id="agHistUser">
     <button type="button" class="ag-user-main" id="agUserMain" title="Account settings">
-      <span class="av" id="agUserAv">S</span>
+      <span class="av" id="agUserAv"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span>
       <span class="nm" id="agUserNm">Sign in</span>
     </button>
     <button type="button" class="ag-user-gear" id="agUserGear" title="Settings" aria-label="Settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
@@ -2580,6 +2560,10 @@
   </section>
 
   <section class="ag-preview tab-hidden" id="agPreview">
+    <button type="button" class="ag-pv-publish" id="agPvPublish" hidden>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg>
+      <span id="agPvPublishLabel">Publish</span>
+    </button>
     <div class="ag-pv-devices" id="agPvDevices" role="group" aria-label="Device size" style="display:none">
       <button type="button" data-size="desktop" aria-label="Desktop">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="13" rx="1.5"/><path d="M8 21h8M12 17v4"/></svg></button>
@@ -2890,6 +2874,127 @@
   function el(cls, html) { const d = document.createElement("div"); d.className = cls; if (html != null) d.innerHTML = html; return d; }
   function esc(t) { const d = document.createElement("span"); d.textContent = t == null ? "" : t; return d.innerHTML; }
   function toBottom() { agLog.scrollTop = agLog.scrollHeight; }
+
+  /* ================= Publish =================
+     Ships the current project into its own container through the deploy
+     plane, rather than the old path of stuffing a built dist into Mongo:
+     that only ever worked for static output, and an app with a server had
+     nowhere to run.
+
+     The deploy plane queues the work, so this polls rather than waiting on
+     one long request — and it reports what actually happened rather than
+     claiming success the moment the request is accepted. */
+  const agPvPublish = $("agPvPublish");
+  const agPvPublishLabel = $("agPvPublishLabel");
+  let publishPoll = null, publishedUrl = null;
+
+  function setPublishBtn(text, opts) {
+    const o = opts || {};
+    if (!agPvPublish) return;
+    agPvPublish.hidden = !projectSlug;
+    agPvPublish.disabled = !!o.busy;
+    agPvPublish.classList.toggle("live", !!o.live);
+    if (agPvPublishLabel) agPvPublishLabel.textContent = text;
+  }
+
+  async function publishNow() {
+    if (!projectSlug) {
+      say('<span class="muted">Build something first — there is nothing to publish yet.</span>');
+      return;
+    }
+    // Already live: the button is how you get to the app.
+    if (publishedUrl && !agPvPublish.disabled && agPvPublish.classList.contains("live")) {
+      window.open(publishedUrl, "_blank", "noopener");
+      return;
+    }
+
+    setPublishBtn("Publishing…", { busy: true });
+    say('<span class="muted">Publishing — building your app into its own container.</span>');
+
+    let started;
+    try {
+      const r = await fetch("/api/deploy/" + encodeURIComponent(projectSlug) + "/deploy",
+        { method: "POST", credentials: "same-origin" });
+      const d = await r.json().catch(() => null);
+      if (!r.ok) throw new Error((d && (typeof d.error === "string" ? d.error : d.error && d.error.message)) || "publish failed");
+      started = d;
+    } catch (e) {
+      setPublishBtn("Publish", {});
+      say('<span class="muted">Could not publish — ' + esc(e.message) + "</span>");
+      return;
+    }
+
+    if (started && started.detected) {
+      say('<span class="muted">Detected a ' + esc(started.detected) + " app — building it now.</span>");
+    }
+    watchPublish();
+  }
+
+  /* Polls until it settles. Two seconds while it is moving, and it gives
+     up loudly rather than leaving the button saying "Publishing…" for
+     ever. */
+  function watchPublish() {
+    clearTimeout(publishPoll);
+    const deadline = Date.now() + 15 * 60 * 1000;
+    let last = "";
+
+    (async function tick() {
+      if (Date.now() > deadline) {
+        setPublishBtn("Publish", {});
+        say('<span class="muted">Still building after 15 minutes — check the Deployments page for what happened.</span>');
+        return;
+      }
+      let s = null;
+      try {
+        const r = await fetch("/api/deploy/" + encodeURIComponent(projectSlug) + "/status",
+          { credentials: "same-origin" });
+        s = await r.json();
+      } catch (e) { /* transient — try again below */ }
+
+      if (s && s.status && s.status !== last) {
+        last = s.status;
+        if (s.status === "BUILDING") setPublishBtn("Building…", { busy: true });
+        else if (s.status === "STARTING") setPublishBtn("Starting…", { busy: true });
+      }
+
+      if (s && s.status === "RUNNING" && s.url) {
+        publishedUrl = s.url;
+        setPublishBtn("Open app", { live: true });
+        say('Your app is live at <a href="' + esc(s.url) + '" target="_blank" rel="noopener">' +
+            esc(String(s.url).replace(/^https?:\/\//, "")) + "</a>");
+        return;
+      }
+      if (s && (s.status === "FAILED" || s.status === "STOPPED")) {
+        setPublishBtn("Publish", {});
+        say('<span class="muted">Publish failed' + (s.error ? " — " + esc(s.error) : "") +
+            '. The build log is on the <a href="/deployments">Deployments</a> page.</span>');
+        return;
+      }
+      publishPoll = setTimeout(tick, 2000);
+    })();
+  }
+
+  if (agPvPublish) agPvPublish.addEventListener("click", publishNow);
+
+  /* If this project is already deployed, say so on load rather than
+     offering to publish something that is already live. */
+  async function refreshPublishState() {
+    if (!projectSlug || !agPvPublish) return;
+    setPublishBtn("Publish", {});
+    try {
+      const r = await fetch("/api/deploy/" + encodeURIComponent(projectSlug) + "/status",
+        { credentials: "same-origin" });
+      if (!r.ok) return;
+      const s = await r.json();
+      if (s.status === "RUNNING" && s.url) {
+        publishedUrl = s.url;
+        setPublishBtn("Open app", { live: true });
+      } else if (s.status === "BUILDING" || s.status === "STARTING" || s.status === "QUEUED") {
+        setPublishBtn("Building…", { busy: true });
+        watchPublish();
+      }
+    } catch (e) { /* not deployed, or deployments are not configured here */ }
+  }
 
   const ICON = {
     dot: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/></svg>',
@@ -3348,7 +3453,9 @@
         return;
       }
       if (publishRequested) {
-        say('<span class="muted">Publishing isn\'t available from chat right now.</span>');
+        // Asking the agent to publish now does the same thing the button
+        // does, rather than telling the user to go and find it.
+        publishNow();
         return;
       }
       if (gate) {
@@ -3369,6 +3476,7 @@
 
       const isFirstBuild = !projectId;
       projectId = result.projectId; projectSlug = result.slug;
+      refreshPublishState();   // a freshly built app can be published
       if (isFirstBuild) {
         try { history.replaceState(null, "", "/agent/" + projectSlug); } catch (e) { /* non-fatal */ }
         $("agNewExtras").hidden = true;
@@ -4201,6 +4309,7 @@
       projectId = data.project.id;
       projectSlug = data.project.slug;
       try { history.replaceState(null, "", "/agent/" + projectSlug); } catch (e) {}
+      refreshPublishState();
 
       // Hide onboarding, reveal chat UI
       $("agNewExtras").hidden = true;
@@ -4369,15 +4478,37 @@
     const currentSlug = (location.pathname.match(/^\/agent\/([^/]+)/) || [])[1] || "";
     fetch("/api/projects?kind=code&limit=25", { credentials: "same-origin" })
       .then((r) => r.json())
-      .then((d) => {
+      .then(async (d) => {
         const rows = d.projects || [];
+
+        /* The dot means "live", so it has to come from the thing that
+           knows: a project can carry a deploymentId and still be stopped,
+           and "has been deployed once" is not what a green dot claims.
+           One request covers every row. Quietly skipped when there is no
+           deployment plane in this environment — the dot just stays grey
+           rather than the rail failing to render. */
+        const live = {};
+        try {
+          const ov = await fetch("/api/deploy/overview", { credentials: "same-origin" }).then((r) => r.json());
+          for (const r of (ov.projects || [])) live[r.key] = r.status;
+        } catch (e) { /* no plane here */ }
+
+        const dotFor = (p) => {
+          const s = live[p.slug] || live[p.id];
+          if (s === "RUNNING") return " run";
+          if (s === "BUILDING" || s === "STARTING" || s === "QUEUED") return " move";
+          if (s === "FAILED") return " bad";
+          // The old static publish path has no status to ask about.
+          return p.published ? " run" : "";
+        };
+
         list.innerHTML = rows.length
           ? rows.map((p) => {
               const t = p.title || "Untitled app";
               // (build type intentionally not colour-coded here — see below)
               const cur = p.slug === currentSlug ? " current" : "";
               return '<a class="ag-chat-item' + cur + '" href="/agent/' + esc(p.slug) + '" title="' + esc(t) + '">'
-                + '<i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M8 4h9a2 2 0 0 1 2 2v11"/><rect x="4" y="7" width="12" height="13" rx="2"/></svg></i>'
+                + '<i class="sdot' + dotFor(p) + '"></i>'
                 + '<span>' + esc(t) + '</span></a>';
             }).join("")
           : '<div class="ag-chats-empty">No chats yet. What you build shows up here.</div>';
@@ -4421,7 +4552,8 @@
       // work without one), and hiding it left a signed-out visitor with no
       // route into Settings from the sidebar at all.
       $("agUserNm").textContent = "Sign in";
-      $("agUserAv").textContent = "?";
+      // Leave the neutral glyph in place. "?" and "S" both read as an
+      // identity the page does not have.
       if (agUserMain) agUserMain.dataset.signedOut = "1";
     }
     // One allowance meter in the upgrade card, replacing the three separate
@@ -4492,6 +4624,7 @@
       if (!res.ok) throw new Error("gone");
       const data = await res.json();
       projectId = data.project.id; projectSlug = data.project.slug;
+      refreshPublishState();   // opening an existing project: it may already be live
       $("agNewExtras").hidden = true;
       $("agRecent").hidden = true;
       agSection.classList.remove("is-new");
@@ -4542,142 +4675,7 @@
 </script>
 
 <!-- Replit-style Upgrade Modal overlay for inside app/chat -->
-<div class="ag-modal-backdrop" id="agUpgradeModal">
-  <div class="ag-modal-card">
-    <button type="button" class="ag-modal-close" id="agUpgradeModalClose" title="Close">✕</button>
-    <div class="up-header">
-      <h1>Upgrade</h1>
-      <p>Choose the best plan for you</p>
-      
-      <div class="billing-toggle">
-        <button type="button" id="modalBtnMonthly" class="active">Monthly</button>
-        <button type="button" id="modalBtnYearly">Yearly <span class="discount-pill">🏷️ Up to 10% off</span></button>
-      </div>
-    </div>
-
-    <div class="up-grid">
-      <!-- Starter Plan -->
-      <div class="up-card">
-        <div class="up-card-top">
-          <span class="up-card-title">Starter</span>
-          <span class="up-badge-current">Current plan</span>
-        </div>
-        <div class="up-price-row">
-          <span class="amt">Free</span>
-        </div>
-        <div class="up-subtitle">For exploring what's possible</div>
-        <ul class="up-feats">
-          <li class="up-feat-item check"><span class="mark">✓</span><span>Free daily Agent credits</span></li>
-          <li class="up-feat-item check"><span class="mark">✓</span><span>Built-in database for full-stack apps</span></li>
-          <li class="up-feat-item check"><span class="mark">✓</span><span>Create slides, videos, animations</span></li>
-          <li class="up-feat-item check"><span class="mark">✓</span><span>Publish up to 1 project</span></li>
-          <li class="up-feat-item check"><span class="mark">✓</span><span>Publish private or password-protected deployments</span></li>
-        </ul>
-        <button class="up-btn up-btn-disabled" disabled>Your current plan</button>
-      </div>
-
-      <!-- Souqi Core Plan (Featured) -->
-      <div class="up-card featured">
-        <div class="up-card-top">
-          <span class="up-card-title">Souqi Core</span>
-        </div>
-        <div class="up-price-row">
-          <span class="amt" id="modalCorePrice">$20</span>
-          <span class="unit">per month</span>
-        </div>
-        <div class="up-subtitle">For personal projects &amp; simple apps</div>
-        <ul class="up-feats">
-          <li class="up-feat-item plus"><span class="mark">+</span><span>Everything in Starter</span></li>
-          <li class="up-feat-item check"><span class="mark">✓</span><span>$20 of monthly credits</span></li>
-          <li class="up-feat-item check"><span class="mark">✓</span><span>Invite up to 5 collaborators</span></li>
-          <li class="up-feat-item check"><span class="mark">✓</span><span>Work in parallel with up to 2 agents</span></li>
-          <li class="up-feat-item check"><span class="mark">✓</span><span>Publish projects in any region</span></li>
-          <li class="up-feat-item check"><span class="mark">✓</span><span>Unlimited workspaces</span></li>
-          <li class="up-feat-item check"><span class="mark">✓</span><span>Remove "Made with Souqi" badge</span></li>
-          <li class="up-feat-item check"><span class="mark">✓</span><span>Souqi AI Integrations</span></li>
-        </ul>
-        <a href="/checkout?plan=core" class="up-btn up-btn-primary">Continue with Core &rarr;</a>
-      </div>
-
-      <!-- Souqi Pro Plan -->
-      <div class="up-card">
-        <div class="up-card-top">
-          <span class="up-card-title">Souqi Pro</span>
-        </div>
-        <div class="up-price-row">
-          <span class="amt" id="modalProPrice">$100</span>
-          <span class="unit">per month</span>
-        </div>
-        <div class="up-subtitle">For commercial and professional builds</div>
-        <ul class="up-feats">
-          <li class="up-feat-item plus"><span class="mark">+</span><span>Everything in Core</span></li>
-          <li class="up-feat-item check"><span class="mark">✓</span><span>$100 monthly credits</span></li>
-          <li class="up-feat-item check"><span class="mark">✓</span><span>Invite up to 15 collaborators</span></li>
-          <li class="up-feat-item check"><span class="mark">✓</span><span>Invite up to 50 viewers</span></li>
-          <li class="up-feat-item check"><span class="mark">✓</span><span>Work in parallel with up to 10 agents</span></li>
-          <li class="up-feat-item check"><span class="mark">✓</span><span>Access to the most powerful models</span></li>
-          <li class="up-feat-item check"><span class="mark">✓</span><span>Database rollbacks for up to 28 days</span></li>
-        </ul>
-        <select class="up-select" id="modalProCreditSelect">
-          <option value="100">$100 credits</option>
-          <option value="250">$250 credits</option>
-          <option value="500">$500 credits</option>
-        </select>
-        <a href="/checkout?plan=pro" class="up-btn up-btn-primary">Continue with Pro &rarr;</a>
-      </div>
-    </div>
-
-    <div class="up-disclaimer">
-      *Prices are subject to tax depending on your location. Souqi Agent is powered by large language models. While it can produce powerful results, its behavior is probabilistic — meaning it may occasionally make mistakes.
-    </div>
-  </div>
-</div>
-
-<script>
-window.openUpgradeModal = function(e) {
-  if (e && e.preventDefault) e.preventDefault();
-  if (window.SouqiLoading) window.SouqiLoading.hide();
-  var modal = document.getElementById("agUpgradeModal");
-  if (modal) modal.classList.add("open");
-};
-
-window.closeUpgradeModal = function() {
-  var modal = document.getElementById("agUpgradeModal");
-  if (modal) modal.classList.remove("open");
-};
-
-document.addEventListener("DOMContentLoaded", function() {
-  var closeBtn = document.getElementById("agUpgradeModalClose");
-  if (closeBtn) closeBtn.addEventListener("click", window.closeUpgradeModal);
-
-  var modal = document.getElementById("agUpgradeModal");
-  if (modal) {
-    modal.addEventListener("click", function(e) {
-      if (e.target === modal) window.closeUpgradeModal();
-    });
-  }
-
-  var mBtn = document.getElementById("modalBtnMonthly");
-  var yBtn = document.getElementById("modalBtnYearly");
-  var cPrice = document.getElementById("modalCorePrice");
-  var pPrice = document.getElementById("modalProPrice");
-
-  if (mBtn && yBtn) {
-    mBtn.addEventListener("click", function() {
-      mBtn.classList.add("active");
-      yBtn.classList.remove("active");
-      if (cPrice) cPrice.textContent = "$20";
-      if (pPrice) pPrice.textContent = "$100";
-    });
-    yBtn.addEventListener("click", function() {
-      yBtn.classList.add("active");
-      mBtn.classList.remove("active");
-      if (cPrice) cPrice.textContent = "$18";
-      if (pPrice) pPrice.textContent = "$90";
-    });
-  }
-});
-</script>
-<script src="js/nav-loading.js?v=1"></script>
+<script src="/js/nav-loading.js?v=1"></script>
+<script src="/js/upgrade-modal.js" defer></script>
 </body>
 </html>

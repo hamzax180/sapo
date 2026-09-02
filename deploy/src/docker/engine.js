@@ -57,14 +57,79 @@ function docker(args, opts = {}) {
 const containerName = (id) => "app-" + String(id).replace(/[^a-zA-Z0-9_.-]/g, "");
 const imageName = (id) => "platform-app:" + String(id).replace(/[^a-zA-Z0-9_.-]/g, "");
 
-/* ---------- network ---------- */
+/* ---------- network ----------
+   ONE NETWORK PER DEPLOYMENT, and the reason is the spec line "never allow a
+   user's application container to access other application containers".
+
+   A single shared app network does not deliver that. --internal stops egress
+   off the box, but it says nothing about traffic BETWEEN members: a Docker
+   bridge lets any member dial any other member's container port directly, and
+   embedded DNS will even resolve the other container's name. Nothing being
+   published to the host is irrelevant — the containers are on the same L2.
+
+   So each deployment gets its own --internal bridge whose only other member
+   is Caddy, which is attached at deploy time. Two user containers are then
+   never on a network together and have no route to each other at all. */
+const networkName = (id) => "souqi_app_" + String(id).replace(/[^a-zA-Z0-9_.-]/g, "");
+
+async function ensureDeploymentNetwork(deploymentId) {
+  const net = networkName(deploymentId);
+  const found = await docker(["network", "ls", "--filter", "name=^" + net + "$", "--format", "{{.Name}}"]);
+  if (found.stdout.trim() === net) return { ok: true, existed: true, network: net };
+  const made = await docker(["network", "create", "--driver", "bridge", "--internal",
+    "--label", "souqi.managed=true", "--label", "souqi.deployment=" + deploymentId, net]);
+  return { ok: made.ok, existed: false, network: net, error: made.stderr };
+}
+
+/** Attach the proxy to one app's network. Without this the app is unroutable. */
+async function connectProxy(deploymentId) {
+  const net = networkName(deploymentId);
+  const r = await docker(["network", "connect", net, cfg.proxyContainer], { timeoutMs: 20000 });
+  // Already-connected is success, not failure — redeploys re-run this.
+  if (!r.ok && /already exists|already connected/i.test(r.stderr || "")) return { ok: true, existed: true };
+  return { ok: r.ok, error: r.stderr };
+}
+
+/**
+ * Attach the customer-data Postgres to one app's network.
+ *
+ * Same mechanism as connectProxy, and for the same reason: the database
+ * container is on no network of its own, so this is the only way the app
+ * can reach it — and reaching it is all the app can do, because it holds
+ * credentials for exactly one database on that cluster.
+ */
+async function connectUserDb(deploymentId) {
+  const net = networkName(deploymentId);
+  const r = await docker(["network", "connect", net, cfg.userDbContainer], { timeoutMs: 20000 });
+  if (!r.ok && /already exists|already connected/i.test(r.stderr || "")) return { ok: true, existed: true };
+  return { ok: r.ok, error: r.stderr };
+}
+
+async function disconnectUserDb(deploymentId) {
+  const net = networkName(deploymentId);
+  const r = await docker(["network", "disconnect", "--force", net, cfg.userDbContainer], { timeoutMs: 20000 });
+  // Not attached is the desired end state, not a failure.
+  if (!r.ok && /not connected|no such|is not connected/i.test(r.stderr || "")) return { ok: true, existed: false };
+  return { ok: r.ok, error: r.stderr };
+}
+
+/** Detach every platform member and drop the network. A network with a
+    member will not delete, so the disconnects have to happen first —
+    and that is now BOTH of them. Leaving the database attached is enough
+    to make `network rm` fail with "has active endpoints", which would
+    leak one dead network per deleted deployment. */
+async function removeDeploymentNetwork(deploymentId) {
+  const net = networkName(deploymentId);
+  await docker(["network", "disconnect", "--force", net, cfg.proxyContainer], { timeoutMs: 20000 });
+  await docker(["network", "disconnect", "--force", net, cfg.userDbContainer], { timeoutMs: 20000 });
+  return docker(["network", "rm", net], { timeoutMs: 20000 });
+}
+
+/* Kept for the boot path: the shared network still exists for Caddy itself,
+   but no user container is placed on it any more. */
 async function ensureAppNetwork() {
   const found = await docker(["network", "ls", "--filter", "name=^" + cfg.appNetwork + "$", "--format", "{{.Name}}"]);
   if (found.stdout.trim() === cfg.appNetwork) return { ok: true, existed: true };
-  // --internal: containers on this network have NO route off the box. They
-  // cannot reach the Docker API, the host, a cloud metadata service, or each
-  // other over anything published, because nothing is published. Caddy is the
-  // only member also attached to a routable network.
   const made = await docker(["network", "create", "--driver", "bridge", "--internal", cfg.appNetwork]);
   return { ok: made.ok, existed: false, error: made.stderr };
 }
@@ -118,9 +183,10 @@ function buildRunArgs({ deploymentId, port, cpu, memoryMb, pids, env, readOnly =
     "--security-opt", "no-new-privileges",
     "--cap-drop", "ALL",
 
-    // The app network is --internal, so this container has no route to the
-    // host, the internet, or the Docker API. Caddy reaches it by name.
-    "--network", cfg.appNetwork,
+    // This deployment's OWN --internal network: no route to the host, the
+    // internet, the Docker API, or any other user container. Caddy is
+    // attached separately and is the only other member.
+    "--network", networkName(deploymentId),
 
     // NOTHING is published. There is no -p flag anywhere in this file.
     // The only path to an app is through the reverse proxy.
@@ -140,6 +206,12 @@ function buildRunArgs({ deploymentId, port, cpu, memoryMb, pids, env, readOnly =
     args.push("--read-only");
     args.push("--tmpfs", "/tmp:rw,noexec,nosuid,size=64m");
     args.push("--tmpfs", "/run:rw,noexec,nosuid,size=8m");
+    // nginx creates /var/cache/nginx/client_temp before it binds, so a
+    // read-only root stopped every static site from starting at all:
+    //   [emerg] mkdir() "/var/cache/nginx/client_temp" failed (30: ...)
+    // The root stays immutable; this is scratch that vanishes on restart.
+    // Costs nothing for the runtimes that never touch it.
+    args.push("--tmpfs", "/var/cache/nginx:rw,noexec,nosuid,size=16m");
   }
 
   for (const [k, v] of Object.entries(env || {})) {
@@ -190,14 +262,45 @@ async function statsAll() {
   });
 }
 
-/** Only containers this platform created — never anything else on the host. */
+/**
+ * Only containers this platform created — never anything else on the host.
+ *
+ * Returns NULL, not [], when the daemon could not be reached. The two mean
+ * opposite things and callers have to tell them apart: [] is "there are no
+ * containers", null is "nobody could look". Returning [] for both is how
+ * the api — which has no Docker socket — came to report 0 containers on a
+ * host that was running several, and, worse, how its MAX_CONTAINERS
+ * admission check came to pass unconditionally.
+ */
+/**
+ * Every container this platform runs an APP in.
+ *
+ * Both filters matter. `souqi.managed=true` means ours; `souqi.deployment`
+ * is only ever set on an app container, and its absence is what keeps the
+ * shared user-database container out of this list. That container is
+ * managed too, but it belongs to no deployment, and two callers would get
+ * it badly wrong: capacity counts this list against MAX_CONTAINERS while
+ * the api counts `deployments` rows, so one extra member here silently
+ * desyncs admission between them; and the janitor treats anything here
+ * without a live deployment row as an orphan, which would delete the
+ * customer data cluster every fifteen minutes.
+ *
+ * Docker has no negative label filter, so the rule is stated positively:
+ * an app container is one that names a deployment.
+ */
 async function listManaged() {
-  const r = await docker(["ps", "--all", "--filter", "label=souqi.managed=true", "--format", "{{.Names}}|{{.State}}|{{.Image}}"], { timeoutMs: 20000 });
-  if (!r.ok) return [];
+  const r = await docker(["ps", "--all",
+    "--filter", "label=souqi.managed=true",
+    "--filter", "label=souqi.deployment",
+    "--format", "{{.Names}}|{{.State}}|{{.Image}}"], { timeoutMs: 20000 });
+  if (!r.ok) return null;
   return r.stdout.trim().split("\n").filter(Boolean).map((l) => {
     const c = l.split("|");
     return { name: c[0], state: c[1], image: c[2] };
-  });
+  // Belt and braces. Every caller recovers a deployment id by stripping
+  // this prefix, so anything without it would be acted on under a name
+  // that is not its own.
+  }).filter((c) => c.name.startsWith("app-"));
 }
 
 async function pruneImages() {
@@ -214,5 +317,7 @@ async function version() {
 module.exports = {
   docker, containerName, imageName, ensureAppNetwork, buildImage, runApp, buildRunArgs,
   stop, start, restart, removeContainer, removeImage, logs, inspectState,
-  statsAll, listManaged, pruneImages, version
+  statsAll, listManaged, pruneImages, version,
+  networkName, ensureDeploymentNetwork, connectProxy, removeDeploymentNetwork,
+  connectUserDb, disconnectUserDb
 };

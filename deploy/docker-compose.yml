@@ -38,6 +38,62 @@ services:
       timeout: 5s
       retries: 10
 
+  # ---------------------------------------------------------------
+  #  The database customers' apps actually use. Deliberately a SECOND
+  #  cluster, not a second database on the platform one: the platform
+  #  cluster holds every project, deployment and encrypted env var on
+  #  the box, and no amount of role juggling makes it sane to let
+  #  untrusted app code open a socket to it.
+  #
+  #  NOTE THE NETWORKS LINE. This container is attached to individual
+  #  souqi_app_<id> networks at deploy time (see engine.connectUserDb),
+  #  exactly as Caddy is — and it is NEVER on souqi_platform, because a
+  #  member of both would hand every app container a route to the platform
+  #  database and the API.
+  #
+  #  It sits on souqi_userdb_home, a dead-end network of its own, and the
+  #  emphasis is on DEAD END: internal, no gateway, no other member ever.
+  #  It would be more honest to say "no networks at all", and two ways of
+  #  saying that both fail. `networks: []` is ignored — compose silently
+  #  invents a default bridge and puts the container on it, WITH egress,
+  #  which is worse than what is written here. `network_mode: none` is a
+  #  real answer to a different question: the daemon then refuses every
+  #  later `network connect` ("cannot be connected to multiple networks
+  #  with one of the networks in private (none) mode"), so the container
+  #  could never join an app network and no app could reach its database.
+  #
+  #  Which raises the obvious question: if the worker sits on platform and
+  #  this does not, how does the worker create databases? Over the Docker
+  #  socket, not over a network — `docker exec -i` with the SQL on stdin.
+  #  The worker already owns the socket and is already the only component
+  #  allowed to touch Docker.
+  userdb:
+    image: postgres:16-alpine
+    container_name: souqi-userdb
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${USERDB_SUPERUSER:-souqiadmin}
+      POSTGRES_PASSWORD: ${USERDB_PASSWORD:-}
+      POSTGRES_DB: postgres
+    volumes:
+      - userdbdata:/var/lib/postgresql/data
+      # Runs once on an empty data directory: locks down the maintenance
+      # databases so a tenant role cannot connect to one and work from there.
+      - ./db/userdb-init.sql:/docker-entrypoint-initdb.d/01-lockdown.sql:ro
+    # No ports. One network, and it goes nowhere — see above.
+    networks: [userdbhome]
+    labels:
+      # A distinct role label: the janitor sweeps anything managed that is
+      # not named app-<deployment_id>, and would otherwise classify this as
+      # an orphan every fifteen minutes.
+      souqi.managed: "true"
+      souqi.role: "userdb"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${USERDB_SUPERUSER:-souqiadmin} -d postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
   caddy:
     image: caddy:2-alpine
     restart: unless-stopped
@@ -56,11 +112,23 @@ services:
     environment:
       # Admin API on the platform network only. Anyone who reaches it can
       # route any hostname anywhere, so it must never be published.
-      CADDY_ADMIN: "0.0.0.0:2019"
-    command: ["caddy", "run", "--config", "/config/caddy.json", "--adapter", "json", "--resume"]
-    networks: [platform, apps]
+      #
+      # It is bound to THIS address and not 0.0.0.0 for a reason that is easy
+      # to get wrong: Caddy is a member of the app networks too (it has to be,
+      # to proxy to the containers), so a 0.0.0.0 bind puts the admin API on
+      # an interface every untrusted user container can reach. Binding the
+      # platform address means the socket does not exist on those networks.
+      CADDY_ADMIN: "${CADDY_ADMIN_IP:-10.89.0.10}:2019"
+    networks:
+      platform:
+        ipv4_address: ${CADDY_ADMIN_IP:-10.89.0.10}
+      apps: {}
+    # JSON is Caddy's native config format, so there is no "json" adapter to
+    # name here — passing --adapter json makes Caddy exit before it binds.
+    command: ["caddy", "run", "--config", "/config/caddy.json", "--resume"]
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:2019/config/"]
+      # Follows the admin bind above — localhost no longer has a listener.
+      test: ["CMD-SHELL", "wget --spider -q http://${CADDY_ADMIN_IP:-10.89.0.10}:2019/config/"]
       interval: 15s
       timeout: 5s
       retries: 5
@@ -85,6 +153,13 @@ services:
       INTERNAL_TOKEN: ${INTERNAL_TOKEN:-}
       ALLOW_DEV_AUTH: ${ALLOW_DEV_AUTH:-0}
       NODE_ENV: ${NODE_ENV:-development}
+      # Where source archives live. Unset = archives stay on this VM only,
+      # which the spec warns against and preflight flags.
+      S3_ENDPOINT: ${S3_ENDPOINT:-}
+      S3_BUCKET: ${S3_BUCKET:-}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:-}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:-}
+      S3_REGION: ${S3_REGION:-auto}
     volumes:
       # Shared with the worker so an upload lands where the build reads it.
       - builds:/opt/platform/builds
@@ -104,10 +179,27 @@ services:
       BUILD_ROOT: /opt/platform/builds
       SECRET_KEY: ${SECRET_KEY:-}
       HOST_ID: ${HOST_ID:-local}
+      # Authenticates the worker's internal read API, which the api calls for
+      # anything that needs the Docker socket (runtime logs). Must match the
+      # api's value or every such read is refused.
+      INTERNAL_TOKEN: ${INTERNAL_TOKEN:-}
+      WORKER_PORT: "4600"
+      # The customer data cluster. The worker reaches it over the Docker
+      # socket (`docker exec`), never over a network, so it needs the
+      # container's name and its superuser — not a connection string.
+      USERDB_CONTAINER: ${USERDB_CONTAINER:-souqi-userdb}
+      USERDB_SUPERUSER: ${USERDB_SUPERUSER:-souqiadmin}
       DEFAULT_CPU: ${DEFAULT_CPU:-0.5}
       DEFAULT_MEMORY_MB: ${DEFAULT_MEMORY_MB:-512}
       DEFAULT_PIDS: ${DEFAULT_PIDS:-100}
       MAX_CONTAINERS: ${MAX_CONTAINERS:-40}
+      # The worker restores source from here when the build directory is
+      # gone, and removes the archive when a deployment is deleted.
+      S3_ENDPOINT: ${S3_ENDPOINT:-}
+      S3_BUCKET: ${S3_BUCKET:-}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:-}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:-}
+      S3_REGION: ${S3_REGION:-auto}
     volumes:
       - builds:/opt/platform/builds
       # THE trust boundary of this whole system.
@@ -133,6 +225,21 @@ services:
 networks:
   platform:
     name: souqi_platform
+    # Fixed subnet so Caddy can hold a known address to bind its admin API to.
+    # If it collides with something on the host, set PLATFORM_SUBNET and
+    # CADDY_ADMIN_IP in .env — preflight checks that they agree with
+    # caddy/caddy.json, which cannot read environment variables.
+    ipam:
+      config:
+        - subnet: ${PLATFORM_SUBNET:-10.89.0.0/24}
+  userdbhome:
+    name: souqi_userdb_home
+    # A network with exactly one member, and no way off it. It exists only
+    # because a container must be on something at boot; every network that
+    # matters is attached later, one per app. internal:true means no
+    # gateway, so the customer data cluster has no route to the internet
+    # even while it is doing nothing.
+    internal: true
   apps:
     name: souqi_apps
     # Created here so Caddy can join it at boot; the worker also ensures it
@@ -143,6 +250,7 @@ networks:
 
 volumes:
   pgdata:
+  userdbdata:      # customer data — the one volume here that holds their work
   builds:
   caddy_data:
   caddy_config:

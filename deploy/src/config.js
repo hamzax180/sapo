@@ -70,10 +70,26 @@ const cfg = {
     sshKeyId: process.env.HETZNER_SSH_KEY_ID || ""
   },
 
-  // The user-container network. Created with --internal so containers on it
-  // cannot reach the internet OR the host — only Caddy, which is attached to
-  // both this and the platform network, can reach them.
+  // Caddy's shared network. User containers are NOT placed here — each gets
+  // its own --internal network (see docker/engine.js) so that no two user
+  // containers ever share one.
   appNetwork: "souqi_apps",
+
+  // The proxy container the worker attaches to each per-deployment network.
+  // Compose names it <project>-caddy-1; override when the project name differs.
+  proxyContainer: process.env.PROXY_CONTAINER || "deploy-caddy-1",
+
+  // The customer-data Postgres. Like the proxy, it is attached to each
+  // app's network at deploy time and is otherwise on none — see the
+  // userdb service comment in docker-compose.yml for why it must never
+  // join souqi_platform.
+  userDbContainer: process.env.USERDB_CONTAINER || "souqi-userdb",
+
+  // The worker's internal HTTP endpoint. It exists for one reason: some reads
+  // genuinely need the Docker socket (runtime logs), and the api must never
+  // have one. Never published — platform network only, internal token required.
+  workerPort: num("WORKER_PORT", 4600),
+  workerUrl: (process.env.WORKER_URL || "http://worker:4600").replace(/\/+$/, ""),
   hostId: process.env.HOST_ID || "local",
   apiPort: num("API_PORT", 4500)
 };

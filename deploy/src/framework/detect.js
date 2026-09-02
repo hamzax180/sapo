@@ -19,6 +19,9 @@ const path = require("path");
 
 const FRAMEWORKS = ["static", "node", "nextjs", "python"];
 
+// Must match dockerfiles.js: nginx runs unprivileged and listens here.
+const STATIC_PORT = 8080;
+
 function readJson(dir, name) {
   try { return JSON.parse(fs.readFileSync(path.join(dir, name), "utf8")); }
   catch (e) { return null; }
@@ -109,15 +112,17 @@ function normalise(s) {
     framework: s.framework,
     buildCommand: s.buildCommand || null,
     startCommand: s.startCommand || null,
-    port: Number(s.port) || (s.framework === "static" ? 80 : 3000),
+    port: Number(s.port) || (s.framework === "static" ? STATIC_PORT : 3000),
     outputDir: s.outputDir || (s.framework === "static" ? "dist" : null),
     declared: !!s.declared
   };
   if (!FRAMEWORKS.includes(out.framework)) throw new Error("unsupported framework: " + out.framework);
-  // A static site is served by nginx on 80 regardless of what anyone declares;
-  // letting a declared port through here would produce a proxy route pointing
-  // at a port nothing listens on.
-  if (out.framework === "static") out.port = 80;
+  // A static site is served by nginx on STATIC_PORT regardless of what anyone
+  // declares; letting a declared port through here would produce a proxy route
+  // pointing at a port nothing listens on. It is 8080 rather than 80 because
+  // nginx runs unprivileged in these containers and cannot bind a low port
+  // without CAP_NET_BIND_SERVICE, which they do not get.
+  if (out.framework === "static") out.port = STATIC_PORT;
   return out;
 }
 

@@ -160,6 +160,49 @@ function run() {
          "scripts/backup.sh covers the database, not the archives.");
   }
 
+  // --- networking ------------------------------------------------
+  // caddy/caddy.json is plain JSON and cannot read an environment variable,
+  // so if the admin IP is overridden in .env the bootstrap file has to be
+  // edited to match. When they disagree Caddy cannot bind, crash-loops, and
+  // nothing on the platform is routable — worth catching here rather than
+  // in the logs of a host that has just gone dark.
+  const adminIp = env.CADDY_ADMIN_IP || "10.89.0.10";
+  const subnet = env.PLATFORM_SUBNET || "10.89.0.0/24";
+  try {
+    const bootPath = path.join(ROOT, "caddy", "caddy.json");
+    const boot = JSON.parse(fs.readFileSync(bootPath, "utf8"));
+    const listen = String((boot.admin && boot.admin.listen) || "");
+    if (/^(0\.0\.0\.0|::|\[::\]):/.test(listen)) {
+      err("caddy/caddy.json binds the admin API to " + listen + ". Caddy joins every app " +
+          "network to proxy to containers, so a wildcard bind exposes the admin API — and " +
+          "with it the power to re-route any hostname — to every user container.");
+    } else if (listen !== adminIp + ":2019") {
+      err("caddy/caddy.json binds " + listen + " but CADDY_ADMIN_IP is " + adminIp +
+          ". Caddy cannot bind an address it does not have, so it would crash-loop.");
+    }
+  } catch (e) {
+    err("caddy/caddy.json is missing or not valid JSON — Caddy has no bootstrap config.");
+  }
+
+  // The admin IP has to sit inside the platform subnet, or compose refuses
+  // to assign it.
+  const base = subnet.split("/")[0].split(".").slice(0, 3).join(".");
+  if (!adminIp.startsWith(base + ".")) {
+    err("CADDY_ADMIN_IP=" + adminIp + " is outside PLATFORM_SUBNET=" + subnet + ".");
+  }
+
+  // Every deployment gets its own docker network. Docker's built-in address
+  // pools top out around 31 networks, and once they are gone every deploy
+  // fails at network creation.
+  const maxContainers = Number(env.MAX_CONTAINERS || 40);
+  if (maxContainers > 25) {
+    warn("MAX_CONTAINERS=" + maxContainers + " and each deployment takes its own docker " +
+         "network. Docker's default address pools allow roughly 31 networks in total, so " +
+         "the host needs default-address-pools in /etc/docker/daemon.json (provision.js " +
+         "writes 10.200.0.0/16 size 24, giving 256). Without it, deploys start failing at " +
+         "network creation once the pool runs out.");
+  }
+
   // --- the file itself -------------------------------------------
   if (!envIsIgnored()) {
     err(".env is not gitignored. It holds every secret on this host, and the " +
@@ -231,7 +274,12 @@ function generate() {
   // Only ever fills a value that is EMPTY. Overwriting a live SECRET_KEY
   // would make every stored env var undecryptable, and overwriting
   // JWT_SECRET would sign out every user of the main app.
-  for (const [key, bytes] of [["SECRET_KEY", 32], ["INTERNAL_TOKEN", 32], ["POSTGRES_PASSWORD", 24]]) {
+  // USERDB_PASSWORD is the customer cluster's superuser password. It is
+  // generated like the others and never defaulted: an empty one makes the
+  // postgres image refuse to initialise at all, which would show up as a
+  // container that will not start rather than as a missing setting.
+  for (const [key, bytes] of [["SECRET_KEY", 32], ["INTERNAL_TOKEN", 32],
+                              ["POSTGRES_PASSWORD", 24], ["USERDB_PASSWORD", 24]]) {
     if (env[key]) continue;
     const value = crypto.randomBytes(bytes).toString("hex");
     const re = new RegExp("^" + key + "=.*$", "m");

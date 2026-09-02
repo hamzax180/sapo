@@ -17,13 +17,15 @@
 const fsp = require("fs/promises");
 const path = require("path");
 const { cfg } = require("../config");
-const { query } = require("../db");
+const { query, one } = require("../db");
 const engine = require("../docker/engine");
 const caddy = require("../proxy/caddy");
 const capacity = require("../monitor/capacity");
 const detect = require("../framework/detect");
 const dockerfiles = require("../framework/dockerfiles");
 const secrets = require("../secrets");
+const objects = require("../storage/objects");
+const dbproviders = require("../dbproviders");
 
 /* ---------- logging ----------
    Build output goes to the database, not only to the container, because the
@@ -89,6 +91,124 @@ async function cleanupBuildContext(deploymentId) {
   catch (e) { console.error("[worker] could not clean", dir, e.message); }
 }
 
+/**
+ * Make sure the source is on disk before the build looks for it.
+ *
+ * Present already: nothing to do — the common case, straight after an
+ * upload. Missing with an archive: restore it. Missing with no archive:
+ * say so plainly, because "could not work out how to build this" would
+ * blame the user's project for a file that was never there.
+ */
+async function ensureSource(dep, sourceDir) {
+  let present = false;
+  try { present = (await fsp.readdir(sourceDir)).length > 0; } catch (e) { present = false; }
+  if (present) return { ok: true, fromArchive: false };
+
+  if (!dep.source_key) {
+    return {
+      ok: false,
+      error: objects.isConfigured()
+        ? "the source for this deployment is gone — it was never archived, so there is nothing to restore"
+        : "the source for this deployment is gone from this host, and object storage is not configured, so it cannot be restored"
+    };
+  }
+
+  const got = await objects.getSource(dep.source_key);
+  if (!got.ok) return { ok: false, error: "could not restore the source — " + (got.error || "unknown") };
+
+  await fsp.mkdir(sourceDir, { recursive: true });
+  for (const rel of Object.keys(got.files)) {
+    // Same traversal check the upload does. The archive is our own, but a
+    // path that escapes the staging directory must not be writable just
+    // because it took a different route in.
+    const clean = String(rel).replace(/\\/g, "/");
+    if (clean.startsWith("/") || clean.split("/").includes("..")) continue;
+    const dest = path.join(sourceDir, clean);
+    if (!dest.startsWith(sourceDir + path.sep)) continue;
+    await fsp.mkdir(path.dirname(dest), { recursive: true });
+    await fsp.writeFile(dest, String(got.files[rel]), "utf8");
+  }
+  return { ok: true, fromArchive: true };
+}
+
+/**
+ * Make sure this project has a database, and that this deployment can
+ * reach it.
+ *
+ * Keyed to the PROJECT, not the deployment: a redeploy mints a new
+ * deployment id and a fresh network, but the data has to survive that.
+ * So the row is created once and the container is re-attached to whatever
+ * network is current — the same shape as connectProxy.
+ *
+ * NEVER FATAL. A database that cannot be provisioned is logged and the
+ * deploy continues without one. An app that does not use a database
+ * should not fail to ship because a sidecar was unhappy, and an app that
+ * does will say so far more clearly in its own logs than a deploy failure
+ * would.
+ */
+async function ensureDatabase(dep, id) {
+  const projectId = dep.project_id;
+
+  const row = await one("SELECT * FROM project_databases WHERE project_id=$1", [projectId]);
+  const mode = (row && row.mode) || dbproviders.DEFAULT_MODE;
+  const provider = dbproviders.get(mode);
+
+  let secret = null;
+  if (row && row.secret_enc) {
+    // An unreadable credential is treated as absent rather than thrown:
+    // for builtin that means it is reissued, which is recoverable. Same
+    // discipline as projectEnv above.
+    try { secret = secrets.decrypt(row.secret_enc); } catch (e) { secret = null; }
+  }
+
+  if (mode === "builtin" && !(await provider.ready())) {
+    await log(id, "system", "WARNING: the database service is not responding — starting without one", "stderr");
+    return {};
+  }
+
+  const got = await provider.provision(projectId, { secret });
+  if (!got.ok) {
+    await log(id, "system", "WARNING: could not prepare the database — " + got.error, "stderr");
+    return {};
+  }
+
+  // Only write when something changed: a redeploy must not rewrite the
+  // credential of a database an older container is still connected to.
+  if (got.secret) {
+    await query(
+      `INSERT INTO project_databases (project_id, mode, db_name, db_role, secret_enc, updated_at)
+            VALUES ($1,$2,$3,$4,$5, now())
+       ON CONFLICT (project_id) DO UPDATE
+            SET mode=$2, db_name=$3, db_role=$4, secret_enc=$5, updated_at=now()`,
+      [projectId, mode, got.dbName || null, got.role || null, secrets.encrypt(got.secret)]
+    );
+  } else if (!row) {
+    await query(
+      `INSERT INTO project_databases (project_id, mode, db_name, db_role, updated_at)
+            VALUES ($1,$2,$3,$4, now()) ON CONFLICT (project_id) DO NOTHING`,
+      [projectId, mode, got.dbName || null, got.role || null]
+    );
+  }
+
+  /* Only the built-in cluster lives on the app networks. An external
+     database is somewhere on the internet, which the app container
+     cannot reach at all — its network is --internal. That is a real
+     limitation and it is logged rather than hidden. */
+  if (mode === "builtin") {
+    const attached = await engine.connectUserDb(id);
+    if (!attached.ok) {
+      await log(id, "system", "WARNING: could not attach the database to this app's network — " +
+        (attached.error || ""), "stderr");
+      return {};
+    }
+    await log(id, "system", got.existed ? "Connected to your database" : "Created your database");
+  } else {
+    await log(id, "system", "Using your external database");
+  }
+
+  return { url: got.url, mode: mode };
+}
+
 /* ---------- the pipeline ---------- */
 
 /**
@@ -108,6 +228,14 @@ async function deploy(dep, sourceDir) {
     // --- 2. detect ----------------------------------------------------
     await setStatus(id, "BUILDING");
     await log(id, "system", "Inspecting the project");
+
+    /* The build directory is scratch: cleanup wipes it after a deploy,
+       and on a second VM it never existed. When it is not there and the
+       source was archived, restore it — this is what makes a redeploy
+       weeks later, or on a different host, work at all. */
+    const restored = await ensureSource(dep, sourceDir);
+    if (!restored.ok) return fail(id, restored.error);
+    if (restored.fromArchive) await log(id, "system", "Restored the source from object storage");
 
     const spec = detect.detect(sourceDir);
     if (!spec) {
@@ -144,12 +272,40 @@ async function deploy(dep, sourceDir) {
     await setStatus(id, "STARTING", { image_name: engine.imageName(id), internal_port: spec.port });
     await log(id, "system", "Starting the container");
 
-    await engine.ensureAppNetwork();
+    // This deployment's own isolated network, so it shares one with no other
+    // user container.
+    const net = await engine.ensureDeploymentNetwork(id);
+    if (!net.ok) {
+      await cleanupBuildContext(id);
+      return fail(id, "could not create the app network — " + (net.error || "unknown error"));
+    }
     // A previous revision may still be up; replacing it is what makes
     // redeploy actually mean redeploy.
     await engine.removeContainer(id);
 
+    /* The database, before the app starts.
+       Order matters twice over: the network has to exist because the
+       database container joins it, and the database has to be reachable
+       before the container boots, or the app's first connection fails and
+       waitForRunning marks a working deploy FAILED. */
+    const database = await ensureDatabase(dep, id);
+
     const env = await projectEnv(dep.project_id);
+
+    /* Merged AFTER projectEnv, so the platform value is not something the
+       user can accidentally clobber — but DATABASE_URL is only filled in
+       when they have not set their own. Someone pointing at an external
+       database deliberately keeps it; silently overriding their value
+       would be worse than the convenience is worth.
+
+       SOUQI_DATABASE_URL is always set and cannot be shadowed, so an app
+       has one name that always means "the database this platform gave
+       you", whatever else is in the environment. */
+    if (database.url) {
+      env.SOUQI_DATABASE_URL = database.url;
+      if (!env.DATABASE_URL) env.DATABASE_URL = database.url;
+    }
+
     const run = await engine.runApp({
       deploymentId: id,
       port: spec.port,
@@ -168,6 +324,14 @@ async function deploy(dep, sourceDir) {
     }
 
     // --- 6. route -----------------------------------------------------
+    // Caddy has to join this app's network before it can dial the container;
+    // on its own network the app is reachable by nothing at all.
+    const attached = await engine.connectProxy(id);
+    if (!attached.ok) {
+      await log(id, "system", "WARNING: could not attach the proxy to the app network — " +
+        (attached.error || ""), "stderr");
+    }
+
     const routed = await caddy.addRoute(dep.domain, run.name, spec.port);
     if (!routed.ok) {
       // Not fatal. The container is healthy and the route can be reconciled;
@@ -263,13 +427,97 @@ async function destroy(dep) {
   await caddy.removeRoute(dep.domain);
   await engine.removeContainer(dep.id);
   await engine.removeImage(dep.id);
+  /* The database container leaves this network, and NOTHING is dropped.
+     Deleting one deployment is not deleting the project: a redeploy is a
+     new deployment id, so dropping data here would mean every redeploy
+     started from empty. Only deleteProjectDatabase() below removes data,
+     and only the project delete path calls it.
+
+     This has to happen before the network is removed. `network rm` is
+     refused while any member is still attached, and the failure is silent
+     from here — one dead network leaked per deleted deployment, against a
+     default address pool of about thirty. */
+  await engine.disconnectUserDb(dep.id);
+  // After the container is gone, or the network still has a member and the
+  // rm is refused — leaking one dead network per deleted deployment.
+  await engine.removeDeploymentNetwork(dep.id);
+  // The archive goes with it. Keeping a deleted customer's source in
+  // object storage is the kind of thing you only discover during an audit.
+  if (dep.source_key) {
+    const gone = await objects.deleteSource(dep.source_key);
+    if (!gone.ok && !gone.skipped) {
+      await log(dep.id, "system", "WARNING: the source archive could not be removed from storage", "stderr");
+    }
+  }
   await cleanupBuildContext(dep.id);
   await setStatus(dep.id, "DELETED", { container_name: null, image_name: null });
   await log(dep.id, "system", "Deleted");
   return { ok: true };
 }
 
+/* ---------- project-level database actions ----------
+   Deployments come and go; a database belongs to the project and outlives
+   them. These two run only when the project itself is being changed, and
+   they are the only paths that can destroy customer data. */
+
+/**
+ * Drop a project's built-in database and role.
+ *
+ * The row is deleted whatever the drop reports, and that is deliberate. A
+ * project that is being deleted has its `project_databases` row cascade
+ * away anyway (FK ON DELETE CASCADE); leaving a stale credential behind
+ * for a database we failed to drop would be worse than an orphaned
+ * database, because a later project could not be told the difference.
+ * The error is returned so the caller can say what is left over.
+ */
+async function deleteProjectDatabase(projectId, opts) {
+  const row = await one("SELECT * FROM project_databases WHERE project_id=$1", [projectId]);
+  if (!row) return { ok: true, skipped: true, reason: "this project has no database" };
+
+  /* Which provider drops it is decided by which one MADE it, not by the
+     mode the project is on now. A project that switched to external still
+     has a built-in database sitting there (builtin_kept), and asking the
+     external provider to destroy would return its polite no-op while our
+     disk kept the data for ever. */
+  const madeBuiltin = row.mode === "builtin" || row.builtin_kept;
+  let result = { ok: true, skipped: true };
+  if (madeBuiltin) {
+    result = await dbproviders.get("builtin").destroy(projectId);
+  }
+
+  if (!(opts && opts.keepRow)) {
+    await query("DELETE FROM project_databases WHERE project_id=$1", [projectId]);
+  }
+  return result;
+}
+
+/**
+ * Refresh the recorded size of a project's database.
+ *
+ * Postgres has no per-database quota, so this is observation and not
+ * enforcement — it is what lets the dashboard and the alerts tell someone
+ * a volume is filling up, which is an honest soft limit rather than a
+ * promise the storage layer cannot keep.
+ */
+async function measureProjectDatabase(projectId) {
+  const row = await one("SELECT * FROM project_databases WHERE project_id=$1", [projectId]);
+  if (!row) return { ok: false, error: "this project has no database" };
+
+  let secret = null;
+  if (row.secret_enc) { try { secret = secrets.decrypt(row.secret_enc); } catch (e) { secret = null; } }
+
+  const got = await dbproviders.get(row.mode).inspect(projectId, { secret });
+  if (!got.ok) return { ok: false, error: got.error };
+
+  await query(
+    "UPDATE project_databases SET size_bytes=$2, size_seen_at=now(), updated_at=now() WHERE project_id=$1",
+    [projectId, got.sizeBytes === undefined ? null : got.sizeBytes]
+  );
+  return { ok: true, sizeBytes: got.sizeBytes ?? null, reachable: got.reachable };
+}
+
 module.exports = {
   deploy, stop, start, restart, destroy,
+  ensureDatabase, deleteProjectDatabase, measureProjectDatabase,
   setStatus, log, waitForRunning, cleanupBuildContext, projectEnv
 };

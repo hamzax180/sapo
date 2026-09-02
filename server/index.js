@@ -111,6 +111,9 @@ if (process.env.NODE_ENV === "production" && (!process.env.JWT_SECRET || JWT_SEC
 if (JWT_SECRET === "dev-insecure-secret") {
   console.warn("⚠ JWT_SECRET is using the insecure development default — set a strong JWT_SECRET before production.");
 }
+if (!process.env.DB_ENCRYPTION_KEY) {
+  console.warn("⚠ DB_ENCRYPTION_KEY is unset — users will not be able to store their own API keys (BYOK). Set a 32-byte hex key: openssl rand -hex 32");
+}
 
 // Server-authoritative auth / tenancy / RBAC middleware.
 const { requireSession, tenantScope, authorizeCrud, requireAdmin, resolveWsContext } = makeAuth({ JWT_SECRET, getMasterDb });
@@ -187,6 +190,7 @@ app.get("/terms", (req, res) => res.sendFile(path.join(__dirname, "..", "public"
 app.get("/privacy", (req, res) => res.sendFile(path.join(__dirname, "..", "public", "privacy.html")));
 app.get("/settings", (req, res) => res.sendFile(path.join(__dirname, "..", "public", "settings.html")));
 app.get("/projects", (req, res) => res.sendFile(path.join(__dirname, "..", "public", "projects.html")));
+app.get("/deployments", (req, res) => res.sendFile(path.join(__dirname, "..", "public", "deployments.html")));
 app.get("/checkout", (req, res) => res.sendFile(path.join(__dirname, "..", "public", "checkout.html")));
 app.get("/mobile", (req, res) => res.sendFile(path.join(__dirname, "..", "public", "mobile.html")));
 app.get("/admin", (req, res) => res.sendFile(path.join(__dirname, "..", "public", "admin.html")));
@@ -952,7 +956,7 @@ app.post("/auth/login", loginLimiter, validateBody(loginSchema), async (req, res
  *    cookie as /auth/login, so a client can treat signup as "login that
  *    also provisions" and needs no second code path.
  */
-app.post("/auth/signup", loginLimiter, validateBody(signupSchema), async (req, res, next) => {
+app.post("/auth/signup", loginLimiter, verifyCaptcha(), validateBody(signupSchema), async (req, res, next) => {
   try {
     const { email, password, company, country } = req.valid;
     const emailLower = String(email).toLowerCase();
@@ -1412,6 +1416,11 @@ app.get("/api/projects", async (req, res, next) => {
         id: p.id, slug: p.slug, title: p.title, prompt: p.prompt,
         industry: (p.meta || {}).industry, accent: (p.meta || {}).accent, kind: (p.meta || {}).kind || null,
         buildType: (p.meta || {}).buildType || null, published: !!p.published, favorite: !!p.favorite,
+        // "published" is the old static path (a built dist in Mongo, served
+        // from /s/:slug). An app deployed into a container sets
+        // deploymentId instead, so a rail keyed only on `published` shows
+        // a running app as if it had never shipped.
+        deployed: !!p.deploymentId,
         claimed: !!p.wsId, updatedAt: p.updatedAt
       }))
     });
@@ -1850,7 +1859,7 @@ app.post("/api/projects/:key/publish", async (req, res, next) => {
  * the project exactly as it was — nothing here can lose the work someone
  * just watched being made, it can only fail to attach it yet.
  */
-app.post("/api/projects/:key/micro-claim", microClaimLimiter, validateBody(microClaimSchema), async (req, res, next) => {
+app.post("/api/projects/:key/micro-claim", microClaimLimiter, verifyCaptcha(), validateBody(microClaimSchema), async (req, res, next) => {
   try {
     const { email, password, company, industry, country } = req.valid;
     const emailLower = email.toLowerCase();
@@ -1877,7 +1886,7 @@ app.post("/api/projects/:key/micro-claim", microClaimLimiter, validateBody(micro
       id: wsId,
       company: companyName,
       industry: String(industry || meta.industry || "retail"),
-      country: String(country || "TR"),
+      country: String(country || "OT"),
       ownerEmail: emailLower,
       dbType: "local",
       dbUri: "",
@@ -1954,7 +1963,7 @@ app.post("/api/projects/:key/micro-claim", microClaimLimiter, validateBody(micro
 const codeAgentRuntimeReg = require("./lib/codeagent/runtime");
 const daytonaRuntimeModule = require("./lib/codeagent/runtimes/daytona-runtime"); // registers "daytona"
 const { makeTools: makeCodeAgentTools } = require("./lib/codeagent/tools");
-const { proposeChanges, proposeWithRepair, proposeWithClientBuild, assessPrompt, buildPlan } = require("./lib/codeagent/model-loop");
+const { proposeChanges, proposeWithRepair, proposeWithClientBuild, assessPrompt, buildPlan, buildCodebaseContext } = require("./lib/codeagent/model-loop");
 const codeAgentUsage = require("./lib/codeagent/usage");
 codeAgentUsage.init({ getMasterDb });
 
@@ -2597,7 +2606,7 @@ async function finalizeCodeClaim({ project, wsId, userId, email, requestId }) {
  * codeAgentSessionUser) read sign-in state from that cookie, not a Bearer
  * token.
  */
-app.post("/api/codeagent/:key/micro-claim", microClaimLimiter, validateBody(microClaimSchema), async (req, res, next) => {
+app.post("/api/codeagent/:key/micro-claim", microClaimLimiter, verifyCaptcha(), validateBody(microClaimSchema), async (req, res, next) => {
   try {
     const { email, password, country } = req.valid;
     const emailLower = email.toLowerCase();
@@ -2757,6 +2766,9 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
   //     that, their workspace needs a paid plan. "Workspace" because every
   //     account in this system is one (see /auth/login) — there is no
   //     separate personal-account concept to check a plan against.
+  // Loaded once: the free-edit count needs it, and so does the model —
+  // the conversation is context, not just a billing counter.
+  let priorTurns = [];
   if (isFollowUp) {
     const sessionUser = codeAgentSessionUser(req);
     if (!sessionUser) {
@@ -2767,7 +2779,7 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
       sseFrame(res, "done", {});
       return res.end();
     }
-    const priorTurns = await projects.listTurns(project.id);
+    priorTurns = await projects.listTurns(project.id);
     const editsUsed = Math.max(0, priorTurns.filter((t) => t.role === "user").length - 1);
     if (editsUsed >= CODEAGENT_FREE_EDITS && !isAdminEmail(sessionUser.email)) {
       const masterDbForPlan = getMasterDb();
@@ -2910,13 +2922,21 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
       // change one part without breaking the rest.
       const head = await projects.head(project.id);
       const files = head && head.config && head.config.files;
-      const fileEntries = files ? Object.entries(files).filter(([k]) => k.startsWith("src/")) : [];
-      if (fileEntries.length) {
-        let context = "";
-        for (const [path, content] of fileEntries) {
-          context += "File: " + path + "\n```\n" + String(content).slice(0, 8000) + "\n```\n\n";
+      const srcFiles = {};
+      for (const [k, v] of Object.entries(files || {})) if (k.startsWith("src/")) srcFiles[k] = v;
+
+      if (Object.keys(srcFiles).length) {
+        // buildCodebaseContext fits whole files where it can, marks any
+        // excerpt in the prompt itself, and names what it left out. The
+        // old inline version cut every file at 8000 chars without saying
+        // so, which is how a model came to rewrite a file from the half
+        // it had been shown and delete the other half.
+        const ctx = buildCodebaseContext(srcFiles, { prompt: prompt });
+        effectivePrompt = "Here is the current codebase:\n\n" + ctx.text + "Change request: " + prompt;
+        if (ctx.excerpted.length || ctx.omitted.length) {
+          console.warn("[codeagent] context budget hit for " + project.id +
+            ": excerpted=" + ctx.excerpted.join(",") + " omitted=" + ctx.omitted.join(","));
         }
-        effectivePrompt = "Here is the current codebase:\n\n" + context + "Change request: " + prompt;
       } else {
         effectivePrompt = prompt;
       }
@@ -2949,6 +2969,10 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
 
     const agentOpts = {
       mode: agentMode, byok: byok, thinking: thinking, mcp: mcp,
+      // What was said before this message. The codebase tells the model
+      // WHAT the app is; this tells it what the user has been asking for,
+      // so "now make it bigger" has something to refer to.
+      history: priorTurns,
       onToolCall: (c) => sseFrame(res, "stage", { id: "tool-" + c.name, state: "done", detail: "Used " + c.name })
     };
 
@@ -3257,6 +3281,342 @@ app.post("/api/codeagent/:key/publish", codeAgentLimiter, express.json({ limit: 
     console.error("codeagent publish error:", e.message);
     next(e);
   }
+});
+
+/* =================================================================
+   Deployments — the container deploy plane
+   -----------------------------------------------------------------
+   Publishing to /s/:slug serves a built dist/ out of Mongo. That works
+   for a static bundle and cannot work for anything with a server: no
+   Node process, no Python, no runtime at all.
+
+   The deploy plane runs the real thing in a container. It lives in
+   deploy/ with its own Postgres, and it is not reachable from the
+   internet on purpose, so every call goes through here. See
+   lib/deployplane.js for why this proxy exists and what it guarantees.
+
+   The mapping between the two worlds is one field. A Souqi project
+   (pr_...) gets a deploy-plane project (prj_...) the first time it is
+   deployed, and the id is written back to the Mongo doc. Lazily,
+   because most projects are never deployed and creating a row for each
+   would be waste.
+   ================================================================= */
+
+const deployplane = require("./lib/deployplane");
+
+/* Deploys are expensive — each one builds a Docker image. Rate limited
+   harder than a read, and per-IP like the other codeagent limiters. */
+const deployLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 20, key: (req) => req.ip || "" });
+
+/**
+ * Resolve a Souqi project the caller owns, or answer for us.
+ *
+ * Every deploy route starts here. A project id is a handle, never a
+ * permission — the same rule the rest of the project routes follow.
+ * Returns null when it has already responded.
+ */
+/**
+ * Identity for the dashboard.
+ *
+ * anon.ownerOf() reads the user only from an Authorization header, and no
+ * page in this app sends one — the session lives in a cookie. On a
+ * signed-in surface that would resolve every request to the anonymous
+ * identity, and a user would not see the projects they own.
+ *
+ * So the cookie session is folded in. This can only WIDEN what matches:
+ * ownerFilter ORs the two identities, and the id comes from a JWT this
+ * server signed, so a caller can never gain anything but their own. It is
+ * also the same token the deploy plane verifies for itself downstream.
+ */
+function deployOwnerOf(req, res) {
+  const owner = anon.ownerOf(req, res);
+  if (!owner.userId) {
+    const s = codeAgentSessionUser(req);
+    if (s && s.id) { owner.userId = s.id; owner.email = s.email || owner.email; }
+  }
+  return owner;
+}
+
+async function ownedProjectOr404(req, res) {
+  const owner = deployOwnerOf(req, res);
+  const project = await resolveProject(req.params.key, owner);
+  if (!project) { res.status(404).json({ error: "project not found" }); return null; }
+  if (!projects.owns(project, owner)) { res.status(403).json({ error: "not your project" }); return null; }
+  return project;
+}
+
+/* The deploy plane identifies the user from the same session cookie
+   this request arrived with, so it is forwarded verbatim. */
+const cookieOf = (req) => req.headers.cookie || "";
+
+/** Answer a failed deploy-plane call without leaking its internals. */
+function planeError(res, r) {
+  return res.status(r.status || 502).json({ error: r.error || "the deployment service failed" });
+}
+
+/**
+ * GET /api/deploy/overview
+ * Everything the dashboard needs for its first paint: the caller's
+ * projects, the deploy status of the ones that have been deployed, and
+ * host capacity. One request rather than N+1 from the browser.
+ */
+app.get("/api/deploy/overview", async (req, res, next) => {
+  try {
+    if (!deployplane.isConfigured()) {
+      return res.json({ configured: false, projects: [], capacity: null });
+    }
+    const owner = deployOwnerOf(req, res);
+    const cookie = cookieOf(req);
+    const mine = await projects.list(owner, 100);   // list() caps at 100 anyway
+
+    // Only projects that have actually been deployed have anything to
+    // ask about, so only those cost a request.
+    const rows = await Promise.all(mine.map(async (p) => {
+      const row = {
+        key: p.slug || p.id, id: p.id, title: p.title, slug: p.slug,
+        buildType: (p.meta || {}).buildType || null,
+        updatedAt: p.updatedAt,
+        deployProjectId: p.deployProjectId || null,
+        deploymentId: p.deploymentId || null,
+        status: null, url: null, error: null, container: null
+      };
+      if (!p.deploymentId) return row;
+      const s = await deployplane.getStatus(cookie, p.deploymentId);
+      if (s.ok && s.body) {
+        row.status = s.body.status; row.url = s.body.url;
+        row.error = s.body.error; row.container = s.body.container;
+      }
+      return row;
+    }));
+
+    const cap = await deployplane.capacity(cookie);
+    res.json({ configured: true, projects: rows, capacity: cap.ok ? cap.body : null });
+  } catch (e) { next(e); }
+});
+
+/**
+ * POST /api/deploy/:key/deploy
+ *
+ * Creates the deploy-plane project on first use, uploads the current
+ * source, and queues a build. Note the deploy plane queues on create —
+ * calling its /deploy afterwards answers 409 — so this does not.
+ */
+app.post("/api/deploy/:key/deploy", deployLimiter, async (req, res, next) => {
+  try {
+    if (!deployplane.isConfigured()) {
+      return res.status(503).json({ error: "deployments are not available in this environment" });
+    }
+    const project = await ownedProjectOr404(req, res); if (!project) return;
+    const cookie = cookieOf(req);
+
+    // The source is the head revision's file map, which is already
+    // {path: contents} — the exact shape the deploy plane wants.
+    const revision = await projects.head(project.id);
+    const files = revision && revision.config ? revision.config.files : null;
+    if (!files || !Object.keys(files).length) {
+      return res.status(400).json({ error: "this project has no source to deploy yet — build it first" });
+    }
+
+    let deployProjectId = project.deployProjectId;
+    if (!deployProjectId) {
+      const created = await deployplane.createProject(cookie, project.title || project.slug || "souqi-app");
+      if (!created.ok) return planeError(res, created);
+      deployProjectId = created.body && created.body.projectId;
+      if (!deployProjectId) return res.status(502).json({ error: "the deployment service returned no project id" });
+      await projects.patch(project.id, { deployProjectId: deployProjectId });
+    }
+
+    const dep = await deployplane.createDeployment(cookie, deployProjectId);
+    if (!dep.ok) return planeError(res, dep);
+    const deploymentId = dep.body && dep.body.deploymentId;
+
+    const up = await deployplane.uploadSource(cookie, deploymentId, files);
+    if (!up.ok) return planeError(res, up);
+
+    // Remember the current deployment so the dashboard and a page
+    // reload can both find it without searching.
+    await projects.patch(project.id, { deploymentId: deploymentId });
+
+    res.status(202).json({
+      ok: true, deploymentId: deploymentId, status: "QUEUED",
+      url: dep.body && dep.body.url,
+      detected: up.body && up.body.detected,
+      files: up.body && up.body.files
+    });
+  } catch (e) { next(e); }
+});
+
+/** GET /api/deploy/:key/status — what the dashboard polls. */
+app.get("/api/deploy/:key/status", async (req, res, next) => {
+  try {
+    const project = await ownedProjectOr404(req, res); if (!project) return;
+    if (!project.deploymentId) return res.json({ status: null, deployed: false });
+    const r = await deployplane.getStatus(cookieOf(req), project.deploymentId);
+    if (!r.ok) return planeError(res, r);
+    res.json(Object.assign({ deployed: true, deploymentId: project.deploymentId }, r.body));
+  } catch (e) { next(e); }
+});
+
+/** GET /api/deploy/:key/logs?phase=build|runtime&tail=N */
+app.get("/api/deploy/:key/logs", async (req, res, next) => {
+  try {
+    const project = await ownedProjectOr404(req, res); if (!project) return;
+    if (!project.deploymentId) return res.json({ phase: "build", lines: [] });
+    const phase = req.query.phase === "runtime" ? "runtime" : "build";
+    const tail = Math.min(Number(req.query.tail) || 500, 2000);
+    const r = await deployplane.getLogs(cookieOf(req), project.deploymentId, phase, tail);
+    // A 503 here means the worker is down. That is worth showing as-is
+    // rather than as an empty log, which would read as "nothing
+    // happened" when the truth is "nobody could look".
+    if (!r.ok) return planeError(res, r);
+    res.json(r.body);
+  } catch (e) { next(e); }
+});
+
+/**
+ * POST /api/deploy/:key/:action  — redeploy | stop | start | restart
+ *
+ * The action is checked against a fixed list before it goes anywhere
+ * near a URL. These answer 202: the deploy plane queues them for the
+ * worker that holds the Docker socket, so "accepted" is the honest
+ * answer and the client polls for the outcome.
+ */
+app.post("/api/deploy/:key/:action", deployLimiter, async (req, res, next) => {
+  try {
+    const name = String(req.params.action || "");
+    if (["redeploy", "stop", "start", "restart"].indexOf(name) < 0) {
+      return res.status(404).json({ error: "unknown action" });
+    }
+    const project = await ownedProjectOr404(req, res); if (!project) return;
+    if (!project.deploymentId) return res.status(400).json({ error: "this project has not been deployed yet" });
+
+    // A redeploy must ship the CURRENT source, not whatever was staged
+    // last time — otherwise the button silently rebuilds a stale tree.
+    if (name === "redeploy") {
+      const revision = await projects.head(project.id);
+      const files = revision && revision.config ? revision.config.files : null;
+      if (files && Object.keys(files).length) {
+        const up = await deployplane.uploadSource(cookieOf(req), project.deploymentId, files);
+        if (!up.ok) return planeError(res, up);
+      }
+    }
+
+    const r = await deployplane.action(cookieOf(req), project.deploymentId, name);
+    if (!r.ok) return planeError(res, r);
+    res.status(202).json(Object.assign({ ok: true, action: name, pending: true }, r.body));
+  } catch (e) { next(e); }
+});
+
+/**
+ * DELETE /api/deploy/:key
+ * Destructive, so it uses the verified session — the variant that
+ * checks sessionEpoch, so a revoked token cannot tear down an app.
+ * Same rule the account routes follow.
+ */
+app.delete("/api/deploy/:key", async (req, res, next) => {
+  try {
+    if (!codeAgentSessionUserVerified) return res.status(500).json({ error: "session check unavailable" });
+    const user = await codeAgentSessionUserVerified(req);
+    if (!user) return res.status(401).json({ error: "sign in to delete a deployment" });
+
+    const project = await ownedProjectOr404(req, res); if (!project) return;
+    if (!project.deploymentId) return res.status(400).json({ error: "this project has not been deployed yet" });
+
+    const r = await deployplane.destroy(cookieOf(req), project.deploymentId);
+    if (!r.ok) return planeError(res, r);
+    // The deployment id is cleared here, but deployProjectId is kept:
+    // the deploy-plane project survives a deleted deployment and
+    // re-creating it would orphan the old one.
+    await projects.patch(project.id, { deploymentId: null });
+    res.status(202).json({ ok: true, pending: true });
+  } catch (e) { next(e); }
+});
+
+/* ---- environment variables ---- */
+
+app.get("/api/deploy/:key/env", async (req, res, next) => {
+  try {
+    const project = await ownedProjectOr404(req, res); if (!project) return;
+    if (!project.deployProjectId) return res.json({ env: [] });
+    const r = await deployplane.getEnv(cookieOf(req), project.deployProjectId);
+    if (!r.ok) return planeError(res, r);
+    res.json(r.body);
+  } catch (e) { next(e); }
+});
+
+app.put("/api/deploy/:key/env", async (req, res, next) => {
+  try {
+    const project = await ownedProjectOr404(req, res); if (!project) return;
+    if (!project.deployProjectId) return res.status(400).json({ error: "deploy this project once before setting variables" });
+    const r = await deployplane.putEnv(cookieOf(req), project.deployProjectId, req.body || {});
+    if (!r.ok) return planeError(res, r);
+    res.json(r.body);
+  } catch (e) { next(e); }
+});
+
+app.delete("/api/deploy/:key/env/:name", async (req, res, next) => {
+  try {
+    const project = await ownedProjectOr404(req, res); if (!project) return;
+    if (!project.deployProjectId) return res.status(400).json({ error: "nothing to remove" });
+    const r = await deployplane.deleteEnvKey(cookieOf(req), project.deployProjectId, req.params.name);
+    if (!r.ok) return planeError(res, r);
+    res.json(r.body);
+  } catch (e) { next(e); }
+});
+
+/* ---- the app's database ----
+   A project that has never deployed has no database yet, and that is not
+   an error — the plane creates one on the first deploy. These answer with
+   an honest "not yet" rather than a 400, so the panel can say so. */
+
+app.get("/api/deploy/:key/database", async (req, res, next) => {
+  try {
+    const project = await ownedProjectOr404(req, res); if (!project) return;
+    if (!project.deployProjectId) {
+      return res.json({
+        database: {
+          configured: false,
+          mode: "builtin",
+          note: "a database will be created for this project on its first deploy"
+        }
+      });
+    }
+    const r = await deployplane.getDatabase(cookieOf(req), project.deployProjectId);
+    if (!r.ok) return planeError(res, r);
+    res.json(r.body);
+  } catch (e) { next(e); }
+});
+
+app.put("/api/deploy/:key/database", async (req, res, next) => {
+  try {
+    const project = await ownedProjectOr404(req, res); if (!project) return;
+    if (!project.deployProjectId) {
+      return res.status(400).json({ error: "deploy this project once before choosing a database" });
+    }
+    const r = await deployplane.setDatabase(cookieOf(req), project.deployProjectId, req.body || {});
+    if (!r.ok) return planeError(res, r);
+    res.json(r.body);
+  } catch (e) { next(e); }
+});
+
+app.post("/api/deploy/:key/database/measure", async (req, res, next) => {
+  try {
+    const project = await ownedProjectOr404(req, res); if (!project) return;
+    if (!project.deployProjectId) return res.status(400).json({ error: "this project has no database yet" });
+    const r = await deployplane.measureDatabase(cookieOf(req), project.deployProjectId);
+    if (!r.ok) return planeError(res, r);
+    res.json(r.body);
+  } catch (e) { next(e); }
+});
+
+app.delete("/api/deploy/:key/database", async (req, res, next) => {
+  try {
+    const project = await ownedProjectOr404(req, res); if (!project) return;
+    if (!project.deployProjectId) return res.status(400).json({ error: "this project has no database" });
+    const r = await deployplane.dropBuiltinDatabase(cookieOf(req), project.deployProjectId);
+    if (!r.ok) return planeError(res, r);
+    res.status(202).json(r.body || { ok: true, pending: true });
+  } catch (e) { next(e); }
 });
 
 /**

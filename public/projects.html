@@ -21,9 +21,13 @@
     --ink:#12202e; --ink-2:#5d6f80; --mut:#8b98a5;
     --accent:#1aa6df; --accent-2:#0f8ec4;
     --tint-2:#e7f5fd; --line:#e7e1d7;
+    --ok:#22a565; --warn:#e0a11a; --danger:#d92d20;
     --disp:'Jost','Century Gothic',system-ui,sans-serif;
     --body:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
     --ease:cubic-bezier(.16,1,.3,1);
+    /* Sidebar geometry, shared with the builder and the deployments page
+       so the rail is the same object on all three. */
+    --rail:44px; --sb-w:238px; --sb-pad:6px; --ease-sb:cubic-bezier(.32,.72,0,1);
   }
   :root[data-theme="dark"]{
     --paper:#1c1917; --paper-2:#24211e; --card:#2a2622;
@@ -42,25 +46,34 @@
   }
   body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--body);-webkit-font-smoothing:antialiased;display:flex;min-height:100vh}
   a{color:inherit;text-decoration:none}
-  button{font:inherit}
+  /* color:inherit matters as much as font — a <button> falls back to the
+     UA's black ButtonText otherwise, which reads as black-on-dark for any
+     button styled as a surface. */
+  button{font:inherit;color:inherit}
   button:focus, button:focus-visible, a:focus, a:focus-visible { outline: none !important; box-shadow: none !important; }
   h1,h2{font-family:var(--disp);font-weight:700;letter-spacing:-.02em;margin:0}
 
   .ag-main{flex:1;min-width:0;display:flex;flex-direction:column;height:100vh;overflow-y:auto}
+  /* ---- sidebar: the same rail as the builder and /deployments ---- */
   .ag-history{position:relative !important;height:100vh;flex:0 0 0px;
-    width:0;min-width:0;max-width:240px;overflow:hidden;
+    width:0;min-width:0;max-width:var(--sb-w);overflow:hidden;
     background:var(--paper);border-right:0 solid var(--line);box-sizing:border-box;
     transition:width .26s var(--ease),flex-basis .26s var(--ease),border-color .26s var(--ease);
     display:flex;flex-direction:column;z-index:100}
-  .ag-history.on{width:240px !important;flex:0 0 240px !important;min-width:240px !important;border-right:1px solid var(--line);overflow:visible !important}
+  .ag-history.on{width:var(--sb-w) !important;flex:0 0 var(--sb-w) !important;min-width:var(--sb-w) !important;border-right:1px solid var(--line);overflow:visible !important}
   .ag-hist-head,.ag-hist-tabs,.ag-hist-foot{width:100%;box-sizing:border-box}
-  .ag-hist-head{display:flex;align-items:center;gap:10px;padding:14px 14px 8px}
-  .ag-hist-mark{width:24px;height:24px;border-radius:7px;background:var(--accent);display:grid;place-items:center;flex:none}
-  .ag-hist-mark svg{width:13px;height:13px;color:#fff}
-  .ag-hist-close{margin-inline-start:auto;border:0;background:none;color:var(--ink-2);cursor:pointer;width:30px;height:30px;border-radius:8px;display:grid;place-items:center}
+  .ag-hist-head{display:flex;align-items:center;gap:8px;padding:10px 10px 12px 114px;width:100%;box-sizing:border-box}
+  .ag-hist-mark{width:28px;height:28px;border-radius:8px;background:var(--accent);display:grid;place-items:center;flex:none}
+  .ag-hist-mark svg{width:15px;height:15px;color:#fff}
+  .ag-hist-brand-text{display:flex;flex-direction:column;line-height:1.05;font-family:var(--disp);font-weight:800;font-size:.88rem;color:var(--ink);letter-spacing:-.01em;margin-left:6px}
+  .ag-hist-brand-text span{display:block}
   .ag-ws-wrap{position:relative}
   .ag-ws{display:flex;align-items:center;gap:9px;border:1px solid var(--line);background:var(--card);color:var(--ink) !important;border-radius:999px;padding:6px 10px 6px 6px;margin:8px 10px 8px;width:calc(100% - 20px);cursor:pointer;text-align:left;box-sizing:border-box}
-  .ag-ws .av{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;color:#fff;background:linear-gradient(135deg,var(--accent),var(--accent-2));font-weight:600;font-size:.8rem}
+  /* color:#fff is load-bearing: .ag-ws svg paints every icon in the pill
+     --ink-2 for the chevron, and that blanket rule was catching the avatar
+     glyph too, drawing it grey on the blue circle. */
+  .ag-ws .av svg,.ag-user-main .av svg{width:13px;height:13px;color:#fff}
+  .ag-ws .av{flex:none;width:26px;height:26px;border-radius:50%;display:grid;place-items:center;color:#fff;background:linear-gradient(135deg,var(--accent),var(--accent-2));font-weight:600;font-size:.8rem}
   .ag-ws .nm{color:var(--ink) !important;flex:1;min-width:0;font-size:.9rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .ag-ws svg{width:16px;height:16px;flex:none;color:var(--ink-2)}
   .ag-ws .chev{transition:transform .16s var(--ease)}
@@ -71,118 +84,214 @@
     opacity:0;visibility:hidden;transform:translateY(-4px);
     transition:opacity .16s ease,transform .16s ease,visibility .16s ease}
   .ag-ws-menu.open{opacity:1;visibility:visible;transform:none}
-  .ag-ws-signed{padding:8px 10px 10px;font-size:.78rem;color:var(--mut);
-    border-bottom:1px solid var(--line);margin-bottom:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .ag-ws-item{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:9px;
-    font-size:.88rem;color:var(--ink);transition:.13s;text-decoration:none}
-  .ag-ws-item[hidden]{display:none}
+  .ag-ws-signed{padding:8px 10px 10px;font-size:.78rem;color:var(--mut);border-bottom:1px solid var(--line);margin-bottom:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .ag-ws-item{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:9px;font-size:.88rem;color:var(--ink);transition:.13s;text-decoration:none;border:0;background:none;width:100%;text-align:left;cursor:pointer}
   .ag-ws-item:hover{background:var(--paper-2)}
   .ag-ws-item svg{width:15px;height:15px;flex:none}
   .ag-ws-sep{height:1px;background:var(--line);margin:6px 4px}
   .ag-act{display:flex;align-items:center;gap:9px;margin:0 10px 8px;padding:8px 10px;border:1px solid var(--line);background:var(--card);border-radius:9px;color:var(--ink);font-size:.88rem;font-weight:500;cursor:pointer;width:calc(100% - 20px);box-sizing:border-box}
   .ag-act svg{width:16px;height:16px;flex:none;color:var(--ink-2)}
-  .ag-hist-tabs{display:flex;flex-direction:column;gap:2px;padding:4px 12px 6px;width:100%;box-sizing:border-box;
-    flex:0 0 auto;overflow:visible !important;scrollbar-width:none}
-  .ag-hist-tabs::-webkit-scrollbar{display:none}
-  .ag-hist-tab{width:100%;box-sizing:border-box;display:flex;align-items:center;gap:11px;border:0;background:none;color:var(--ink);cursor:pointer;
-    padding:8px 11px;border-radius:8px;font-size:.92rem;font-weight:400;text-align:left;transition:.14s}
-  .ag-hist-tab svg{width:18px;height:18px;flex:none;color:var(--ink-2)}
-  .ag-hist-tab:hover,.ag-hist-tab.on{background:var(--paper-2);font-weight:600}
-  .ag-hist-gap{height:16px;flex:0 0 16px}
-  
-  .ag-hist-foot{margin-top:auto;flex:0 0 auto;padding:8px 10px 8px;border-top:1px solid var(--line);background:var(--paper);width:100%;box-sizing:border-box}
+  /* ---- nav rows: the builder's shape (18px icon slot, compact row) ---- */
+  .ag-hist-tabs{display:flex;flex-direction:column;gap:2px;padding:2px var(--sb-pad) 4px;width:100%;box-sizing:border-box;flex:0 0 auto;overflow:visible !important}
+  .ag-hist-tab{width:100%;box-sizing:border-box;display:flex;align-items:center;gap:10px;border:0;background:none;color:var(--ink);cursor:pointer;
+    padding:7px 6px;border-radius:8px;font-size:.75rem;font-weight:450;text-align:left;transition:background .14s,color .14s;text-decoration:none}
+  .ag-hist-tab .tab-ic{flex:none;width:18px;height:18px;display:grid;place-items:center;color:var(--ink-2)}
+  .ag-hist-tab .tab-ic svg{width:16px;height:16px}
+  .ag-hist-tab .tab-ic.ring{border:1px solid var(--line);border-radius:50%;background:var(--paper-2)}
+  .ag-hist-tab:hover{background:var(--paper-2)}
+  .ag-hist-tab.on{background:var(--paper-2);font-weight:600}
+  .ag-hist-tab.on .tab-ic,.ag-hist-tab:hover .tab-ic{color:var(--ink)}
+  /* Labels reveal by max-width + opacity rather than display:none, so the
+     rail's open/close reads as one continuous motion. Toggling display
+     makes the text pop in at full size the instant the width starts
+     animating — nothing is broken, the label simply was not part of the
+     movement. */
+  .ag-hist-tab .lbl,.ag-user-main .nm,.ag-ws .nm,.ag-hist-brand-text{
+    max-width:190px;opacity:1;overflow:hidden;white-space:nowrap;
+    transition:max-width .26s var(--ease-sb),opacity .18s ease .06s}
+  .ag-tab-new{background:var(--card);box-shadow:0 1px 2px rgba(0,0,0,.05)}
+  .ag-tab-new:hover{background:var(--card);filter:brightness(1.06)}
+  .ag-tab-new .tab-ic.ring{color:var(--ink);background:var(--paper-2)}
+
+  /* Recent deployments take the flexible middle, the way chat history does
+     in the builder, so the account row stays pinned to the bottom. */
+  .ag-hist-chats{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;padding:2px 0 4px}
+  .ag-chats-ttl{font-size:.655rem;font-weight:450;color:var(--mut);padding:10px 10px 4px;flex:0 0 auto}
+  .ag-chats-list{flex:1 1 auto;min-height:0;overflow-y:auto;padding:0 var(--sb-pad) 4px;scrollbar-width:thin;display:flex;flex-direction:column;gap:2px}
+  .ag-chats-list::-webkit-scrollbar{width:6px}
+  .ag-chats-list::-webkit-scrollbar-thumb{background:rgba(128,128,128,.28);border-radius:8px}
+  .ag-chat-item{display:flex;align-items:center;gap:10px;width:100%;box-sizing:border-box;
+    padding:7px 6px;border-radius:8px;color:var(--ink-2);text-decoration:none;font-size:.75rem;
+    white-space:nowrap;overflow:hidden;transition:background .14s,color .14s;border:0;background:none;cursor:pointer;text-align:left;font-family:inherit}
+  .ag-chat-item:hover{background:var(--paper-2);color:var(--ink)}
+  .ag-chat-item.current{background:var(--paper-2);color:var(--ink);font-weight:600}
+  .ag-chat-item i{flex:none;width:18px;height:18px;display:grid;place-items:center;color:var(--ink-2);opacity:.95}
+  .ag-chat-item i svg{width:16px;height:16px}
+  .ag-chat-item span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis}
+  /* A dot instead of an icon for anything currently live, so the rail shows
+     what is running without needing the page. */
+  .ag-chat-item .sdot{width:6px;height:6px;border-radius:50%;background:var(--mut);flex:none;margin:0 6px}
+  .ag-chat-item .sdot.run{background:var(--ok)}
+  .ag-chat-item .sdot.move{background:var(--warn)}
+  .ag-chat-item .sdot.bad{background:var(--danger)}
+  .ag-chats-empty{padding:14px;color:var(--mut);font-size:.8rem;line-height:1.5;text-align:center}
+
+  /* ---- plan block, same shape as the one on /projects ----
+     The numbers here are real rather than the static placeholders that
+     page ships: apps created against the free allowance, agent spend
+     against the monthly budget, and — since this is the deployments
+     page — host capacity as the cloud meter, which is the thing that
+     actually decides whether the next deploy is accepted. */
+  .ag-hist-foot{flex:0 0 auto;padding:8px 10px 8px;border-top:1px solid var(--line);background:var(--paper);width:100%;box-sizing:border-box}
   .ag-hist-foot .ttl{font-size:.84rem;font-weight:600;padding:0 2px;margin-bottom:4px;color:var(--ink)}
-  .ag-plan-alert{background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.25);color:#f87171;font-size:.76rem;font-weight:500;padding:4px 8px;border-radius:6px;margin-bottom:6px;text-align:center;width:100%;box-sizing:border-box}
+  .ag-plan-alert{background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.25);color:#f87171;font-size:.76rem;
+    font-weight:500;padding:4px 8px;border-radius:6px;margin-bottom:6px;text-align:center;width:100%;box-sizing:border-box}
   .ag-meter-row{display:flex;align-items:center;gap:7px;padding:2px 0;width:100%;box-sizing:border-box}
   .ag-meter-row svg{width:14px;height:14px;flex:none;color:var(--ink-2)}
   .ag-meter-row .lab{flex:1;min-width:0;font-size:.78rem;color:var(--ink);font-weight:500}
   .ag-meter-row .lab i{display:block;font-style:normal;color:var(--mut);font-size:.70rem;font-weight:400;margin-top:0}
-  .ag-meter{width:54px;height:5px;border-radius:999px;background:rgba(255,255,255,0.09);overflow:hidden;flex:none}
-  .ag-meter i{display:block;height:100%;border-radius:999px;background:#3b82f6}
+  .ag-meter{width:54px;height:5px;border-radius:999px;background:rgba(128,128,128,.18);overflow:hidden;flex:none}
+  .ag-meter i{display:block;height:100%;border-radius:999px;background:#3b82f6;transition:width .4s var(--ease)}
+  .ag-meter i.warn{background:var(--warn)}
+  .ag-meter i.hot{background:var(--danger)}
   .ag-upgrade{display:flex;align-items:center;justify-content:center;gap:7px;margin-top:8px;padding:9px 12px;
     border:0;border-radius:9px;background:#0077ff;color:#fff;font-size:.9rem;font-weight:600;
     cursor:pointer;width:100%;box-sizing:border-box;text-decoration:none;transition:.15s}
   .ag-upgrade:hover{background:#0062cc}
-  .ag-upgrade svg{width:15px;height:15px}
   .ag-hist-install{display:flex;align-items:center;justify-content:center;gap:5px;margin-top:6px;font-size:.72rem;color:var(--mut);width:100%;box-sizing:border-box}
-  .ag-hist-install svg{width:13px;height:13px;color:var(--ink-2);flex:none;transition:color .15s ease, transform .15s ease;cursor:pointer}
+  .ag-hist-install svg{width:13px;height:13px;color:var(--ink-2);flex:none;transition:color .15s ease,transform .15s ease;cursor:pointer}
   .ag-hist-install svg:hover{color:#0077ff !important;transform:scale(1.15)}
   .ag-hist-install a:hover{color:var(--ink)}
   .ag-hist-links{display:flex;gap:8px;justify-content:center;margin-top:5px;font-size:.71rem;color:var(--mut);width:100%;box-sizing:border-box}
   .ag-hist-links a:hover{color:var(--ink)}
-  
-  .ag-pv-toggle-btn {
-    display: inline-flex; align-items: center; gap: 8px;
-    border: 1px solid var(--line); background: var(--card); color: var(--ink);
-    border-radius: 9px; padding: 6px 14px; height: 34px; font-size: 0.85rem; font-weight: 600;
-    cursor: pointer; transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-    box-shadow: 0 2px 6px rgba(0,0,0,0.03); outline: none !important;
-  }
-  #agDeskSidebarToggle {
-    position: fixed !important; top: 10px !important; left: 10px !important; z-index: 999999 !important;
-    padding: 5px 10px !important; height: 32px !important; font-size: 0.82rem !important;
-  }
-  #agDeskPreviewToggle {
-    margin-inline-start: auto !important;
-  }
-  .ag-pv-toggle-btn:hover { border-color: #cbd5e1; background: var(--paper-2); color: var(--ink); }
-  .ag-pv-toggle-btn.on { background: var(--card); color: var(--ink); border-color: var(--accent); box-shadow: 0 0 8px rgba(26, 166, 223, 0.35), 0 0 0 1px var(--accent); }
-  .ag-pv-toggle-btn .pane-left, .ag-pv-toggle-btn .pane-right { transition: fill 0.2s ease; fill: transparent; }
-  .ag-pv-toggle-btn.on .pane-left, .ag-pv-toggle-btn.on .pane-right { fill: var(--accent); }
-  .ag-pv-toggle-btn svg { width: 16px; height: 16px; flex: none; }
 
-  .ag-hist-hoverable{position:relative}
-  .ag-flyout{position:absolute !important;left:calc(100% + 4px) !important;top:-6px !important;z-index:999999 !important;width:230px !important;
-    background:var(--card) !important;border:1px solid var(--line) !important;border-radius:12px !important;padding:10px 8px 6px !important;
-    box-shadow:0 16px 45px -8px rgba(11,22,38,.4) !important;
-    opacity:0 !important;visibility:hidden !important;transform:translateX(4px) !important;transition:opacity .16s ease,transform .16s ease,visibility .16s ease !important;
-    display:flex !important;flex-direction:column !important;gap:2px !important;cursor:default !important;pointer-events:none !important}
-  .ag-hist-hoverable:hover .ag-flyout,.ag-flyout:hover{opacity:1 !important;visibility:visible !important;transform:none !important;pointer-events:auto !important}
+  /* Account row pinned to the very bottom: avatar, name, settings gear. */
+  .ag-hist-user{flex:0 0 auto;display:flex;align-items:center;gap:2px;padding:5px var(--sb-pad) 8px;
+    background:var(--paper-2);width:100%;box-sizing:border-box}
+  .ag-user-main{flex:1;min-width:0;display:flex;align-items:center;gap:8px;border:0;background:none;
+    color:var(--ink);cursor:pointer;padding:5px 6px;border-radius:9px;font:inherit;text-align:left;transition:.14s}
+  .ag-user-main:hover{background:var(--paper)}
+  .ag-user-main .av{flex:none;width:22px;height:22px;border-radius:50%;display:grid;place-items:center;
+    background:linear-gradient(135deg,var(--accent),var(--accent-2));color:#fff;font-size:.76rem;font-weight:700}
+  .ag-user-main .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.72rem;font-weight:500}
+  .ag-user-gear{flex:none;width:24px;height:24px;display:grid;place-items:center;border:0;background:none;
+    color:var(--mut);cursor:pointer;border-radius:9px;transition:.14s}
+  .ag-user-gear:hover{background:var(--paper);color:var(--ink)}
+  .ag-user-gear svg{width:14px;height:14px}
 
-  .ag-hist-head{display:flex;align-items:center;gap:8px;padding:10px 10px 12px 114px;width:100%;box-sizing:border-box}
-  .ag-hist-mark{width:28px;height:28px;border-radius:8px;background:var(--accent);
-    display:grid;place-items:center;flex:none}
-  .ag-hist-mark svg{width:15px;height:15px;color:#fff}
-  .ag-hist-brand-text{display:flex;flex-direction:column;line-height:1.05;font-family:var(--disp);font-weight:800;font-size:0.88rem;color:var(--ink);letter-spacing:-0.01em;margin-left:6px}
-  .ag-hist-brand-text span{display:block}
-  @media (max-width:900px){
+  .ag-pv-toggle-btn{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line);background:var(--card);color:var(--ink);
+    border-radius:9px;padding:6px 14px;height:34px;font-size:.85rem;font-weight:600;cursor:pointer;
+    transition:all .2s var(--ease);box-shadow:0 2px 6px rgba(0,0,0,.03);outline:none !important}
+  #agDeskSidebarToggle{position:fixed !important;top:10px !important;left:10px !important;z-index:999999 !important;
+    padding:5px 10px !important;height:32px !important;font-size:.82rem !important}
+  .ag-pv-toggle-btn:hover{border-color:#cbd5e1;background:var(--paper-2);color:var(--ink)}
+  .ag-pv-toggle-btn.on{background:var(--card);color:var(--ink);border-color:var(--accent);box-shadow:0 0 8px rgba(26,166,223,.35),0 0 0 1px var(--accent)}
+  .ag-pv-toggle-btn .pane-left{transition:fill .2s ease;fill:transparent}
+  .ag-pv-toggle-btn.on .pane-left{fill:var(--accent)}
+  .ag-pv-toggle-btn svg{width:16px;height:16px;flex:none}
+
+  /* ================= desktop rail =================
+     COLLAPSED = an icon rail, not nothing. Taking the sidebar to width:0
+     throws away every navigation affordance on the page — the only way
+     back to Projects or the builder becomes "reopen the drawer first".
+     At --rail the icons and their titles stay reachable while the content
+     column gets back most of the width. */
+  @media (min-width:901px){
     .ag-history{
-      position:fixed !important;
-      top:0 !important;left:0 !important;bottom:0 !important;
-      height:100vh !important;width:240px !important;max-width:80vw !important;
-      z-index:999999 !important;
-      transform:translateX(-100%) !important;
-      transition:transform .28s cubic-bezier(0.16,1,0.3,1) !important;
-      box-shadow:4px 0 24px rgba(0,0,0,.5);
+      flex:0 0 var(--rail) !important;width:var(--rail) !important;min-width:var(--rail) !important;
+      border-right:1px solid var(--line);overflow:hidden;
+      transition:width .34s var(--ease-sb),flex-basis .34s var(--ease-sb),margin-right .34s var(--ease-sb),
+                 border-color .34s var(--ease-sb),box-shadow .34s var(--ease-sb);
+      /* Delays the CLOSE only — the hover rule zeroes it — so a pointer
+         clipping the rail on its way somewhere else does not make the
+         panel flash open and shut. */
+      transition-delay:.16s;will-change:width;z-index:100}
+    .ag-history.on{width:var(--sb-w) !important;flex:0 0 var(--sb-w) !important;min-width:var(--sb-w) !important;
+      overflow:visible !important;box-shadow:none;margin-right:0}
+
+    /* HOVER TO OPEN. The negative margin is what keeps this an OVERLAY
+       rather than a push: the flex item measures --sb-w but the margin
+       cancels all but --rail of it, so the content column never moves.
+       Expanding it in place would reflow the whole page on every
+       mouse-over, which is unusable. */
+    @media (hover:hover) and (pointer:fine){
+      .ag-history:not(.on):hover,
+      .ag-history.hover-open:not(.on){
+        width:var(--sb-w) !important;flex-basis:var(--sb-w) !important;
+        margin-right:calc(var(--rail) - var(--sb-w));
+        overflow:visible !important;z-index:400 !important;transition-delay:0s;
+        box-shadow:6px 0 28px -8px rgba(11,22,38,.28)}
     }
-    .ag-history.on{
-      transform:translateX(0) !important;
-    }
-    #agDeskSidebarToggle {
-      position: fixed !important;
-      top: 10px !important;
-      left: 10px !important;
-      z-index: 999999 !important;
-    }
-    .ag-hist-backdrop{
-      display:block !important;
-      position:fixed !important;
-      inset:0 !important;
-      background:rgba(0,0,0,.65) !important;
-      backdrop-filter:blur(3px) !important;
-      z-index:999998 !important;
-      opacity:0 !important;
-      pointer-events:none !important;
-      transition:opacity .28s ease !important;
-    }
-    .ag-hist-backdrop.on{
-      opacity:1 !important;
-      pointer-events:auto !important;
-    }
-    .ag-hist-head{
-      padding:10px 10px 12px 114px !important;
-    }
+
+    /* --- what the rail actually shows --- */
+    .ag-history:not(.on):not(:hover):not(.hover-open) .lbl,
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-hist-brand-text,
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-user-main .nm,
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-ws .nm{max-width:0 !important;opacity:0 !important;transition-delay:0s}
+
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-ws .chev,
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-chats-ttl,
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-hist-foot,
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-user-gear{display:none !important}
+
+    /* Click-opened, so letting it render inside a panel that vanishes on
+       mouse-out would strand it. */
+    .ag-history:not(.on) .ag-ws-menu{display:none !important}
+
+    /* The apps stay in the rail as bare status dots — dropping them would
+       make the collapsed sidebar a dead end for getting back into one. */
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-hist-chats{border-top:1px solid var(--line);margin:5px 9px 0;padding-top:6px}
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-chats-list{padding:0;overflow:hidden}
+    /* Fills the list box rather than being a fixed 32px inside it: the
+       list is inset 9px each side for its hairline, so a 32px child could
+       not centre in the 26px that leaves and sat 3px right. */
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-chat-item{width:100%;margin:0;padding:7px 0;justify-content:center;gap:0}
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-chat-item span{display:none}
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-chats-empty{display:none}
+
+    /* Height clears the fixed sidebar toggle sitting at top-left. */
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-hist-head{padding:0 !important;height:38px !important;flex:0 0 38px !important;overflow:hidden}
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-hist-mark{display:none !important}
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-hist-tabs{padding:4px 0 6px !important;align-items:center}
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-hist-tab{width:32px;padding:7px 0;justify-content:center;gap:0}
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-tab-new{background:transparent;box-shadow:none}
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-tab-new .tab-ic.ring{background:var(--card);border-color:var(--line);box-shadow:0 1px 2px rgba(0,0,0,.06)}
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-hist-user{background:transparent;justify-content:center}
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-ws-wrap{padding:0 !important;display:flex;justify-content:center}
+    /* gap:0 matters: the name is still a flex item at max-width:0, so the
+       pill's 9px gap was being counted and justify-content:center pushed
+       the avatar ~5px left of the rail. */
+    /* No pill chrome in the rail. The white background and border make
+       it read as a dropdown when the name and chevron are there; with only
+       the avatar showing they are just a ring drawn around a circle. */
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-ws{width:32px;margin:6px auto;padding:3px;justify-content:center;gap:0;background:transparent;border-color:transparent}
+    /* The dot carries side margins for the expanded row; in the rail they
+       are what pushes it off centre. */
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-chat-item .sdot{margin:0}
+
+
+    /* Collapsed: the toggle is an icon, not a labelled button. Same as
+       the builder — the word "Sidebar" beside a 44px rail is wider than
+       the rail it describes. */
+    #agDeskSidebarToggle:not(.on) span{display:none !important}
+    #agDeskSidebarToggle:not(.on){padding:4px !important;width:28px !important;height:28px !important;left:8px !important;justify-content:center !important}
+
+    /* The content column sits beside the rail, so it only needs to clear
+       the fixed toggle button, not the whole panel. */
+    .ag-main .nav{padding-left:96px}
+    .ag-history.on ~ .ag-main .nav{padding-left:clamp(18px,4vw,40px)}
   }
+
+  @media (max-width:900px){
+    .ag-history{position:fixed !important;top:0 !important;left:0 !important;bottom:0 !important;
+      height:100vh !important;width:240px !important;max-width:80vw !important;z-index:999999 !important;
+      transform:translateX(-100%) !important;transition:transform .28s var(--ease) !important;box-shadow:4px 0 24px rgba(0,0,0,.5)}
+    .ag-history.on{transform:translateX(0) !important}
+    .ag-hist-backdrop{display:block !important;position:fixed !important;inset:0 !important;background:rgba(0,0,0,.65) !important;
+      backdrop-filter:blur(3px) !important;z-index:999998 !important;opacity:0 !important;pointer-events:none !important;transition:opacity .28s ease !important}
+    .ag-hist-backdrop.on{opacity:1 !important;pointer-events:auto !important}
+  }
+
   .nav{display:flex;align-items:center;gap:16px;padding:14px clamp(18px,4vw,40px) 14px 114px;border-bottom:none;background:var(--paper);transition:padding-left .26s var(--ease)}
   .ag-history.on ~ .ag-main .nav{padding-left:clamp(18px,4vw,40px)}
   .brand{display:flex;align-items:center;gap:10px;font-family:var(--disp);font-weight:800;font-size:1.1rem}
@@ -267,12 +376,31 @@
   .row .star svg{width:15px;height:15px}
   .row .star.on svg{fill:currentColor}
 
+
+  /* ---- in-place panel ----
+     Settings and plans open over the page instead of navigating away, the
+     way the builder does it. One overlay, one iframe, pointed at the real
+     /settings and /pricing — re-implementing either here is how a price
+     ends up right on one screen and stale on another. */
+  .ag-set-overlay{position:fixed;inset:0;z-index:9999999 !important;background:rgba(8,7,6,.32);
+    display:flex;align-items:center;justify-content:center;padding:clamp(8px,3.5vh,40px);
+    -webkit-backdrop-filter:blur(14px) saturate(115%);backdrop-filter:blur(14px) saturate(115%)}
+  .ag-set-overlay[hidden]{display:none !important;pointer-events:none !important;visibility:hidden !important}
+  .ag-set-overlay iframe{width:min(1393px,92vw);height:min(700px,80vh);border:0;border-radius:13px;
+    background:var(--card);box-shadow:0 30px 90px -28px rgba(0,0,0,.55)}
+  @media (max-width:900px){
+    .ag-set-overlay{padding:0}
+    .ag-set-overlay iframe{width:100%;height:100%;border-radius:0}
+  }
+
+
+
   .empty{text-align:center;padding:80px 20px;color:var(--ink-2)}
   .empty h2{font-size:1.3rem;margin-bottom:8px;color:var(--ink)}
   .empty p{font-size:.92rem;max-width:40ch;margin:0 auto 20px;line-height:1.5}
   .loading{text-align:center;padding:60px 20px;color:var(--mut);font-size:.9rem}
 </style>
-<link rel="stylesheet" href="css/site-footer.css">
+<link rel="stylesheet" href="/css/upgrade-modal.css">
 </head>
 <body><div class="ag-hist-backdrop" id="agHistBackdrop"></div>
 <aside class="ag-history on" id="agHistory" aria-label="Your account">
@@ -283,13 +411,13 @@
 
   <div class="ag-ws-wrap">
     <button type="button" class="ag-ws" id="agWs">
-      <span class="av" id="agWsAv">S</span>
+      <span class="av" id="agWsAv"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span>
       <span class="nm" id="agWsNm">Your Workspace</span>
       <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg>
     </button>
     <div class="ag-ws-menu" id="agWsMenu">
       <div class="ag-ws-signed" id="agWsSigned">Not signed in</div>
-      <a class="ag-ws-item" href="#" id="agWsSettings">
+      <a class="ag-ws-item" href="/settings">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
         Settings
       </a>
@@ -297,11 +425,6 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2l2.4 6.4L21 10l-5.2 4.2L17.2 21 12 17.3 6.8 21l1.4-6.8L3 10l6.6-1.6z"/></svg>
         Plans &amp; pricing
       </a>
-      <div class="ag-ws-sep" id="agWsSignOutSep" hidden></div>
-      <button type="button" class="ag-ws-item" id="agWsSignOut" hidden>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>
-        Sign out
-      </button>
       <a class="ag-ws-item" href="/login" id="agWsSignIn">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><path d="M10 17l5-5-5-5"/><path d="M15 12H3"/></svg>
         Sign in
@@ -309,48 +432,50 @@
     </div>
   </div>
 
-  <button type="button" class="ag-act" onclick="location.href='/agent'">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Create something new</button>
+  <div class="ag-hist-tabs" id="agHistTabs" role="tablist">
+    <a class="ag-hist-tab ag-tab-new" href="/agent" title="New chat">
+      <i class="tab-ic ring"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></i><span class="lbl">New</span></a>
 
-  <div class="ag-hist-tabs" role="tablist">
-    <a class="ag-hist-tab" href="/agent">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg>Home</a>
-    <a class="ag-hist-tab ag-hist-hoverable on" href="/projects">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>Projects
-      <span class="ag-flyout" id="agProjFlyout">
-        <span class="ag-flyout-h">Recent Projects</span>
-        <span class="ag-flyout-list" id="agProjFlyoutList"><span class="ag-flyout-empty">Nothing built yet</span></span>
-      </span>
-    </a>
-    <a class="ag-hist-tab" href="/agent#favorites">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01z"/></svg>Favorites</a>
-    <a class="ag-hist-tab" href="/agent#stats">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/></svg>Stats</a>
-    <a class="ag-hist-tab" href="/agent#settings">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Settings</a>
-    <div class="ag-hist-gap"></div>
-    <a class="ag-hist-tab" href="/home">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7V18h8v-3.3A7 7 0 0 0 12 2z"/></svg>Learn</a>
-    <a class="ag-hist-tab" href="/terms">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4h7a3 3 0 0 1 3 3v13a2.5 2.5 0 0 0-2.5-2.5H2z"/><path d="M22 4h-7a3 3 0 0 0-3 3v13a2.5 2.5 0 0 1 2.5-2.5H22z"/></svg>Documentation</a>
+    <a class="ag-hist-tab on" href="/projects" title="Projects">
+      <i class="tab-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M8 4h9a2 2 0 0 1 2 2v11"/><rect x="4" y="7" width="12" height="13" rx="2"/></svg></i><span class="lbl">Projects</span></a>
+
+    <a class="ag-hist-tab" href="/deployments" title="Deployments">
+      <i class="tab-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="m3.3 7 8.7 5 8.7-5M12 22V12"/></svg></i><span class="lbl">Deployments</span></a>
+
+    <a class="ag-hist-tab" href="/agent#favorites" title="Favorites">
+      <i class="tab-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8L3.5 9.7l5.9-.9z"/></svg></i><span class="lbl">Favorites</span></a>
+
+    <a class="ag-hist-tab" href="/settings#integrations" title="Integrations">
+      <i class="tab-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="m12 3 9 5-9 5-9-5 9-5z"/><path d="m3 12 9 5 9-5"/><path d="m3 17 9 5 9-5"/></svg></i><span class="lbl">Integrations</span></a>
+
+    <a class="ag-hist-tab" href="/settings#security" title="Security">
+      <i class="tab-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/></svg></i><span class="lbl">Security</span></a>
+  </div>
+
+  <!-- The builder puts recent chats here; the equivalent on this page is
+       the apps themselves, with a live dot so the rail shows what is
+       running without opening anything. -->
+  <div class="ag-hist-chats">
+    <div class="ag-chats-ttl">Recent</div>
+    <div class="ag-chats-list" id="agProjList"><div class="ag-hist-loading ag-chats-empty">Loading…</div></div>
   </div>
 
   <div class="ag-hist-foot">
     <div class="ttl" id="agPlanTtl">Your Free Plan</div>
-    <div class="ag-plan-alert" id="agPlanAlert">You've reached your usage limit</div>
+    <div class="ag-plan-alert" id="agPlanAlert" hidden>You've reached your usage limit</div>
     <div class="ag-meter-row">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m16 18 6-6-6-6M8 6l-6 6 6 6"/></svg>
-      <span class="lab">Free Apps<i id="agEditsUsed">6/10 created</i></span>
-      <span class="ag-meter"><i id="agEditsBar" style="width:60%"></i></span>
+      <span class="lab">Free Apps<i id="agEditsUsed">—</i></span>
+      <span class="ag-meter"><i id="agEditsBar" style="width:0%"></i></span>
     </div>
     <div class="ag-meter-row">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.5" cy="8.5" r="2.5"/><circle cx="16.5" cy="8.5" r="2.5"/><circle cx="12" cy="6" r="3"/><path d="M12 13c-2.8 0-6 1.4-6 3.5V18h12v-1.5c0-2.1-3.2-3.5-6-3.5z"/><path d="M5.5 14.5C4 15.2 3 16.3 3 17.5V18h2v-1.5c0-.8.4-1.5 1.1-2.1-.2.1-.4.1-.6.1z"/><path d="M18.5 14.5c.2 0 .4 0 .6-.1.7.6 1.1 1.3 1.1 2.1V18h2v-.5c0-1.2-1-2.3-2.5-3z"/></svg>
-      <span class="lab">Agent credits<i id="agAgentCredits">100% used</i></span>
-      <span class="ag-meter"><i id="agAgentBar" style="width:100%"></i></span>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.5" cy="8.5" r="2.5"/><circle cx="16.5" cy="8.5" r="2.5"/><circle cx="12" cy="6" r="3"/><path d="M12 13c-2.8 0-6 1.4-6 3.5V18h12v-1.5c0-2.1-3.2-3.5-6-3.5z"/></svg>
+      <span class="lab">Agent credits<i id="agAgentCredits">—</i></span>
+      <span class="ag-meter"><i id="agAgentBar" style="width:0%"></i></span>
     </div>
     <div class="ag-meter-row">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 10a4 4 0 0 0-7.8-1.2A3.5 3.5 0 1 0 7 16h10.5a3.5 3.5 0 0 0 .5-6z"/></svg>
-      <span class="lab">Cloud credits<i id="agSpendUsed">0% used</i></span>
+      <span class="lab">Cloud credits<i id="agSpendUsed">—</i></span>
       <span class="ag-meter"><i id="agSpendBar" style="width:0%"></i></span>
     </div>
     <a class="ag-upgrade" href="/pricing">✦ Upgrade</a>
@@ -367,7 +492,19 @@
       <a href="/pricing">Plans</a>
     </div>
   </div>
+
+  <div class="ag-hist-user">
+    <button type="button" class="ag-user-main" id="agUserMain" title="Account settings">
+      <span class="av" id="agUserAv"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span>
+      <span class="nm" id="agUserNm">Sign in</span>
+    </button>
+    <button type="button" class="ag-user-gear" id="agUserGear" title="Settings" aria-label="Settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
+  </div>
 </aside>
+
+<div class="ag-set-overlay" id="agSetOverlay" hidden>
+  <iframe id="agSetFrame" title="Panel" src="about:blank"></iframe>
+</div>
 
 <button type="button" class="ag-pv-toggle-btn on" id="agDeskSidebarToggle" title="Toggle Sidebar">
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
@@ -428,6 +565,51 @@
   "use strict";
   var $ = function (id) { return document.getElementById(id); };
   function esc(t) { var d = document.createElement("span"); d.textContent = t == null ? "" : t; return d.innerHTML; }
+
+  /* ---------- in-place panel ----------
+     Settings and plans open over this page rather than navigating to
+     them, matching the builder. */
+  function openPanel(src) {
+    var f = $("agSetFrame");
+    if (f.getAttribute("src") !== src) f.setAttribute("src", src);
+    $("agSetOverlay").hidden = false;
+    if (window.SouqiLoading) window.SouqiLoading.hide();
+  }
+  function closePanel() { $("agSetOverlay").hidden = true; }
+
+  $("agSetOverlay").addEventListener("click", function (e) {
+    if (e.target === $("agSetOverlay")) closePanel();
+  });
+  // The settings page's X lives inside the iframe and posts up instead.
+  window.addEventListener("message", function (e) {
+    if (e.data === "souqi:settings:close") closePanel();
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key !== "Escape") return;
+    // Whatever is on top closes first.
+    if (window.isUpgradeModalOpen && window.isUpgradeModalOpen()) { window.closeUpgradeModal(); return; }
+    if (!$("agSetOverlay").hidden) closePanel();
+  });
+
+  /* Anything that would have navigated to /settings or /pricing opens the
+     panel instead — sidebar rows, the workspace menu, the account gear and
+     Upgrade. Ctrl/cmd-click still goes to the real page. */
+  document.addEventListener("click", function (e) {
+    if (e.target.closest("#agUserMain") || e.target.closest("#agUserGear")) {
+      e.preventDefault(); openPanel("/settings"); return;
+    }
+    var a = e.target.closest('a[href^="/settings"], a[href^="/pricing"], .ag-upgrade');
+    if (!a || e.metaKey || e.ctrlKey || e.shiftKey || a.target === "_blank") return;
+    e.preventDefault();
+    // Plans open the builder's own upgrade modal; settings opens the panel.
+    var href = a.getAttribute("href") || "";
+    // Falls back to the real pricing page if the shared module is missing,
+    // so Upgrade is never a dead click.
+    if (a.classList.contains("ag-upgrade") || href.indexOf("/pricing") === 0) {
+      if (window.openUpgradeModal) window.openUpgradeModal(e); else location.href = "/pricing";
+    }
+    else openPanel(href);
+  });
 
   // Sidebar toggle
   var sb = $("agHistory"), bd = $("agHistBackdrop");
@@ -547,10 +729,124 @@
   fetch("/api/projects?kind=code&limit=200").then(function (r) { return r.json(); }).then(function (d) {
     all = d.projects || [];
     render();
+    renderRail();
+    renderPlan();                 // the Free Apps meter counts what we just loaded
   }).catch(function () {
     var container = $("pListBody");
     if (container) container.innerHTML = '<div class="empty"><h2>Couldn\'t load your projects</h2><p>Try reloading the page.</p></div>';
   });
+
+  /* The rail's Recent list, the same slot the builder gives chat history.
+     Published projects get a live dot so the collapsed rail still says
+     which ones are out in the world. */
+  function renderRail() {
+    var el = $("agProjList");
+    if (!el) return;
+    if (!all.length) { el.innerHTML = '<div class="ag-chats-empty">Nothing built yet</div>'; return; }
+    el.innerHTML = all.slice(0, 12).map(function (p) {
+      return '<a class="ag-chat-item" href="/agent/' + esc(p.slug) + '" title="' + esc(p.title || "") + '">' +
+        '<i class="sdot ' + dotFor(p) + '"></i>' +
+        "<span>" + esc(p.title || "Untitled") + "</span></a>";
+    }).join("");
+  }
+
+  /* The dot means "live", so it comes from the deploy plane rather than
+     from the project row: a project can carry a deploymentId and still be
+     stopped, and "deployed once" is not what a green dot claims. */
+  function dotFor(p) {
+    var s = liveStatus[p.slug] || liveStatus[p.id];
+    if (s === "RUNNING") return "run";
+    if (s === "BUILDING" || s === "STARTING" || s === "QUEUED") return "move";
+    if (s === "FAILED") return "bad";
+    return p.published ? "run" : "";   // the old static publish path has no status
+  }
+
+  /* ---------- account + plan ----------
+     None of this was wired. The workspace name, the avatar, the signed-in
+     line and all three meters were fixed strings in the markup, so the
+     rail said "Your Workspace" / "Not signed in" / "6/10 created" no
+     matter who was looking or what was true. */
+  var account = null;
+  var liveStatus = {};   // slug -> deploy status, from /api/deploy/overview
+  var capacity = null;
+
+  function meter(barId, labId, pct, text) {
+    var bar = $(barId), lab = $(labId);
+    if (!bar || !lab) return;
+    pct = Math.max(0, Math.min(100, Math.round(pct)));
+    bar.style.width = pct + "%";
+    bar.style.background = pct >= 90 ? "#d92d20" : pct >= 70 ? "#e0a11a" : "#3b82f6";
+    lab.textContent = text;
+  }
+
+  function renderPlan() {
+    if (!account) return;
+    var plan = String(account.plan || "free");
+    $("agPlanTtl").textContent = "Your " + plan.charAt(0).toUpperCase() + plan.slice(1) + " Plan";
+
+    var cap = Number(account.freeEdits || 0);
+    var used = all.length;
+    meter("agEditsBar", "agEditsUsed", cap ? (used / cap) * 100 : 0,
+      cap ? used + "/" + cap + " created" : used + " created");
+
+    var budget = Number(account.budgetUsd || 0);
+    var spent = Number(account.spentUsd || 0);
+    var agentPct = budget ? (spent / budget) * 100 : 0;
+    meter("agAgentBar", "agAgentCredits", agentPct, budget ? Math.round(agentPct) + "% used" : "—");
+
+    // Cloud is the host the containers run on, same meaning as on the
+    // deployments page. Absent when no deployment plane is configured.
+    var mem = capacity && capacity.memory && typeof capacity.memory.pct === "number"
+      ? Math.round(capacity.memory.pct) : null;
+    meter("agSpendBar", "agSpendUsed", mem === null ? 0 : mem, mem === null ? "—" : mem + "% memory");
+
+    // Only shown when a limit has actually been reached.
+    $("agPlanAlert").hidden = !(cap && used >= cap) && !(budget && spent >= budget);
+  }
+
+  $("agPlanAlert").hidden = true;   // until we know, claim nothing
+
+  // The sign-out row was in the markup but had no handler — it only stayed
+  // harmless because nothing ever unhid it. Same call the builder makes.
+  if ($("agWsSignOut")) {
+    $("agWsSignOut").addEventListener("click", function () {
+      fetch("/auth/logout", { method: "POST", credentials: "same-origin" })
+        .catch(function () {})
+        .then(function () { location.href = "/agent"; });
+    });
+  }
+
+  fetch("/api/account/me", { credentials: "same-origin" })
+    .then(function (r) { return r.json(); })
+    .then(function (d) {
+      // Signed out is a real state, not a missing one. Leaving the markup's
+      // placeholder in place invented a workspace and an account both
+      // called "S", which is worse than saying nothing.
+      if (!d || !d.signedIn) { $("agWsNm").textContent = "Sign in"; return; }
+      account = d;
+      var who = d.company || d.email || "Your Workspace";
+      $("agWsSigned").textContent = d.email || "Signed in";
+      $("agWsNm").textContent = who;
+      $("agWsAv").textContent = String(who).charAt(0).toUpperCase();
+      if ($("agWsSignIn")) $("agWsSignIn").hidden = true;
+      if ($("agWsSignOut")) $("agWsSignOut").hidden = false;
+      if ($("agWsSignOutSep")) $("agWsSignOutSep").hidden = false;
+      // The account row at the foot of the rail, same as the builder's.
+      if ($("agUserNm")) $("agUserNm").textContent = d.email || who;
+      if ($("agUserAv")) $("agUserAv").textContent = String(who).charAt(0).toUpperCase();
+      renderPlan();
+    }).catch(function () { });
+
+  // Host capacity for the cloud meter. Quiet on failure: a page about
+  // projects should not report an error because the deploy plane is off.
+  fetch("/api/deploy/overview", { credentials: "same-origin" })
+    .then(function (r) { return r.json(); })
+    .then(function (d) {
+      capacity = d && d.capacity;
+      (d && d.projects || []).forEach(function (r) { liveStatus[r.key] = r.status; });
+      renderPlan(); renderRail();
+    })
+    .catch(function () { });
 
   $("q").addEventListener("input", render);
   $("fStatus").addEventListener("change", render);
@@ -571,7 +867,12 @@
 })();
 </script>
 
-<script src="js/nav-loading.js?v=1"></script>
-<script src="js/site-footer.js" defer></script>
+<script src="/js/nav-loading.js?v=1"></script>
+<script src="/js/upgrade-modal.js" defer></script>
+<!-- No site-footer.js here on purpose. This is an app shell — sidebar
+     rail, workspace switcher, the builder's own nav — and site-footer.js
+     says in its own header that the marketing footer does not belong in
+     one. It was rendering inside the flex layout beside the sidebar,
+     pushed off to the right under a stray rule. -->
 </body>
 </html>

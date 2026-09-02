@@ -67,7 +67,10 @@ const cache = new Map();
 function cacheKey(userPrompt, opts) {
   const o = opts || {};
   const normalized = String(userPrompt || "").trim().toLowerCase().replace(/\s+/g, " ");
-  const scope = [PROMPT_VERSION, o.mode || "economy", o.provider || "souqi", o.model || ""].join("|");
+  // The history is part of the input, so it has to be part of the key.
+  // Without it two different conversations that happen to end in the same
+  // message ("make it bigger") would serve each other's files.
+  const scope = [PROMPT_VERSION, o.mode || "economy", o.provider || "souqi", o.model || "", o.history || ""].join("|");
   return crypto.createHash("sha256").update(scope + "|" + normalized).digest("hex");
 }
 function cacheGet(key) {
@@ -666,7 +669,168 @@ const CALL_TIMEOUT_MS = 60000;
 // CODE-AGENT-PLAN.md §10's own pricing table), so the 2000 figure was never
 // a deliberate cost tradeoff, just sized for a short freeform first prompt
 // and never revisited for what a follow-up actually needs to carry.
-const MAX_USER_PROMPT_CHARS = 30000;
+/* Sized to hold the code budget plus the request around it, so this is a
+   backstop rather than the thing that decides what the model sees —
+   buildCodebaseContext does that, and it says out loud when it drops
+   something. A silent .slice() here would undo that honesty, so it is
+   kept comfortably above MAX_CODE_CONTEXT_CHARS. */
+const MAX_USER_PROMPT_CHARS = Number(process.env.CODEAGENT_MAX_PROMPT_CHARS || 140000);
+
+/* ---- conversation history ----------------------------------------
+   The codebase goes into the user message; this is the talking that led
+   to it. Without it the model sees a fresh request against unfamiliar
+   code every time, so "now make it bigger" has no "it", and a preference
+   stated two messages ago ("keep it dark", "no rounded corners") is gone.
+
+   Its own budget rather than a share of MAX_USER_PROMPT_CHARS, because
+   the two must not compete: history should never be the reason a file
+   gets truncated out of the prompt. Oldest turns are dropped first — the
+   recent ones are what the current request refers to.
+
+   Agent turns are trimmed harder than user turns. A user message is
+   short and every word is intent; an agent "result" body is mostly a
+   recap of work the model can already see in the code it was just
+   given. */
+const MAX_HISTORY_TURNS = 12;
+const MAX_HISTORY_CHARS = 6000;
+const MAX_HISTORY_TURN_CHARS = 700;
+const MAX_HISTORY_AGENT_TURN_CHARS = 300;
+
+/* ---- codebase context ---------------------------------------------
+   The follow-up prompt carries the project's source so the model can
+   edit it. It used to be assembled with two hard slices — 8000 chars per
+   file, 30000 for the whole prompt — and both cut silently. A model
+   handed the first 8000 characters of a file has no way to know the rest
+   exists, so it rewrites what it was shown and deletes the remainder.
+   That is the worst possible failure: not a refusal, a plausible-looking
+   edit that drops code.
+
+   So: fit whole files where they fit, mark any excerpt loudly, and name
+   the files that did not make it. The model can then ask rather than
+   guess. Nothing is cut without saying so in the prompt itself.
+
+   The budget is a real limit, just a much larger one — at $0.27/M input
+   tokens, 120K chars is well under a cent per edit, so the old 30K was
+   never a cost tradeoff. */
+const MAX_CODE_CONTEXT_CHARS = Number(process.env.CODEAGENT_MAX_CODE_CHARS || 120000);
+// Below this an excerpt teaches the model less than an honest "omitted".
+const MIN_USEFUL_EXCERPT = 1200;
+
+/**
+ * Assemble the "here is the current codebase" block.
+ *
+ * @returns {{text:string, included:string[], excerpted:string[], omitted:string[]}}
+ */
+function buildCodebaseContext(files, opts) {
+  const o = opts || {};
+  const budget = o.budget || MAX_CODE_CONTEXT_CHARS;
+  const ask = String(o.prompt || "").toLowerCase();
+
+  const entries = Object.entries(files || {}).filter(([, v]) => v != null);
+  if (!entries.length) return { text: "", included: [], excerpted: [], omitted: [] };
+
+  /* Order decides what survives a tight budget, so it is not arbitrary:
+     a file the request names is the one being edited, entry points frame
+     the app, and after that smallest-first fits the most COMPLETE files
+     in — several whole files beat one big excerpt. */
+  const rank = (p) => {
+    const base = p.split("/").pop().toLowerCase();
+    const stem = base.replace(/\.[^.]+$/, "");
+    if (ask.includes(base) || (stem.length > 3 && ask.includes(stem))) return 0;
+    if (/(^|\/)(app|main|index)\.[tj]sx?$/i.test(p)) return 1;
+    return 2;
+  };
+  const sorted = entries.slice().sort((a, b) => {
+    const d = rank(a[0]) - rank(b[0]);
+    return d !== 0 ? d : String(a[1]).length - String(b[1]).length;
+  });
+
+  const parts = [], included = [], excerpted = [], omitted = [];
+  let used = 0;
+
+  for (const [p, raw] of sorted) {
+    const content = String(raw);
+    const head = "File: " + p + "\n```\n";
+    const foot = "\n```\n\n";
+    const whole = head.length + content.length + foot.length;
+    const left = budget - used;
+
+    if (whole <= left) {
+      parts.push(head + content + foot);
+      used += whole;
+      included.push(p);
+      continue;
+    }
+
+    // Doesn't fit whole. An excerpt is only worth it if enough of the file
+    // survives to be informative — and it must announce itself.
+    const room = left - head.length - foot.length - 320;
+    if (room >= MIN_USEFUL_EXCERPT) {
+      const keepTop = Math.floor(room * 0.7);
+      const keepEnd = room - keepTop;
+      const cut = content.length - keepTop - keepEnd;
+      const marker = "\n\n/* ---- " + cut + " characters omitted from the middle of this file ----\n" +
+        "   You are seeing an EXCERPT of " + p + ", not the whole file.\n" +
+        "   Do NOT rewrite this file in full — you would delete the part you\n" +
+        "   cannot see. Change only what you can see here, or say which part\n" +
+        "   you need in full. ---- */\n\n";
+      parts.push(head + content.slice(0, keepTop) + marker + content.slice(-keepEnd) + foot);
+      used = budget;
+      excerpted.push(p);
+    } else {
+      omitted.push(p);
+    }
+  }
+
+  let text = parts.join("");
+  if (omitted.length) {
+    // Naming them matters: "there are files you cannot see" is actionable,
+    // silently shipping a partial app is not.
+    text += "Also in this project, but not shown here (ask if you need one):\n" +
+      omitted.map((p) => "  - " + p).join("\n") + "\n\n";
+  }
+  return { text, included, excerpted, omitted };
+}
+
+/**
+ * Stored turns -> chat messages, newest-first within a budget.
+ *
+ * Takes turns in chronological order and returns them the same way, so
+ * the model reads the conversation forwards.
+ */
+function buildHistory(turns) {
+  if (!Array.isArray(turns) || !turns.length) return [];
+
+  const picked = [];
+  let used = 0;
+
+  // Walk backwards: when the budget runs out, what is dropped is the
+  // oldest context rather than the message the user just referred to.
+  for (let i = turns.length - 1; i >= 0 && picked.length < MAX_HISTORY_TURNS; i--) {
+    const t = turns[i] || {};
+    const body = String(t.body || "").trim();
+    if (!body) continue;
+
+    const isUser = t.role === "user";
+    const cap = isUser ? MAX_HISTORY_TURN_CHARS : MAX_HISTORY_AGENT_TURN_CHARS;
+    const content = body.length > cap ? body.slice(0, cap) + "…" : body;
+
+    if (used + content.length > MAX_HISTORY_CHARS) break;
+    used += content.length;
+    picked.push({ role: isUser ? "user" : "assistant", content: content });
+  }
+
+  return picked.reverse();
+}
+
+/** Cheap, stable fingerprint of the history for the response cache. */
+function historyKey(history) {
+  if (!history || !history.length) return "";
+  return crypto.createHash("sha256")
+    .update(history.map((m) => m.role + ":" + m.content).join("\n"))
+    .digest("hex")
+    .slice(0, 16);
+}
 
 /**
  * One model call, with the "retry once on malformed tool-call JSON, then a
@@ -861,14 +1025,19 @@ async function attemptOnce(messages, opts) {
  */
 async function proposeChanges(userPrompt, opts) {
   const o = opts || {};
-  const key = cacheKey(userPrompt, { mode: o.mode, provider: o.byok && o.byok.provider, model: o.byok && o.byok.model });
+  const history = buildHistory(o.history);
+  const key = cacheKey(userPrompt, {
+    mode: o.mode, provider: o.byok && o.byok.provider, model: o.byok && o.byok.model,
+    history: historyKey(history)
+  });
   const cached = cacheGet(key);
   if (cached) return Object.assign({}, cached, { cached: true, costUsd: 0 });
 
   const messages = [
-    { role: "system", content: systemPromptFor(o.mode) },
+    { role: "system", content: systemPromptFor(o.mode) }
+  ].concat(history, [
     { role: "user", content: String(userPrompt || "").slice(0, MAX_USER_PROMPT_CHARS) }
-  ];
+  ]);
   const attempt = await attemptOnce(messages, o);
   if (!attempt.ok) {
     const fallbackContent = getFallbackAppCode(userPrompt);
@@ -909,13 +1078,14 @@ const DEFAULT_MAX_REPAIR_ROUNDS = 6; // docs/CODE-AGENT-PLAN.md §2 hard cap
  * @param {number} [opts.maxRounds]  hard cap on REPAIR attempts, i.e. total tries = maxRounds + 1 (default 6, docs/CODE-AGENT-PLAN.md §2)
  * @param {(info:{round:number, ok:boolean, calls, errors?}) => void} [opts.onRound]
  */
-async function proposeWithRepair({ userPrompt, tools, maxRounds, onRound, mode, byok, thinking, mcp, onToolCall }) {
+async function proposeWithRepair({ userPrompt, tools, maxRounds, onRound, mode, byok, thinking, mcp, onToolCall, history }) {
   const cap = (maxRounds !== null && maxRounds !== undefined) ? maxRounds : DEFAULT_MAX_REPAIR_ROUNDS;
   const opts = { mode, byok, thinking, mcp, onToolCall };
   let messages = [
-    { role: "system", content: systemPromptFor(mode) },
+    { role: "system", content: systemPromptFor(mode) }
+  ].concat(buildHistory(history), [
     { role: "user", content: String(userPrompt || "").slice(0, MAX_USER_PROMPT_CHARS) }
-  ];
+  ]);
   let totalCost = 0;
   let jsonRetries = 0;
 
@@ -973,17 +1143,24 @@ async function proposeWithRepair({ userPrompt, tools, maxRounds, onRound, mode, 
  * @param {function} [opts.onRound] - (info) => void, same shape as proposeWithRepair
  * @returns {Promise<{ok, calls?, round?, rounds, repaired?, costUsd, reason?}>}
  */
-async function proposeWithClientBuild({ userPrompt, maxRounds, onFiles, onRound, mode, byok, thinking, mcp, onToolCall }) {
+async function proposeWithClientBuild({ userPrompt, maxRounds, onFiles, onRound, mode, byok, thinking, mcp, onToolCall, history }) {
   const cap = (maxRounds !== null && maxRounds !== undefined) ? maxRounds : 3;
   const opts = { mode, byok, thinking, mcp, onToolCall };
+  const hist = buildHistory(history);
   let messages = [
-    { role: "system", content: systemPromptFor(mode) },
+    { role: "system", content: systemPromptFor(mode) }
+  ].concat(hist, [
     { role: "user", content: String(userPrompt || "").slice(0, MAX_USER_PROMPT_CHARS) }
-  ];
+  ]);
   let totalCost = 0;
   let jsonRetries = 0;
 
-  const key = cacheKey(userPrompt, { mode: mode, provider: byok && byok.provider, model: byok && byok.model });
+  // history in the key for the same reason as proposeChanges: without it,
+  // two conversations ending in the same words share one cache entry.
+  const key = cacheKey(userPrompt, {
+    mode: mode, provider: byok && byok.provider, model: byok && byok.model,
+    history: historyKey(hist)
+  });
   const cached = cacheGet(key);
 
   if (cached) {
@@ -1173,8 +1350,32 @@ const GREETINGS = new Set([
   "hola","salam","salaam","assalamualaikum","bonjour","ciao","merhaba","selam",
   "haha","hahaha","hehe","lol","lmao","xd","ok","okay","k","kk","yes","no","yep","nope",
   "thanks","thank","thx","ty","cool","nice","wow","hmm","hm","huh",
-  "test","testing","ping","you there","anyone there","are you there"
+  "test","testing","ping","you there","anyone there","are you there",
+  "ay","aye","yay","oi","hiya","howdy","greetings","morning","evening","gm","gn",
+  "ah","oh","eh","uh","um","yeah","yea","nah","idk","hru","wyd"
 ]);
+
+/**
+ * Collapse the way people actually type interjections.
+ *
+ * "yooooo" reached the model and came back clear, so a nonsense greeting
+ * produced a full plan card for a website nobody asked for. The set above
+ * already carried "hii", "hiii" and "heyy" by hand, which is the tell that
+ * enumerating elongations never finishes — there is always one more o.
+ *
+ * Runs of THREE or more, never two: English is full of real doubles
+ * ("hello", "success", "coffee", "add"), and collapsing those would start
+ * mangling genuine requests. No ordinary word repeats a letter three times
+ * running, so this is safe on anything real.
+ *
+ * The second rule catches repeated pairs — "hahahaha", "hehehe" — leaving
+ * two so the result still matches the doubled forms already in the set.
+ */
+function collapseElongation(s) {
+  return String(s)
+    .replace(/(.)\1{2,}/g, "$1")        // yooooo -> yo, heyyyy -> hey, hmmmm -> hm
+    .replace(/^(..)\1{2,}$/, "$1$1");   // hahahaha -> haha
+}
 
 const ABOUT_AGENT = /^(who|what)\s+(are|is|r)\s+(you|u)\b|^are\s+(you|u)\b|what\s+can\s+(you|u)\s+do/i;
 
@@ -1201,7 +1402,9 @@ function quickAssess(userPrompt) {
   const norm = raw.toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, "").replace(/\s+/g, " ").trim();
   if (!norm) return { clear: false, reply: hi };
 
-  if (GREETINGS.has(norm)) return { clear: false, reply: hi };
+  // Checked against both forms: "yo" and "yooooo" are the same message.
+  const collapsed = collapseElongation(norm);
+  if (GREETINGS.has(norm) || GREETINGS.has(collapsed)) return { clear: false, reply: hi };
   if (ABOUT_AGENT.test(norm)) {
     return { clear: false, reply: "Yep, that's me — the Souqi agent. 🙂 What should I build for you?" };
   }
@@ -1211,7 +1414,10 @@ function quickAssess(userPrompt) {
   // rejecting real requests.
   const words = norm.split(" ");
   if (words.length <= 2) {
-    const squished = norm.replace(/\s/g, "");
+    // Judged on the collapsed form, so "yoooo" is measured as the "yo" it
+    // is. Otherwise padding a two-letter noise word with vowels was enough
+    // to clear a length check and reach the model.
+    const squished = collapsed.replace(/\s/g, "");
     const letters = squished.replace(/[^a-z]/g, "");
     if (REPEATED_CHAR.test(squished)) return { clear: false, reply: hi };      // HHH, aaaa, zzz
     if (squished.length < 3) return { clear: false, reply: hi };               // "ok", "a"
@@ -1259,5 +1465,6 @@ async function assessPrompt(userPrompt) {
 
 module.exports = {
   quickAssess, buildPlan, proposeChanges, proposeWithRepair, proposeWithClientBuild, assessPrompt, TOOLS_SCHEMA, SYSTEM_PROMPT,
+  buildHistory, buildCodebaseContext,
   systemPromptFor, parseToolCalls, validateWriteFileArgs, cacheKey, clearCache
 };

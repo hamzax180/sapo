@@ -35,6 +35,12 @@ function assertSafeCommand(cmd, label) {
 
 const NODE = "node:20-alpine";
 const NGINX = "nginx:1.27-alpine";
+/* Static sites are served by nginx as an unprivileged user, and a
+   non-root process cannot bind a port below 1024 without
+   CAP_NET_BIND_SERVICE — which user containers do not get. 8080 is the
+   port nginx listens on, the port the image EXPOSEs, and the port the
+   proxy must dial; detect.js pins the spec to it for the same reason. */
+const STATIC_PORT = 8080;
 const PYTHON = "python:3.12-slim";
 
 /* ---------- static ----------
@@ -56,13 +62,30 @@ function staticDockerfile(spec) {
       ""
     );
   }
+  /* Runs as the nginx user on 8080, not as root on 80.
+     The stock image starts as root and hands its cache dirs to uid 101,
+     which needs CAP_CHOWN — and user containers drop every capability. It
+     also cannot bind 80 without CAP_NET_BIND_SERVICE. Both are the
+     hardening working as intended, so the image gives way rather than the
+     sandbox: unprivileged user, unprivileged port, and every path nginx
+     writes moved under /tmp, which is the tmpfs the runtime already
+     provides. Nothing here needs root, so nothing asks for it. */
   lines.push(
     "FROM " + NGINX,
     "RUN rm -f /etc/nginx/conf.d/default.conf",
     "COPY nginx.conf /etc/nginx/conf.d/app.conf",
     build ? "COPY --from=build /app/" + out + " /usr/share/nginx/html"
           : "COPY " + out + " /usr/share/nginx/html",
-    "EXPOSE 80",
+    // The pid and temp paths must be writable by uid 101 at runtime; /tmp
+    // is a tmpfs, so they are created there by the config below.
+    "RUN chown -R 101:101 /usr/share/nginx/html",
+    // The pid path is main-context, so it cannot come from conf.d, and -g
+    // would collide with the pid already in nginx.conf ("pid directive is
+    // duplicate"). Rewriting the existing line is the one place it can be
+    // changed without fighting the image.
+    "RUN sed -i 's|^pid .*|pid /tmp/nginx.pid;|' /etc/nginx/nginx.conf",
+    "USER 101",
+    "EXPOSE " + STATIC_PORT,
     "CMD [\"nginx\", \"-g\", \"daemon off;\"]"
   );
   return lines.join("\n") + "\n";
@@ -71,8 +94,19 @@ function staticDockerfile(spec) {
 /** The nginx server block shipped with every static app. */
 function nginxConf() {
   return [
+    // Everything nginx writes goes to /tmp: the runtime mounts it as a
+    // tmpfs, and the defaults under /var/cache/nginx are unwritable on a
+    // read-only root and unchownable without CAP_CHOWN. (The pid path is
+    // main-context only, so it cannot be set here — it is passed with -g
+    // on the command line instead.)
+    "client_body_temp_path /tmp/client_temp;",
+    "proxy_temp_path /tmp/proxy_temp;",
+    "fastcgi_temp_path /tmp/fastcgi_temp;",
+    "uwsgi_temp_path /tmp/uwsgi_temp;",
+    "scgi_temp_path /tmp/scgi_temp;",
+    "",
     "server {",
-    "  listen 80;",
+    "  listen " + STATIC_PORT + ";",
     "  server_name _;",
     "  root /usr/share/nginx/html;",
     "  index index.html;",
@@ -151,8 +185,23 @@ function pythonDockerfile(spec) {
   return [
     "FROM " + PYTHON + " AS build",
     "WORKDIR /app",
-    "COPY requirements*.txt ./",
-    "RUN pip install --no-cache-dir --user -r requirements.txt || true",
+    /* Three things this has to survive, all of which broke the old
+       two-liner:
+
+       - No requirements.txt at all. detect.js accepts a project with only
+         pyproject.toml, and `COPY requirements*.txt ./` fails outright
+         when the glob matches nothing.
+       - An app with no dependencies. `pip install --user` only creates
+         /root/.local when it installs something, so the runtime stage's
+         COPY --from=build /root/.local failed on every dependency-free
+         app. mkdir makes the directory unconditional.
+       - A genuinely broken requirements.txt. The old `|| true` swallowed
+         the pip error and let the build continue, so the failure surfaced
+         later as a mystery COPY error, or worse as a container that
+         crash-looped on ImportError. Now pip's own message is the error. */
+    "COPY . .",
+    "RUN mkdir -p /root/.local \\",
+    " && if [ -f requirements.txt ]; then pip install --no-cache-dir --user -r requirements.txt; fi",
     "",
     "FROM " + PYTHON,
     "WORKDIR /app",

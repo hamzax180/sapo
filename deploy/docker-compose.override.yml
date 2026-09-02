@@ -1,0 +1,71 @@
+# =================================================================
+#  LOCAL DEVELOPMENT ONLY — do not copy this to a server.
+#  -----------------------------------------------------------------
+#  The api service publishes no port in docker-compose.yml, and that
+#  is deliberate: Caddy is the only service with a route in from
+#  outside, and scripts/verify.js asserts it stays that way.
+#
+#  But the main Souqi app runs OUTSIDE this compose project (node
+#  server/index.js on :4000), so on a laptop it has no way to reach
+#  the deploy API at all. This file gives it one.
+#
+#  The bind address matters. "127.0.0.1:4500" publishes to loopback
+#  ONLY — not 0.0.0.0 — so nothing on the local network, and nothing
+#  on the internet, can reach it. Writing it as "4500:4500" would
+#  bind every interface and hand the deploy API to anyone on the
+#  same wifi.
+#
+#  Compose merges docker-compose.override.yml automatically, so this
+#  applies with a plain `docker compose up` and needs no flags. It is
+#  also why the security check in verify.js still passes: that check
+#  reads docker-compose.yml, which is the file that ships.
+#
+#  In production the main app reaches the API through Caddy on a
+#  control-plane hostname instead — see src/proxy/caddy.js.
+# =================================================================
+
+services:
+  api:
+    ports:
+      - "127.0.0.1:4500:4500"
+
+  # ---------------------------------------------------------------
+  #  Object storage for source archives, locally.
+  #
+  #  In production this is R2 or S3. Here it is MinIO, which speaks the
+  #  same API, so the archive path is exercised for real rather than
+  #  stubbed — the SigV4 signing in src/storage/objects.js is hand-rolled
+  #  and worth testing against a server that will reject a bad signature.
+  #
+  #  Point .env at it:
+  #    S3_ENDPOINT=http://souqi-minio:9000
+  #    S3_BUCKET=souqi-sources
+  #    S3_ACCESS_KEY=souqitest
+  #    S3_SECRET_KEY=souqitest12345
+  #
+  #  Credentials are deliberately throwaway and this whole block is
+  #  dev-only, like the published port above.
+  # ---------------------------------------------------------------
+  minio:
+    image: minio/minio:latest
+    container_name: souqi-minio
+    command: ["server", "/data"]
+    environment:
+      MINIO_ROOT_USER: souqitest
+      MINIO_ROOT_PASSWORD: souqitest12345
+    ports:
+      - "127.0.0.1:9000:9000"     # loopback only, same reasoning as the api
+    networks: [platform]
+
+  # MinIO has no auto-create, so the bucket is made once and the container
+  # exits. Re-running compose is harmless — mb on an existing bucket is a
+  # no-op we swallow.
+  minio-init:
+    image: minio/mc:latest
+    depends_on: [minio]
+    entrypoint: >
+      sh -c "until mc alias set m http://souqi-minio:9000 souqitest souqitest12345 >/dev/null 2>&1;
+             do sleep 1; done;
+             mc mb m/souqi-sources >/dev/null 2>&1 || true;
+             echo 'bucket souqi-sources ready'"
+    networks: [platform]
