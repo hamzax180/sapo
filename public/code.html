@@ -1873,6 +1873,14 @@
   .ag-chat-item.current{background:var(--paper-2);color:var(--ink);font-weight:600}
   .ag-chat-item i{flex:none;width:18px;height:18px;display:grid;place-items:center;color:var(--ink-2);opacity:.95}
   .ag-chat-item i svg{width:16px;height:16px}
+  /* A status dot rather than a document icon, matching the rails on
+     /projects and /deployments. Every row here was the same glyph, which
+     told you nothing; the dot says which of these are live. Green is
+     published, grey is not. */
+  .ag-chat-item .sdot{width:6px;height:6px;border-radius:50%;background:var(--mut);flex:none;margin:0 6px}
+  .ag-chat-item .sdot.run{background:#22a565}
+  .ag-chat-item .sdot.move{background:#e0a11a}
+  .ag-chat-item .sdot.bad{background:#d92d20}
   .ag-chat-item span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis}
   .ag-chats-empty{padding:14px;color:var(--mut);font-size:.8rem;line-height:1.5;text-align:center}
 
@@ -2001,6 +2009,9 @@
     .ag-history:not(.on):not(.focus):not(:hover):not(.hover-open) .ag-hist-chats.is-empty{border-top:0;margin:0;padding-top:0}
     .ag-history:not(.on):not(.focus):not(:hover):not(.hover-open) .ag-chats-list{padding:0;overflow:hidden}
     .ag-history:not(.on):not(.focus):not(:hover):not(.hover-open) .ag-chat-item{width:32px;margin:0 auto;padding:7px 0;justify-content:center;gap:0}
+    /* The dot carries side margins for the expanded row; in the rail they
+       are what push it off centre. Same fix as the other two pages. */
+    .ag-history:not(.on):not(.focus):not(:hover):not(.hover-open) .ag-chat-item .sdot{margin:0}
     .ag-history:not(.on):not(.focus):not(:hover):not(.hover-open) .ag-chat-item span{display:none}
     .ag-history:not(.on):not(.focus):not(:hover):not(.hover-open) .ag-chats-empty{display:none}
 
@@ -4464,15 +4475,37 @@
     const currentSlug = (location.pathname.match(/^\/agent\/([^/]+)/) || [])[1] || "";
     fetch("/api/projects?kind=code&limit=25", { credentials: "same-origin" })
       .then((r) => r.json())
-      .then((d) => {
+      .then(async (d) => {
         const rows = d.projects || [];
+
+        /* The dot means "live", so it has to come from the thing that
+           knows: a project can carry a deploymentId and still be stopped,
+           and "has been deployed once" is not what a green dot claims.
+           One request covers every row. Quietly skipped when there is no
+           deployment plane in this environment — the dot just stays grey
+           rather than the rail failing to render. */
+        const live = {};
+        try {
+          const ov = await fetch("/api/deploy/overview", { credentials: "same-origin" }).then((r) => r.json());
+          for (const r of (ov.projects || [])) live[r.key] = r.status;
+        } catch (e) { /* no plane here */ }
+
+        const dotFor = (p) => {
+          const s = live[p.slug] || live[p.id];
+          if (s === "RUNNING") return " run";
+          if (s === "BUILDING" || s === "STARTING" || s === "QUEUED") return " move";
+          if (s === "FAILED") return " bad";
+          // The old static publish path has no status to ask about.
+          return p.published ? " run" : "";
+        };
+
         list.innerHTML = rows.length
           ? rows.map((p) => {
               const t = p.title || "Untitled app";
               // (build type intentionally not colour-coded here — see below)
               const cur = p.slug === currentSlug ? " current" : "";
               return '<a class="ag-chat-item' + cur + '" href="/agent/' + esc(p.slug) + '" title="' + esc(t) + '">'
-                + '<i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M8 4h9a2 2 0 0 1 2 2v11"/><rect x="4" y="7" width="12" height="13" rx="2"/></svg></i>'
+                + '<i class="sdot' + dotFor(p) + '"></i>'
                 + '<span>' + esc(t) + '</span></a>';
             }).join("")
           : '<div class="ag-chats-empty">No chats yet. What you build shows up here.</div>';

@@ -1413,6 +1413,11 @@ app.get("/api/projects", async (req, res, next) => {
         id: p.id, slug: p.slug, title: p.title, prompt: p.prompt,
         industry: (p.meta || {}).industry, accent: (p.meta || {}).accent, kind: (p.meta || {}).kind || null,
         buildType: (p.meta || {}).buildType || null, published: !!p.published, favorite: !!p.favorite,
+        // "published" is the old static path (a built dist in Mongo, served
+        // from /s/:slug). An app deployed into a container sets
+        // deploymentId instead, so a rail keyed only on `published` shows
+        // a running app as if it had never shipped.
+        deployed: !!p.deploymentId,
         claimed: !!p.wsId, updatedAt: p.updatedAt
       }))
     });

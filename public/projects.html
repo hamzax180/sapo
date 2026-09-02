@@ -745,9 +745,20 @@
     if (!all.length) { el.innerHTML = '<div class="ag-chats-empty">Nothing built yet</div>'; return; }
     el.innerHTML = all.slice(0, 12).map(function (p) {
       return '<a class="ag-chat-item" href="/agent/' + esc(p.slug) + '" title="' + esc(p.title || "") + '">' +
-        '<i class="sdot ' + (p.published ? "run" : "") + '"></i>' +
+        '<i class="sdot ' + dotFor(p) + '"></i>' +
         "<span>" + esc(p.title || "Untitled") + "</span></a>";
     }).join("");
+  }
+
+  /* The dot means "live", so it comes from the deploy plane rather than
+     from the project row: a project can carry a deploymentId and still be
+     stopped, and "deployed once" is not what a green dot claims. */
+  function dotFor(p) {
+    var s = liveStatus[p.slug] || liveStatus[p.id];
+    if (s === "RUNNING") return "run";
+    if (s === "BUILDING" || s === "STARTING" || s === "QUEUED") return "move";
+    if (s === "FAILED") return "bad";
+    return p.published ? "run" : "";   // the old static publish path has no status
   }
 
   /* ---------- account + plan ----------
@@ -756,6 +767,7 @@
      rail said "Your Workspace" / "Not signed in" / "6/10 created" no
      matter who was looking or what was true. */
   var account = null;
+  var liveStatus = {};   // slug -> deploy status, from /api/deploy/overview
   var capacity = null;
 
   function meter(barId, labId, pct, text) {
@@ -829,7 +841,11 @@
   // projects should not report an error because the deploy plane is off.
   fetch("/api/deploy/overview", { credentials: "same-origin" })
     .then(function (r) { return r.json(); })
-    .then(function (d) { capacity = d && d.capacity; renderPlan(); })
+    .then(function (d) {
+      capacity = d && d.capacity;
+      (d && d.projects || []).forEach(function (r) { liveStatus[r.key] = r.status; });
+      renderPlan(); renderRail();
+    })
     .catch(function () { });
 
   $("q").addEventListener("input", render);
