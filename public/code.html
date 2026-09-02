@@ -2052,9 +2052,17 @@
        — which is also when the panel opens — so pinning it open is still
        one click, and hover-open below is what stops it collapsing out
        from under that click. */
-    .ag-history:not(.on) ~ #agDeskSidebarToggle{opacity:0;pointer-events:none;transition:opacity .18s ease}
+    /* Two forms, because the button does not sit in the same place on
+       every page: a direct sibling of the sidebar on /deployments and
+       /projects, but nested inside .ag-main on /agent. A bare `~` matched
+       nothing there and failed silently, so the toggle never hid on the
+       builder while looking correct on the other two. */
+    .ag-history:not(.on) ~ #agDeskSidebarToggle,
+    .ag-history:not(.on) ~ * #agDeskSidebarToggle{opacity:0;pointer-events:none;transition:opacity .18s ease}
     .ag-history:not(.on):hover ~ #agDeskSidebarToggle,
-    .ag-history:not(.on).hover-open ~ #agDeskSidebarToggle{opacity:1;pointer-events:auto}
+    .ag-history:not(.on):hover ~ * #agDeskSidebarToggle,
+    .ag-history:not(.on).hover-open ~ #agDeskSidebarToggle,
+    .ag-history:not(.on).hover-open ~ * #agDeskSidebarToggle{opacity:1;pointer-events:auto}
     /* OPEN: the icon alone, at the right edge of the sidebar header —
        where the reference puts its controls. The word "Sidebar" was the
        widest thing in that row and only named what the icon already
