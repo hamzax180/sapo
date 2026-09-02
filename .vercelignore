@@ -20,3 +20,8 @@ docs/
 # TS2307 warnings in every Vercel build log.
 server/lib/codeagent/scaffold/src/
 server/lib/codeagent/scaffold/vite.config.ts
+
+# Test and demo scripts — not imported by the app, just inflate the bundle.
+server/*-test.js
+server/*-demo.js
+server/dev-admin-verify.js

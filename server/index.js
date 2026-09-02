@@ -111,6 +111,9 @@ if (process.env.NODE_ENV === "production" && (!process.env.JWT_SECRET || JWT_SEC
 if (JWT_SECRET === "dev-insecure-secret") {
   console.warn("⚠ JWT_SECRET is using the insecure development default — set a strong JWT_SECRET before production.");
 }
+if (!process.env.DB_ENCRYPTION_KEY) {
+  console.warn("⚠ DB_ENCRYPTION_KEY is unset — users will not be able to store their own API keys (BYOK). Set a 32-byte hex key: openssl rand -hex 32");
+}
 
 // Server-authoritative auth / tenancy / RBAC middleware.
 const { requireSession, tenantScope, authorizeCrud, requireAdmin, resolveWsContext } = makeAuth({ JWT_SECRET, getMasterDb });
@@ -953,7 +956,7 @@ app.post("/auth/login", loginLimiter, validateBody(loginSchema), async (req, res
  *    cookie as /auth/login, so a client can treat signup as "login that
  *    also provisions" and needs no second code path.
  */
-app.post("/auth/signup", loginLimiter, validateBody(signupSchema), async (req, res, next) => {
+app.post("/auth/signup", loginLimiter, verifyCaptcha(), validateBody(signupSchema), async (req, res, next) => {
   try {
     const { email, password, company, country } = req.valid;
     const emailLower = String(email).toLowerCase();
@@ -1856,7 +1859,7 @@ app.post("/api/projects/:key/publish", async (req, res, next) => {
  * the project exactly as it was — nothing here can lose the work someone
  * just watched being made, it can only fail to attach it yet.
  */
-app.post("/api/projects/:key/micro-claim", microClaimLimiter, validateBody(microClaimSchema), async (req, res, next) => {
+app.post("/api/projects/:key/micro-claim", microClaimLimiter, verifyCaptcha(), validateBody(microClaimSchema), async (req, res, next) => {
   try {
     const { email, password, company, industry, country } = req.valid;
     const emailLower = email.toLowerCase();
@@ -1883,7 +1886,7 @@ app.post("/api/projects/:key/micro-claim", microClaimLimiter, validateBody(micro
       id: wsId,
       company: companyName,
       industry: String(industry || meta.industry || "retail"),
-      country: String(country || "TR"),
+      country: String(country || "OT"),
       ownerEmail: emailLower,
       dbType: "local",
       dbUri: "",
@@ -2603,7 +2606,7 @@ async function finalizeCodeClaim({ project, wsId, userId, email, requestId }) {
  * codeAgentSessionUser) read sign-in state from that cookie, not a Bearer
  * token.
  */
-app.post("/api/codeagent/:key/micro-claim", microClaimLimiter, validateBody(microClaimSchema), async (req, res, next) => {
+app.post("/api/codeagent/:key/micro-claim", microClaimLimiter, verifyCaptcha(), validateBody(microClaimSchema), async (req, res, next) => {
   try {
     const { email, password, country } = req.valid;
     const emailLower = email.toLowerCase();
