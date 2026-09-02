@@ -67,7 +67,10 @@ const cache = new Map();
 function cacheKey(userPrompt, opts) {
   const o = opts || {};
   const normalized = String(userPrompt || "").trim().toLowerCase().replace(/\s+/g, " ");
-  const scope = [PROMPT_VERSION, o.mode || "economy", o.provider || "souqi", o.model || ""].join("|");
+  // The history is part of the input, so it has to be part of the key.
+  // Without it two different conversations that happen to end in the same
+  // message ("make it bigger") would serve each other's files.
+  const scope = [PROMPT_VERSION, o.mode || "economy", o.provider || "souqi", o.model || "", o.history || ""].join("|");
   return crypto.createHash("sha256").update(scope + "|" + normalized).digest("hex");
 }
 function cacheGet(key) {
@@ -668,6 +671,66 @@ const CALL_TIMEOUT_MS = 60000;
 // and never revisited for what a follow-up actually needs to carry.
 const MAX_USER_PROMPT_CHARS = 30000;
 
+/* ---- conversation history ----------------------------------------
+   The codebase goes into the user message; this is the talking that led
+   to it. Without it the model sees a fresh request against unfamiliar
+   code every time, so "now make it bigger" has no "it", and a preference
+   stated two messages ago ("keep it dark", "no rounded corners") is gone.
+
+   Its own budget rather than a share of MAX_USER_PROMPT_CHARS, because
+   the two must not compete: history should never be the reason a file
+   gets truncated out of the prompt. Oldest turns are dropped first — the
+   recent ones are what the current request refers to.
+
+   Agent turns are trimmed harder than user turns. A user message is
+   short and every word is intent; an agent "result" body is mostly a
+   recap of work the model can already see in the code it was just
+   given. */
+const MAX_HISTORY_TURNS = 12;
+const MAX_HISTORY_CHARS = 6000;
+const MAX_HISTORY_TURN_CHARS = 700;
+const MAX_HISTORY_AGENT_TURN_CHARS = 300;
+
+/**
+ * Stored turns -> chat messages, newest-first within a budget.
+ *
+ * Takes turns in chronological order and returns them the same way, so
+ * the model reads the conversation forwards.
+ */
+function buildHistory(turns) {
+  if (!Array.isArray(turns) || !turns.length) return [];
+
+  const picked = [];
+  let used = 0;
+
+  // Walk backwards: when the budget runs out, what is dropped is the
+  // oldest context rather than the message the user just referred to.
+  for (let i = turns.length - 1; i >= 0 && picked.length < MAX_HISTORY_TURNS; i--) {
+    const t = turns[i] || {};
+    const body = String(t.body || "").trim();
+    if (!body) continue;
+
+    const isUser = t.role === "user";
+    const cap = isUser ? MAX_HISTORY_TURN_CHARS : MAX_HISTORY_AGENT_TURN_CHARS;
+    const content = body.length > cap ? body.slice(0, cap) + "…" : body;
+
+    if (used + content.length > MAX_HISTORY_CHARS) break;
+    used += content.length;
+    picked.push({ role: isUser ? "user" : "assistant", content: content });
+  }
+
+  return picked.reverse();
+}
+
+/** Cheap, stable fingerprint of the history for the response cache. */
+function historyKey(history) {
+  if (!history || !history.length) return "";
+  return crypto.createHash("sha256")
+    .update(history.map((m) => m.role + ":" + m.content).join("\n"))
+    .digest("hex")
+    .slice(0, 16);
+}
+
 /**
  * One model call, with the "retry once on malformed tool-call JSON, then a
  * clean failure" policy (docs/CODE-AGENT-PLAN.md §8) — this is a syntax
@@ -861,14 +924,19 @@ async function attemptOnce(messages, opts) {
  */
 async function proposeChanges(userPrompt, opts) {
   const o = opts || {};
-  const key = cacheKey(userPrompt, { mode: o.mode, provider: o.byok && o.byok.provider, model: o.byok && o.byok.model });
+  const history = buildHistory(o.history);
+  const key = cacheKey(userPrompt, {
+    mode: o.mode, provider: o.byok && o.byok.provider, model: o.byok && o.byok.model,
+    history: historyKey(history)
+  });
   const cached = cacheGet(key);
   if (cached) return Object.assign({}, cached, { cached: true, costUsd: 0 });
 
   const messages = [
-    { role: "system", content: systemPromptFor(o.mode) },
+    { role: "system", content: systemPromptFor(o.mode) }
+  ].concat(history, [
     { role: "user", content: String(userPrompt || "").slice(0, MAX_USER_PROMPT_CHARS) }
-  ];
+  ]);
   const attempt = await attemptOnce(messages, o);
   if (!attempt.ok) {
     const fallbackContent = getFallbackAppCode(userPrompt);
@@ -909,13 +977,14 @@ const DEFAULT_MAX_REPAIR_ROUNDS = 6; // docs/CODE-AGENT-PLAN.md §2 hard cap
  * @param {number} [opts.maxRounds]  hard cap on REPAIR attempts, i.e. total tries = maxRounds + 1 (default 6, docs/CODE-AGENT-PLAN.md §2)
  * @param {(info:{round:number, ok:boolean, calls, errors?}) => void} [opts.onRound]
  */
-async function proposeWithRepair({ userPrompt, tools, maxRounds, onRound, mode, byok, thinking, mcp, onToolCall }) {
+async function proposeWithRepair({ userPrompt, tools, maxRounds, onRound, mode, byok, thinking, mcp, onToolCall, history }) {
   const cap = (maxRounds !== null && maxRounds !== undefined) ? maxRounds : DEFAULT_MAX_REPAIR_ROUNDS;
   const opts = { mode, byok, thinking, mcp, onToolCall };
   let messages = [
-    { role: "system", content: systemPromptFor(mode) },
+    { role: "system", content: systemPromptFor(mode) }
+  ].concat(buildHistory(history), [
     { role: "user", content: String(userPrompt || "").slice(0, MAX_USER_PROMPT_CHARS) }
-  ];
+  ]);
   let totalCost = 0;
   let jsonRetries = 0;
 
@@ -973,17 +1042,24 @@ async function proposeWithRepair({ userPrompt, tools, maxRounds, onRound, mode, 
  * @param {function} [opts.onRound] - (info) => void, same shape as proposeWithRepair
  * @returns {Promise<{ok, calls?, round?, rounds, repaired?, costUsd, reason?}>}
  */
-async function proposeWithClientBuild({ userPrompt, maxRounds, onFiles, onRound, mode, byok, thinking, mcp, onToolCall }) {
+async function proposeWithClientBuild({ userPrompt, maxRounds, onFiles, onRound, mode, byok, thinking, mcp, onToolCall, history }) {
   const cap = (maxRounds !== null && maxRounds !== undefined) ? maxRounds : 3;
   const opts = { mode, byok, thinking, mcp, onToolCall };
+  const hist = buildHistory(history);
   let messages = [
-    { role: "system", content: systemPromptFor(mode) },
+    { role: "system", content: systemPromptFor(mode) }
+  ].concat(hist, [
     { role: "user", content: String(userPrompt || "").slice(0, MAX_USER_PROMPT_CHARS) }
-  ];
+  ]);
   let totalCost = 0;
   let jsonRetries = 0;
 
-  const key = cacheKey(userPrompt, { mode: mode, provider: byok && byok.provider, model: byok && byok.model });
+  // history in the key for the same reason as proposeChanges: without it,
+  // two conversations ending in the same words share one cache entry.
+  const key = cacheKey(userPrompt, {
+    mode: mode, provider: byok && byok.provider, model: byok && byok.model,
+    history: historyKey(hist)
+  });
   const cached = cacheGet(key);
 
   if (cached) {
@@ -1259,5 +1335,6 @@ async function assessPrompt(userPrompt) {
 
 module.exports = {
   quickAssess, buildPlan, proposeChanges, proposeWithRepair, proposeWithClientBuild, assessPrompt, TOOLS_SCHEMA, SYSTEM_PROMPT,
+  buildHistory,
   systemPromptFor, parseToolCalls, validateWriteFileArgs, cacheKey, clearCache
 };

@@ -2763,6 +2763,9 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
   //     that, their workspace needs a paid plan. "Workspace" because every
   //     account in this system is one (see /auth/login) — there is no
   //     separate personal-account concept to check a plan against.
+  // Loaded once: the free-edit count needs it, and so does the model —
+  // the conversation is context, not just a billing counter.
+  let priorTurns = [];
   if (isFollowUp) {
     const sessionUser = codeAgentSessionUser(req);
     if (!sessionUser) {
@@ -2773,7 +2776,7 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
       sseFrame(res, "done", {});
       return res.end();
     }
-    const priorTurns = await projects.listTurns(project.id);
+    priorTurns = await projects.listTurns(project.id);
     const editsUsed = Math.max(0, priorTurns.filter((t) => t.role === "user").length - 1);
     if (editsUsed >= CODEAGENT_FREE_EDITS && !isAdminEmail(sessionUser.email)) {
       const masterDbForPlan = getMasterDb();
@@ -2955,6 +2958,10 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
 
     const agentOpts = {
       mode: agentMode, byok: byok, thinking: thinking, mcp: mcp,
+      // What was said before this message. The codebase tells the model
+      // WHAT the app is; this tells it what the user has been asking for,
+      // so "now make it bigger" has something to refer to.
+      history: priorTurns,
       onToolCall: (c) => sseFrame(res, "stage", { id: "tool-" + c.name, state: "done", detail: "Used " + c.name })
     };
 
