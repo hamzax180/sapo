@@ -261,11 +261,34 @@ class WCRuntime {
 
   async startPreview(iframeEl) {
     if (!webcontainerInstance) throw new Error("WebContainer not booted");
-    
+
+    /* ONE preview server, reused for the life of the container.
+
+       `npm run preview` is `vite preview --port 4173 --strictPort`. Spawning
+       it a second time cannot work: the first one still holds 4173, so vite
+       exits 1 with "Port 4173 is already in use" and the UI reports "the
+       preview server did not start" — on a build that succeeded. That is the
+       "first edit previewed, every edit after it went blank" failure, and
+       nothing about the build was ever wrong.
+
+       Reusing is not just a workaround, it is the correct behaviour: vite
+       preview serves the static dist directory, so the server already running
+       is serving the new build the moment it is written. The iframe only
+       needs pointing at it again — with a cache-buster, because assigning the
+       identical src does not reload. */
+    if (this._previewUrl) {
+      if (iframeEl) {
+        iframeEl.src = this._previewUrl +
+          (this._previewUrl.indexOf("?") > -1 ? "&" : "?") + "r=" + Date.now();
+      }
+      return { ok: true, url: this._previewUrl, reused: true };
+    }
+
     return new Promise((resolve, reject) => {
       // Register listener BEFORE spawning to avoid race condition
       const onReady = (port, url) => {
         if (port === 4173) {
+          this._previewUrl = url;
           if (iframeEl) iframeEl.src = url;
           unsubscribe();
           resolve({ ok: true, url });
@@ -290,6 +313,7 @@ class WCRuntime {
           write(chunk) { if (output.length < 4000) output += chunk; }
         })).catch(() => {});
         process.exit.then(code => {
+          this._previewUrl = null;
           if (code !== 0) {
             unsubscribe();
             resolve({ ok: false, url: '', code: code, output: output.trim() });
@@ -374,6 +398,7 @@ class WCRuntime {
     if (webcontainerInstance) {
       webcontainerInstance.teardown();
       webcontainerInstance = null;
+      this._previewUrl = null;
     }
   }
 

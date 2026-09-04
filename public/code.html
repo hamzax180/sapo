@@ -3738,19 +3738,44 @@
   // placeholder "hasn't been published yet" page GET /api/projects/:key/
   // preview falls back to when a draft has no index.html (it never does —
   // the model is never allowed to write one, see SYSTEM_PROMPT).
+  /* How long the WebContainer gets before we stop waiting on it.
+
+     Measured on souqi.site: prepare() never settles at all. Not slow —
+     pending, 25s in, with isReady() false and installError() empty, so it
+     had neither succeeded nor failed. boot() does not resolve on an origin
+     without a WebContainer licence, and it does not reject either.
+
+     renderAppPreview awaited that unbounded, which is why the phone stayed
+     black on a build that had written App.tsx and two components perfectly
+     well: the function never reached a line that renders anything, and
+     never reached one that reports anything either. */
+  const WC_PREPARE_TIMEOUT_MS = 20000;
+
   async function renderAppPreview(fileContents, forceFallback) {
     const wc = window.__wc;
+
+    /* Decided BEFORE the branch, so a WebContainer that never becomes ready
+       falls through to the CDN renderer below instead of hanging in front
+       of it. That renderer needs no WebContainer and already works — it was
+       simply unreachable. */
+    let wcUsable = false;
     if (wc && wc.isBooted() && !forceFallback) {
       // Wait for npm install. Already resolved once warm, so this is free
       // after the first preview; before that it is the difference between
       // a working preview and `jsh: command not found: vite`.
       previewProgress("Installing dependencies\u2026");
-      await wc.prepare();
-      if (!wc.isReady()) {
-        console.error("[preview] dependencies are not installed:", wc.installError());
-        previewMessage("Could not install dependencies. Check the console for the npm output.");
-        return;
+      wcUsable = await Promise.race([
+        wc.prepare().then(function () { return wc.isReady(); }, function () { return false; }),
+        new Promise(function (r) { setTimeout(function () { r(false); }, WC_PREPARE_TIMEOUT_MS); })
+      ]);
+      if (!wcUsable) {
+        console.warn("[preview] WebContainer never became ready (" +
+          (wc.installError() || "prepare() did not settle within " + WC_PREPARE_TIMEOUT_MS + "ms") +
+          ") - rendering with the CDN fallback instead");
       }
+    }
+
+    if (wcUsable) {
       if (agPvEmpty) agPvEmpty.style.display = "none";
       const p = await wc.startPreview(agPvIframe);
       if (p.ok) {
@@ -3890,6 +3915,14 @@
 
   function showPreview(url, fileContents) {
     revealPreviewPane();
+
+    /* The fresh-build path sets iframe.hidden = true so the boot screen has a
+       clean black screen to sit on, and NOTHING ever set it back. So a build
+       that rendered perfectly well - WebContainer booted, vite preview up,
+       src assigned - was being displayed behind display:none, and the phone
+       showed black. The boot screen still covers the iframe until its onload
+       fires, so un-hiding here costs nothing visually. */
+    if (agPvIframe) agPvIframe.hidden = false;
     agPvEmpty.style.display = "none";
 
     if (url === "__webcontainer__") {
