@@ -197,6 +197,40 @@ function requireInternal(req, res, next) {
   next();
 }
 
+/**
+ * The gate on the control-plane hostname.
+ *
+ * Only Caddy can reach this service from outside, and Caddy routes to it
+ * for exactly one hostname, so a request whose Host is controlDomain is by
+ * definition one that came in off the internet. Internal callers — the
+ * worker, the TLS ask, a health probe — dial "api:4500" and never match.
+ *
+ * Enforcing on Host rather than on every route is deliberate: it means
+ * adding a route cannot accidentally publish it, because the gate is a
+ * property of how the request arrived, not of what it asked for.
+ *
+ * This is not a substitute for requireUser. Both apply: the token says the
+ * caller is the Souqi platform, the session says which person is behind the
+ * request, and neither answers the other's question.
+ */
+function requirePlatformToken(req, res, next) {
+  const host = String(req.hostname || "").toLowerCase();
+  if (!cfg.controlDomain || host !== cfg.controlDomain) return next();
+
+  if (!cfg.platformToken) {
+    // Refuse rather than fall open. Reaching here means the hostname is
+    // routed and published but the secret that guards it was never set.
+    return res.status(503).json({ error: "control plane is not configured" });
+  }
+  const crypto = require("crypto");
+  const a = Buffer.from(req.header("x-platform-token") || "");
+  const b = Buffer.from(cfg.platformToken);
+  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
+    return res.status(401).json({ error: "unauthorised" });
+  }
+  next();
+}
+
 /** Boot-time checks. Fatal problems are returned; the caller exits. */
 function assertAuthConfig() {
   const fatal = [];
@@ -221,11 +255,23 @@ function assertAuthConfig() {
   if (!cfg.internalToken) {
     warn.push("INTERNAL_TOKEN is unset — internal endpoints are disabled");
   }
+  if (cfg.controlDomain && !cfg.platformToken) {
+    // Fatal in production: the hostname is routable the moment Caddy loads
+    // its config, so booting without the token would put the api on the
+    // internet guarded by nothing but a session — and every signed-in user
+    // has one of those.
+    (isProd ? fatal : warn).push(
+      "CONTROL_DOMAIN is set without DEPLOY_PLATFORM_TOKEN — the api would be reachable behind session auth alone"
+    );
+  }
+  if (cfg.platformToken && cfg.platformToken.length < 32) {
+    warn.push("DEPLOY_PLATFORM_TOKEN is shorter than 32 characters");
+  }
   return { fatal, warn };
 }
 
 module.exports = {
-  requireUser, requireInternal, assertAuthConfig,
+  requireUser, requireInternal, requirePlatformToken, assertAuthConfig,
   tokenFrom, verifyToken, checkRevocation, isMutation,
   _cache: cache
 };

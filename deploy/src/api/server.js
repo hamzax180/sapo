@@ -41,7 +41,20 @@ const externalDb = require("../dbproviders/external");
 
 const app = express();
 app.disable("x-powered-by");
+
+// Caddy is the only thing in front of this, and it is the only thing that
+// can reach it, so its X-Forwarded-* headers are the truth about the client.
+// Without this req.hostname reads the upstream Host rather than the one the
+// browser asked for, and the control-plane gate below would never match.
+app.set("trust proxy", 1);
+
 app.use(express.json({ limit: "2mb" }));
+
+// BEFORE every route, and before the body is even needed: anything arriving
+// on the control-plane hostname must prove it is the platform. Mounted here
+// rather than per-route so that adding a route can never accidentally
+// publish it — the gate is a property of how the request arrived.
+app.use(auth.requirePlatformToken);
 
 /* ---------- ids ----------
    Prefixed and random. A guessable deployment id is a way to enumerate
@@ -147,6 +160,11 @@ app.get("/capacity", requireUser, async (req, res, next) => {
 app.get("/internal/tls-ask", auth.requireInternal, async (req, res) => {
   const domain = String(req.query.domain || "").toLowerCase();
   if (!domain) return res.status(400).end();
+  // The control plane has no deployments row — it is this service, not an
+  // app — so it has to be allowed explicitly or Caddy can never obtain a
+  // certificate for the one hostname the platform itself talks to.
+  if (cfg.controlDomain && domain === cfg.controlDomain) return res.status(200).end();
+
   const row = await one(
     "SELECT 1 FROM deployments WHERE domain=$1 AND status <> 'DELETED'",
     [domain]

@@ -22,6 +22,15 @@ const cfg = {
   databaseUrl: process.env.DATABASE_URL || "postgres://souqi:souqi@localhost:5432/souqi_deploy",
 
   appDomain: (process.env.APP_DOMAIN || "localhost").toLowerCase(),
+
+  // The one hostname that reaches THIS api from outside the box. Deployed
+  // apps are app-<id>.<appDomain>; this is a sibling of those, never a
+  // parent, and generated names are always "app-" prefixed so the two
+  // cannot collide. Unset means the api is not reachable from the internet
+  // at all — the correct state on a laptop, and for a single-machine
+  // install driven over ssh.
+  controlDomain: (process.env.CONTROL_DOMAIN || "").toLowerCase(),
+
   acmeEmail: process.env.ACME_EMAIL || "",
   caddyAdmin: (process.env.CADDY_ADMIN || "http://localhost:2019").replace(/\/+$/, ""),
 
@@ -52,6 +61,12 @@ const cfg = {
   // Shared secret for platform-to-platform calls that have no user behind
   // them (the Caddy TLS ask endpoint, health probes).
   internalToken: process.env.INTERNAL_TOKEN || "",
+  // A coarser gate than a session, and a different claim: every request
+  // arriving on controlDomain must carry this, whoever the user is. It is
+  // what stops the deploy api sitting on the internet behind session auth
+  // alone — "is a valid Souqi user" is not "is the Souqi platform", and
+  // every signed-in user holds the first.
+  platformToken: process.env.DEPLOY_PLATFORM_TOKEN || "",
   // Trusts an x-user-id header. Refuses to boot alongside NODE_ENV=production.
   allowDevAuth: process.env.ALLOW_DEV_AUTH === "1",
 
@@ -105,6 +120,12 @@ function assertProductionReady() {
   }
   if (!cfg.acmeEmail) {
     problems.push("ACME_EMAIL is unset — Let's Encrypt needs a contact address");
+  }
+  if (cfg.controlDomain && !cfg.platformToken) {
+    problems.push("CONTROL_DOMAIN is set without DEPLOY_PLATFORM_TOKEN — the api would be exposed behind session auth alone");
+  }
+  if (cfg.controlDomain && cfg.controlDomain.startsWith("app-")) {
+    problems.push("CONTROL_DOMAIN starts with app- and could collide with a generated deployment hostname");
   }
   if (!cfg.s3.bucket) {
     problems.push("S3_BUCKET is unset — source archives would live only on the VM");

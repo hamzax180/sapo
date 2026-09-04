@@ -200,6 +200,100 @@ async function main() {
     assert.strictEqual(r.status, 503);
   });
 
+  console.log("\n-- control plane --------------------------------------");
+
+  const TOK = "t".repeat(64);
+  const armControl = () => { cfg.controlDomain = "deploy.example.com"; cfg.platformToken = TOK; };
+  const onControl = (token) => ({
+    hostname: "deploy.example.com",
+    headers: token === undefined ? {} : { "x-platform-token": token }
+  });
+
+  await check("no token on the control hostname is refused", async () => {
+    armControl();
+    const r = await callMiddleware(auth.requirePlatformToken, onControl(undefined));
+    assert.strictEqual(r.passedThrough, false);
+    assert.strictEqual(r.status, 401);
+  });
+
+  await check("a wrong token on the control hostname is refused", async () => {
+    armControl();
+    const r = await callMiddleware(auth.requirePlatformToken, onControl("x".repeat(64)));
+    assert.strictEqual(r.status, 401);
+  });
+
+  // A length mismatch takes a different branch than a content mismatch:
+  // timingSafeEqual throws on unequal buffers rather than returning false.
+  // Both have to end in a 401, not a 500.
+  await check("a token of the wrong length is refused, not a crash", async () => {
+    armControl();
+    const r = await callMiddleware(auth.requirePlatformToken, onControl("short"));
+    assert.strictEqual(r.status, 401);
+  });
+
+  await check("the right token on the control hostname passes", async () => {
+    armControl();
+    const r = await callMiddleware(auth.requirePlatformToken, onControl(TOK));
+    assert.strictEqual(r.passedThrough, true);
+  });
+
+  await check("host matching is case-insensitive", async () => {
+    armControl();
+    const r = await callMiddleware(auth.requirePlatformToken,
+      { hostname: "DEPLOY.EXAMPLE.COM", headers: { "x-platform-token": TOK } });
+    assert.strictEqual(r.passedThrough, true);
+  });
+
+  // The worker and the TLS ask dial api:4500 carrying no platform token,
+  // and must not need one, or the stack stops working internally.
+  await check("an internal caller is not gated", async () => {
+    armControl();
+    const r = await callMiddleware(auth.requirePlatformToken, { hostname: "api", headers: {} });
+    assert.strictEqual(r.passedThrough, true);
+  });
+
+  // Caddy would never route this here, but the gate must not be the thing
+  // that assumes so: a suffix match instead of equality would let it pass.
+  await check("a hostname that merely CONTAINS the control domain is not it", async () => {
+    armControl();
+    const r = await callMiddleware(auth.requirePlatformToken,
+      { hostname: "deploy.example.com.evil.test", headers: {} });
+    assert.strictEqual(r.passedThrough, true);
+  });
+
+  await check("a routed control domain with no token set fails closed", async () => {
+    cfg.controlDomain = "deploy.example.com"; cfg.platformToken = "";
+    const r = await callMiddleware(auth.requirePlatformToken, onControl("anything"));
+    assert.strictEqual(r.passedThrough, false);
+    assert.strictEqual(r.status, 503);
+  });
+
+  await check("with no control domain the gate is inert", async () => {
+    cfg.controlDomain = ""; cfg.platformToken = "";
+    const r = await callMiddleware(auth.requirePlatformToken, { hostname: "anything", headers: {} });
+    assert.strictEqual(r.passedThrough, true);
+  });
+
+  await check("a control domain without a token is fatal in production", () => {
+    const prev = process.env.NODE_ENV;
+    process.env.NODE_ENV = "production";
+    cfg.controlDomain = "deploy.example.com"; cfg.platformToken = "";
+    const r = auth.assertAuthConfig();
+    process.env.NODE_ENV = prev;
+    assert.ok(r.fatal.some((m) => /DEPLOY_PLATFORM_TOKEN/.test(m)), "boot was allowed");
+  });
+
+  // The gate keys off how a request ARRIVED, so it is mounted before the
+  // routes rather than on each one: otherwise every new route is published
+  // by default and protected only if someone remembers to say so.
+  await check("the gate is mounted app-wide, before any route", () => {
+    const src = fs.readFileSync(path.join(__dirname, "..", "src/api/server.js"), "utf8");
+    const gate = src.indexOf("app.use(auth.requirePlatformToken)");
+    assert.ok(gate !== -1, "gate is not mounted app-wide");
+    const firstRoute = src.search(/app\.(get|post|put|delete)\(/);
+    assert.ok(firstRoute === -1 || gate < firstRoute, "gate is mounted after a route");
+  });
+
   console.log("\n" + (failed === 0
     ? "OK  all " + passed + " session checks passed"
     : "FAILED  " + failed + " of " + (passed + failed)));

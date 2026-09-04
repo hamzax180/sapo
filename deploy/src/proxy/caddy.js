@@ -134,6 +134,42 @@ async function health() {
  * at this server and make it request certificates on their behalf, which is
  * both an abuse vector and a fast route to a Let-s-Encrypt rate limit.
  */
+/**
+ * The control-plane route: one hostname, straight to this api.
+ *
+ * It lives in the base config rather than being POSTed like an app route,
+ * because app routes come and go with deployments and this must not. A
+ * /load replaces the routes array wholesale, so anything added separately
+ * would vanish the next time the api restarted.
+ *
+ * First in the array on purpose. Caddy matches routes in order, and a
+ * deployment can never own this hostname anyway — generated names are
+ * app-<id>.<appDomain> — but ordering makes that structural rather than a
+ * property of the naming scheme someone might later change.
+ *
+ * There is no auth here. Caddy is a router; the token check belongs in the
+ * api, where a constant-time compare and a real 401 body are possible.
+ */
+function controlRoute(domain, apiPort) {
+  return {
+    "@id": "route_control_plane",
+    match: [{ host: [domain] }],
+    handle: [{
+      handler: "reverse_proxy",
+      upstreams: [{ dial: "api:" + apiPort }],
+      headers: {
+        request: {
+          set: {
+            "X-Forwarded-Proto": ["{http.request.scheme}"],
+            "X-Forwarded-Host": ["{http.request.host}"],
+            "X-Real-IP": ["{http.request.remote.host}"]
+          }
+        }
+      }
+    }]
+  };
+}
+
 function baseConfig(askUrl) {
   const tls = {
     automation: {
@@ -157,7 +193,9 @@ function baseConfig(askUrl) {
         servers: {
           [SERVER]: {
             listen: [":80", ":443"],
-            routes: [],
+            routes: cfg.controlDomain
+              ? [controlRoute(cfg.controlDomain, cfg.apiPort)]
+              : [],
             automatic_https: { disable_redirects: false }
           }
         }
@@ -171,4 +209,4 @@ async function applyBaseConfig(askUrl) {
   return api("POST", "/load", baseConfig(askUrl));
 }
 
-module.exports = { addRoute, removeRoute, listRoutes, health, applyBaseConfig, baseConfig };
+module.exports = { addRoute, removeRoute, listRoutes, health, applyBaseConfig, baseConfig, controlRoute };

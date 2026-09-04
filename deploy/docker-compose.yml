@@ -141,6 +141,12 @@ services:
       DATABASE_URL: postgres://${POSTGRES_USER:-souqi}:${POSTGRES_PASSWORD:-souqi}@postgres:5432/${POSTGRES_DB:-souqi_deploy}
       CADDY_ADMIN: http://caddy:2019
       APP_DOMAIN: ${APP_DOMAIN:-localhost}
+      # The control-plane hostname and the secret that guards it. Only the
+      # api gets these — the worker serves no external request, so handing
+      # it the token would widen the blast radius of a worker compromise
+      # for nothing.
+      CONTROL_DOMAIN: ${CONTROL_DOMAIN:-}
+      DEPLOY_PLATFORM_TOKEN: ${DEPLOY_PLATFORM_TOKEN:-}
       ACME_EMAIL: ${ACME_EMAIL:-}
       BUILD_ROOT: /opt/platform/builds
       SECRET_KEY: ${SECRET_KEY:-}
