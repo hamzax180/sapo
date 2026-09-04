@@ -139,9 +139,11 @@
      in the builder, so the account row stays pinned to the bottom. */
   .ag-hist-chats{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;padding:2px 0 4px}
   .ag-chats-ttl{font-size:.655rem;font-weight:450;color:var(--mut);padding:10px 10px 4px;flex:0 0 auto}
-  .ag-chats-list{flex:1 1 auto;min-height:0;overflow-y:auto;padding:0 var(--sb-pad) 4px;scrollbar-width:thin;display:flex;flex-direction:column;gap:2px}
-  .ag-chats-list::-webkit-scrollbar{width:6px}
-  .ag-chats-list::-webkit-scrollbar-thumb{background:rgba(128,128,128,.28);border-radius:8px}
+  .ag-chats-list{flex:1 1 auto;min-height:0;overflow-y:auto;padding:0 var(--sb-pad) 4px;scrollbar-width:thin;scrollbar-color:var(--line) transparent;display:flex;flex-direction:column;gap:2px}
+  .ag-chats-list::-webkit-scrollbar{width:6px;height:6px}
+  .ag-chats-list::-webkit-scrollbar-track{background:transparent}
+  .ag-chats-list::-webkit-scrollbar-thumb{background:var(--line);border-radius:99px}
+  .ag-chats-list::-webkit-scrollbar-thumb:hover{background:var(--mut)}
   .ag-chat-item{display:flex;align-items:center;gap:10px;width:100%;box-sizing:border-box;
     padding:7px 6px;border-radius:8px;color:var(--ink-2);text-decoration:none;font-size:.75rem;
     white-space:nowrap;overflow:hidden;transition:background .14s,color .14s;border:0;background:none;cursor:pointer;text-align:left;font-family:inherit}
@@ -520,6 +522,8 @@
        Recent Projects grid in code.html. */
     .grid{grid-template-columns:repeat(2,1fr);gap:10px}
     .thumb{height:80px}
+    .sk .sk-thumb{height:80px}
+    .sk .sk-body{padding:9px 10px 11px}
     .thumb .tile{width:32px;height:32px;font-size:1rem;border-radius:9px}
     .thumb .star{width:24px;height:24px}
     .thumb .star svg{width:13px;height:13px}
@@ -566,7 +570,19 @@
   .empty{text-align:center;padding:80px 20px;color:var(--ink-2)}
   .empty h2{font-size:1.3rem;margin-bottom:8px;color:var(--ink)}
   .empty p{font-size:.92rem;max-width:40ch;margin:0 auto 20px;line-height:1.5}
-  .loading{text-align:center;padding:60px 20px;color:var(--mut);font-size:.9rem}
+  /* ---- skeletons: a shape that says "nearly there", not a spinner ----
+     Shaped like a real project card rather than deployments' flat bars,
+     because a card here is a thumbnail over two lines. Matching the shape is
+     the entire point: the grid does not reflow when the data lands. */
+  @keyframes sweep{to{transform:translateX(100%)}}
+  .sk{border:1px solid var(--line);background:var(--card);border-radius:16px;overflow:hidden;position:relative}
+  .sk::after{content:"";position:absolute;inset:0;transform:translateX(-100%);
+    background:linear-gradient(90deg,transparent,rgba(139,152,165,.13),transparent);animation:sweep 1.4s var(--ease) infinite}
+  .sk .sk-thumb{display:block;height:128px;background:var(--paper-2)}
+  .sk .sk-body{display:block;padding:12px 14px 14px}
+  .sk .bar{display:block;height:10px;border-radius:6px;background:var(--paper-2)}
+  .sk .bar+.bar{height:8px;margin-top:8px;opacity:.7}
+  @media (prefers-reduced-motion:reduce){.sk::after{animation:none}}
   @media (max-width:900px){
     .ag-history.on{width:240px !important;max-width:80vw !important;height:100dvh !important}
     .ag-history.on .ag-hist-head{flex:0 0 42px !important}
@@ -759,7 +775,17 @@
         </button>
       </div>
     </div>
-    <div id="pListBody"><div class="loading">Loading…</div></div>
+    <div id="pListBody">
+      <div class="grid" aria-hidden="true">
+      <div class="sk"><span class="sk-thumb"></span><span class="sk-body"><span class="bar" style="width:64%"></span><span class="bar" style="width:42%"></span></span></div>
+      <div class="sk"><span class="sk-thumb"></span><span class="sk-body"><span class="bar" style="width:52%"></span><span class="bar" style="width:36%"></span></span></div>
+      <div class="sk"><span class="sk-thumb"></span><span class="sk-body"><span class="bar" style="width:71%"></span><span class="bar" style="width:45%"></span></span></div>
+      <div class="sk"><span class="sk-thumb"></span><span class="sk-body"><span class="bar" style="width:58%"></span><span class="bar" style="width:39%"></span></span></div>
+      <div class="sk"><span class="sk-thumb"></span><span class="sk-body"><span class="bar" style="width:67%"></span><span class="bar" style="width:33%"></span></span></div>
+      <div class="sk"><span class="sk-thumb"></span><span class="sk-body"><span class="bar" style="width:49%"></span><span class="bar" style="width:44%"></span></span></div>
+      </div>
+      <span style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap">Loading your projects…</span>
+    </div>
   </div>
 </div><!-- /.ag-main -->
 

@@ -992,7 +992,7 @@
      the device toggle rather than inside it: those switch a preview size,
      this ships the app, and they should not look like the same kind of
      control. */
-  .ag-pv-publish{position:absolute;top:6px;right:10px;z-index:46;
+  .ag-pv-publish{position:absolute;top:6px;right:150px;z-index:46;
     display:inline-flex;align-items:center;gap:7px;height:32px;padding:0 14px;
     border:0;border-radius:9px;background:var(--accent);color:#fff;
     font-family:var(--body);font-size:.82rem;font-weight:600;cursor:pointer;
@@ -1635,8 +1635,10 @@
        a real flex container that deliberately CENTERS the greeting +
        composer group — pushing the composer down there would break it. */
     .ag:not(.is-new) .ag-composer {
-      margin-top: auto;
+      margin-top: 0;
     }
+    .ag:not(.is-new){height:100dvh;min-height:0;overflow:hidden !important}
+    .ag:not(.is-new) .ag-log{flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden}
     /* The device-size picker only means something once there's room to
        switch between iPhone/iPad/monitor shapes side by side — desktop
        only. #agDeskPreviewToggle stays visible here: it's the ONLY way
@@ -1693,7 +1695,7 @@
        flush against the screen edge with zero padding. flex-wrap on the
        bar (base rule) is the safety net; this is what keeps it to one
        line in the common case instead of relying on the wrap. */
-    .ag-pv-publish{padding:0 10px;font-size:.78rem}
+    .ag-pv-publish{right:96px;padding:0 10px;font-size:.78rem}
     /* Recent-project cards: auto-fill's 258px minimum only ever leaves
        room for a single column on a phone. Forcing 2 columns and scaling
        the thumbnail/text down keeps the two most recent builds visible
@@ -1799,9 +1801,11 @@
      in the builder, so the account row stays pinned to the bottom. */
   .ag-hist-chats{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;padding:2px 0 4px}
   .ag-chats-ttl{font-size:.655rem;font-weight:450;color:var(--mut);padding:10px 10px 4px;flex:0 0 auto}
-  .ag-chats-list{flex:1 1 auto;min-height:0;overflow-y:auto;padding:0 var(--sb-pad) 4px;scrollbar-width:thin;display:flex;flex-direction:column;gap:2px}
-  .ag-chats-list::-webkit-scrollbar{width:6px}
-  .ag-chats-list::-webkit-scrollbar-thumb{background:rgba(128,128,128,.28);border-radius:8px}
+  .ag-chats-list{flex:1 1 auto;min-height:0;overflow-y:auto;padding:0 var(--sb-pad) 4px;scrollbar-width:thin;scrollbar-color:var(--line) transparent;display:flex;flex-direction:column;gap:2px}
+  .ag-chats-list::-webkit-scrollbar{width:6px;height:6px}
+  .ag-chats-list::-webkit-scrollbar-track{background:transparent}
+  .ag-chats-list::-webkit-scrollbar-thumb{background:var(--line);border-radius:99px}
+  .ag-chats-list::-webkit-scrollbar-thumb:hover{background:var(--mut)}
   .ag-chat-item{display:flex;align-items:center;gap:10px;width:100%;box-sizing:border-box;
     padding:7px 6px;border-radius:8px;color:var(--ink-2);text-decoration:none;font-size:.75rem;
     white-space:nowrap;overflow:hidden;transition:background .14s,color .14s;border:0;background:none;cursor:pointer;text-align:left;font-family:inherit}
@@ -2641,10 +2645,6 @@
   </section>
 
   <section class="ag-preview tab-hidden" id="agPreview">
-    <button type="button" class="ag-pv-publish" id="agPvPublish" hidden>
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg>
-      <span id="agPvPublishLabel">Publish</span>
-    </button>
     <div class="ag-pv-devices" id="agPvDevices" role="group" aria-label="Device size" style="display:none">
       <button type="button" data-size="desktop" aria-label="Desktop">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="13" rx="1.5"/><path d="M8 21h8M12 17v4"/></svg></button>
@@ -3685,9 +3685,9 @@
   // placeholder "hasn't been published yet" page GET /api/projects/:key/
   // preview falls back to when a draft has no index.html (it never does —
   // the model is never allowed to write one, see SYSTEM_PROMPT).
-  async function renderAppPreview(fileContents) {
+  async function renderAppPreview(fileContents, forceFallback) {
     const wc = window.__wc;
-    if (wc && wc.isBooted()) {
+    if (wc && wc.isBooted() && !forceFallback) {
       // Wait for npm install. Already resolved once warm, so this is free
       // after the first preview; before that it is the difference between
       // a working preview and `jsh: command not found: vite`.
@@ -4463,6 +4463,12 @@
 
     // Show the preview panel
     $("agentView").classList.add("has-preview");
+    if (window.matchMedia("(max-width:900px)").matches) {
+      setMobilePane(true);
+    } else {
+      agSection.classList.remove("tab-hidden");
+      agPreview.classList.remove("tab-hidden");
+    }
     const deskTgl = $("agDeskPreviewToggle");
     if (deskTgl) deskTgl.classList.add("on");
     if (agPvFrame) agPvFrame.hidden = false;
@@ -4521,7 +4527,10 @@
       }
       if (iframe) iframe.hidden = false;
       applyDeviceFrame();
-      await renderAppPreview(data.fileContents);
+      // Reopened chats may point at an expired sandbox. Render their stored
+      // source tree locally instead of letting a failed sandbox hide the
+      // working fallback behind a permanent boot screen.
+      await renderAppPreview(data.fileContents, true);
       if (bootEl) bootEl.classList.add("hidden");
 
       // Prompt to continue editing
@@ -4836,6 +4845,12 @@
 
       // Show preview panel
       $("agentView").classList.add("has-preview");
+      if (window.matchMedia("(max-width:900px)").matches) {
+        setMobilePane(true);
+      } else {
+        agSection.classList.remove("tab-hidden");
+        agPreview.classList.remove("tab-hidden");
+      }
       const deskTgl = $("agDeskPreviewToggle");
       if (deskTgl) deskTgl.classList.add("on");
       if (agPvFrame) agPvFrame.hidden = false;
@@ -4857,7 +4872,7 @@
         }
         const iframe = $("agPvIframe");
         if (iframe) iframe.hidden = false;
-        await renderAppPreview(data.fileContents);
+        await renderAppPreview(data.fileContents, true);
         const bootEl = $("agPvBoot");
         if (bootEl) bootEl.classList.add("hidden");
       })();

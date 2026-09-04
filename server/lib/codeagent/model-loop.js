@@ -49,9 +49,35 @@ const client = require("../ai/client");
 // folds this in, so an old entry can't serve a design generated under
 // instructions that no longer apply. v2: engineer voice + size guidance.
 // v3: multi-file output + per-mode prompts (Eco Souqi / Powered Souqi).
-const PROMPT_VERSION = "v3";
+// v4: payments — the prompt now describes src/lib/payments.ts, so a v3 entry
+// would serve a design written by a model that had never heard of it.
+const PROMPT_VERSION = "v4";
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+
+// The Map was unbounded: entries expire only when something reads them again,
+// so a key nobody asks for twice is never collected and the process grows for
+// as long as it runs. Bounded + LRU instead. 500 designs is far more than any
+// realistic burst of distinct prompts, and eviction is O(1).
+const CACHE_MAX_ENTRIES = 500;
 const cache = new Map();
+
+// What the cache is actually saving. `savedUsd` sums the ORIGINAL cost of every
+// entry each time it is served again, so it answers "what would this month have
+// cost without the cache" rather than "how many hits were there".
+const cacheStats = { hits: 0, misses: 0, savedUsd: 0, evictions: 0, expired: 0 };
+
+/**
+ * A short hash of a system prompt, folded into the cache key.
+ *
+ * PROMPT_VERSION is a manual bump and manual bumps get forgotten — someone
+ * edits PLAN_SYSTEM_PROMPT, forgets the constant, and every user keeps getting
+ * plans generated under instructions that no longer exist, for a full TTL.
+ * Hashing the prompt text makes invalidation automatic: change the words,
+ * change the key.
+ */
+function promptFingerprint(text) {
+  return crypto.createHash("sha256").update(String(text || "")).digest("hex").slice(0, 12);
+}
 
 /**
  * Mode and provider are part of the key, not just the prompt.
@@ -70,19 +96,61 @@ function cacheKey(userPrompt, opts) {
   // The history is part of the input, so it has to be part of the key.
   // Without it two different conversations that happen to end in the same
   // message ("make it bigger") would serve each other's files.
-  const scope = [PROMPT_VERSION, o.mode || "economy", o.provider || "souqi", o.model || "", o.history || ""].join("|");
+  //
+  // `kind` namespaces the entry. Three different questions get asked about the
+  // same prompt string — "is this clear?", "what's the plan?", "write the
+  // files" — and without a namespace the first answer stored would be served
+  // to all three. Defaults to "design" so existing callers keep their meaning.
+  const scope = [
+    o.kind || "design", PROMPT_VERSION, o.mode || "economy",
+    o.provider || "souqi", o.model || "", o.history || "", o.promptHash || ""
+  ].join("|");
   return crypto.createHash("sha256").update(scope + "|" + normalized).digest("hex");
 }
 function cacheGet(key) {
   const hit = cache.get(key);
-  if (!hit) return null;
-  if (Date.now() - hit.at > CACHE_TTL_MS) { cache.delete(key); return null; }
+  if (!hit) { cacheStats.misses++; return null; }
+  if (Date.now() - hit.at > CACHE_TTL_MS) {
+    cache.delete(key); cacheStats.misses++; cacheStats.expired++; return null;
+  }
+  // Touch: delete + re-set moves this key to the end of the Map's insertion
+  // order, which is what makes the eviction below LRU rather than FIFO.
+  cache.delete(key); cache.set(key, hit);
+  cacheStats.hits++;
+  cacheStats.savedUsd += hit.costUsd || 0;
   return hit.value;
 }
-function cacheSet(key, value) {
-  cache.set(key, { value, at: Date.now() });
+/**
+ * @param {string} key
+ * @param {*} value
+ * @param {number} [costUsd]  what the call being cached actually cost. Recorded
+ *   so a later hit can report what it saved. Callers MUST NOT cache a failure
+ *   or a fallback — see proposeChanges: a template served during an outage
+ *   would otherwise be replayed for the full TTL after the outage ended.
+ */
+function cacheSet(key, value, costUsd) {
+  cache.delete(key);
+  cache.set(key, { value, at: Date.now(), costUsd: costUsd || 0 });
+  while (cache.size > CACHE_MAX_ENTRIES) {
+    const oldest = cache.keys().next().value; // Map iterates in insertion order
+    cache.delete(oldest);
+    cacheStats.evictions++;
+  }
 }
-function clearCache() { cache.clear(); }
+function clearCache() {
+  cache.clear();
+  cacheStats.hits = 0; cacheStats.misses = 0; cacheStats.savedUsd = 0;
+  cacheStats.evictions = 0; cacheStats.expired = 0;
+}
+/** Cache effectiveness, for the admin console and for tests. */
+function cacheStatsSnapshot() {
+  const total = cacheStats.hits + cacheStats.misses;
+  return Object.assign({}, cacheStats, {
+    entries: cache.size,
+    maxEntries: CACHE_MAX_ENTRIES,
+    hitRate: total ? cacheStats.hits / total : 0
+  });
+}
 
 function getFallbackAppCode(userPrompt) {
   const p = String(userPrompt || "").toLowerCase();
@@ -502,6 +570,24 @@ Rules:
 - src/App.tsx must have a default export and must compile under TypeScript strict mode.
 - DO NOT import 'lucide-react', 'heroicons', or any uninstalled packages. ONLY import from 'react' or 'react-dom'. Use inline SVG elements, emoji, or Tailwind styled elements for icons.
 - Do not write index.html, package.json, vite.config.ts, tailwind.config.js, or tsconfig.json — those are fixed and already correct.
+
+TAKING PAYMENTS. The scaffold ships src/lib/payments.ts, already written and already correct. Do not write, rewrite or reimplement that file. When the app should sell something — a shop, a booking fee, a paid plan, a donate button — import it:
+
+  import { listItems, checkout, formatPrice, paymentsAvailable, type PaymentItem } from './lib/payments';
+
+  const [items, setItems] = useState<PaymentItem[]>([]);
+  useEffect(() => { listItems().then(r => setItems(r.items)); }, []);
+  // in a click handler:
+  const err = await checkout([{ itemId: item.id, quantity: 1 }]);
+  if (err) setError(err);
+
+Four things about it that change how you write the UI:
+- Prices come from listItems(), never from you. The owner sets them in Souqi settings, so do NOT hardcode a price, a product name or a currency — render what listItems() returns and format it with formatPrice(amountMinor, currency). Amounts are minor units: 1250 is 12.50.
+- checkout() navigates away to Stripe when it succeeds, so show any "Redirecting…" state BEFORE awaiting it. Code after the await only runs on failure. It resolves to an error string, or null on success.
+- listItems() returns {items: [], acceptsPayments: false} until the app is published and its owner has connected Stripe. Design for that: render a real empty state ("Nothing for sale yet"), never a spinner that hangs or a crash.
+- Never build your own card form, never ask for a card number, and never send an amount anywhere. Stripe collects payment details on its own page. An app that takes a card number itself is broken and unsafe, not resourceful.
+
+If the person did not ask to sell anything, do not add payments. A donate button nobody requested is clutter.
 - Do not fetch external images by URL you are unsure exists; prefer CSS gradients, solid colors, or emoji over broken <img> tags.
 
 STRUCTURE THE PROJECT INTO REAL FILES. Do not put an entire app in src/App.tsx because it is one call fewer. Someone is going to open this project and keep working in it, and a 900-line single file is a worse starting point than the same code split sensibly. Split by responsibility, using the layout the stack already expects:
@@ -579,7 +665,11 @@ function modelNote(message) {
 // in a way no amount of repair rounds recovers from. src/main.tsx is on the
 // list because it is the entry point App.tsx is mounted by — rewriting it is
 // how a multi-file app loses its own root.
-const PROTECTED_PATHS = new Set(["src/main.tsx", "src/vite-env.d.ts"]);
+// src/lib/payments.ts is on the list for a sharper reason than the others:
+// it is the boundary that keeps prices on the server. A model "simplifying"
+// it into something that posts an amount would turn a generated shop into an
+// endpoint where the buyer names the price.
+const PROTECTED_PATHS = new Set(["src/main.tsx", "src/vite-env.d.ts", "src/lib/payments.ts"]);
 
 function validateWriteFileArgs(args) {
   if (!args || typeof args !== "object") throw new Error("tool call arguments were not an object");
@@ -1042,11 +1132,33 @@ async function proposeChanges(userPrompt, opts) {
   if (!attempt.ok) {
     const fallbackContent = getFallbackAppCode(userPrompt);
     const fallbackCalls = [{ path: "src/App.tsx", content: fallbackContent }];
-    return { ok: true, calls: fallbackCalls, note: "Built template app (AI model unavailable).", retried: false, cached: false, costUsd: 0 };
+    // ok:true on purpose — a build must not hard-fail just because the model
+    // was unreachable; the user gets a real, runnable template instead. But
+    // WHY has to survive. Dropping attempt.reason here made a path-safety
+    // violation (the model trying to write outside src/) look identical to a
+    // timeout, in logs and in tests alike — so `fallback` marks it and the
+    // diagnosis rides along.
+    //
+    // Never cached: a template is not the design that was asked for, and
+    // remembering it would keep serving it for the full TTL after the outage
+    // that caused it had ended.
+    return {
+      ok: true,
+      fallback: true,
+      calls: fallbackCalls,
+      note: "Built template app (AI model unavailable).",
+      reason: attempt.reason,
+      disabled: attempt.disabled === true,
+      breakerOpen: attempt.breakerOpen === true,
+      budgetExceeded: attempt.budgetExceeded === true,
+      retried: attempt.retried === true,
+      cached: false,
+      costUsd: attempt.costUsd || 0
+    };
   }
 
   const result = { ok: true, calls: attempt.calls, note: attempt.note, retried: attempt.retried, cached: false, usage: attempt.usage, costUsd: attempt.costUsd };
-  cacheSet(key, result);
+  cacheSet(key, result, attempt.costUsd || 0);
   return result;
 }
 
@@ -1088,6 +1200,25 @@ async function proposeWithRepair({ userPrompt, tools, maxRounds, onRound, mode, 
   ]);
   let totalCost = 0;
   let jsonRetries = 0;
+
+  // Every file written across ALL rounds, latest version of each.
+  //
+  // A repair round is explicitly told "Only rewrite the files that
+  // actually need fixing", so attempt.calls after round 0 is a subset —
+  // often a single file. Returning that subset made it the whole
+  // project: the caller writes it to a revision, and a revision IS the
+  // source. One real project ended up as four components with no
+  // App.tsx, which then deployed as the scaffold placeholder because
+  // there was nothing to override it with.
+  //
+  // Keyed by path so a later round's version wins — the same precedence
+  // the build sees, since each round writes onto the tree the previous
+  // one left behind.
+  const written = new Map();
+  const collect = (calls) => {
+    for (const c of calls || []) written.set(c.path, c);
+    return Array.from(written.values());
+  };
 
   for (let round = 0; round <= cap; round++) {
     const attempt = await attemptOnce(messages, opts);
@@ -1175,6 +1306,25 @@ async function proposeWithClientBuild({ userPrompt, maxRounds, onFiles, onRound,
     // If cached design fails to build, we continue to a fresh round 0 to get the `message` needed for the repair loop.
   }
 
+  // Every file written across ALL rounds, latest version of each.
+  //
+  // A repair round is explicitly told "Only rewrite the files that
+  // actually need fixing", so attempt.calls after round 0 is a subset —
+  // often a single file. Returning that subset made it the whole
+  // project: the caller writes it to a revision, and a revision IS the
+  // source. One real project ended up as four components with no
+  // App.tsx, which then deployed as the scaffold placeholder because
+  // there was nothing to override it with.
+  //
+  // Keyed by path so a later round's version wins — the same precedence
+  // the build sees, since each round writes onto the tree the previous
+  // one left behind.
+  const written = new Map();
+  const collect = (calls) => {
+    for (const c of calls || []) written.set(c.path, c);
+    return Array.from(written.values());
+  };
+
   for (let round = 0; round <= cap; round++) {
     let attempt = await attemptOnce(messages, opts);
     if (!attempt.ok) {
@@ -1257,7 +1407,9 @@ const PLAN_SYSTEM_PROMPT = `You turn a build request into a SHORT plan the perso
 - features: 3-5 concrete things it will have. Each 3-8 words, no trailing punctuation. Name real screens/behaviours ("Add and edit expenses", "Split totals per person"), never vague ones ("Modern design", "Great UX").
 - assumptions: 0-3 choices you are making that the request did not specify, each phrased so the person can correct it ("Monthly totals rather than weekly"). Omit the key entirely if the request was specific enough that you are not guessing at anything.
 
-Be honest about scope: this builds ONE React web app, so do not promise native apps, payments, real email, or a backend database.`;
+Be honest about scope: this builds ONE React web app, so do not promise native apps, payments, real email, or a backend database.
+
+LANGUAGE: the person reads title, summary, features and assumptions verbatim, so write those VALUES in the same language they wrote the request in — Turkish in, Turkish out; Arabic in, Arabic out (Arabic script, not transliteration). If the language is genuinely unclear, use English. The JSON keys are always the English ones above.`;
 
 /**
  * The plan the user confirms before a build starts.
@@ -1265,15 +1417,34 @@ Be honest about scope: this builds ONE React web app, so do not promise native a
  * Two-tier on purpose. The model writes a good plan when it is reachable,
  * but the whole point of this step is that it runs BEFORE anything
  * expensive — so it must not become a new way for a build to die. When the
- * provider is unavailable (found live: a DeepSeek 402 made every AI call
+ * provider is unavailable (found live: a provider 402 made every AI call
  * fail), the deterministic fallback still produces a real plan from the
  * prompt and the chosen build type, and the confirm step keeps working.
+ *
+ * The fallback is English-only. That is a known gap, not an oversight: it
+ * is a canned string, so a non-English user hitting an outage gets an
+ * English plan rather than no plan.
  */
 async function buildPlan(prompt, buildType) {
   const clean = String(prompt || "").trim();
 
+  // Cached on the prose route, which is the one billed to Gemini. Every build
+  // asks for a plan, and the plan is a pure function of (prompt, build type) —
+  // so the second person to ask for "a landing page for a bakery" costs $0.
+  // buildType is in the key because it changes the fallback AND steers the
+  // model's features list; the two must not share an entry.
+  const key = cacheKey(clean, {
+    kind: "plan", mode: buildType || "website",
+    promptHash: promptFingerprint(PLAN_SYSTEM_PROMPT)
+  });
+  const cached = cacheGet(key);
+  if (cached) return Object.assign({}, cached, { cached: true, costUsd: 0 });
+
   const res = await client.chat({
-    route: "json",
+    // The plan is JSON, but it is JSON the USER reads and confirms — the
+    // title, summary and features are shown to them verbatim. That makes it
+    // prose-route work: it has to come back in the language they wrote in.
+    route: "prose",
     messages: [
       { role: "system", content: PLAN_SYSTEM_PROMPT },
       { role: "user", content: clean.slice(0, MAX_USER_PROMPT_CHARS) }
@@ -1286,14 +1457,18 @@ async function buildPlan(prompt, buildType) {
     try {
       const p = JSON.parse(res.message.content);
       if (p && typeof p.summary === "string" && Array.isArray(p.features) && p.features.length) {
-        return {
+        const plan = {
           title: String(p.title || clean).slice(0, 60),
           summary: String(p.summary).slice(0, 240),
           features: p.features.slice(0, 5).map((f) => String(f).slice(0, 80)),
           assumptions: Array.isArray(p.assumptions) ? p.assumptions.slice(0, 3).map((a) => String(a).slice(0, 120)) : [],
-          costUsd: res.costUsd || 0,
           generated: true
         };
+        // Only a real, well-formed plan is cached. The deterministic fallback
+        // below is not: it means the model was unreachable or spoke nonsense,
+        // and pinning that answer for 24h would outlast the reason for it.
+        cacheSet(key, plan, res.costUsd || 0);
+        return Object.assign({}, plan, { costUsd: res.costUsd || 0 });
       }
     } catch (e) { /* fall through to the deterministic plan */ }
   }
@@ -1339,7 +1514,9 @@ Only if the request is genuinely a greeting, a test, small talk, a question abou
   "test" -> "All set and ready to go — what should I build?"
   "yo whats up" -> "Not much, just waiting to build something for you! What did you have in mind?"
   "are you the souqi agent" -> "Yep, that's me! 🙂 What should I build for you?"
-Do NOT write "Quick question before I build:" or anything that sounds like a support ticket.`;
+Do NOT write "Quick question before I build:" or anything that sounds like a support ticket.
+
+LANGUAGE: write "reply" in the SAME language the user wrote in — Turkish in, Turkish out; Arabic in, Arabic out. The examples above are English only because the user wrote English. Match their script too: reply to Arabic in Arabic script, not transliteration. If the language is genuinely unclear, use English. The JSON keys stay in English always.`;
 
 /* ---------- deterministic chitchat gate ----------
    assessPrompt below asks a MODEL whether a prompt is a real build request,
@@ -1456,26 +1633,49 @@ async function assessPrompt(userPrompt) {
   const quick = quickAssess(userPrompt);
   if (quick) return quick;
 
+  // The other half of the Gemini bill: one of these per build that gets past
+  // quickAssess. Same prompt, same verdict — so it is cached on the same terms
+  // as the plan above.
+  const key = cacheKey(userPrompt, {
+    kind: "assess", promptHash: promptFingerprint(ASSESS_SYSTEM_PROMPT)
+  });
+  const cached = cacheGet(key);
+  if (cached) return Object.assign({}, cached, { cached: true, costUsd: 0 });
+
   const messages = [
     { role: "system", content: ASSESS_SYSTEM_PROMPT },
     { role: "user", content: String(userPrompt || "").slice(0, MAX_USER_PROMPT_CHARS) }
   ];
   const res = await client.chat({
-    route: "json", messages,
+    // `reply` is spoken straight back to the user, so this is the single
+    // most language-sensitive call in the agent — it routes to prose.
+    route: "prose", messages,
     maxTokens: 200, temperature: 0.4, timeoutMs: 15000
   });
+  // Not cached: the call never happened, so there is no answer to remember —
+  // only an outage, which must not be pinned for 24h.
   if (!res.ok || !res.message || typeof res.message.content !== "string") return { clear: true };
   try {
     const parsed = JSON.parse(res.message.content);
     if (parsed.clear === false && typeof parsed.reply === "string" && parsed.reply.trim()) {
-      return { clear: false, reply: parsed.reply.trim().slice(0, 400), costUsd: res.costUsd };
+      const out = { clear: false, reply: parsed.reply.trim().slice(0, 400) };
+      cacheSet(key, out, res.costUsd || 0);
+      return Object.assign({}, out, { costUsd: res.costUsd });
     }
-  } catch (e) { /* malformed JSON from the assessment call — fail open, not a build-blocking error */ }
-  return { clear: true, costUsd: res.costUsd };
+    // A well-formed {clear:true} — a real verdict, worth remembering.
+    const out = { clear: true };
+    cacheSet(key, out, res.costUsd || 0);
+    return Object.assign({}, out, { costUsd: res.costUsd });
+  } catch (e) {
+    // Malformed JSON from the assessment call — fail open, not a build-blocking
+    // error, and do NOT cache: the model succeeded but said nothing usable, and
+    // caching that would keep answering with a shrug.
+    return { clear: true, costUsd: res.costUsd };
+  }
 }
 
 module.exports = {
   quickAssess, buildPlan, proposeChanges, proposeWithRepair, proposeWithClientBuild, assessPrompt, TOOLS_SCHEMA, SYSTEM_PROMPT,
   buildHistory, buildCodebaseContext,
-  systemPromptFor, parseToolCalls, validateWriteFileArgs, cacheKey, clearCache
+  systemPromptFor, parseToolCalls, validateWriteFileArgs, cacheKey, clearCache, cacheStatsSnapshot
 };

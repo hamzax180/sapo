@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#0d2338">
 <link rel="icon" type="image/png" href="assets/logo.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -767,6 +768,22 @@
        headline break out to the screen edges */
     .chero .wrap{padding-left:14px;padding-right:14px}
     .chero-h{font-size:clamp(2.5rem,11vw,3.6rem);margin-left:-8px;margin-right:-8px}
+
+    /* Phones: headline, then the demo, then the login card.
+       Stacked in DOM order the card sat between the headline and the demo,
+       so the thing that shows what Souqi actually does was pushed below the
+       fold behind a form. On a phone the demo IS the pitch; the card should
+       follow it.
+
+       .chero-copy is a grouping div with no styles of its own, so
+       display:contents lifts its three children into the grid and lets them
+       be ordered individually — the alternative, reordering .chero-copy as a
+       whole, would have taken the headline down with the card. */
+    .chero-copy{display:contents}
+    .chero-h{order:1}
+    .chero-sub{order:2}
+    .chero-demo{order:3}
+    .chero-auth{order:4}
   }
   /* tablet / iPad: keep the login card and the demo side-by-side so both
      fit on one screen instead of stacking awkwardly */

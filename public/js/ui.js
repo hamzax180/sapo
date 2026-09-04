@@ -1206,8 +1206,7 @@ window.UI = (function () {
       "Get started free": "Ücretsiz başlayın",
       "Legal": "Yasal",
       "Terms of Service": "Kullanım Koşulları",
-      "Privacy": "Gizlilik",
-      "Is this page worth your time?": "Bu sayfa vaktinize değdi mi?"},
+      "Privacy": "Gizlilik"},
     ar: {
       "A few details and your fitted console is ready in under a minute — no card required.": "تفاصيل بسيطة وتصبح منصتك المخصصة جاهزة خلال أقل من دقيقة — بدون بطاقة.",
       "Your business": "شركتك وعملك",
@@ -1884,8 +1883,7 @@ window.UI = (function () {
       "Get started free": "ابدأ مجاناً",
       "Legal": "قانوني",
       "Terms of Service": "شروط الاستخدام",
-      "Privacy": "الخصوصية",
-      "Is this page worth your time?": "هل تستحق هذه الصفحة وقتك؟"
+      "Privacy": "الخصوصية"
     }
   };
 

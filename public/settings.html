@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#faf7f2">
 <meta name="robots" content="noindex">
 <link rel="icon" type="image/png" href="/assets/logo.png">
@@ -11,7 +12,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Jost:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <title>Settings — Souqi</title>
 <script>
-(function(){var k="souqi-theme";try{var t=localStorage.getItem(k)||"light";document.documentElement.setAttribute("data-theme",t)}catch(e){}})();
+(function(){var k="souqi-theme",t="";try{t=localStorage.getItem(k)||""}catch(e){}if(t!=="dark"&&t!=="light"){try{if(window.parent!==window)t=parent.document.documentElement.getAttribute("data-theme")||""}catch(e){}}if(t!=="dark"&&t!=="light")t="light";document.documentElement.setAttribute("data-theme",t)})();
 </script>
 <style>
   /* Replit's settings pattern: a centered modal panel over a dimmed page,
@@ -450,13 +451,46 @@
           <span class="txt"><span class="t">Installable app (PWA)</span><span class="d">Every build ships a manifest and service worker, so it installs to a home screen.</span></span>
           <span class="pill live">Available</span>
         </div>
-        <div class="srow">
-          <span class="txt"><span class="t">Stripe payments</span><span class="d">Take real payments inside a generated app.</span></span>
-          <span class="pill">Not built yet</span>
+        <!-- Stripe Connect. The account belongs to the OWNER, not to Souqi:
+             they authorize once, charges are created on their account, and
+             the money lands in their balance. Souqi stores an account id and
+             never a secret key, which is why there is no key field here. -->
+        <div class="srow" id="stripeRow">
+          <span class="txt">
+            <span class="t">Stripe payments</span>
+            <span class="d" id="stripeDesc">Take real payments inside a generated app. Money goes straight to your own Stripe account.</span>
+          </span>
+          <span class="pill" id="stripePill">Checking…</span>
+          <button type="button" class="btn" id="stripeBtn" hidden></button>
         </div>
         <div class="srow">
           <span class="txt"><span class="t">Hosted database</span><span class="d">Persistent storage an app can read and write.</span></span>
           <span class="pill">Not built yet</span>
+        </div>
+      </div>
+
+      <!-- The price list an app charges against.
+           Prices live here, on the server, and NOT in the app's own code:
+           the generated app runs in the shopper's browser, so any price it
+           carried would be a price the shopper could edit before paying.
+           The app asks for an item by id and the server looks up what that
+           costs. Hidden until Stripe is connected — there is nothing useful
+           to do with a price list that cannot be charged. -->
+      <div class="sec" id="payItemsSec" hidden>
+        <h3>What your apps sell</h3>
+        <p>Prices live here rather than in the app, so you can change them without rebuilding — and so a shopper can't edit them on the way to checkout.</p>
+
+        <div class="srow">
+          <span class="txt"><span class="t">App</span><span class="d">Pick which app this price list belongs to.</span></span>
+          <select id="payApp" style="flex:none;min-width:200px;max-width:56%;border:1px solid var(--line);border-radius:10px;padding:9px 11px;font:inherit;font-size:.88rem;background:var(--card);color:var(--ink)"></select>
+        </div>
+
+        <div id="payRows" style="margin-top:10px"></div>
+
+        <div style="display:flex;gap:10px;align-items:center;margin-top:14px;flex-wrap:wrap">
+          <button type="button" class="btn" id="payAdd">Add an item</button>
+          <button type="button" class="btn" id="paySave">Save price list</button>
+          <span class="note" id="payNote" style="margin:0"></span>
         </div>
       </div>
     </section>
@@ -654,8 +688,15 @@
     // Also notify via postMessage for any further listeners
     try { parent.postMessage({ key: THEME_KEY, value: name }, "*"); } catch (e) {}
   }
-  var current = "light";
-  try { current = localStorage.getItem(THEME_KEY) || "light"; } catch (e) { /* ignore */ }
+  // Keep the theme already applied by the head script. Reading storage again
+  // here can briefly fail during a cross-page navigation and previously
+  // caused Settings to fall back to light mode over an existing dark theme.
+  var current = document.documentElement.getAttribute("data-theme") || "light";
+  if (current !== "dark" && current !== "light") current = "light";
+  try {
+    var storedTheme = localStorage.getItem(THEME_KEY);
+    if (storedTheme === "dark" || storedTheme === "light") current = storedTheme;
+  } catch (e) { /* keep the theme applied before paint */ }
   applyTheme(current);
   var thEl = document.getElementById("themes");
   if (thEl) {
@@ -679,7 +720,26 @@
       // and parent.closeSettings is undefined) and the X did nothing at all.
       // Found live opening /settings directly instead of as the overlay.
       if (!embedded) {
-        if (history.length > 1) history.back(); else location.href = "/agent";
+        // Leave settings outright, in ONE press.
+        //
+        // This used to be history.back(). Combined with the sub-nav writing a
+        // new history entry per panel (see below), closing settings after
+        // looking at three of them meant pressing X three times, each press
+        // silently stepping back one panel — the "closing browser tabs one by
+        // one" behaviour. Standalone settings is a destination, not a stack:
+        // its X means "done here", so it goes back to the app in one step.
+        //
+        // referrer is preferred so X returns you to whichever page opened
+        // settings (/projects, /deployments, the builder), same-origin only so
+        // an external referrer cannot redirect the button.
+        var back = "/agent";
+        try {
+          if (document.referrer) {
+            var r = new URL(document.referrer, location.href);
+            if (r.origin === location.origin && r.pathname !== location.pathname) back = r.pathname + r.search;
+          }
+        } catch (err) { /* malformed referrer — the default stands */ }
+        location.replace(back);
         return;
       }
       try { parent.postMessage("souqi:settings:close", "*"); } catch(err) {}
@@ -699,7 +759,17 @@
     Array.prototype.forEach.call(document.querySelectorAll("#snav button"), function (x) { x.classList.toggle("on", x === b); });
     var want = "p" + b.dataset.p.charAt(0).toUpperCase() + b.dataset.p.slice(1);
     Array.prototype.forEach.call(document.querySelectorAll(".panel"), function (p) { p.classList.toggle("on", p.id === want); });
-    location.hash = b.dataset.p;
+    // replaceState, not `location.hash = …`. Assigning to location.hash PUSHES
+    // a history entry per panel click, so a visit to five panels buried the
+    // page the user actually came from under five entries — the browser's own
+    // Back button then walked those panels one at a time too. The hash is
+    // still written so a link to /settings#integrations keeps working and a
+    // reload lands on the same panel; it just is not a navigation.
+    try {
+      history.replaceState(null, "", "#" + b.dataset.p);
+    } catch (err) {
+      location.hash = b.dataset.p; // very old browsers — the old behaviour
+    }
   });
   if (location.hash) {
     var want = document.querySelector('#snav button[data-p="' + location.hash.slice(1).replace(/[^a-z]/gi, "") + '"]');
@@ -984,6 +1054,193 @@
         b.disabled = false; b.textContent = "Delete Account";
       });
   });
+
+  /* ---------- Stripe Connect ----------
+     Three states, and the row has to be honest about which one it is in:
+     the server has no Stripe credentials at all (nobody can connect), this
+     account has not connected yet, or it has. */
+  (function stripePanel() {
+    var pill = $("stripePill"), btn = $("stripeBtn"), desc = $("stripeDesc");
+    if (!pill || !btn) return;
+
+    function render(s) {
+      btn.disabled = false;
+      if (!s || !s.configured) {
+        pill.className = "pill"; pill.textContent = "Not available";
+        desc.textContent = "This Souqi server has no Stripe credentials configured, so payments can't be switched on here.";
+        btn.hidden = true;
+        return;
+      }
+      if (s.connected) {
+        pill.className = "pill live";
+        pill.textContent = s.livemode ? "Connected" : "Connected (test)";
+        desc.textContent = "Payments in your apps go straight to Stripe account " + (s.accountId || "") +
+          ". Souqi never holds the money and stores no card details.";
+        btn.hidden = false; btn.textContent = "Disconnect";
+        btn.onclick = disconnect;
+        return;
+      }
+      pill.className = "pill"; pill.textContent = "Not connected";
+      desc.textContent = "Connect your Stripe account and Souqi Code can take real payments inside the apps it builds. The money is yours — it lands in your Stripe balance.";
+      btn.hidden = false; btn.textContent = "Connect Stripe";
+      // A full navigation, not fetch: this is an OAuth handshake that has to
+      // happen in the address bar so the person can see they are on stripe.com
+      // before they authorize anything.
+      btn.onclick = function () { location.href = "/api/integrations/stripe/connect"; };
+    }
+
+    function disconnect() {
+      if (!confirm("Disconnect Stripe? Apps you have published will stop being able to take payments.")) return;
+      btn.disabled = true; btn.textContent = "Disconnecting…";
+      fetch("/api/integrations/stripe", { method: "DELETE", credentials: "same-origin" })
+        .then(function (r) { return r.json(); })
+        .then(function () { load(); })
+        .catch(function () { btn.disabled = false; btn.textContent = "Disconnect"; });
+    }
+
+    function load() {
+      fetch("/api/integrations/stripe", { credentials: "same-origin" })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(render)
+        .catch(function () { render(null); });
+    }
+
+    // The OAuth callback bounces back to #integrations?stripe=… — surface the
+    // outcome rather than leaving the row to silently refresh.
+    var m = /[?&]stripe=([^&]+)/.exec(location.hash + location.search);
+    if (m) {
+      var v = decodeURIComponent(m[1]);
+      if (v !== "connected") { pill.className = "pill"; pill.textContent = "Failed"; desc.textContent = v; }
+    }
+    load();
+  })();
+
+  /* ---------- the price list an app charges against ---------- */
+  (function paymentItems() {
+    var sec = $("payItemsSec"), sel = $("payApp"), rowsEl = $("payRows"),
+        addBtn = $("payAdd"), saveBtn = $("paySave"), noteEl = $("payNote");
+    if (!sec || !sel) return;
+
+    var items = [];
+
+    // Only worth showing once payments can actually be taken.
+    fetch("/api/integrations/stripe", { credentials: "same-origin" })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (s) { if (s && s.configured && s.connected) { sec.hidden = false; loadApps(); } })
+      .catch(function () { /* row above already reports the failure */ });
+
+    function loadApps() {
+      fetch("/api/projects?kind=code&limit=200", { credentials: "same-origin" })
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+          var rows = (d.projects || []);
+          if (!rows.length) {
+            sel.innerHTML = '<option value="">No apps built yet</option>';
+            addBtn.disabled = saveBtn.disabled = true;
+            return;
+          }
+          sel.innerHTML = rows.map(function (p) {
+            return '<option value="' + esc(p.id) + '">' + esc(p.title || "Untitled app") + "</option>";
+          }).join("");
+          loadItems();
+        })
+        .catch(function () { note("Couldn't load your apps.", false); });
+    }
+
+    function esc(s) {
+      return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+        return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+      });
+    }
+    function note(msg, ok) {
+      noteEl.textContent = msg || "";
+      noteEl.className = "note" + (msg ? (ok ? " ok" : " err") : "");
+    }
+
+    function loadItems() {
+      if (!sel.value) return;
+      fetch("/api/apps/" + encodeURIComponent(sel.value) + "/payment-items", { credentials: "same-origin" })
+        .then(function (r) { return r.json(); })
+        .then(function (d) { items = (d.items || []).slice(); render(); note("", true); })
+        .catch(function () { items = []; render(); });
+    }
+
+    function render() {
+      if (!items.length) {
+        rowsEl.innerHTML = '<p style="font-size:.87rem;color:var(--ink-2);margin:6px 0 0">Nothing for sale yet. Add an item and your apps can charge for it.</p>';
+        return;
+      }
+      rowsEl.innerHTML = items.map(function (it, i) {
+        // Minor units are the storage and wire format; a major-unit field is
+        // the only sane thing to type into, so the conversion happens here
+        // and nowhere else.
+        return '<div class="srow" style="gap:10px;flex-wrap:wrap">' +
+          '<input type="text" data-i="' + i + '" data-f="name" value="' + esc(it.name) + '" placeholder="Item name" maxlength="250" ' +
+            'style="flex:1 1 190px;min-width:0;border:1px solid var(--line);border-radius:9px;padding:9px 11px;font:inherit;font-size:.88rem;background:var(--card);color:var(--ink)">' +
+          '<input type="number" data-i="' + i + '" data-f="major" value="' + (it.amountMinor / 100).toFixed(2) + '" min="0" step="0.01" ' +
+            'style="flex:0 0 110px;border:1px solid var(--line);border-radius:9px;padding:9px 11px;font:inherit;font-size:.88rem;background:var(--card);color:var(--ink)">' +
+          '<input type="text" data-i="' + i + '" data-f="currency" value="' + esc(it.currency) + '" maxlength="3" placeholder="usd" ' +
+            'style="flex:0 0 70px;text-transform:lowercase;border:1px solid var(--line);border-radius:9px;padding:9px 11px;font:inherit;font-size:.88rem;background:var(--card);color:var(--ink)">' +
+          '<button type="button" class="btn btn-danger" data-rm="' + i + '" style="padding:9px 13px">Remove</button>' +
+          "</div>";
+      }).join("");
+    }
+
+    rowsEl.addEventListener("input", function (e) {
+      var el = e.target, i = Number(el.getAttribute("data-i")), f = el.getAttribute("data-f");
+      if (!items[i] || !f) return;
+      if (f === "major") {
+        // Round at the edge, once. Letting 12.345 through would either be
+        // silently truncated by the server or rejected as a non-integer.
+        items[i].amountMinor = Math.max(0, Math.round(parseFloat(el.value || "0") * 100)) || 0;
+      } else if (f === "currency") {
+        items[i].currency = el.value.toLowerCase().slice(0, 3);
+      } else {
+        items[i].name = el.value;
+      }
+    });
+
+    rowsEl.addEventListener("click", function (e) {
+      var b = e.target.closest("button[data-rm]"); if (!b) return;
+      items.splice(Number(b.getAttribute("data-rm")), 1);
+      render();
+    });
+
+    sel.addEventListener("change", loadItems);
+
+    addBtn.addEventListener("click", function () {
+      // The id is what the app's code references, so it is generated rather
+      // than typed: a hand-typed id that later gets edited silently breaks
+      // every Buy button already pointing at it.
+      items.push({
+        id: "item_" + Math.random().toString(36).slice(2, 10),
+        name: "", amountMinor: 0,
+        currency: (items[0] && items[0].currency) || "usd"
+      });
+      render();
+    });
+
+    saveBtn.addEventListener("click", function () {
+      if (!sel.value) return;
+      for (var i = 0; i < items.length; i++) {
+        if (!String(items[i].name || "").trim()) return note("Every item needs a name.", false);
+        if (!/^[a-z]{3}$/.test(items[i].currency || "")) return note("Currency must be a 3-letter code, like usd.", false);
+      }
+      saveBtn.disabled = true; note("Saving…", true);
+      fetch("/api/apps/" + encodeURIComponent(sel.value) + "/payment-items", {
+        method: "PUT", headers: { "Content-Type": "application/json" }, credentials: "same-origin",
+        body: JSON.stringify({ items: items })
+      })
+        .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+        .then(function (res) {
+          if (!res.ok) throw new Error(res.d.error || "Couldn't save the price list");
+          items = res.d.items || items; render();
+          note("Saved. Your apps can charge for these now.", true);
+        })
+        .catch(function (err) { note(err.message, false); })
+        .then(function () { saveBtn.disabled = false; });
+    });
+  })();
 })();
 </script>
 <script src="js/nav-loading.js?v=1"></script>

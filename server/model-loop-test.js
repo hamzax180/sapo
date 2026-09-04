@@ -19,7 +19,7 @@
 "use strict";
 const assert = require("assert");
 const client = require("./lib/ai/client");
-const { proposeChanges, proposeWithRepair, assessPrompt, parseToolCalls, validateWriteFileArgs, TOOLS_SCHEMA, clearCache } = require("./lib/codeagent/model-loop");
+const { proposeChanges, proposeWithRepair, assessPrompt, buildPlan, parseToolCalls, validateWriteFileArgs, TOOLS_SCHEMA, clearCache, cacheKey, cacheStatsSnapshot } = require("./lib/codeagent/model-loop");
 
 let passed = 0, failed = 0;
 async function check(name, fn) {
@@ -61,7 +61,7 @@ function fakeTools(buildResults) {
   };
 }
 
-const ROUTES = { prose: { baseUrl: "https://x.invalid", model: "m", key: "k" }, json: { baseUrl: "https://x.invalid/json", model: "deepseek-chat", key: "k" } };
+const ROUTES = { prose: { baseUrl: "https://x.invalid/prose", model: "gemini-3.8-flash", key: "k" }, json: { baseUrl: "https://x.invalid/json", model: "deepseek-chat", key: "k" } };
 
 (async () => {
   console.log("\n── validateWriteFileArgs: path safety ──────────────");
@@ -183,8 +183,11 @@ const ROUTES = { prose: { baseUrl: "https://x.invalid", model: "m", key: "k" }, 
     let calls = 0;
     client.init({ enabled: true, routes: ROUTES, fetchImpl: async () => { calls++; return (await fetchReturning([bad])()); } });
     const res = await proposeChanges("build a landing page");
-    assert.strictEqual(res.ok, false);
-    assert.ok(/twice in a row/.test(res.reason));
+    // A build never hard-fails: the user gets a runnable template rather than
+    // an error. But the failure must stay legible, or a path-safety violation
+    // and a timeout become the same event in the logs.
+    assert.strictEqual(res.fallback, true, "expected the template fallback, not a real design");
+    assert.ok(/twice in a row/.test(res.reason), "the fallback must carry WHY, got: " + res.reason);
     assert.strictEqual(calls, 2, "expected exactly 2 attempts (1 + 1 retry), got " + calls);
   });
 
@@ -227,7 +230,7 @@ const ROUTES = { prose: { baseUrl: "https://x.invalid", model: "m", key: "k" }, 
       fetchImpl: async () => ({ ok: true, json: async () => ({ choices: [{ message: truncated, finish_reason: "length" }], usage: { prompt_tokens: 200, completion_tokens: 150 } }) })
     });
     const res = await proposeChanges("build a big dashboard");
-    assert.strictEqual(res.ok, false);
+    assert.strictEqual(res.fallback, true, "expected the template fallback");
     assert.ok(/too large to finish writing/.test(res.reason), "expected a truncation-specific message, got: " + res.reason);
   });
 
@@ -236,8 +239,12 @@ const ROUTES = { prose: { baseUrl: "https://x.invalid", model: "m", key: "k" }, 
     let calls = 0;
     client.init({ enabled: true, routes: ROUTES, fetchImpl: async () => { calls++; return (await fetchReturning([unsafe])()); } });
     const res = await proposeChanges("build a landing page");
-    assert.strictEqual(res.ok, false);
+    assert.strictEqual(res.fallback, true, "expected the template fallback");
     assert.strictEqual(calls, 2);
+    // The one failure mode that must never be silent: the model tried to write
+    // outside src/. It is allowed to end in a template, not in nothing said.
+    assert.ok(res.reason && /safe relative path|only files under src\//.test(res.reason),
+      "a path-safety violation must be named in the reason, got: " + res.reason);
   });
 
   console.log("\n── proposeChanges surfaces ai/client's own guarantees ──");
@@ -246,9 +253,9 @@ const ROUTES = { prose: { baseUrl: "https://x.invalid", model: "m", key: "k" }, 
     let reached = false;
     client.init({ enabled: false, routes: ROUTES, fetchImpl: async () => { reached = true; } });
     const res = await proposeChanges("build a landing page");
-    assert.strictEqual(res.ok, false);
-    assert.strictEqual(res.disabled, true);
-    assert.strictEqual(reached, false);
+    assert.strictEqual(res.fallback, true, "expected the template fallback");
+    assert.strictEqual(res.disabled, true, "ai/client's `disabled` must survive the fallback");
+    assert.strictEqual(reached, false, "AI disabled must not reach the network");
   });
 
   console.log("\n── the tool schema itself ───────────────────────────");
@@ -292,10 +299,12 @@ const ROUTES = { prose: { baseUrl: "https://x.invalid", model: "m", key: "k" }, 
     let calls = 0;
     client.init({ enabled: true, routes: ROUTES, fetchImpl: async () => { calls++; return { ok: false, status: 500, json: async () => ({}) }; } });
     const first = await proposeChanges("a barber shop landing page");
-    assert.strictEqual(first.ok, false);
+    assert.strictEqual(first.fallback, true, "a 500 should end in the template fallback");
     client.init({ enabled: true, routes: ROUTES, fetchImpl: async () => { calls++; return (await fetchReturning([toolCallMsg([{ path: "src/App.tsx", content: "x" }])])()); } });
     const second = await proposeChanges("a barber shop landing page");
     assert.strictEqual(second.ok, true, "a prior failure should not poison later attempts at the same prompt");
+    assert.ok(!second.fallback, "the second call should produce a real design, not the template again");
+    assert.strictEqual(second.calls[0].content, "x");
     assert.strictEqual(calls, 2, "the failed first call should not have been treated as a cache entry to skip past");
   });
 
@@ -446,11 +455,30 @@ const ROUTES = { prose: { baseUrl: "https://x.invalid", model: "m", key: "k" }, 
     assert.strictEqual(res.reply, "Hey! 👋 What would you like me to build?");
   });
 
-  await check("uses the json (DeepSeek) route, not prose — this is a classification call, not copywriting", async () => {
+  await check("uses the prose (Gemini) route, not json — `reply` is spoken to the user in their own language", async () => {
     let hitUrl = "";
     client.init({ enabled: true, routes: ROUTES, fetchImpl: async (url) => { hitUrl = url; return (await jsonReplyFetch({ clear: true })()); } });
     await assessPrompt("make it really nice please");
-    assert.ok(hitUrl.indexOf("/json") >= 0, "expected the json-route baseUrl, got: " + hitUrl);
+    // The classification half of this call would be fine on the cheap code
+    // model. The `reply` half is not: it is shown verbatim to someone who may
+    // have written in Turkish or Arabic, which is what the prose route is for.
+    assert.ok(hitUrl.indexOf("/prose") >= 0, "expected the prose-route baseUrl, got: " + hitUrl);
+    assert.ok(hitUrl.indexOf("/json") < 0, "assessPrompt must not fall back to the code model's route");
+  });
+
+  await check("buildPlan also uses the prose route — the plan is read and confirmed by the user", async () => {
+    let hitUrl = "";
+    const plan = { title: "Bakery Site", summary: "A landing page for a bakery.", features: ["Menu section", "Opening hours", "Contact form"] };
+    client.init({ enabled: true, routes: ROUTES, fetchImpl: async (url) => { hitUrl = url; return (await jsonReplyFetch(plan)()); } });
+    const res = await buildPlan("a landing page for a bakery", "website");
+    assert.ok(hitUrl.indexOf("/prose") >= 0, "expected the prose-route baseUrl, got: " + hitUrl);
+    assert.strictEqual(res.title, "Bakery Site", "the model's plan should be used when the call succeeds");
+  });
+
+  await check("buildPlan falls back to a deterministic plan when the prose route is down — an outage must not block a build", async () => {
+    client.init({ enabled: true, routes: ROUTES, fetchImpl: async () => ({ ok: false, status: 402, json: async () => ({ error: "Insufficient Balance" }) }) });
+    const res = await buildPlan("a landing page for a bakery", "website");
+    assert.ok(res && typeof res.summary === "string" && res.summary.length > 0, "expected a usable fallback plan, got: " + JSON.stringify(res));
   });
 
   await check("clear:false with NO reply text -> fails open, not a broken prompt", async () => {
@@ -502,6 +530,123 @@ const ROUTES = { prose: { baseUrl: "https://x.invalid", model: "m", key: "k" }, 
       const res = await assessPrompt(real);
       assert.strictEqual(res.clear, true, JSON.stringify(real) + " is a build request");
     }
+  });
+
+  console.log("\n── the prose-route cache (this is the Gemini bill) ──");
+
+  // Counts only calls that reach the network. buildPlan/assessPrompt each make
+  // exactly one, so `calls` is a direct measure of what Gemini was billed for.
+  function countingFetch(contentObj) {
+    const box = { calls: 0 };
+    box.impl = async () => { box.calls++; return (await jsonReplyFetch(contentObj)()); };
+    return box;
+  }
+  // jsonReplyFetch is declared in the assessPrompt section above and hoists
+  // to the top of this IIFE, so it is in scope here.
+  const PLAN = { title: "Bakery Site", summary: "A landing page for a bakery.", features: ["Menu", "Hours", "Contact"] };
+
+  await check("the same plan request twice -> ONE Gemini call, the second is free", async () => {
+    const f = countingFetch(PLAN);
+    client.init({ enabled: true, routes: ROUTES, fetchImpl: f.impl });
+    const first = await buildPlan("a landing page for a bakery", "website");
+    const second = await buildPlan("a landing page for a bakery", "website");
+    assert.strictEqual(f.calls, 1, "expected the second plan to be served from cache, got " + f.calls + " calls");
+    assert.strictEqual(second.cached, true);
+    assert.strictEqual(second.costUsd, 0, "a cache hit must be billed at zero");
+    assert.deepStrictEqual(second.features, first.features);
+  });
+
+  await check("a different build type is a different plan — types must not share an entry", async () => {
+    const f = countingFetch(PLAN);
+    client.init({ enabled: true, routes: ROUTES, fetchImpl: f.impl });
+    await buildPlan("a landing page for a bakery", "website");
+    await buildPlan("a landing page for a bakery", "game");
+    assert.strictEqual(f.calls, 2, "website and game must not serve each other's plan");
+  });
+
+  await check("a plan the model could not produce is NOT cached — an outage must not be pinned for 24h", async () => {
+    let calls = 0;
+    client.init({ enabled: true, routes: ROUTES, fetchImpl: async () => { calls++; return { ok: false, status: 500, json: async () => ({}) }; } });
+    const down = await buildPlan("a landing page for a bakery", "website");
+    assert.strictEqual(down.generated, false, "expected the deterministic fallback plan");
+    client.init({ enabled: true, routes: ROUTES, fetchImpl: async () => { calls++; return (await jsonReplyFetch(PLAN)()); } });
+    const recovered = await buildPlan("a landing page for a bakery", "website");
+    assert.strictEqual(recovered.generated, true, "the fallback should not have been remembered as the answer");
+    assert.strictEqual(calls, 2);
+  });
+
+  await check("the same assessment twice -> ONE Gemini call", async () => {
+    const f = countingFetch({ clear: false, reply: "Hey! What should I build?" });
+    client.init({ enabled: true, routes: ROUTES, fetchImpl: f.impl });
+    const first = await assessPrompt("make it really nice please");
+    const second = await assessPrompt("make it really nice please");
+    assert.strictEqual(f.calls, 1, "expected the second assessment to be free, got " + f.calls + " calls");
+    assert.strictEqual(second.reply, first.reply);
+    assert.strictEqual(second.costUsd, 0);
+  });
+
+  await check("a failed assessment is NOT cached — it fails open, and open is not an answer", async () => {
+    let calls = 0;
+    client.init({ enabled: true, routes: ROUTES, fetchImpl: async () => { calls++; return { ok: false, status: 500, json: async () => ({}) }; } });
+    const down = await assessPrompt("make it really nice please");
+    assert.strictEqual(down.clear, true, "a failed assessment fails open");
+    client.init({ enabled: true, routes: ROUTES, fetchImpl: async () => { calls++; return (await jsonReplyFetch({ clear: false, reply: "What should I build?" })()); } });
+    const recovered = await assessPrompt("make it really nice please");
+    assert.strictEqual(recovered.clear, false, "the fail-open shrug should not have been cached as the verdict");
+    assert.strictEqual(calls, 2);
+  });
+
+  await check("plan, assessment and design never collide on the same prompt", () => {
+    const p = "a landing page for a bakery";
+    const keys = new Set([
+      cacheKey(p, { kind: "plan" }),
+      cacheKey(p, { kind: "assess" }),
+      cacheKey(p, {})           // design — the default kind
+    ]);
+    assert.strictEqual(keys.size, 3, "three different questions about one prompt need three entries");
+  });
+
+  await check("editing a system prompt invalidates its entries without a manual version bump", () => {
+    const p = "a landing page for a bakery";
+    const before = cacheKey(p, { kind: "plan", promptHash: "aaaaaaaaaaaa" });
+    const after = cacheKey(p, { kind: "plan", promptHash: "bbbbbbbbbbbb" });
+    assert.notStrictEqual(before, after, "a changed prompt fingerprint must change the key");
+  });
+
+  await check("stats report what the cache actually saved", async () => {
+    const f = countingFetch(PLAN);
+    client.init({ enabled: true, routes: ROUTES, fetchImpl: f.impl });
+    await buildPlan("a landing page for a bakery", "website");
+    await buildPlan("a landing page for a bakery", "website");
+    await buildPlan("a landing page for a bakery", "website");
+    const s = cacheStatsSnapshot();
+    assert.strictEqual(s.hits, 2, "two of the three calls should have been hits");
+    assert.strictEqual(s.misses, 1);
+    assert.ok(s.savedUsd > 0, "a hit on a call that cost money should register a saving");
+    assert.ok(s.hitRate > 0.6 && s.hitRate <= 1);
+  });
+
+  await check("the cache is bounded — it cannot grow without limit", async () => {
+    client.init({ enabled: true, routes: ROUTES, fetchImpl: jsonReplyFetch(PLAN) });
+    // One more distinct prompt than the cache can hold.
+    for (let i = 0; i < 520; i++) await buildPlan("bakery site variant " + i, "website");
+    const s = cacheStatsSnapshot();
+    assert.ok(s.entries <= s.maxEntries, "entries (" + s.entries + ") must not exceed the cap (" + s.maxEntries + ")");
+    assert.ok(s.evictions > 0, "expected the oldest entries to have been evicted");
+  });
+
+  await check("eviction is LRU, not FIFO — a prompt that keeps being asked for survives", async () => {
+    client.init({ enabled: true, routes: ROUTES, fetchImpl: jsonReplyFetch(PLAN) });
+    const hot = "the one everybody asks for";
+    await buildPlan(hot, "website");
+    for (let i = 0; i < 400; i++) {
+      await buildPlan("filler " + i, "website");
+      if (i % 50 === 0) await buildPlan(hot, "website"); // keep touching it
+    }
+    for (let i = 400; i < 520; i++) await buildPlan("filler " + i, "website");
+    const before = cacheStatsSnapshot().hits;
+    await buildPlan(hot, "website");
+    assert.strictEqual(cacheStatsSnapshot().hits, before + 1, "a repeatedly-used entry should have survived eviction");
   });
 
   console.log("\n" + (failed === 0 ? "✓ ALL MODEL-LOOP TESTS PASSED (" + passed + ")" : "✗ " + failed + " FAILED, " + passed + " passed"));

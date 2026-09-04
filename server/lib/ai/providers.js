@@ -61,7 +61,11 @@ const PROVIDERS = [
     kind: "openai",
     byok: true,
     baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai",
-    defaultModel: "gemini-2.0-flash",
+    // Was gemini-2.0-flash, which Google has since retired — a BYOK user
+    // picking the default would have got a 404 naming a model they never
+    // chose. Flash (not Flash-Lite) on purpose: this route exists for
+    // multilingual quality, which is the first thing the Lite tiers give up.
+    defaultModel: "gemini-3.8-flash",
     keyPattern: /^[A-Za-z0-9_\-]{30,}$/,
     keyPlaceholder: "AIza..."
   },

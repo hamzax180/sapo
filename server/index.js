@@ -38,6 +38,7 @@ const { rateLimit } = require("./middleware/rateLimit");
 const { encryptSecret, decryptSecret } = require("./lib/crypto");
 const aiProviders = require("./lib/ai/providers");
 const scaffoldFiles = require("./lib/codeagent/scaffold-files");
+const secretscan = require("./lib/secretscan");
 const stripeLib = require("./lib/stripe");
 const mcpClient = require("./lib/codeagent/mcp");
 const requestLog = require("./middleware/requestLog");
@@ -114,7 +115,7 @@ app.use(express.static(path.join(__dirname, "..", "public")));
 
    On Vercel there is no listen() to gate on. ensureDb() was started and
    not awaited, so every request landing on a COLD instance saw null and
-   answered 503 "Master DB not available" â€” while warm instances served
+   answered 503 "Master DB not available" — while warm instances served
    the same route perfectly. That is why signup failed consistently and
    /api/account/me looked fine: signup is rare enough to always land cold.
 
@@ -122,7 +123,7 @@ app.use(express.static(path.join(__dirname, "..", "public")));
    and is the difference between working and not on the first request to
    a new instance. Failures still fall through: ensureDb() swallows its
    own error and clears the cached promise, so the route below still gets
-   null and still answers 503 â€” this removes the race, not the error
+   null and still answers 503 — this removes the race, not the error
    path. Static assets are served above this line and never wait. */
 app.use(async (req, res, next) => {
   try { await ensureDb(); } catch (e) { /* route-level null check reports it */ }
@@ -220,6 +221,11 @@ app.get("/projects", (req, res) => res.sendFile(path.join(__dirname, "..", "publ
 app.get("/deployments", (req, res) => res.sendFile(path.join(__dirname, "..", "public", "deployments.html")));
 app.get("/checkout", (req, res) => res.sendFile(path.join(__dirname, "..", "public", "checkout.html")));
 app.get("/mobile", (req, res) => res.sendFile(path.join(__dirname, "..", "public", "mobile.html")));
+// Where Stripe Checkout returns a shopper. Souqi-hosted rather than bouncing
+// back to a URL the app supplied: a client-named redirect target is an open
+// redirect, and this one is reachable by anyone who can open a generated app.
+app.get("/pay/success", (req, res) => res.sendFile(path.join(__dirname, "..", "public", "pay-success.html")));
+app.get("/pay/cancelled", (req, res) => res.sendFile(path.join(__dirname, "..", "public", "pay-cancelled.html")));
 app.get("/admin", (req, res) => res.sendFile(path.join(__dirname, "..", "public", "admin.html")));
 app.get("/portal/:wsId", (req, res) => res.sendFile(path.join(__dirname, "..", "public", "portal.html")));
 
@@ -953,6 +959,17 @@ app.post("/auth/login", loginLimiter, validateBody(loginSchema), async (req, res
       httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production",
       maxAge: 12 * 3600 * 1000, path: "/"
     });
+
+    /* Anything built before signing in belongs to a cookie, not a person.
+       Attach it to the account now, or it disappears the next time that
+       cookie rotates — a different browser, cleared site data, a new
+       device — with no way back to it.
+
+       Never fatal: a failed claim must not stop someone signing in. */
+    try {
+      const moved = await projects.claimAnon(anon.anonIdOf(req), session.id);
+      if (moved.claimed) console.log("[auth] claimed " + moved.claimed + " project(s) for " + session.id);
+    } catch (e) { console.warn("[auth] claim skipped:", e.message); }
     res.json({ token, user: session });
   } catch (e) {
     console.error("login error:", e.message);
@@ -1030,6 +1047,17 @@ app.post("/auth/signup", loginLimiter, verifyCaptcha(), validateBody(signupSchem
       httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production",
       maxAge: 12 * 3600 * 1000, path: "/"
     });
+
+    /* Anything built before signing in belongs to a cookie, not a person.
+       Attach it to the account now, or it disappears the next time that
+       cookie rotates — a different browser, cleared site data, a new
+       device — with no way back to it.
+
+       Never fatal: a failed claim must not stop someone signing in. */
+    try {
+      const moved = await projects.claimAnon(anon.anonIdOf(req), session.id);
+      if (moved.claimed) console.log("[auth] claimed " + moved.claimed + " project(s) for " + session.id);
+    } catch (e) { console.warn("[auth] claim skipped:", e.message); }
     res.json({ ok: true, wsId: wsId, token: token, user: session });
   } catch (e) {
     console.error("signup error:", e.message);
@@ -2557,6 +2585,333 @@ app.delete("/api/account/ai-keys/:provider", async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
+/* =================================================================
+   STRIPE CONNECT — payments inside a generated app
+   -----------------------------------------------------------------
+   The owner connects THEIR Stripe account; charges are created on it
+   directly and the money is theirs. Souqi stores an account id, never
+   a secret key. See lib/stripe.js for why that distinction is the
+   whole design.
+
+   Three surfaces, with deliberately different auth:
+     • /api/integrations/stripe/*  — the OWNER, signed in. Connect,
+       check status, disconnect.
+     • /api/apps/:projectId/checkout — PUBLIC. A shopper in a
+       generated app has no Souqi session and never will. This is the
+       endpoint that must not be abusable; see its own note.
+     • /api/stripe/webhook — STRIPE, authenticated by signature over
+       the raw body, not by session.
+   ================================================================= */
+
+/** Signed, short-lived, session-bound OAuth state — the CSRF guard.
+ *
+ *  Without this an attacker can hand a victim a callback URL carrying the
+ *  ATTACKER's authorization code. The victim's browser completes the flow and
+ *  the attacker's Stripe account gets attached to the victim's project —
+ *  quietly redirecting that project's revenue. The state is an HMAC over the
+ *  user id, so a code that comes back with someone else's state is rejected.
+ */
+function signStripeState(userId) {
+  const nonce = crypto.randomBytes(12).toString("hex");
+  const exp = Date.now() + 10 * 60 * 1000;
+  const payload = userId + "." + nonce + "." + exp;
+  const sig = crypto.createHmac("sha256", JWT_SECRET).update(payload).digest("hex").slice(0, 32);
+  return Buffer.from(payload + "." + sig, "utf8").toString("base64url");
+}
+function verifyStripeState(state, userId) {
+  try {
+    const raw = Buffer.from(String(state || ""), "base64url").toString("utf8");
+    const parts = raw.split(".");
+    if (parts.length !== 4) return false;
+    const [uid, nonce, exp, sig] = parts;
+    if (uid !== userId) return false;
+    if (!(Number(exp) > Date.now())) return false;
+    const expected = crypto.createHmac("sha256", JWT_SECRET).update(uid + "." + nonce + "." + exp).digest("hex").slice(0, 32);
+    const a = Buffer.from(sig, "utf8"), b = Buffer.from(expected, "utf8");
+    return a.length === b.length && crypto.timingSafeEqual(a, b);
+  } catch (e) { return false; }
+}
+
+function stripeRedirectUri(req) {
+  const base = (process.env.PUBLIC_BASE_URL || "").replace(/\/$/, "")
+    || (req.protocol + "://" + req.get("host"));
+  return base + "/api/integrations/stripe/callback";
+}
+
+/** Is this account connected, and to what. Never returns anything secret. */
+app.get("/api/integrations/stripe", async (req, res, next) => {
+  try {
+    const sessionUser = await codeAgentSessionUserVerified(req);
+    if (!sessionUser) return res.status(401).json({ error: "not signed in" });
+    if (!stripeLib.isConfigured()) {
+      return res.json({ configured: false, connected: false, reason: "Stripe is not configured on this server" });
+    }
+    const ws = await resolveWsContext(sessionUser.wsId);
+    const user = await dbAdapter.findOne(ws, "users", { id: sessionUser.id });
+    const acct = (user && user.stripeAccount) || null;
+    res.json({
+      configured: true,
+      connected: !!(acct && acct.accountId),
+      accountId: acct ? acct.accountId : null,
+      livemode: acct ? !!acct.livemode : stripeLib.livemode(),
+      connectedAt: acct ? acct.connectedAt : null
+    });
+  } catch (e) { next(e); }
+});
+
+/** Start the OAuth handshake. */
+app.get("/api/integrations/stripe/connect", async (req, res, next) => {
+  try {
+    const sessionUser = await codeAgentSessionUserVerified(req);
+    if (!sessionUser) return res.status(401).json({ error: "not signed in" });
+    if (!stripeLib.isConfigured()) {
+      return res.status(503).json({ error: "Stripe is not configured on this server (STRIPE_CLIENT_ID / STRIPE_SECRET_KEY)" });
+    }
+    const url = stripeLib.authorizeUrl(signStripeState(sessionUser.id), stripeRedirectUri(req));
+    res.redirect(url);
+  } catch (e) { next(e); }
+});
+
+/** Finish it: swap the code for an account id and remember only that. */
+app.get("/api/integrations/stripe/callback", async (req, res, next) => {
+  try {
+    const sessionUser = await codeAgentSessionUserVerified(req);
+    if (!sessionUser) return res.status(401).send("Sign in to Souqi, then connect Stripe again.");
+
+    if (req.query.error) {
+      return res.redirect("/settings#integrations?stripe=" + encodeURIComponent(String(req.query.error_description || req.query.error).slice(0, 120)));
+    }
+    if (!verifyStripeState(req.query.state, sessionUser.id)) {
+      return res.status(400).send("That Stripe connection link was not valid or has expired. Start again from Settings.");
+    }
+
+    const out = await stripeLib.exchangeCode(req.query.code);
+    if (!out.ok) {
+      return res.redirect("/settings#integrations?stripe=" + encodeURIComponent(String(out.reason).slice(0, 120)));
+    }
+
+    const ws = await resolveWsContext(sessionUser.wsId);
+    await dbAdapter.updateOne(ws, "users", sessionUser.id, {
+      stripeAccount: { accountId: out.accountId, livemode: !!out.livemode, connectedAt: new Date().toISOString() }
+    });
+
+    try {
+      const masterDbForAudit = getMasterDb();
+      if (masterDbForAudit) {
+        await writeMasterAudit(masterDbForAudit, {
+          requestId: req.id, actor: sessionUser.id, action: "account.stripe.connect",
+          entityId: sessionUser.id, summary: "Connected a Stripe account",
+          meta: { accountId: out.accountId, livemode: !!out.livemode }
+        });
+      }
+    } catch (e) { /* audit must never fail the write it describes */ }
+
+    res.redirect("/settings#integrations?stripe=connected");
+  } catch (e) { next(e); }
+});
+
+/** Disconnect. */
+app.delete("/api/integrations/stripe", async (req, res, next) => {
+  try {
+    const sessionUser = await codeAgentSessionUserVerified(req);
+    if (!sessionUser) return res.status(401).json({ error: "not signed in" });
+    const ws = await resolveWsContext(sessionUser.wsId);
+    const user = await dbAdapter.findOne(ws, "users", { id: sessionUser.id });
+    const acct = (user && user.stripeAccount) || null;
+
+    // Revoke at Stripe if we can, but forget locally regardless. If Stripe is
+    // down (or the grant is already gone), refusing to disconnect would leave
+    // the owner stuck connected to an account they are trying to remove.
+    if (acct && acct.accountId && stripeLib.isConfigured()) {
+      try { await stripeLib.deauthorize(acct.accountId); } catch (e) { /* best effort */ }
+    }
+    await dbAdapter.updateOne(ws, "users", sessionUser.id, { stripeAccount: null });
+
+    try {
+      const masterDbForAudit = getMasterDb();
+      if (masterDbForAudit) {
+        await writeMasterAudit(masterDbForAudit, {
+          requestId: req.id, actor: sessionUser.id, action: "account.stripe.disconnect",
+          entityId: sessionUser.id, summary: "Disconnected the Stripe account", meta: {}
+        });
+      }
+    } catch (e) { /* ignore */ }
+
+    res.json({ ok: true });
+  } catch (e) { next(e); }
+});
+
+/* ---------- the item catalogue a generated app can charge for ---------- */
+
+const MAX_PAYMENT_ITEMS = 50;
+
+/** Normalize and validate one item. Money is integer minor units, always. */
+function normalizePaymentItem(raw) {
+  const name = String((raw && raw.name) || "").trim().slice(0, 250);
+  if (!name) return { ok: false, reason: "each item needs a name" };
+  // Minor units (cents) as an integer. Floats are how you end up charging
+  // 1000.0000000001 and how rounding disagreements become refund tickets.
+  const amountMinor = Number(raw && raw.amountMinor);
+  if (!Number.isInteger(amountMinor) || amountMinor < 0) {
+    return { ok: false, reason: "amountMinor must be a whole number of cents" };
+  }
+  if (amountMinor > 99999999) return { ok: false, reason: "that amount is too large" };
+  const currency = String((raw && raw.currency) || "usd").toLowerCase();
+  if (!/^[a-z]{3}$/.test(currency)) return { ok: false, reason: "currency must be a 3-letter code" };
+  const id = String((raw && raw.id) || "").trim().slice(0, 60) || ("item_" + crypto.randomBytes(6).toString("hex"));
+  if (!/^[A-Za-z0-9_\-]+$/.test(id)) return { ok: false, reason: "item ids may use letters, digits, _ and - only" };
+  return { ok: true, item: { id: id, name: name, amountMinor: amountMinor, currency: currency } };
+}
+
+/** Replace the catalogue for one project. Owner only. */
+app.put("/api/apps/:projectId/payment-items", jsonDefault, async (req, res, next) => {
+  try {
+    const sessionUser = await codeAgentSessionUserVerified(req);
+    if (!sessionUser) return res.status(401).json({ error: "not signed in" });
+    const project = await projects.get(String(req.params.projectId || ""));
+    if (!project) return res.status(404).json({ error: "no such app" });
+    if (project.ownerUserId !== sessionUser.id) return res.status(403).json({ error: "not your app" });
+
+    const raw = (req.body && req.body.items);
+    if (!Array.isArray(raw)) return res.status(400).json({ error: "items must be an array" });
+    if (raw.length > MAX_PAYMENT_ITEMS) return res.status(400).json({ error: "at most " + MAX_PAYMENT_ITEMS + " items" });
+
+    const items = [];
+    const seen = new Set();
+    for (const r of raw) {
+      const norm = normalizePaymentItem(r);
+      if (!norm.ok) return res.status(400).json({ error: norm.reason });
+      if (seen.has(norm.item.id)) return res.status(400).json({ error: "duplicate item id: " + norm.item.id });
+      seen.add(norm.item.id);
+      items.push(norm.item);
+    }
+    await projects.patch(project.id, { payments: { items: items, updatedAt: new Date().toISOString() } });
+    res.json({ ok: true, items: items });
+  } catch (e) { next(e); }
+});
+
+/** What this app sells. Public: a shop's prices are not a secret. */
+app.get("/api/apps/:projectId/payment-items", async (req, res, next) => {
+  try {
+    const project = await projects.get(String(req.params.projectId || ""));
+    if (!project) return res.status(404).json({ error: "no such app" });
+    const items = (project.payments && project.payments.items) || [];
+    res.json({ items: items, acceptsPayments: !!(await ownerStripeAccount(project)) });
+  } catch (e) { next(e); }
+});
+
+/** The connected account behind a project's owner, or null. */
+async function ownerStripeAccount(project) {
+  if (!project || !project.ownerUserId) return null;
+  try {
+    const ws = await resolveWsContext(project.wsId || null);
+    const user = await dbAdapter.findOne(ws, "users", { id: project.ownerUserId });
+    const acct = user && user.stripeAccount;
+    return acct && acct.accountId ? acct : null;
+  } catch (e) { return null; }
+}
+
+// A generated app is public, so this endpoint is public, so it is the one an
+// attacker actually reaches. Tight limit, per IP and per app.
+const checkoutLimiter = rateLimit({
+  windowMs: 60 * 1000, max: 20,
+  key: (req) => (req.ip || "") + ":" + (req.params.projectId || "")
+});
+
+/**
+ * Start a payment from inside a generated app.
+ *
+ * PUBLIC on purpose — a shopper has no Souqi account. Which is exactly why the
+ * request names an ITEM, never a price: the amount is read from the owner's
+ * server-side catalogue. A body that could carry `amount` would turn this into
+ * a free card-testing oracle pointed at a stranger's Stripe account, and the
+ * account that gets shut down for it is the OWNER's.
+ */
+app.post("/api/apps/:projectId/checkout", checkoutLimiter, jsonDefault, async (req, res, next) => {
+  try {
+    if (!stripeLib.isConfigured()) return res.status(503).json({ error: "payments are not configured on this server" });
+
+    const project = await projects.get(String(req.params.projectId || ""));
+    if (!project) return res.status(404).json({ error: "no such app" });
+
+    const acct = await ownerStripeAccount(project);
+    if (!acct) return res.status(409).json({ error: "this app's owner has not connected a Stripe account yet" });
+
+    const catalogue = (project.payments && project.payments.items) || [];
+    if (!catalogue.length) return res.status(409).json({ error: "this app has nothing for sale yet" });
+
+    const requested = Array.isArray(req.body && req.body.items) ? req.body.items : [];
+    if (!requested.length) return res.status(400).json({ error: "items is required" });
+    if (requested.length > 20) return res.status(400).json({ error: "too many line items" });
+
+    const resolved = [];
+    for (const r of requested) {
+      const found = catalogue.find((c) => c.id === String((r && r.itemId) || ""));
+      if (!found) return res.status(400).json({ error: "unknown item: " + String((r && r.itemId) || "") });
+      const qty = Number(r && r.quantity);
+      const quantity = Number.isInteger(qty) && qty > 0 ? Math.min(qty, 100) : 1;
+      // Price comes from `found`, the server's copy — never from `r`.
+      resolved.push({ name: found.name, amountMinor: found.amountMinor, currency: found.currency, quantity: quantity });
+    }
+
+    const origin = (process.env.PUBLIC_BASE_URL || "").replace(/\/$/, "") || (req.protocol + "://" + req.get("host"));
+    const out = await stripeLib.createCheckoutSession({
+      account: acct.accountId,
+      items: resolved,
+      successUrl: origin + "/pay/success?session_id={CHECKOUT_SESSION_ID}",
+      cancelUrl: origin + "/pay/cancelled",
+      // Stripe replays an idempotency key's first response, so a shopper
+      // double-clicking Buy gets one session, not two.
+      idempotencyKey: req.get("Idempotency-Key") || undefined,
+      metadata: { souqiProjectId: project.id }
+    });
+    if (!out.ok) return res.status(502).json({ error: out.reason });
+
+    res.json({ ok: true, url: out.url, sessionId: out.id });
+  } catch (e) { next(e); }
+});
+
+/**
+ * Stripe's callback. Authenticated by signature over the RAW body — hence
+ * express.raw here rather than the JSON parser every other route uses; a
+ * re-serialized body has different bytes and would never verify.
+ */
+app.post("/api/stripe/webhook", express.raw({ type: "application/json", limit: "1mb" }), async (req, res) => {
+  const verified = stripeLib.verifyWebhook(req.body, req.get("Stripe-Signature"));
+  if (!verified.ok) {
+    // 400 tells Stripe to retry; that is right for a transient problem and
+    // harmless for a forged one, which will simply keep failing.
+    return res.status(400).json({ error: verified.reason });
+  }
+  const event = verified.event;
+  try {
+    if (event.type === "checkout.session.completed") {
+      const session = event.data && event.data.object;
+      const projectId = session && session.metadata && session.metadata.souqiProjectId;
+      if (projectId) {
+        const masterDbForAudit = getMasterDb();
+        if (masterDbForAudit) {
+          await writeMasterAudit(masterDbForAudit, {
+            requestId: req.id, actor: "stripe", action: "app.payment.completed",
+            entityId: projectId,
+            summary: "A payment completed in a generated app",
+            // Never the customer's details — only what the owner needs to
+            // reconcile against their own Stripe dashboard.
+            meta: {
+              projectId: projectId, sessionId: session.id,
+              amountTotal: session.amount_total, currency: session.currency
+            }
+          });
+        }
+      }
+    }
+  } catch (e) {
+    // Acknowledged below regardless: Stripe retries on a non-2xx, and our own
+    // bookkeeping failing is not a reason to make Stripe redeliver forever.
+  }
+  res.json({ received: true });
+});
+
 /** Raw stored map, still encrypted. Callers decrypt only what they need. */
 async function readAiKeys(sessionUser) {
   const ws = await resolveWsContext(sessionUser.wsId);
@@ -2690,6 +3045,17 @@ app.post("/api/codeagent/:key/micro-claim", microClaimLimiter, verifyCaptcha(), 
       httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production",
       maxAge: 12 * 3600 * 1000, path: "/"
     });
+
+    /* Anything built before signing in belongs to a cookie, not a person.
+       Attach it to the account now, or it disappears the next time that
+       cookie rotates — a different browser, cleared site data, a new
+       device — with no way back to it.
+
+       Never fatal: a failed claim must not stop someone signing in. */
+    try {
+      const moved = await projects.claimAnon(anon.anonIdOf(req), session.id);
+      if (moved.claimed) console.log("[auth] claimed " + moved.claimed + " project(s) for " + session.id);
+    } catch (e) { console.warn("[auth] claim skipped:", e.message); }
     res.json({ ok: true, wsId: wsId, token: token, user: session });
   } catch (e) {
     if (e.status) return res.status(e.status).json({ error: e.message });
@@ -3472,6 +3838,29 @@ app.post("/api/deploy/:key/deploy", deployLimiter, async (req, res, next) => {
     // over it, which is the same precedence used here.
     const source = scaffoldFiles.withScaffold(files);
 
+    /* Nothing leaves for the deploy plane before this.
+       A deployed app is built and served on a public hostname, so anything
+       committed into it is published — and the most likely way that happens
+       is the model helpfully inlining a key the user pasted into chat.
+       Blocking here rather than after the upload means the credential never
+       reaches the plane's object storage, where it would survive the delete
+       that the user would reasonably assume undid it.
+
+       It scans `source`, not `files`: the scaffold is what actually ships
+       alongside them, and "we scan what we upload" is the only claim worth
+       making. secretscan-test.js asserts the scaffold is clean, because a
+       rule firing on it would block every deploy on the platform at once. */
+    const scanned = secretscan.scan(source);
+    if (scanned.blocked) {
+      return res.status(422).json({
+        error: "this app has a credential in its source, so it was not deployed — " +
+          secretscan.summarize(scanned),
+        // Masked in the scanner. This body is rendered in a browser and ends
+        // up in logs, so it must not carry the secret it is reporting.
+        issues: scanned.findings.filter((f) => f.severity === "high").slice(0, 10)
+      });
+    }
+
     let deployProjectId = project.deployProjectId;
     if (!deployProjectId) {
       const created = await deployplane.createProject(cookie, project.title || project.slug || "souqi-app");
@@ -3481,16 +3870,28 @@ app.post("/api/deploy/:key/deploy", deployLimiter, async (req, res, next) => {
       await projects.patch(project.id, { deployProjectId: deployProjectId });
     }
 
-    const dep = await deployplane.createDeployment(cookie, deployProjectId);
+    // The name the user chose in Configure, if they got that far. The plane
+    // falls back to app-<id> when this is absent, so a project that skipped
+    // Configure deploys exactly as it did before.
+    //
+    // Only sent on the FIRST deployment: a hostname is allocated at create
+    // and reused by every redeploy, so renaming a live app is a different
+    // operation than this one and does not belong here.
+    const wantedName = (project.deployConfig && project.deployConfig.subdomain) || null;
+    const dep = await deployplane.createDeployment(cookie, deployProjectId, wantedName);
     if (!dep.ok) return planeError(res, dep);
     const deploymentId = dep.body && dep.body.deploymentId;
 
-    const up = await deployplane.uploadSource(cookie, deploymentId, files);
+    const up = await deployplane.uploadSource(cookie, deploymentId, source);
     if (!up.ok) return planeError(res, up);
 
     // Remember the current deployment so the dashboard and a page
     // reload can both find it without searching.
-    await projects.patch(project.id, { deploymentId: deploymentId });
+    /* And it stops expiring. A live container outlives the 30-day TTL, so
+       leaving it set means the project record vanishes while the app is
+       still serving traffic — source, logs and the only way to redeploy
+       it, gone, with the site still up. */
+    await projects.patch(project.id, { deploymentId: deploymentId, expiresAt: null });
 
     res.status(202).json({
       ok: true, deploymentId: deploymentId, status: "QUEUED",
@@ -3501,7 +3902,142 @@ app.post("/api/deploy/:key/deploy", deployLimiter, async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
-/** GET /api/deploy/:key/status — what the dashboard polls. */
+/**
+ * GET /api/deploy/name-available?name=my-shop
+ *
+ * Live check while the Configure field is being typed. Advisory: the plane's
+ * partial unique index on deployments(domain) is what actually decides, since
+ * a name can be taken between this answer and the deploy.
+ *
+ * Declared BEFORE /api/deploy/:key/... — Express matches in order, and
+ * "name-available" would otherwise be read as a project key.
+ */
+app.get("/api/deploy/name-available", async (req, res, next) => {
+  try {
+    if (!deployplane.isConfigured()) {
+      return res.status(503).json({ error: "deployments are not available in this environment" });
+    }
+    const r = await deployplane.nameAvailable(cookieOf(req), String(req.query.name || ""));
+    if (!r.ok) return planeError(res, r);
+    res.json(r.body);
+  } catch (e) { next(e); }
+});
+
+/**
+ * PUT /api/deploy/:key/config   { subdomain?, dbMode?, dbUrl? }
+ *
+ * The choices made in Configure BEFORE anything exists on the deploy plane.
+ *
+ * They have to live here rather than there: the plane keys env and database
+ * off deployProjectId and deployments off deploymentId, and neither id exists
+ * until the first deploy — which is exactly the moment these choices need to
+ * be known. So they are held on the project document and applied during the
+ * deploy call, which creates the plane project first and therefore has the
+ * ids by the time they are needed.
+ */
+app.put("/api/deploy/:key/config", async (req, res, next) => {
+  try {
+    const project = await ownedProjectOr404(req, res); if (!project) return;
+    const body = req.body || {};
+    const cfg = Object.assign({}, project.deployConfig || {});
+
+    if (body.subdomain !== undefined) {
+      const raw = String(body.subdomain || "").trim().toLowerCase();
+      if (!raw) {
+        cfg.subdomain = null;                       // back to a generated name
+      } else {
+        // Shape is checked again on the plane, which owns the reserved list and
+        // the uniqueness index. This is the early, friendly copy of that answer.
+        if (!/^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/.test(raw) || raw.length < 3) {
+          return res.status(400).json({ error: "use 3-63 lowercase letters, numbers or hyphens" });
+        }
+        if (project.deploymentId) {
+          return res.status(409).json({
+            error: "this app already has an address — a name can only be chosen before the first deploy"
+          });
+        }
+        cfg.subdomain = raw;
+      }
+    }
+
+    // Accepted and stored, but still read by nothing. External databases do
+    // work now — the deploy plane gives each one a one-target forwarder — but
+    // the mode that matters is the one on project_databases, set with a
+    // connection string through the Database panel. This stays here for the
+    // pre-deploy flow that would set both at once, and Configure deliberately
+    // does not render it as a choice until then.
+    if (body.dbMode !== undefined) {
+      if (body.dbMode !== "builtin" && body.dbMode !== "external") {
+        return res.status(400).json({ error: "dbMode must be builtin or external" });
+      }
+      cfg.dbMode = body.dbMode;
+    }
+
+    await projects.patch(project.id, { deployConfig: cfg });
+    res.json({ ok: true, config: { subdomain: cfg.subdomain || null, dbMode: cfg.dbMode || "builtin" } });
+  } catch (e) { next(e); }
+});
+
+/**
+ * GET /api/deploy/:key/config — what Configure renders from.
+ *
+ * `locked` says the address can no longer change, which is true the moment a
+ * deployment exists. The UI needs that to decide between an editable field and
+ * a fact, and answering it here keeps that rule in one place.
+ */
+app.get("/api/deploy/:key/config", async (req, res, next) => {
+  try {
+    const project = await ownedProjectOr404(req, res); if (!project) return;
+    const cfg = project.deployConfig || {};
+    res.json({
+      subdomain: cfg.subdomain || null,
+      dbMode: cfg.dbMode || "builtin",
+      locked: !!project.deploymentId,
+      suggestion: projects.slugify(project.title || "my-app").slice(0, 40) || "my-app",
+      appDomain: process.env.DEPLOY_APP_DOMAIN || "souqi.site"
+    });
+  } catch (e) { next(e); }
+});
+
+/**
+ * Custom domains. All three need a deployment to exist, because the DNS
+ * record we ask the customer to create points at the app's generated
+ * hostname — which is allocated at create and does not exist before it.
+ */
+app.put("/api/deploy/:key/domain", async (req, res, next) => {
+  try {
+    const project = await ownedProjectOr404(req, res); if (!project) return;
+    if (!project.deploymentId) {
+      return res.status(409).json({ error: "deploy the app once first, so there is an address to point at" });
+    }
+    const r = await deployplane.attachDomain(cookieOf(req), project.deploymentId,
+      String((req.body && req.body.domain) || ""));
+    if (!r.ok) return planeError(res, r);
+    res.json(r.body);
+  } catch (e) { next(e); }
+});
+
+app.post("/api/deploy/:key/domain/verify", async (req, res, next) => {
+  try {
+    const project = await ownedProjectOr404(req, res); if (!project) return;
+    if (!project.deploymentId) return res.status(409).json({ error: "no domain is attached" });
+    const r = await deployplane.verifyDomain(cookieOf(req), project.deploymentId);
+    if (!r.ok) return planeError(res, r);
+    res.json(r.body);
+  } catch (e) { next(e); }
+});
+
+app.delete("/api/deploy/:key/domain", async (req, res, next) => {
+  try {
+    const project = await ownedProjectOr404(req, res); if (!project) return;
+    if (!project.deploymentId) return res.json({ ok: true });
+    const r = await deployplane.detachDomain(cookieOf(req), project.deploymentId);
+    if (!r.ok) return planeError(res, r);
+    res.json(r.body);
+  } catch (e) { next(e); }
+});
+
+/** GET /api/deploy/:key/status - what the dashboard polls. */
 app.get("/api/deploy/:key/status", async (req, res, next) => {
   try {
     const project = await ownedProjectOr404(req, res); if (!project) return;
@@ -3554,7 +4090,21 @@ app.post("/api/deploy/:key/:action", deployLimiter, async (req, res, next) => {
       if (files && Object.keys(files).length && src.complete) {
         // Same merge as the first deploy — a redeploy shipping only the
         // model's half would fail detection in exactly the same way.
-        const up = await deployplane.uploadSource(cookieOf(req), project.deploymentId, scaffoldFiles.withScaffold(files));
+        const source = scaffoldFiles.withScaffold(files);
+
+        // And the same gate. A redeploy publishes exactly as hard as a first
+        // deploy; checking only the first one would leave the obvious way
+        // round it open.
+        const scanned = secretscan.scan(source);
+        if (scanned.blocked) {
+          return res.status(422).json({
+            error: "this app has a credential in its source, so it was not redeployed — " +
+              secretscan.summarize(scanned),
+            issues: scanned.findings.filter((f) => f.severity === "high").slice(0, 10)
+          });
+        }
+
+        const up = await deployplane.uploadSource(cookieOf(req), project.deploymentId, source);
         if (!up.ok) return planeError(res, up);
       }
     }
@@ -3933,6 +4483,24 @@ async function servePublishedSite(req, res, subPath, projectOverride) {
 
     res.setHeader("Content-Type", mimeForPath(key));
     res.setHeader("Cache-Control", "public, max-age=300");
+
+    // A published app needs to know which app it IS before it can ask what it
+    // sells or start a checkout. Injected at serve time rather than baked in
+    // at build time: the id then comes from the project actually being served,
+    // so it cannot drift, cannot be stale in a cached bundle, and needs no
+    // templating step in the scaffold. src/lib/payments.ts reads this.
+    if (key === "index.html") {
+      const html = Buffer.from(files[key], "base64").toString("utf8");
+      const origin = (process.env.PUBLIC_BASE_URL || "").replace(/\/$/, "") || (req.protocol + "://" + req.get("host"));
+      // JSON.stringify handles the escaping; the two values are a server-minted
+      // id and our own origin, never anything a visitor supplied.
+      const tag = "<script>window.__SOUQI_APP__=" +
+        JSON.stringify({ id: project.id, origin: origin }).replace(/</g, "\\u003c") +
+        ";</script>";
+      const idx = html.indexOf("</head>");
+      res.send(idx >= 0 ? html.slice(0, idx) + tag + html.slice(idx) : tag + html);
+      return;
+    }
     res.send(Buffer.from(files[key], "base64"));
   } catch (e) {
     console.error("published site serve error:", e.message);

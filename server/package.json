@@ -32,7 +32,9 @@
     "test:daytona-runtime": "node daytona-runtime-test.js",
     "test:ai-client": "node ai-client-test.js",
     "test:model-loop": "node model-loop-test.js",
-    "ci": "npm run check:schema && npm run check:nlu && npm run lint && npm test && npm run test:nlu && npm run test:agent && npm run test:claim && npm run test:project && npm run test:sse && npm run test:refine && npm run test:microclaim && npm run test:isolation && npm run smoke-test"
+    "ci": "npm run check:schema && npm run check:nlu && npm run lint && npm test && npm run test:nlu && npm run test:agent && npm run test:claim && npm run test:project && npm run test:sse && npm run test:refine && npm run test:microclaim && npm run test:isolation && npm run test:secrets && npm run test:stripe && npm run smoke-test",
+    "test:stripe": "node stripe-test.js",
+    "test:secrets": "node secretscan-test.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.122.0",

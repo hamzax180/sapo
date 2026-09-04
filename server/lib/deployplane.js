@@ -114,8 +114,19 @@ const capacity = (cookie) => call("GET", "/capacity", { cookie });
 
 const createProject = (cookie, name) => call("POST", "/projects", { cookie, body: { name: name } });
 
-const createDeployment = (cookie, deployProjectId) =>
-  call("POST", "/deployments", { cookie, body: { projectId: deployProjectId } });
+/* `subdomain` is optional. Omitted, the plane generates app-<id> exactly
+   as it always has, so an unconfigured project deploys unchanged. */
+const createDeployment = (cookie, deployProjectId, subdomain) =>
+  call("POST", "/deployments", {
+    cookie,
+    body: subdomain
+      ? { projectId: deployProjectId, subdomain: subdomain }
+      : { projectId: deployProjectId }
+  });
+
+/* Advisory only — the plane's unique index is what actually decides. */
+const nameAvailable = (cookie, name) =>
+  call("GET", "/name-available?name=" + encodeURIComponent(name || ""), { cookie });
 
 /* The source upload is the one big payload, so it gets a longer
    timeout than a status poll would ever need. */
@@ -143,6 +154,15 @@ function action(cookie, id, name) {
 }
 
 const destroy = (cookie, id) => call("DELETE", "/deployments/" + encodeURIComponent(id), { cookie });
+
+/* Custom domains. attach always lands unverified; verify is the only
+   thing that can flip that, and therefore the only thing that lets the
+   plane request a certificate for the name. */
+const domPath = (id) => "/deployments/" + encodeURIComponent(id) + "/domain";
+const attachDomain = (cookie, id, domain) =>
+  call("PUT", domPath(id), { cookie, body: { domain: domain } });
+const verifyDomain = (cookie, id) => call("POST", domPath(id) + "/verify", { cookie });
+const detachDomain = (cookie, id) => call("DELETE", domPath(id), { cookie });
 
 const getEnv = (cookie, deployProjectId) =>
   call("GET", "/projects/" + encodeURIComponent(deployProjectId) + "/env", { cookie });
@@ -194,7 +214,8 @@ const dropBuiltinDatabase = (cookie, deployProjectId) =>
 module.exports = {
   isConfigured, call, ACTIONS,
   health, capacity,
-  createProject, createDeployment, uploadSource,
+  createProject, createDeployment, uploadSource, nameAvailable,
+  attachDomain, verifyDomain, detachDomain,
   getDeployment, getStatus, getLogs, action, destroy,
   getEnv, putEnv, deleteEnvKey,
   getDatabase, setDatabase, measureDatabase, dropBuiltinDatabase, browseDatabase

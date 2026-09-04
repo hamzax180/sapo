@@ -66,6 +66,7 @@ module.exports = function securityHeaders(req, res, next) {
   res.setHeader("X-DNS-Prefetch-Control", "off");
   res.setHeader("Cross-Origin-Opener-Policy", "same-origin");
   res.setHeader("Cross-Origin-Embedder-Policy", "credentialless");
+  res.setHeader("Cross-Origin-Resource-Policy", "same-origin");
   if (!process.env.CSP_DISABLED) res.setHeader("Content-Security-Policy", CSP);
   if (isProd) res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains; preload");
   next();

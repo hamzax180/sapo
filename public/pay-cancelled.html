@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#faf7f2">
+<meta name="robots" content="noindex">
+<link rel="icon" type="image/png" href="assets/logo.png">
+<title>Payment cancelled — Souqi</title>
+<!-- Same theme bootstrap as every other page: the app follows an explicit
+     choice stored in localStorage and DEFAULTS TO LIGHT, deliberately
+     ignoring the OS setting. These two pages originally used
+     prefers-color-scheme, which made them the only ones in the app that
+     went dark on a dark-mode machine while everything around them stayed
+     light. Runs before first paint, so there is no flash. -->
+<script>
+(function(){var k="souqi-theme";try{var t=localStorage.getItem(k)||"light";document.documentElement.setAttribute("data-theme",t)}catch(e){}})();
+</script>
+<style>
+  :root{--bg:#faf7f2;--ink:#14171f;--mut:#5d6472;--line:#e6e1d8}
+  *{box-sizing:border-box}
+  body{margin:0;min-height:100vh;display:grid;place-items:center;padding:24px;
+    background:var(--bg);color:var(--ink);
+    font:15px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+  .card{background:#fff;border:1px solid var(--line);border-radius:16px;
+    padding:38px 32px;max-width:440px;width:100%;text-align:center;
+    box-shadow:0 1px 3px rgba(20,23,31,.05)}
+  .mark{width:54px;height:54px;border-radius:50%;background:rgba(93,100,114,.12);
+    color:var(--mut);display:grid;place-items:center;margin:0 auto 18px;font-size:1.5rem}
+  h1{font-size:1.35rem;margin:0 0 8px;letter-spacing:-.01em}
+  p{color:var(--mut);margin:0 0 22px}
+  /* color follows --bg, not a hardcoded #fff: the button background is
+     --ink, which inverts with the theme, so a fixed white label was
+     white-on-near-white and unreadable once dark was selected. */
+  a.btn{display:inline-block;text-decoration:none;background:var(--ink);color:var(--bg);
+    border-radius:10px;padding:11px 20px;font-weight:600;font-size:.92rem}
+  :root[data-theme="dark"]{--bg:#12141a;--ink:#f2f0ec;--mut:#9aa1af;--line:#272b34}
+  :root[data-theme="dark"] .card{background:#171a21}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="mark">←</div>
+  <h1>Payment cancelled</h1>
+  <p>Nothing was charged. You can head back and try again whenever you like.</p>
+  <a class="btn" href="/">Back</a>
+</div>
+</body>
+</html>

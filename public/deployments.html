@@ -145,9 +145,11 @@
      in the builder, so the account row stays pinned to the bottom. */
   .ag-hist-chats{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;padding:2px 0 4px}
   .ag-chats-ttl{font-size:.655rem;font-weight:450;color:var(--mut);padding:10px 10px 4px;flex:0 0 auto}
-  .ag-chats-list{flex:1 1 auto;min-height:0;overflow-y:auto;padding:0 var(--sb-pad) 4px;scrollbar-width:thin;display:flex;flex-direction:column;gap:2px}
-  .ag-chats-list::-webkit-scrollbar{width:6px}
-  .ag-chats-list::-webkit-scrollbar-thumb{background:rgba(128,128,128,.28);border-radius:8px}
+  .ag-chats-list{flex:1 1 auto;min-height:0;overflow-y:auto;padding:0 var(--sb-pad) 4px;scrollbar-width:thin;scrollbar-color:var(--line) transparent;display:flex;flex-direction:column;gap:2px}
+  .ag-chats-list::-webkit-scrollbar{width:6px;height:6px}
+  .ag-chats-list::-webkit-scrollbar-track{background:transparent}
+  .ag-chats-list::-webkit-scrollbar-thumb{background:var(--line);border-radius:99px}
+  .ag-chats-list::-webkit-scrollbar-thumb:hover{background:var(--mut)}
   .ag-chat-item{display:flex;align-items:center;gap:10px;width:100%;box-sizing:border-box;
     padding:7px 6px;border-radius:8px;color:var(--ink-2);text-decoration:none;font-size:.75rem;
     white-space:nowrap;overflow:hidden;transition:background .14s,color .14s;border:0;background:none;cursor:pointer;text-align:left;font-family:inherit}
@@ -625,6 +627,24 @@
 
   /* ---- database panel ---- */
   .dbnote{padding:12px 16px;font-size:.8rem;color:var(--mut);line-height:1.55;border-bottom:1px solid var(--line)}
+  /* ---- configure ---- */
+  .cfg-suffix{display:flex;align-items:center;padding:0 2px;color:var(--mut);font-size:.85rem;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;white-space:nowrap}
+  .cfg-hint{padding:0 16px 12px;font-size:.78rem}
+  .cfg-hint.ok{color:var(--ok)}
+  .cfg-hint.bad{color:var(--danger)}
+  .cfg-sec{display:flex;align-items:center;gap:10px;padding:13px 16px 3px;border-top:1px solid var(--line)}
+  .cfg-sec b{flex:1;font-size:.84rem}
+  .cfg-list{margin:0;padding:10px 16px 14px 34px;color:var(--mut);font-size:.8rem;line-height:1.8}
+  .cfg-nudge{color:var(--mut);font-size:.8rem}
+  .cfg-dns{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:0 16px 12px;font-size:.78rem;color:var(--mut)}
+  .cfg-dns code{background:var(--paper-2);border-radius:6px;padding:2px 7px;font-family:var(--mono);font-size:.78rem;color:var(--ink)}
+  .cfg-acts{display:flex;gap:8px;flex-wrap:wrap;padding:0 16px 14px}
+  .cfg-block{padding:13px 16px;border-bottom:1px solid var(--line);background:color-mix(in srgb, var(--danger) 7%, transparent)}
+  .cfg-block b{display:block;font-size:.85rem;color:var(--danger);margin-bottom:5px}
+  .cfg-block p{margin:0 0 8px;font-size:.8rem;color:var(--mut);line-height:1.55}
+  .cfg-block ul{margin:0;padding-left:18px;font-size:.8rem;line-height:1.85}
+  .cfg-block code{font-family:var(--mono);font-size:.78rem;color:var(--ink)}
+  .cfg-block span{color:var(--mut);font-family:var(--mono);font-size:.75rem}
   .dbnote:last-child{border-bottom:0}
   .dbnote code{font-family:var(--mono);font-size:.75rem;background:var(--paper-2);border:1px solid var(--line);
     border-radius:5px;padding:1px 5px;color:var(--ink)}
@@ -710,7 +730,14 @@
   .toast.on{opacity:1;transform:translate(-50%,0)}
 
   @media (max-width:640px){
-    .grid{grid-template-columns:1fr}
+    .grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+    .app{min-width:0;padding:10px 9px}
+    .app .top{gap:6px}
+    .app .tile{width:30px;height:30px;font-size:.9rem}
+    .app .nm b{font-size:.78rem}
+    .app .nm i{font-size:.66rem}
+    .app .foot{gap:4px;font-size:.66rem}
+    .app .foot .url{min-width:0}
     .step{width:64px}
     .step .lb{font-size:.68rem}
 
@@ -957,6 +984,27 @@
      a build finishing mid-sentence must not eat a URL being typed. */
   var dbInfo = null;
   var dbTab = null;
+
+  /* Configure state. cfgDraft mirrors the name field for the same reason
+     dbDraft exists: the 2s poll rewrites detailBody wholesale, so a value
+     living only in the DOM is eaten mid-typing. cfgCheck holds the last
+     availability answer so the hint survives a repaint too. */
+  var cfgInfo = null;      // GET /config, or null while loading
+  var cfgDraft = "";
+  var cfgCheck = null;     // {available, hostname, reason} | null
+  var cfgCheckT = null;    // debounce timer
+
+  /* Custom domain. The row itself arrives on the existing status poll as
+     detail.customDomain, so there is no separate loader — only the input
+     draft and the last message need holding across a repaint. */
+  var domDraft = "";
+  var domMsg = null;       // why the last attach/check did not succeed
+  var domBusy = false;
+
+  /* Findings from a deploy the secret scan refused. Held so the panel can
+     name the file and line: the toast only has room for the summary, and
+     "there is a credential somewhere in your app" is not actionable. */
+  var secIssues = null;
   var dbDraft = "";
 
   /* The data browser. dbTables is the list, dbTable the one being read,
@@ -1009,7 +1057,12 @@
         var d = null; try { d = txt ? JSON.parse(txt) : null; } catch (e) { }
         if (!r.ok) {
           var m = d && (typeof d.error === "string" ? d.error : (d.error && d.error.message));
-          throw new Error(m || ("request failed (" + r.status + ")"));
+          var err = new Error(m || ("request failed (" + r.status + ")"));
+          // Some refusals carry structure worth rendering — the secret scan
+          // returns the file and line, and a toast can only show a sentence.
+          err.data = d;
+          err.status = r.status;
+          throw err;
         }
         return d;
       });
@@ -1241,8 +1294,13 @@
     var c = d.container || {};
     var n = d.logs && d.logs.lines ? d.logs.lines.length : -1;
     var b = dbInfo || {};
+    var g = cfgInfo || {}, k = cfgCheck || {};
+    var cd = d.customDomain || {};
     return [d.status, d.url, d.error, c.state, c.restarts, c.exitCode, logPhase, n,
-      b.mode, b.configured, b.name, b.masked, b.sizeBytes, b.builtinKept, dbTab].join("|");
+      b.mode, b.configured, b.name, b.masked, b.sizeBytes, b.builtinKept, dbTab,
+      g.subdomain, g.locked, k.available, k.reason, cfgDraft,
+      cd.domain, cd.verified, domDraft, domMsg, domBusy,
+      secIssues ? secIssues.length : 0].join("|");
   }
 
   /* ---------------- database ---------------- */
@@ -1489,6 +1547,155 @@
     return out + "</div>";
   }
 
+  /* One-shot on open, like loadDatabase(). Never fatal: an app whose
+     config cannot be read is still deployable with generated defaults. */
+  function loadConfig() {
+    var key = openKey;
+    return api("GET", "/api/deploy/" + encodeURIComponent(key) + "/config")
+      .then(function (d) {
+        if (openKey !== key) return;                 // user moved on
+        cfgInfo = d || {};
+        if (!cfgDraft) cfgDraft = cfgInfo.subdomain || "";
+        renderDetail._sig = null;
+        renderDetail();
+      })
+      .catch(function () {
+        if (openKey !== key) return;
+        cfgInfo = { unavailable: true };
+        renderDetail._sig = null;
+        renderDetail();
+      });
+  }
+
+  /* Debounced availability check. Advisory only — the deploy plane's unique
+     index is the authority, and a name can be taken between this and Deploy. */
+  function checkName() {
+    clearTimeout(cfgCheckT);
+    var want = (cfgDraft || "").trim();
+    if (!want) { cfgCheck = null; renderDetail._sig = null; renderDetail(); return; }
+    cfgCheckT = setTimeout(function () {
+      var key = openKey, asked = want;
+      api("GET", "/api/deploy/name-available?name=" + encodeURIComponent(want))
+        .then(function (d) {
+          if (openKey !== key || (cfgDraft || "").trim() !== asked) return;  // stale
+          cfgCheck = d;
+          renderDetail._sig = null;
+          renderDetail();
+        })
+        .catch(function () { /* leave the previous hint rather than flapping */ });
+    }, 400);
+  }
+
+  /* The Configure panel.
+     Rendered OUTSIDE the `if (st)` block below, which is the whole point:
+     every other section here is inside it, so on a never-deployed app the
+     screen is a title and one button — exactly when there is most to decide. */
+  function cfgPanel(st) {
+    var g = cfgInfo;
+    if (g === null) return '<div class="panel"><div class="sk" style="height:120px"></div></div>';
+    if (g.unavailable) return "";
+
+    var appDomain = g.appDomain || "souqi.site";
+    var out = '<div class="panel"><div class="panel-h"><b>Configure</b></div>';
+
+    // Deliberately first: it is the reason the deploy did not happen.
+    if (secIssues && secIssues.length) {
+      out += '<div class="cfg-block"><b>Not deployed &mdash; a credential is in the source</b>' +
+        "<p>Anything committed into an app is published when it deploys. Move these " +
+        "into environment variables and deploy again.</p><ul>" +
+        secIssues.map(function (f) {
+          return "<li><code>" + esc(f.path) + "</code> line " + esc(f.line) +
+            " &mdash; " + esc(f.what) + " <span>" + esc(f.match) + "</span></li>";
+        }).join("") + "</ul></div>";
+    }
+
+    // ---- address ----
+    if (g.locked) {
+      // A hostname is allocated at create and reused by every redeploy, so
+      // once it exists this is a fact to show, not a field to edit.
+      out += '<div class="kv"><span class="k">address</span><span class="v">' +
+        esc(g.subdomain ? g.subdomain + "." + appDomain : "assigned automatically") + "</span></div>" +
+        '<div class="dbnote">The address is fixed once an app has been deployed.</div>';
+    } else {
+      var val = cfgDraft !== "" ? cfgDraft : (g.subdomain || "");
+      var k = cfgCheck;
+      out += '<div class="dbnote">Choose the address people will visit. ' +
+        "Leave it empty and we'll generate one.</div>" +
+        '<div class="dbform">' +
+        '<input type="text" id="cfgName" placeholder="' + esc(g.suggestion || "my-app") + '" ' +
+        'autocomplete="off" spellcheck="false" value="' + esc(val) + '">' +
+        '<span class="cfg-suffix">.' + esc(appDomain) + "</span></div>";
+      if (k) {
+        out += '<div class="cfg-hint ' + (k.available ? "ok" : "bad") + '">' +
+          (k.available ? "&#10003; " + esc(k.hostname) + " is available"
+                       : "&#10007; " + esc(k.reason || "not available")) + "</div>";
+      }
+    }
+
+    // ---- data ----
+    // Still a statement rather than a toggle. External databases now work, but
+    // the switch would need a connection string alongside it, and there is
+    // nowhere to put one before the app exists — so the real choice lives in
+    // the Database panel, which has both. A toggle here would only record a
+    // preference that the deploy path does not read.
+    out += '<div class="cfg-sec"><b>Data</b></div>' +
+      '<div class="dbnote">A Postgres database is created for this app on its first ' +
+      "deploy, and your app reads it as <code>SOUQI_DATABASE_URL</code>." +
+      (st ? " To use your own instead, connect it in the Database panel below."
+          : " You can connect your own once it's deployed.") + "</div>";
+
+    // ---- custom domain ----
+    // Only after the first deploy. The record we ask the customer to create
+    // points at the generated hostname, which is allocated at create and does
+    // not exist before it.
+    if (st) {
+      var cd = (detail && detail.customDomain) || null;
+      out += '<div class="cfg-sec"><b>Custom domain</b></div>';
+      if (!cd) {
+        out += '<div class="dbnote">Serve this app on your own domain instead. ' +
+          "You'll add one DNS record, then we check it.</div>" +
+          '<div class="dbform"><input type="text" id="domName" placeholder="shop.yourbrand.com" ' +
+          'autocomplete="off" spellcheck="false" value="' + esc(domDraft) + '">' +
+          '<button type="button" class="btn-g" data-dom="attach"' + (domBusy ? " disabled" : "") +
+          ">Connect</button></div>";
+      } else if (!cd.verified) {
+        // Nothing is routed and no certificate is requested in this state, and
+        // saying so is the honest answer to "I connected it, why is it down".
+        out += '<div class="kv"><span class="k">domain</span><span class="v">' + esc(cd.domain) + "</span></div>" +
+          '<div class="dbnote">Create this record at your DNS provider, then check it. ' +
+          "Until it passes, this domain isn't served and no certificate is requested for it.</div>" +
+          '<div class="cfg-dns"><b>CNAME</b><code>' + esc(cd.domain) + "</code>&rarr;<code>" +
+          esc(cd.target || "") + "</code></div>" +
+          '<div class="cfg-acts"><button type="button" class="btn-d" data-dom="verify"' +
+          (domBusy ? " disabled" : "") + ">" + (domBusy ? "Checking\u2026" : "Check DNS") + "</button>" +
+          '<button type="button" class="btn-g" data-dom="detach">Remove</button></div>';
+      } else {
+        out += '<div class="kv"><span class="k">domain</span><span class="v">' + esc(cd.domain) + "</span></div>" +
+          '<div class="cfg-hint ok">&#10003; verified &mdash; served at https://' + esc(cd.domain) + "</div>" +
+          '<div class="cfg-acts"><button type="button" class="btn-g" data-dom="detach">Remove</button></div>';
+      }
+      if (domMsg) out += '<div class="cfg-hint bad">' + esc(domMsg) + "</div>";
+    }
+
+    // ---- what we enforce ----
+    // Deliberately NOT presented as a scan. These are properties of the
+    // runtime, true before anything is built, and calling them test results
+    // would be the exact claim settings.html declined to make.
+    out += '<div class="cfg-sec"><b>What we enforce</b></div>' +
+      '<ul class="cfg-list">' +
+      "<li>Runs as a non-root user with all Linux capabilities dropped</li>" +
+      "<li>Read-only root filesystem</li>" +
+      "<li>No access to the Docker socket or the host network</li>" +
+      "<li>Its own private network — no route to other apps</li>" +
+      "<li>CPU, memory and process limits enforced by the kernel</li>" +
+      "</ul>";
+
+    if (!st) {
+      out += '<div class="acts"><button type="button" class="btn-d" data-act="deploy">Deploy</button></div>';
+    }
+    return out + "</div>";
+  }
+
   function renderDetail() {
     var r = row(), d = detail || {};
     var st = d.status || null;
@@ -1516,7 +1723,9 @@
        it is really done. Claiming success on the 202 would be a lie. */
     out += '<div class="acts">';
     if (!st) {
-      out += '<button type="button" class="btn-d" data-act="deploy">Deploy</button>';
+      // Deploy moves into the Configure panel below, so the button sits
+      // after the decisions it commits rather than before them.
+      out += '<span class="cfg-nudge">Choose an address below, then deploy.</span>';
     } else {
       out += '<button type="button" class="btn-d" data-act="redeploy"' + (busy ? " disabled" : "") + ">Redeploy</button>";
       if (st === "RUNNING") out += '<button type="button" class="btn-g" data-act="stop">Stop</button>';
@@ -1524,6 +1733,8 @@
       if (st === "RUNNING") out += '<button type="button" class="btn-g" data-act="restart">Restart</button>';
     }
     out += "</div></div>";
+
+    out += cfgPanel(st);
 
     if (st) {
       out += '<div class="panel"><div class="panel-h"><b>Logs</b>' +
@@ -1551,14 +1762,16 @@
     }
 
     /* A repaint driven by a build log line must not take the cursor away
-       from someone mid-way through pasting a connection URL. dbDraft keeps
-       the text; this keeps the caret. */
-    var typing = document.activeElement && document.activeElement.id === "dbUrl";
+       from someone mid-way through pasting a connection URL or typing a name.
+       dbDraft/cfgDraft keep the text; this keeps the caret. */
+    var ae = document.activeElement;
+    var typing = ae && (ae.id === "dbUrl" || ae.id === "cfgName" || ae.id === "domName")
+      ? ae.id : null;
 
     $("detailBody").innerHTML = out;
 
     if (typing) {
-      var f = $("dbUrl");
+      var f = $(typing);
       if (f) { f.focus(); try { f.setSelectionRange(f.value.length, f.value.length); } catch (e) { } }
     }
 
@@ -1573,6 +1786,11 @@
     openKey = key; detail = null; logPinned = true;
     dbInfo = null; dbTab = null; dbDraft = "";   // another app, another database
     dbTables = null; dbTable = null; dbRows = null; dbDataErr = null;
+    // Another app, another address. Left set, one app's chosen name would
+    // show up on the next one opened.
+    cfgInfo = null; cfgDraft = ""; cfgCheck = null; clearTimeout(cfgCheckT);
+    domDraft = ""; domMsg = null; domBusy = false;
+    secIssues = null;
     renderDetail._sig = null;          // a different app must always repaint
     location.hash = "#" + key;
     $("viewList").hidden = true; $("viewDetail").hidden = false;
@@ -1580,11 +1798,15 @@
     $("detailBody").innerHTML = '<div class="sk" style="height:180px"></div>';
     refreshDetail().catch(function () { }).then(schedule);
     loadDatabase();
+    loadConfig();
   }
   function closeDetail() {
     openKey = null; detail = null;
     dbInfo = null; dbTab = null; dbDraft = "";
     dbTables = null; dbTable = null; dbRows = null; dbDataErr = null;
+    cfgInfo = null; cfgDraft = ""; cfgCheck = null; clearTimeout(cfgCheckT);
+    domDraft = ""; domMsg = null; domBusy = false;
+    secIssues = null;
     if (location.hash) location.hash = "";
     $("viewDetail").hidden = true; $("viewList").hidden = false;
     renderList(); schedule();
@@ -1631,6 +1853,8 @@
     var dbact = e.target.closest("[data-dbact]");
     if (dbact) { runDbAction(dbact); return; }
 
+    var dom = e.target.closest("[data-dom]");
+    if (dom) { runDomain(dom.getAttribute("data-dom")); return; }
     var act = e.target.closest("[data-act]");
     if (act) { runAction(act); return; }
   });
@@ -1639,7 +1863,14 @@
      whenever a build produces a log line, and without this the URL would
      vanish out from under whoever was halfway through pasting it. */
   document.addEventListener("input", function (e) {
-    if (e.target && e.target.id === "dbUrl") dbDraft = e.target.value;
+    if (!e.target) return;
+    if (e.target.id === "dbUrl") dbDraft = e.target.value;
+    if (e.target.id === "domName") { domDraft = e.target.value; return; }
+    if (e.target.id === "cfgName") {
+      cfgDraft = e.target.value;
+      cfgCheck = null;              // the old answer was about the old text
+      checkName();
+    }
   });
 
   function runDbAction(btn) {
@@ -1700,6 +1931,45 @@
     });
   }
 
+  /* Attach, check or remove a custom domain.
+     Deliberately not routed through runAction: those are deployment lifecycle
+     verbs that POST to /api/deploy/:key/<verb>, and a domain action posted as
+     one would hit the wrong endpoint. */
+  function runDomain(what) {
+    var key = openKey;
+    if (!key || domBusy) return;
+    var base = "/api/deploy/" + encodeURIComponent(key) + "/domain";
+    var p;
+    if (what === "attach") {
+      var want = (domDraft || "").trim();
+      if (!want) { toast("Enter a domain first."); return; }
+      p = api("PUT", base, { domain: want });
+    } else if (what === "verify") {
+      p = api("POST", base + "/verify");
+    } else {
+      p = api("DELETE", base);
+    }
+
+    domBusy = true; domMsg = null;
+    renderDetail._sig = null; renderDetail();
+
+    p.then(function (r) {
+      /* verify answers 200 with verified:false when DNS has not caught up.
+         That is an answer, not a failure, so it is reported as one rather
+         than thrown — the difference between "not yet" and "broken". */
+      if (what === "verify" && r && r.verified === false) {
+        domMsg = r.reason || "that domain isn't pointing here yet";
+      }
+      if (what === "verify" && r && r.verified) toast("Verified — it will be live within a minute.");
+      if (what !== "verify") domDraft = "";
+    }).catch(function (err) {
+      domMsg = err.message;
+    }).then(function () {
+      domBusy = false;
+      return refreshDetail().catch(function () { });
+    }).then(function () { renderDetail._sig = null; renderDetail(); });
+  }
+
   function runAction(btn) {
     var name = btn.dataset.act;
     var key = openKey;
@@ -1714,9 +1984,23 @@
     var verb = { deploy: "Deploying…", redeploy: "Redeploying…", stop: "Stopping…", start: "Starting…", restart: "Restarting…", destroy: "Deleting…" };
     btn.disabled = true; btn.textContent = verb[name] || "Working…";
 
-    var call = name === "destroy"
-      ? api("DELETE", "/api/deploy/" + encodeURIComponent(key))
-      : api("POST", "/api/deploy/" + encodeURIComponent(key) + "/" + name);
+    /* The address is committed by Deploy itself, not by a separate Save.
+       There is only one moment it can take effect, so a second button would
+       only create a state where a name looks chosen but was never sent. A
+       name refused here aborts the deploy rather than quietly falling back
+       to the generated app-<id>, which is what the user would otherwise get
+       without being told. */
+    secIssues = null;                    // whatever it said, this is a new attempt
+    var pre = (name === "deploy" && cfgInfo && !cfgInfo.locked && !cfgInfo.unavailable)
+      ? api("PUT", "/api/deploy/" + encodeURIComponent(key) + "/config",
+            { subdomain: (cfgDraft || "").trim() })
+      : Promise.resolve();
+
+    var call = pre.then(function () {
+      return name === "destroy"
+        ? api("DELETE", "/api/deploy/" + encodeURIComponent(key))
+        : api("POST", "/api/deploy/" + encodeURIComponent(key) + "/" + name);
+    });
 
     call.then(function () {
       // Accepted, not finished. Refresh the list so the card reflects
@@ -1725,8 +2009,13 @@
       if (name === "destroy") { refreshList().catch(function () { }); closeDetail(); return; }
       return refreshDetail().catch(function () { });
     }).catch(function (err) {
+      // A refused deploy is not a failed one: the panel explains it, so the
+      // toast stays short and the button goes back to being pressable.
+      secIssues = (err.data && err.data.issues && err.data.issues.length)
+        ? err.data.issues : null;
       toast(err.message);
       btn.disabled = false; btn.textContent = was;
+      renderDetail._sig = null; renderDetail();
     }).then(function () { refreshList().catch(function () { }); schedule(); });
   }
 

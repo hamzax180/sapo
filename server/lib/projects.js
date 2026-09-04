@@ -99,7 +99,13 @@ async function create(fields) {
     meta: fields.meta || {},
     createdAt: now.toISOString(),
     updatedAt: now.toISOString(),
-    expiresAt: new Date(now.getTime() + TTL_UNCLAIMED_MS)
+    /* Only genuinely unclaimed work is reaped. Putting a signed-in
+       user's project on a 30-day timer means their app deletes itself
+       out from under them, which is the one thing TTL_UNCLAIMED_MS is
+       named after not doing. */
+    expiresAt: fields.owner && fields.owner.userId
+      ? null
+      : new Date(now.getTime() + TTL_UNCLAIMED_MS)
   };
 
   const c = col("projects");
@@ -190,6 +196,40 @@ async function list(owner, limit) {
     .filter((p) => ownerMatches(p, owner))
     .sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1))
     .slice(0, n);
+}
+
+/**
+ * Attach every project owned only by this anonymous cookie to a real account.
+ *
+ * Called the moment someone signs in or signs up. Without it, anything built
+ * before signing in stays tied to a cookie — and the next time that cookie
+ * rotates (new device, cleared site data, a different browser) the person's
+ * entire history becomes invisible with no way back to it. Signing in did not
+ * help, because nothing ever moved ownership across.
+ *
+ * ownerAnonId is left in place, exactly as finalizeClaim() leaves it: the
+ * cookie keeps working, the account is simply a second way in.
+ *
+ * expiresAt is cleared with it. TTL_UNCLAIMED_MS exists to reap abandoned
+ * anonymous work, and this is no longer either of those things.
+ */
+async function claimAnon(anonId, userId) {
+  if (!anonId || !userId) return { claimed: 0 };
+  const c = col("projects");
+  if (!c) {
+    let n = 0;
+    for (const p of mem.projects.values()) {
+      if (p.ownerAnonId === anonId && !p.ownerUserId) {
+        p.ownerUserId = userId; p.expiresAt = null; n++;
+      }
+    }
+    return { claimed: n };
+  }
+  const r = await c.updateMany(
+    { ownerAnonId: anonId, ownerUserId: null },
+    { $set: { ownerUserId: userId, expiresAt: null } }
+  );
+  return { claimed: r.modifiedCount || 0 };
 }
 
 async function patch(projectId, fields) {
@@ -367,5 +407,6 @@ module.exports = {
   create, get, findBySlug, findPublished, findByCustomDomain, uniquePublicSlug, list, patch, remove,
   addRevision, getRevision, listRevisions, head, materialize,
   addTurn, listTurns,
+  claimAnon,
   TTL_UNCLAIMED_MS, MAX_REVISIONS
 };

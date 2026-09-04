@@ -1,12 +1,22 @@
 /* =================================================================
    ai/client.js — one adapter, two providers, routed by task
    -----------------------------------------------------------------
-   docs/AI-PROVIDER-PLAN.md §3. Prose/multilingual work routes to
-   Gemini; schema-constrained JSON (the code agent's tool calls, the
-   refine grammar's fallback) routes to DeepSeek. Both speak the
-   OpenAI chat-completions shape, so this is one HTTP client and a
-   routing table — nothing else in the codebase is allowed to know a
-   provider's name or URL.
+   docs/AI-PROVIDER-PLAN.md §3. The split is by WHO the output is for:
+
+     • "prose" -> Gemini Flash. Everything the user reads or confirms:
+       the agent's conversational replies and the pre-build plan.
+       Gemini is here for its multilingual range — a user who writes
+       in Turkish or Arabic gets answered in it, which is the whole
+       point of routing this away from the code model.
+
+     • "json"  -> DeepSeek. The build worker: tool calls, write_file
+       rounds, the refine grammar's fallback. Nobody reads this prose;
+       it is judged on structured output, and DeepSeek's prefix caching
+       makes the long repeated system prompt cheap.
+
+   Both speak the OpenAI chat-completions shape, so this is one HTTP
+   client and a routing table — nothing else in the codebase is
+   allowed to know a provider's name or URL.
 
    OFF BY DEFAULT: `init()` with no AI_ENABLED=1 in the environment
    makes every call return {ok:false, disabled:true} instantly, no
@@ -30,7 +40,10 @@ const BREAKER_COOLDOWN_MS = 10 * 60 * 1000;
 // produce an estimated costUsd on each call for the budget guard and for
 // observability (docs/AI-PROVIDER-PLAN.md §7); never billed against directly.
 const PRICING = {
-  prose: { inputPerM: 0.10, outputPerM: 0.40 },                       // Gemini Flash
+  // Gemini 3.8 Flash. NOTE: $0.75/$3.75 is an introductory rate that Google
+  // has said doubles to $1.50/$7.50 on 2027-01-01 — revisit this line then,
+  // or the budget guard will quietly undercount by 2× from that date.
+  prose: { inputPerM: 0.75, outputPerM: 3.75 },                       // Gemini 3.8 Flash
   json: { inputPerM: 0.27, inputCachedPerM: 0.07, outputPerM: 1.10 }  // DeepSeek chat
 };
 

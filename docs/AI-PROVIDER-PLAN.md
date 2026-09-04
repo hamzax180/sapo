@@ -6,12 +6,26 @@ Two providers, routed by **what the task actually is** — not by habit:
 
 | | Provider | Why |
 |---|---|---|
-| **Prose · multilingual · conversational** | **Gemini Flash** | Strong Turkish and Arabic, large context, cheap, free tier. This is the majority of your traffic |
-| **Schema-constrained JSON** | **DeepSeek** (`deepseek-chat`) | Excellent structured output, automatic prefix caching, ~10–20× cheaper than frontier at runtime volume |
+| **Prose · multilingual · conversational** | **Gemini Flash** (`gemini-3.8-flash`) | Strong Turkish and Arabic, 1M context, cheapest of the mainline Flash tiers. Carries the agent's replies and the pre-build plan, i.e. everything the user reads |
+| **Schema-constrained JSON** | **DeepSeek** (`deepseek-chat`) | Excellent structured output, automatic prefix caching, ~10–20× cheaper than frontier at runtime volume. Carries the build worker: tool calls and `write_file` rounds |
 
-**Targets: ~$0.09 once to fix Turkish and Arabic forever. Under $15/month if you
-later switch on per-build copy at 10,000 builds. The admin analyst stays inside
-Gemini's free tier at realistic usage.**
+**Cost note.** Gemini Flash is **$0.75 / $3.75 per 1M tokens** — no longer the
+$0.10 / $0.40 this document was originally costed against, because
+`gemini-2.0-flash` has been retired and the current Flash is ~7× that. The
+figures below that assume the old rate are stale; treat them as the shape of the
+argument, not the numbers. Two things keep this affordable: the prose route is
+only two short calls per build (assess ≤200 tokens, plan ≤400), and the
+expensive part — the worker loop, with its long system prompt and every file it
+writes — stays on DeepSeek's cached rates. **If the prose route is ever given
+the worker's traffic, `AI_MONTHLY_BUDGET_USD` is the only thing standing between
+you and a large bill.** Keep the split.
+
+> **Diary date: 2027-01-01.** Google's $0.75 / $3.75 is an introductory rate that
+> doubles to $1.50 / $7.50 on that date. `PRICING.prose` in
+> [`client.js`](../server/lib/ai/client.js) must be updated then or the budget
+> guard undercounts by 2×. If that lands badly, `gemini-3.5-flash-lite`
+> ($0.30 / $2.50) is the fallback — cheaper, but Lite tiers give up multilingual
+> quality first, which is the one thing this route exists for.
 
 ---
 
@@ -111,7 +125,7 @@ AI_ENABLED=0|1
 AI_MONTHLY_BUDGET_USD=25          # hard stop, see §6
 
 AI_PROSE_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai
-AI_PROSE_MODEL=gemini-2.0-flash
+AI_PROSE_MODEL=gemini-3.8-flash
 AI_PROSE_KEY=…
 
 AI_JSON_BASE_URL=https://api.deepseek.com
@@ -119,10 +133,11 @@ AI_JSON_MODEL=deepseek-chat
 AI_JSON_KEY=…
 ```
 
-Gemini exposes an **OpenAI-compatible endpoint**, so both providers take the same
-`messages` payload and one client module covers both. *(Verify the current path
-before wiring — Google has moved it before.)* If it ever diverges, the fallback
-is a 20-line shape translator in the same module, not a second code path.
+Gemini exposes an **OpenAI-compatible endpoint** (`/v1beta/openai`), so both
+providers take the same `messages` payload and one client module covers both.
+*(Verify the current path before wiring — Google has moved it before.)* If the
+shapes ever diverge, the fallback is a 20-line translator in the same module,
+not a second code path.
 
 `server/lib/ai/client.js` — one module owning timeout, retry policy, cache
 lookup, token accounting and the circuit breaker. **Nothing else in the codebase
@@ -134,8 +149,11 @@ Two things this buys you:
 - **`/ai/chat` stops being Gemini-shaped.** Today it hardcodes
   `contents/parts` and Google's URL ([index.js:890](../server/index.js)) — that
   hardcoding is exactly the mistake being retired.
-- **Swapping is one env var.** If Qwen writes better Turkish than Gemini, or
-  DeepSeek's JSON mode regresses, you move without touching call sites.
+- **Swapping is one env var.** This has now been exercised in anger — the prose
+  route was moved to Qwen3.8-Max and back to Gemini Flash without a single call
+  site changing, because no call site knows a vendor's name. The only code that
+  moved was *which route two call sites name*, and that was a deliberate
+  reclassification, not a provider swap.
 
 `deepseek-chat`, not `deepseek-reasoner`: extracting six ops is not a reasoning
 task, and R1 bills you for chain-of-thought you discard.
