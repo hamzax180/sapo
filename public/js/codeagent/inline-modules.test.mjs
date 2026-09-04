@@ -2,6 +2,7 @@
    No framework on purpose — it mirrors deploy/scripts/verify*.js, which
    assert what the code WOULD do rather than needing a browser. */
 import assert from "node:assert";
+import { readFileSync } from "node:fs";
 import { inlineModules } from "./inline-modules.js";
 
 let pass = 0, fail = 0;
@@ -97,6 +98,47 @@ check("a duplicate top-level name is reported", () => {
     "src/h.tsx": 'const styles = 2;\nexport default function H(){}'
   });
   assert.ok(r4.warnings.some((w) => /more than one module/.test(w)), JSON.stringify(r4.warnings));
+});
+
+// Found in production: a generated src/data.ts carried `export interface`
+// and `export type`. The strip rule only covered function/class/const/let/
+// var, so those survived — and because this output is evaluated as a
+// SCRIPT, one surviving export is "Unexpected token 'export'" and the
+// whole preview goes blank. Babel's typescript preset would erase them,
+// but only after parsing, and it cannot parse an export in a script.
+check("every TypeScript export form is stripped", () => {
+  const r5 = inlineModules("src/App.tsx", {
+    "src/App.tsx": 'import { photos } from "./data";\nexport default function App(){ return null; }',
+    "src/data.ts": [
+      'export interface Photo { id: string; url: string; }',
+      'export type Category = "portrait" | "landscape";',
+      'export enum Size { S, M }',
+      'export type { Photo as P };',
+      'export const photos: Photo[] = [];',
+      'export abstract class Base {}',
+      'export declare const x: number;'
+    ].join("\n")
+  });
+  const left = r5.code.split("\n").filter((l) => /^\s*(export|import)\b/.test(l));
+  assert.strictEqual(left.length, 0, "survived:\n" + left.join("\n"));
+});
+
+check("type-only imports are removed", () => {
+  const r6 = inlineModules("src/App.tsx", {
+    "src/App.tsx": 'import type { Photo } from "./data";\nimport { photos } from "./data";\nexport default function App(){ return null; }',
+    "src/data.ts": 'export const photos = [];'
+  });
+  assert.ok(!/(^|\n)\s*import\s/.test(r6.code), "an import survived");
+});
+
+// The regex source itself, because the bug that shipped was an invisible
+// backspace where \b belonged — the pattern parsed fine and silently
+// matched nothing. Only a behavioural test catches that, but asserting the
+// file is free of control characters catches the whole class.
+check("no stray control characters in the source", () => {
+  const src = readFileSync(new URL("./inline-modules.js", import.meta.url), "utf8");
+  const bad = [...src].filter((c) => c.charCodeAt(0) < 32 && !"\n\r\t".includes(c));
+  assert.strictEqual(bad.length, 0, "found " + bad.length + " control char(s)");
 });
 
 console.log("\n  " + (fail ? "FAILED " + fail + " of " + (pass + fail) : "all " + pass + " checks passed"));

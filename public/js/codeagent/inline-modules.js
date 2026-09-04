@@ -157,7 +157,20 @@ function transformModule(src, path, index, ctx) {
   // `export default Name;` above became `const __modN_default = Name;`,
   // which is correct and needs nothing further.
 
-  code = code.replace(/export\s+(?=(?:async\s+)?(?:function|class|const|let|var)\s)/g, "");
+  // Strip the `export` keyword from every declaration form, including the
+  // TypeScript-only ones. Missing those was a real failure in production:
+  // a generated src/data.ts carried `export interface` and `export type`,
+  // and since this output is evaluated as a SCRIPT, one surviving export
+  // is "Unexpected token 'export'" and the whole preview goes blank.
+  // Babel's typescript preset would erase them happily — but only after
+  // parsing, and it cannot parse an export in a script.
+  code = code.replace(
+    /export\s+(?=(?:declare\s+)?(?:abstract\s+)?(?:async\s+)?(?:function|class|const|let|var|type|interface|enum)\b)/g,
+    ""
+  );
+  // `export { a, b }` and `export type { a }`. Type-only re-exports have
+  // no runtime meaning at all, so both simply go.
+  code = code.replace(/export\s+type\s*\{[^}]*\}\s*;?/g, "");
   code = code.replace(/export\s*\{[^}]*\}\s*;?/g, "");
   code = code.replace(/export\s+\*\s+from\s+['"][^'"]*['"];?/g, (m) => {
     ctx.warnings.push(path + ": `export * from` is not supported");
