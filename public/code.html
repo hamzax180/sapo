@@ -1512,7 +1512,17 @@
     }
   }
 
-  .ag-pv-empty{position:absolute;inset:0;margin:auto;display:flex;align-items:center;justify-content:center;text-align:center;color:var(--mut);font-size:.94rem;padding:24px;max-width:28ch;z-index:5;background:#fff;pointer-events:none}
+  /* Fills the screen; the TEXT is what gets the narrow column, not the
+     element. This used to do it with margin:auto + max-width:28ch, which
+     shrinks the element itself — and since it also paints a background,
+     that drew a 265px band of card colour down the middle of a 471px
+     laptop screen instead of filling it. Only the phone escaped, because
+     a separate rule forces width/height:100% there. The padding-inline
+     below reproduces the 28ch measure without resizing the box. */
+  .ag-pv-empty{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;
+    color:var(--mut);font-size:.94rem;line-height:1.5;
+    padding-block:24px;padding-inline:max(24px, calc((100% - 28ch) / 2));
+    z-index:5;background:#fff;pointer-events:none}
   /* Radius only. This rule used to repeat `background:#fff`, which is already
      set above — and repeating it here was not harmless: it ties with the dark
      override on specificity and wins on source order, so in dark mode the
@@ -3424,6 +3434,10 @@
 
     // For follow-up edits, keep the existing preview visible — don't
     // cover it with the full boot screen. Only show boot on fresh builds.
+    //
+    // And put the pane on screen from the first second rather than the last,
+    // so there is something to show it ON.
+    revealPreviewPane();
     const isEdit = !!projectId;
     const bootEl = $("agPvBoot");
     const bootLabel = $("agBootLabel");
@@ -3854,16 +3868,29 @@
     }
   }
 
-  function showPreview(url, fileContents) {
+  /* Open the preview pane and make the device frame available.
+
+     Split out of showPreview so the same thing can happen at the two other
+     moments someone expects to see a preview: the instant a build starts,
+     and when a device size is picked. It used to happen only when a build
+     FINISHED, so a two-minute build ran against a pane that was not on
+     screen — along with its boot screen, its progress label and every
+     failure message it tried to show. */
+  function revealPreviewPane() {
     $("agentView").classList.add("has-preview");
     const deskTgl = $("agDeskPreviewToggle");
     if (deskTgl) deskTgl.classList.add("on");
-    agPvFrame.hidden = false;
-    agPvEmpty.style.display = "none";
-    agPvDevices.removeAttribute("aria-disabled");
-    agPvDevices.style.display = "";
-
+    if (agPvFrame) agPvFrame.hidden = false;
+    if (agPvDevices) {
+      agPvDevices.removeAttribute("aria-disabled");
+      agPvDevices.style.display = "";
+    }
     applyDeviceFrame();
+  }
+
+  function showPreview(url, fileContents) {
+    revealPreviewPane();
+    agPvEmpty.style.display = "none";
 
     if (url === "__webcontainer__") {
       renderAppPreview(fileContents);
@@ -3971,6 +3998,8 @@
   if (agPvDevices) {
     agPvDevices.querySelectorAll("button").forEach((btn) => {
       btn.addEventListener("click", () => {
+        // Picking a size is asking to look at it.
+        revealPreviewPane();
         agPvDevices.querySelectorAll("button").forEach((b) => b.classList.remove("on"));
         btn.classList.add("on");
         if (agPvFrame) {
