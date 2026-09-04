@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#faf7f2">
 <meta name="robots" content="noindex">
 <link rel="icon" type="image/png" href="/assets/logo.png">
@@ -50,7 +51,24 @@
      scaling it was captured at (see --sb-w). The proportions below — 8px
      gutter, 40px rows on a 45px pitch, 22px icon slot, 12px icon-to-label
      gap — are scale-independent and stay put; only --sb-w moves. */
-  :root{ --rail:44px; --sb-w:238px; --sb-pad:6px; --ease-sb:cubic-bezier(.32,.72,0,1); }
+  :root{ --rail:44px; --sb-w:238px; --sb-pad:6px; --ease-sb:cubic-bezier(.32,.72,0,1);
+         /* Status colours for the rail's live dots, matching /projects and
+            /deployments — the copied sidebar CSS references all three. */
+         --ok:#22a565; --warn:#e0a11a; --danger:#d92d20; }
+:root{
+  /* One scrim for every overlay — the mobile sidebar drawer and the desktop
+     settings modal alike. There used to be three different ones: 88% paper on
+     the builder (which washed the page out almost white), rgba(0,0,0,.65) on
+     /projects and /deployments, and rgba(8,7,6,.32)+blur(14px) for settings.
+     Same gesture, three different answers.
+
+     Built from --paper rather than black so it stays warm and follows the
+     theme by itself. 52% and a light blur: enough to push the page back and
+     make the panel clearly on top, while leaving the content readable
+     underneath instead of erasing it. */
+  --scrim: color-mix(in srgb, var(--paper) 52%, transparent);
+  --scrim-blur: blur(5px) saturate(105%);
+}
   .ag-main, .ag-split, .ag {
     overflow-x: hidden !important;
     max-width: 100vw !important;
@@ -85,24 +103,8 @@
   .btn-g:hover{border-color:#c6dbe7;background:rgba(18,32,46,.05)}
   .btn-d{padding:9px 17px;border-radius:10px;background:var(--accent);color:#fff;font-size:.86rem;font-weight:700;transition:.16s}
   .btn-d:hover{background:var(--accent-2);transform:translateY(-1px)}
-  .ag-pv-toggle-btn {
-    display: inline-flex; align-items: center; gap: 8px;
-    border: 1px solid var(--line); background: var(--card); color: var(--ink);
-    border-radius: 99px; padding: 6px 14px; height: 34px; font-size: 0.85rem; font-weight: 600;
-    cursor: pointer; transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-    box-shadow: 0 2px 6px rgba(0,0,0,0.03); outline: none !important;
-  }
   .nav { display: none !important; }
   .ag-main { position: relative !important; }
-  #agDeskSidebarToggle {
-    position: fixed !important;
-    top: 12px !important;
-    left: 12px !important;
-    z-index: 999999 !important;
-    padding: 5px 12px !important;
-    height: 32px !important;
-    font-size: 0.82rem !important;
-  }
   #agDeskPreviewToggle {
     position: fixed !important;
     top: 12px !important;
@@ -174,8 +176,6 @@
        four different places in the script, but syncPreviewPaneSize() only
        runs from two of them — so on a first preview the .pv-* class below
        was never set and the column fell back to the base width, which is
-       why the phone sat wrong until you switched to laptop and back.
-       Deriving straight from .ag-pv-frame removes the mirror entirely, so
        there is nothing left to fall out of sync. */
     .ag-split.has-preview:has(.ag-pv-frame.mobile)  .ag{flex:0 0 clamp(420px,50vw,760px)}
     .ag-split.has-preview:has(.ag-pv-frame.tablet)  .ag{flex:0 0 clamp(360px,36vw,540px)}
@@ -595,6 +595,7 @@
      section it lives in scrolls if the viewport is genuinely too short. */
   .ag-model-popover{position:absolute;top:calc(100% + 8px);bottom:auto;right:0;left:auto;
     width:min(250px,calc(100vw - 28px));
+    max-height:calc(100dvh - 24px);overflow-y:auto;overscroll-behavior:contain;
     background:var(--card);border:1px solid var(--line);border-radius:14px;padding:6px;
     box-shadow:0 16px 40px -10px rgba(11,22,38,.45);
     opacity:0;visibility:hidden;transform:translateY(-6px);
@@ -604,8 +605,6 @@
      of the screen once a conversation starts, and a downward panel there
      is simply cut off by the viewport. Direction is chosen at open time
      (see the pill handler); CSS cannot see the available space. */
-  .ag-model-popover.drop-up{top:auto;bottom:calc(100% + 8px);transform:translateY(6px)}
-  .ag-model-popover.drop-up.open{transform:none}
   .pop-section-ttl{font-size:.66rem;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.05em;padding:5px 8px 4px}
   .pop-option{display:flex;align-items:flex-start;gap:10px;width:100%;padding:6px 8px;border:1px solid transparent;
     border-radius:10px;background:none;color:var(--ink);cursor:pointer;text-align:left;transition:.14s}
@@ -1569,12 +1568,39 @@
     .nav {
       display: none !important;
     }
+    /* Icon only on phones. The word "Sidebar" is wider than the 44px rail it
+       sits on, so the label was covering the rail's own icons rather than
+       labelling anything. Centred in the rail (7px = (44-30)/2) it reads as
+       the rail's top item instead of a pill parked on top of it. */
     #agDeskSidebarToggle {
       position: fixed !important;
       top: 10px !important;
-      left: 10px !important;
+      left: 7px !important;
       z-index: 999999 !important;
+      padding: 4px !important;
+      width: 30px !important;
+      height: 30px !important;
+      justify-content: center !important;
     }
+    #agDeskSidebarToggle span { display: none !important; }
+
+    /* OPEN: mark at the far left of the header, control at the far right —
+       the same arrangement as desktop. The drawer is 240px (clamped to
+       80vw on very narrow screens), so the control is offset from whichever
+       of those actually applies rather than from a hardcoded 240. */
+    #agDeskSidebarToggle.on{left:calc(min(240px, 80vw) - 40px) !important}
+
+    /* A real 1px divider, as the desktop rail has. Rail and page background
+       are the same token, so with no border the seam between them rendered
+       as an inconsistent hairline — present on some scroll positions and
+       device pixel ratios, absent on others. An explicit border is the fix;
+       leaving it to sub-pixel rounding is what made it look like a glitch. */
+    .ag-history:not(.on){border-right:1px solid var(--line) !important}
+
+    /* The drawer's overlay shadow was rgba(0,0,0,.5) — a black scrim edge
+       that reads as a hard dark band against light paper. Softer, and warm
+       enough to belong to the theme. */
+    .ag-history.on{box-shadow:6px 0 28px -10px rgba(11,22,38,.28) !important}
     #agDeskPreviewToggle {
       position: fixed !important;
       top: 10px !important;
@@ -1649,6 +1675,15 @@
     .ag-pv-frame.mobile .ip-screen::before{width:100px;height:28px;top:10px}
     .ag-pv-frame.tablet{width:100%;height:calc(100svh - 110px);max-height:none}
     .ag-pv-frame.desktop{width:100%;height:calc(100svh - 110px);max-height:none}
+    body.preview-mode{height:100dvh;overflow:hidden !important}
+    body.preview-mode .ag-main{height:100dvh;overflow:hidden !important}
+    body.preview-mode .ag-preview{position:fixed !important;inset:0 !important;width:100% !important;height:100dvh !important;
+      min-height:0 !important;padding-top:52px !important;overflow:hidden !important;background:var(--paper-2)}
+    body.preview-mode .ag-pv-stage{height:calc(100dvh - 52px) !important;min-height:0 !important;max-height:none !important;
+      padding:12px 0 16px !important;overflow:hidden !important}
+    body.preview-mode .ag-pv-frame.mobile,
+    body.preview-mode .ag-pv-frame.tablet,
+    body.preview-mode .ag-pv-frame.desktop{max-height:100% !important}
   }
   @media (max-width:640px){
     .ag-say,.ag-card{padding-inline-start:0;margin-inline-start:0}
@@ -1672,13 +1707,14 @@
     .ag-recent-body .m{font-size:.74rem;margin-top:3px}
   }
 
-  /* Account sidebar — a Replit-style docked panel that pushes and squeezes
-     the chat/preview column when it opens, rather than floating over it as
-     a modal drawer. body becomes a flex row: .ag-history is a flex item
-     that animates width 0 -> 340px, and .ag-main (header + ag-split) is
-     flex:1, so it naturally resizes every frame of the transition — no JS
-     needed to compute layout. Home/Favorites/Domains/Stats/Settings are
-     views within ONE panel (a tab row), not separate pages. */
+  /* Account sidebar. This block is a verbatim copy of the sidebar CSS on
+     /projects and /deployments — the three pages now render the same rail
+     from the same rules, so a change to one is a change to all three. The
+     builder's own additions are kept OUTSIDE it rather than woven through
+     it: the app shell immediately below, and the upgrade card plus the
+     .focus building state at the end. That separation is the point — the
+     previous version threaded :not(.focus) through every rail selector,
+     which is why the two could never be diffed against each other. */
   /* Fixed app shell: the page itself never scrolls, only the chat log and
      the preview stage do. Everything else — header, composer, sidebar,
      preview toolbar — stays put. Scoped to >900px; below that the layout
@@ -1690,182 +1726,77 @@
   }
   body{display:flex;align-items:stretch}
   .ag-main{flex:1;min-width:0}
-  .ag-hist-btn{border:1px solid var(--line);background:var(--card);color:var(--ink-2);border-radius:9px;
-    width:36px;height:36px;display:grid;place-items:center;cursor:pointer;transition:.15s;margin-inline-end:2px}
-  .ag-hist-btn:hover{border-color:#c6dbe7;color:var(--ink)}
-  .ag-hist-btn svg{width:17px;height:17px}
-  /* Same blur as every other dimmed backdrop in this file (the settings
-     overlay, the sign-up gate) — blur(3px), so an overlay reads as one
-     consistent visual language wherever it shows up rather than each one
-     inventing its own scrim treatment. */
-  .ag-hist-backdrop{display:none !important;opacity:0 !important;pointer-events:none !important;backdrop-filter:none !important}
-  .ag-hist-backdrop.on{display:none !important;opacity:0 !important;pointer-events:none !important;backdrop-filter:none !important}
+
+  /* ---- sidebar: the same rail as the builder and /deployments ---- */
   .ag-history{position:relative !important;height:100vh;flex:0 0 0px;
     width:0;min-width:0;max-width:var(--sb-w);overflow:hidden;
-    background:var(--paper-2);border-right:0 solid var(--line);box-sizing:border-box;
+    background:var(--paper);border-right:0 solid var(--line);box-sizing:border-box;
     transition:width .26s var(--ease),flex-basis .26s var(--ease),border-color .26s var(--ease);
     display:flex;flex-direction:column;z-index:100}
-  .ag-history.on{width:var(--sb-w) !important;flex:0 0 var(--sb-w) !important;min-width:var(--sb-w) !important;border-right-color:var(--line);border-right-width:1px;overflow:visible !important;z-index:100 !important}
-  .ag-hist-head,.ag-hist-tabs,.ag-hist-view,.ag-hist-foot{width:100%;box-sizing:border-box}
-
-  @media (max-width:900px){
-    .ag-history{
-      position:fixed !important;
-      top:0 !important;left:0 !important;bottom:0 !important;
-      height:100vh !important;width:240px !important;max-width:80vw !important;
-      z-index:999999 !important;
-      transform:translateX(-100%) !important;
-      transition:transform .28s cubic-bezier(0.16,1,0.3,1) !important;
-      box-shadow:4px 0 24px rgba(0,0,0,.5);
-    }
-    .ag-history.on{
-      transform:translateX(0) !important;
-    }
-    /* left:240px, not inset:0 — the drawer itself sits at left:0, width
-       240px (max-width:80vw), z-index ABOVE this. inset:0 made the
-       backdrop cover that same footprint too; since it's UNDERNEATH the
-       drawer it never visually dimmed the drawer's own opaque content,
-       but the blur(3px) backdrop-filter samples everything behind it
-       INCLUDING right up to that shared edge, which read as the drawer
-       itself looking softened/hazy rather than crisp. Starting the
-       backdrop at the drawer's own width means it only ever dims the
-       actual background content, never anything under the drawer. */
-    .ag-hist-backdrop{
-      display:block !important;
-      position:fixed !important;
-      top:0 !important;right:0 !important;bottom:0 !important;left:240px !important;
-      /* Warm, matching the paper tone (--paper), not a stark black
-         scrim — softly tints the background rather than going dark. */
-      background:color-mix(in srgb,var(--paper) 88%,transparent) !important;
-      backdrop-filter:blur(3px) !important;
-      z-index:999998 !important;
-      opacity:0 !important;
-      pointer-events:none !important;
-      transition:opacity .28s ease !important;
-    }
-    .ag-hist-backdrop.on{
-      /* display:block!important needed here too, not just above — the
-         unconditional .ag-hist-backdrop.on rule elsewhere in this file
-         sets display:none!important, and since this rule doesn't touch
-         display at all it doesn't override that per-property, only
-         opacity/pointer-events do. Net result without this line: opacity
-         correctly hits 1 but the element is display:none regardless — 0
-         size, unrenderable, can't receive clicks no matter what
-         pointer-events says. That's why nothing dimmed and tapping
-         outside the drawer never closed it. */
-      display:block !important;
-      opacity:1 !important;
-      pointer-events:auto !important;
-    }
-  }
-
-  /* Small icon strip, not a repeated wordmark — the workspace pill right
-     below is the actual first thing Replit's own sidebar shows; a bold
-     "Souqi Code" row above it just pushed that pill down and duplicated
-     identity the pill already carries. */
-  /* Left padding matches .nav's exactly (same clamp expression, not a
-     flat 14px) — #agHistClose sits here at the same x-position
-     #agDeskSidebarToggle occupies in .nav, so it mustn't be even a few
-     px off or the button visibly jumps sideways the instant the drawer
-     opens. */
+  .ag-history.on{width:var(--sb-w) !important;flex:0 0 var(--sb-w) !important;min-width:var(--sb-w) !important;border-right:1px solid var(--line);overflow:visible !important}
+  .ag-hist-head,.ag-hist-tabs,.ag-hist-foot{width:100%;box-sizing:border-box}
   /* --- header: logo left, controls right --- */
   .ag-hist-head{display:flex;align-items:center;gap:8px;padding:10px 10px 12px 12px;width:100%;box-sizing:border-box}
   .ag-hist-mark{width:28px;height:28px;display:grid;place-items:center;flex:none}
   .ag-hist-mark svg{width:23px;height:23px;display:block;overflow:visible}
-  .ag-hist-brand-text{display:none;flex-direction:column;line-height:1.05;font-family:var(--disp);font-weight:800;font-size:0.88rem;color:var(--ink);letter-spacing:-0.01em;margin-left:6px}
+  /* Sits between the mark and the toggle, the way the reference does.
+     margin-left:auto pushes it to the right end of the header; the right
+     margin is the width the fixed toggle occupies at the very edge. */
+  .ag-hist-search{margin-left:auto;margin-right:38px;flex:none;width:30px;height:30px;
+    display:grid;place-items:center;border:1px solid transparent;border-radius:9px;
+    background:none;color:var(--ink-2);cursor:pointer;transition:background .15s ease,color .15s ease}
+  .ag-hist-search:hover{background:var(--paper-2);color:var(--ink)}
+  .ag-hist-search svg{width:16px;height:16px}
+  .ag-hist-brand-text{display:none;flex-direction:column;line-height:1.05;font-family:var(--disp);font-weight:800;font-size:.88rem;color:var(--ink);letter-spacing:-.01em;margin-left:6px}
   .ag-hist-brand-text span{display:block}
-  .ag-hist-close{margin-inline-start:auto;border:0;background:none;color:var(--ink-2);cursor:pointer;width:30px;height:30px;border-radius:8px;display:grid;place-items:center;transition:.15s}
-  .ag-hist-close:hover{background:var(--paper-2);color:var(--ink)}
-  .ag-hist-close svg{width:16px;height:16px}
-
-  /* Workspace pill + the two action buttons above the nav — Replit's
-     "Create something new" / "Import" pair. */
   .ag-ws-wrap{position:relative}
-  .ag-ws{display:flex;align-items:center;gap:9px;width:100%;border:1px solid var(--line);background:var(--card);
-    border-radius:9px;padding:5px 8px 5px 5px;margin:8px var(--sb-pad) 5px;width:calc(100% - var(--sb-pad)*2);cursor:pointer;text-align:left;
-    color:var(--ink);box-sizing:border-box}
-  .ag-ws .av{width:22px;height:22px;border-radius:50%;flex:none;display:grid;place-items:center;color:#fff;
-    background:linear-gradient(135deg,var(--accent),var(--accent-2));font-weight:600;font-size:.8rem}
+  .ag-ws{display:flex;align-items:center;gap:9px;border:1px solid var(--line);background:var(--card);color:var(--ink) !important;border-radius:999px;padding:6px 10px 6px 6px;margin:8px 10px 8px;width:calc(100% - 20px);cursor:pointer;text-align:left;box-sizing:border-box}
+  /* color:#fff is load-bearing: .ag-ws svg paints every icon in the pill
+     --ink-2 for the chevron, and that blanket rule was catching the avatar
+     glyph too, drawing it grey on the blue circle. */
+  .ag-ws .av svg,.ag-user-main .av svg{width:13px;height:13px;color:#fff}
+  .ag-ws .av{flex:none;width:26px;height:26px;border-radius:50%;display:grid;place-items:center;color:#fff;background:linear-gradient(135deg,var(--accent),var(--accent-2));font-weight:600;font-size:.8rem}
   .ag-ws .nm{color:var(--ink) !important;flex:1;min-width:0;font-size:.9rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .ag-ws svg{width:16px;height:16px;flex:none;color:var(--ink-2)}
   .ag-ws .chev{transition:transform .16s var(--ease)}
   .ag-ws.open .chev{transform:rotate(180deg)}
-  /* Click-toggled dropdown, not the Projects flyout's hover pattern — a
-     tap target that opens on hover would fire by accident on touch. */
-  .ag-ws-menu{position:absolute;left:12px;right:12px;top:calc(100% - 2px);z-index:60;
+  .ag-ws-menu{position:absolute;left:10px;right:10px;top:calc(100% - 2px);z-index:60;
     background:var(--card);border:1px solid var(--line);border-radius:14px;padding:8px;
     box-shadow:0 16px 40px -10px rgba(11,22,38,.32);
     opacity:0;visibility:hidden;transform:translateY(-4px);
     transition:opacity .16s ease,transform .16s ease,visibility .16s ease}
   .ag-ws-menu.open{opacity:1;visibility:visible;transform:none}
-  .ag-ws-signed{padding:8px 10px 10px;font-size:.78rem;color:var(--mut);
-    border-bottom:1px solid var(--line);margin-bottom:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .ag-ws-item{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:9px;
-    font-size:.88rem;color:var(--ink);transition:.13s}
-  /* Same [hidden]-vs-class-display trap as everywhere else in this file —
-     display:flex above outranks the UA's [hidden]{display:none}, so
-     Sign in/Sign out both showed at once without this override. */
-  .ag-ws-item[hidden]{display:none}
+  .ag-ws-signed{padding:8px 10px 10px;font-size:.78rem;color:var(--mut);border-bottom:1px solid var(--line);margin-bottom:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .ag-ws-item{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:9px;font-size:.88rem;color:var(--ink);transition:.13s;text-decoration:none;border:0;background:none;width:100%;text-align:left;cursor:pointer}
   .ag-ws-item:hover{background:var(--paper-2)}
   .ag-ws-item svg{width:15px;height:15px;flex:none}
   .ag-ws-sep{height:1px;background:var(--line);margin:6px 4px}
-  .ag-act{display:flex;align-items:center;justify-content:flex-start;gap:9px;margin:0 12px 8px;padding:9px 12px;
-    border:1px solid var(--line);background:var(--card);border-radius:9px;color:var(--ink);
-    font-size:.9rem;font-weight:500;cursor:pointer;transition:.15s;width:calc(100% - 24px);text-align:left;box-sizing:border-box}
-  .ag-act:hover{background:var(--paper-2)}
-  .ag-act svg{width:16px;height:16px}
-
-  /* Plan block pinned to the bottom, Replit-style. flex:none is what
-     actually keeps the Upgrade button on screen: with the nav grown to
-     nine items plus the help group, the rail's content exceeds its
-     height, and a shrinkable footer was being squeezed until the button
-     fell off the bottom entirely — the scrollable region above it
-     (.ag-hist-tabs / .ag-hist-view) absorbs the overflow instead.
-     No border-top: the reference separates this with space, not a rule. */
-  /* ---- nav rows (Replit shape: 26px icon slot, roomy row) ---- */
+  .ag-act{display:flex;align-items:center;gap:9px;margin:0 10px 8px;padding:8px 10px;border:1px solid var(--line);background:var(--card);border-radius:9px;color:var(--ink);font-size:.88rem;font-weight:500;cursor:pointer;width:calc(100% - 20px);box-sizing:border-box}
+  .ag-act svg{width:16px;height:16px;flex:none;color:var(--ink-2)}
+  /* ---- nav rows: the builder's shape (18px icon slot, compact row) ---- */
+  .ag-hist-tabs{display:flex;flex-direction:column;gap:2px;padding:2px var(--sb-pad) 4px;width:100%;box-sizing:border-box;flex:0 0 auto;overflow:visible !important}
+  .ag-hist-tab{width:100%;box-sizing:border-box;display:flex;align-items:center;gap:10px;border:0;background:none;color:var(--ink);cursor:pointer;
+    padding:7px 6px;border-radius:8px;font-size:.75rem;font-weight:450;text-align:left;transition:background .14s,color .14s;text-decoration:none}
   .ag-hist-tab .tab-ic{flex:none;width:18px;height:18px;display:grid;place-items:center;color:var(--ink-2)}
   .ag-hist-tab .tab-ic svg{width:16px;height:16px}
   .ag-hist-tab .tab-ic.ring{border:1px solid var(--line);border-radius:50%;background:var(--paper-2)}
+  .ag-hist-tab:hover{background:var(--paper-2)}
+  .ag-hist-tab.on{background:var(--paper-2);font-weight:600}
   .ag-hist-tab.on .tab-ic,.ag-hist-tab:hover .tab-ic{color:var(--ink)}
+  /* Labels reveal by max-width + opacity rather than display:none, so the
+     rail's open/close reads as one continuous motion. Toggling display
+     makes the text pop in at full size the instant the width starts
+     animating — nothing is broken, the label simply was not part of the
+     movement. */
+  .ag-hist-tab .lbl,.ag-user-main .nm,.ag-ws .nm,.ag-hist-brand-text{
+    max-width:190px;opacity:1;overflow:hidden;white-space:nowrap;
+    transition:max-width .26s var(--ease-sb),opacity .18s ease .06s}
   .ag-tab-new{background:var(--card);box-shadow:0 1px 2px rgba(0,0,0,.05)}
   .ag-tab-new:hover{background:var(--card);filter:brightness(1.06)}
   .ag-tab-new .tab-ic.ring{color:var(--ink);background:var(--paper-2)}
-  .ag-hist-foot .ag-foot-link{width:calc(100% - var(--sb-pad)*2);margin:2px var(--sb-pad) 0}
 
-  /* Labels reveal by max-width + opacity rather than display:none, so the
-     rail’s open/close is one continuous motion. display toggling made the
-     text pop in at full size the instant the width animation started, which
-     is the “quick and buggy” feel — nothing was actually wrong, the label
-     simply had no transition to be part of. */
-  .ag-hist-tab .lbl,.ag-act .lbl,.ag-user-main .nm,.ag-ws .nm,.ag-hist-brand-text{
-    max-width:190px;opacity:1;overflow:hidden;white-space:nowrap;
-    transition:max-width .26s var(--ease-sb),opacity .18s ease .06s}
-
-  /* ---- upgrade card ---- */
-  .ag-upsell{margin:6px var(--sb-pad) 5px;padding:14px 11px 17px;border:1px solid var(--line);border-radius:13px;
-    background:var(--card);box-shadow:0 1px 3px rgba(0,0,0,.06),0 6px 18px -10px rgba(0,0,0,.22);
-    transition:background-color .22s ease}
-  .up-head{display:flex;align-items:center;gap:8px;text-decoration:none;color:inherit}
-  /* The tint belongs to the whole card, not its top strip. It used to live
-     on .up-head — the title row only — bled out to the card edges with
-     negative margins, so the card lit up across the top and stopped dead at
-     the meter. That reads as a rendering fault, not a hover. */
-  .ag-upsell:hover{background:rgba(26,166,223,.12)}
-  .up-txt{flex:1;min-width:0}
-  .up-txt b{display:block;font-size:.7rem;font-weight:600;color:var(--ink);letter-spacing:-.012em;line-height:1.25}
-  .up-txt small{display:block;font-size:.625rem;color:var(--mut);margin-top:2px;line-height:1.3}
-  .up-spark{flex:none;width:27px;height:27px;border-radius:9px;display:grid;place-items:center;
-    background:var(--accent);color:#fff;transition:.15s;box-shadow:0 3px 10px -3px rgba(26,166,223,.6)}
-  .ag-upsell:hover .up-spark{background:var(--accent-2)}
-  .up-spark svg{width:14px;height:14px;fill:#fff}
-  .up-meter{display:flex;align-items:center;justify-content:space-between;margin-top:13px;font-size:.655rem}
-  .up-lab{color:var(--ink-2)}
-  .up-pct{color:var(--ink);font-weight:600}
-  .up-bar{display:block;height:6px;border-radius:999px;background:var(--paper-2);overflow:hidden;margin-top:8px}
-  .up-bar i{display:block;height:100%;background:var(--accent);border-radius:999px;transition:width .4s var(--ease-sb)}
-
-  /* Chat history — the sidebar's main body now, so it takes the flexible
-     space and scrolls, while the plan panel and account row stay pinned. */
+  /* Recent deployments take the flexible middle, the way chat history does
+     in the builder, so the account row stays pinned to the bottom. */
   .ag-hist-chats{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;padding:2px 0 4px}
   .ag-chats-ttl{font-size:.655rem;font-weight:450;color:var(--mut);padding:10px 10px 4px;flex:0 0 auto}
   .ag-chats-list{flex:1 1 auto;min-height:0;overflow-y:auto;padding:0 var(--sb-pad) 4px;scrollbar-width:thin;display:flex;flex-direction:column;gap:2px}
@@ -1873,175 +1804,160 @@
   .ag-chats-list::-webkit-scrollbar-thumb{background:rgba(128,128,128,.28);border-radius:8px}
   .ag-chat-item{display:flex;align-items:center;gap:10px;width:100%;box-sizing:border-box;
     padding:7px 6px;border-radius:8px;color:var(--ink-2);text-decoration:none;font-size:.75rem;
-    white-space:nowrap;overflow:hidden;transition:background .14s,color .14s}
+    white-space:nowrap;overflow:hidden;transition:background .14s,color .14s;border:0;background:none;cursor:pointer;text-align:left;font-family:inherit}
   .ag-chat-item:hover{background:var(--paper-2);color:var(--ink)}
   .ag-chat-item.current{background:var(--paper-2);color:var(--ink);font-weight:600}
   .ag-chat-item i{flex:none;width:18px;height:18px;display:grid;place-items:center;color:var(--ink-2);opacity:.95}
   .ag-chat-item i svg{width:16px;height:16px}
-  /* A status dot rather than a document icon, matching the rails on
-     /projects and /deployments. Every row here was the same glyph, which
-     told you nothing; the dot says which of these are live. Green is
-     published, grey is not. */
-  .ag-chat-item .sdot{width:6px;height:6px;border-radius:50%;background:var(--mut);flex:none;margin:0 6px}
-  .ag-chat-item .sdot.run{background:#22a565}
-  .ag-chat-item .sdot.move{background:#e0a11a}
-  .ag-chat-item .sdot.bad{background:#d92d20}
   .ag-chat-item span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis}
+  /* A dot instead of an icon for anything currently live, so the rail shows
+     what is running without needing the page. */
+  .ag-chat-item .sdot{width:6px;height:6px;border-radius:50%;background:var(--mut);flex:none;margin:0 6px}
+  .ag-chat-item .sdot.run{background:var(--ok)}
+  .ag-chat-item .sdot.move{background:var(--warn)}
+  .ag-chat-item .sdot.bad{background:var(--danger)}
   .ag-chats-empty{padding:14px;color:var(--mut);font-size:.8rem;line-height:1.5;text-align:center}
 
-  /* Account row, pinned to the very bottom (Replit's shape): avatar, name,
-     and the gear that opens Settings. */
+  /* ---- plan block, same shape as the one on /projects ----
+     The numbers here are real rather than the static placeholders that
+     page ships: apps created against the free allowance, agent spend
+     against the monthly budget, and — since this is the deployments
+     page — host capacity as the cloud meter, which is the thing that
+     actually decides whether the next deploy is accepted. */
+  .ag-hist-foot{flex:0 0 auto;padding:8px 10px 8px;border-top:1px solid var(--line);background:var(--paper);width:100%;box-sizing:border-box}
+  .ag-hist-foot .ttl{font-size:.84rem;font-weight:600;padding:0 2px;margin-bottom:4px;color:var(--ink)}
+  .ag-plan-alert{background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.25);color:#f87171;font-size:.76rem;
+    font-weight:500;padding:4px 8px;border-radius:6px;margin-bottom:6px;text-align:center;width:100%;box-sizing:border-box}
+  .ag-meter-row{display:flex;align-items:center;gap:7px;padding:2px 0;width:100%;box-sizing:border-box}
+  .ag-meter-row svg{width:14px;height:14px;flex:none;color:var(--ink-2)}
+  .ag-meter-row .lab{flex:1;min-width:0;font-size:.78rem;color:var(--ink);font-weight:500}
+  .ag-meter-row .lab i{display:block;font-style:normal;color:var(--mut);font-size:.70rem;font-weight:400;margin-top:0}
+  .ag-meter{width:54px;height:5px;border-radius:999px;background:rgba(128,128,128,.18);overflow:hidden;flex:none}
+  .ag-meter i{display:block;height:100%;border-radius:999px;background:#3b82f6;transition:width .4s var(--ease)}
+  .ag-meter i.warn{background:var(--warn)}
+  .ag-meter i.hot{background:var(--danger)}
+  .ag-upgrade{display:flex;align-items:center;justify-content:center;gap:7px;margin-top:8px;padding:9px 12px;
+    border:0;border-radius:9px;background:#0077ff;color:#fff;font-size:.9rem;font-weight:600;
+    cursor:pointer;width:100%;box-sizing:border-box;text-decoration:none;transition:.15s}
+  .ag-upgrade:hover{background:#0062cc}
+  .ag-hist-install{display:flex;align-items:center;justify-content:center;gap:5px;margin-top:6px;font-size:.72rem;color:var(--mut);width:100%;box-sizing:border-box}
+  .ag-hist-install svg{width:13px;height:13px;color:var(--ink-2);flex:none;transition:color .15s ease,transform .15s ease;cursor:pointer}
+  .ag-hist-install svg:hover{color:#0077ff !important;transform:scale(1.15)}
+  .ag-hist-install a:hover{color:var(--ink)}
+  .ag-hist-links{display:flex;gap:8px;justify-content:center;margin-top:5px;font-size:.71rem;color:var(--mut);width:100%;box-sizing:border-box}
+  .ag-hist-links a:hover{color:var(--ink)}
+
+  /* Account row pinned to the very bottom: avatar, name, settings gear. */
   .ag-hist-user{flex:0 0 auto;display:flex;align-items:center;gap:2px;padding:5px var(--sb-pad) 8px;
     background:var(--paper-2);width:100%;box-sizing:border-box}
   .ag-user-main{flex:1;min-width:0;display:flex;align-items:center;gap:8px;border:0;background:none;
     color:var(--ink);cursor:pointer;padding:5px 6px;border-radius:9px;font:inherit;text-align:left;transition:.14s}
-  .ag-user-main:hover{background:var(--paper-2)}
-  /* color:#fff is load-bearing: .ag-ws svg paints every icon in the pill
-     --ink-2 for the chevron, and that blanket rule was catching the avatar
-     glyph too, drawing it grey on the blue circle. */
-  .ag-ws .av svg,.ag-user-main .av svg{width:13px;height:13px;color:#fff}
+  .ag-user-main:hover{background:var(--paper)}
   .ag-user-main .av{flex:none;width:22px;height:22px;border-radius:50%;display:grid;place-items:center;
     background:linear-gradient(135deg,var(--accent),var(--accent-2));color:#fff;font-size:.76rem;font-weight:700}
   .ag-user-main .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.72rem;font-weight:500}
   .ag-user-gear{flex:none;width:24px;height:24px;display:grid;place-items:center;border:0;background:none;
     color:var(--mut);cursor:pointer;border-radius:9px;transition:.14s}
-  .ag-user-gear:hover{background:var(--paper-2);color:var(--ink)}
+  .ag-user-gear:hover{background:var(--paper);color:var(--ink)}
   .ag-user-gear svg{width:14px;height:14px}
 
-  .ag-hist-foot{flex:0 0 auto;padding:6px 0 4px;border-top:0;background:transparent;width:100%;box-sizing:border-box}
-  .ag-hist-foot .ttl{font-size:.84rem;font-weight:600;padding:0 2px;margin-bottom:4px;color:var(--ink)}
-  .ag-plan-alert{background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.25);color:#f87171;font-size:.76rem;font-weight:500;padding:4px 8px;border-radius:6px;margin-bottom:6px;text-align:center;width:100%;box-sizing:border-box}
-  .ag-meter-row{display:flex;align-items:center;gap:7px;padding:2px 0;width:100%;box-sizing:border-box}
-  .ag-meter-row svg{width:14px;height:14px;flex:none;color:var(--ink-2)}
-  .ag-meter-row .lab{flex:1;min-width:0;font-size:.78rem;color:var(--ink);font-weight:500}
-  .ag-meter-row .lab i{display:block;font-style:normal;color:var(--mut);font-size:.70rem;font-weight:400;margin-top:0}
-  .ag-meter{width:54px;height:5px;border-radius:999px;background:rgba(255,255,255,0.09);overflow:hidden;flex:none}
-  .ag-meter i{display:block;height:100%;border-radius:999px;background:#3b82f6}
-  .ag-upgrade{display:flex;align-items:center;justify-content:center;gap:6px;margin-top:6px;padding:7px;
-    border:0;border-radius:8px;background:#0077ff;color:#fff;font-size:.84rem;font-weight:600;
-    cursor:pointer;width:100%;box-sizing:border-box;text-decoration:none;transition:.15s}
-  .ag-upgrade:hover{background:#0062cc}
-  .ag-upgrade svg{width:15px;height:15px}
-  .ag-hist-install{display:flex;align-items:center;justify-content:center;gap:6px;margin-top:11px;font-size:.76rem;color:var(--mut)}
-  .ag-hist-install svg{width:14px;height:14px;color:var(--ink-2);flex:none;transition:color .15s ease, transform .15s ease;cursor:pointer}
-  .ag-hist-install svg:hover{color:#0077ff !important;transform:scale(1.15)}
-  .ag-hist-install a:hover{color:var(--ink)}
-  .ag-hist-links{display:flex;gap:10px;justify-content:center;margin-top:8px;font-size:.75rem;color:var(--mut)}
-  .ag-hist-links a:hover{color:var(--ink)}
+  .ag-pv-toggle-btn{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line);background:var(--card);color:var(--ink);
+    border-radius:9px;padding:6px 14px;height:34px;font-size:.85rem;font-weight:600;cursor:pointer;
+    transition:all .2s var(--ease);box-shadow:0 2px 6px rgba(0,0,0,.03);outline:none !important}
+  #agDeskSidebarToggle{position:fixed !important;top:10px !important;left:10px !important;z-index:999999 !important;
+    padding:5px 10px !important;height:32px !important;font-size:.82rem !important}
+  .ag-pv-toggle-btn:hover{border-color:#cbd5e1;background:var(--paper-2);color:var(--ink)}
+  .ag-pv-toggle-btn.on{background:var(--card);color:var(--ink)}
+  .ag-pv-toggle-btn .pane-left{transition:fill .2s ease;fill:transparent}
+  .ag-pv-toggle-btn.on .pane-left{fill:var(--accent)}
+  .ag-pv-toggle-btn svg{width:16px;height:16px;flex:none}
 
-  /* Replit Upgrade Modal in App */
-
-  /* Permanent rail from 901px up — Replit's sidebar has no manual close
-     control. The drawer behaviour (and the hamburger and X that drive it)
-     only exist below that width, where there isn't room for three
-     columns.
-     Placed AFTER the rules it overrides: these selectors are no more
-     specific than the base ones, so source order is what decides, and
-     sitting above them meant .ag-hist-close's own display:grid won. */
-  /* Overlay, not a push-layout rail — position:fixed the same way the
-     mobile drawer already works, so opening it never shifts or resizes
-     .ag-main (it used to grow from 0 to 290px as a normal flex sibling,
-     squeezing the chat/preview columns over every time it opened). The
-     backdrop and in-drawer close button, previously mobile-only, are
-     needed here now for the same reason they were needed there — an
-     overlay covering content needs an explicit way to dismiss it. The
-     glow is the "floating above the page" cue an overlay needs that a
-     push-panel never did, since there's no longer a layout reflow to
-     signal it opened. */
-  /* COLLAPSED = an icon rail, not nothing.
-     Closing the sidebar used to take it to width:0, which threw away every
-     navigation affordance on the page: with .nav hidden on this screen, the
-     only way back to Projects/Favorites/Stats was to reopen the drawer
-     first. The rail keeps the icons (and their titles) reachable at 56px
-     while still handing the chat column back ~184px.
-     .focus is deliberately NOT given a rail — that is the building state,
-     where the point is an undistracted screen, so it still goes to zero. */
+  /* ================= desktop rail =================
+     COLLAPSED = an icon rail, not nothing. Taking the sidebar to width:0
+     throws away every navigation affordance on the page — the only way
+     back to Projects or the builder becomes "reopen the drawer first".
+     At --rail the icons and their titles stay reachable while the content
+     column gets back most of the width. */
   @media (min-width:901px){
-    .ag-history{position:relative !important;top:0;left:0;bottom:0;height:100vh;
+    .ag-history{
       flex:0 0 var(--rail) !important;width:var(--rail) !important;min-width:var(--rail) !important;
       border-right:1px solid var(--line);overflow:hidden;
-      transition:width .34s var(--ease-sb),flex-basis .34s var(--ease-sb),margin-right .34s var(--ease-sb),border-color .34s var(--ease-sb),box-shadow .34s var(--ease-sb);
+      transition:width .34s var(--ease-sb),flex-basis .34s var(--ease-sb),margin-right .34s var(--ease-sb),
+                 border-color .34s var(--ease-sb),box-shadow .34s var(--ease-sb);
+      /* Delays the CLOSE only — the hover rule zeroes it — so a pointer
+         clipping the rail on its way somewhere else does not make the
+         panel flash open and shut. */
       transition-delay:.16s;will-change:width;z-index:100}
-    .ag-history.on{width:var(--sb-w) !important;flex:0 0 var(--sb-w) !important;min-width:var(--sb-w) !important;border-right:1px solid var(--line);overflow:visible !important;z-index:100 !important;box-shadow:none}
-    .ag-history.focus{width:0 !important;flex:0 0 0px !important;min-width:0 !important;border-right-color:transparent !important;overflow:hidden !important;box-shadow:none}
+    .ag-history.on{width:var(--sb-w) !important;flex:0 0 var(--sb-w) !important;min-width:var(--sb-w) !important;
+      overflow:visible !important;box-shadow:none;margin-right:0}
 
-    /* HOVER TO OPEN — the rail expands to the full panel while the pointer
-       is over it and falls back on its own when the pointer leaves. No
-       click, no state to get out of sync with .on.
-
-       A negative margin-right is what keeps it an OVERLAY rather than a push:
-       the flex item measures --sb-w but its negative margin cancels all
-       but --rail of it, so the chat column never moves and the panel
-       floats over it.
-       Expanding a flex item in place would reflow (and re-wrap) the whole
-       conversation on every mouse-over, which is unusable.
-
-       transition-delay above delays the CLOSE only — the hover rule zeroes
-       it — so a pointer clipping the rail's edge on its way elsewhere does
-       not make the panel flash open and shut. */
+    /* HOVER TO OPEN. The negative margin is what keeps this an OVERLAY
+       rather than a push: the flex item measures --sb-w but the margin
+       cancels all but --rail of it, so the content column never moves.
+       Expanding it in place would reflow the whole page on every
+       mouse-over, which is unusable. */
     @media (hover:hover) and (pointer:fine){
-      .ag-history:not(.on):not(.focus):hover,
-      .ag-history.hover-open:not(.on):not(.focus){
-        width:var(--sb-w) !important;flex-basis:var(--sb-w) !important;margin-right:calc(var(--rail) - var(--sb-w));
+      .ag-history:not(.on):not(.hover-suppressed):hover,
+      .ag-history.hover-open:not(.on):not(.hover-suppressed){
+        width:var(--sb-w) !important;flex-basis:var(--sb-w) !important;
+        margin-right:calc(var(--rail) - var(--sb-w));
         overflow:visible !important;z-index:400 !important;transition-delay:0s;
         box-shadow:6px 0 28px -8px rgba(11,22,38,.28)}
     }
 
-    /* --- rail: icons only, until it is pinned or hovered open --- */
-    /* Labels collapse to zero width instead of display:none so the reveal
-       animates with the panel rather than snapping in at full size. */
-    .ag-history:not(.on):not(.focus):not(:hover):not(.hover-open) .lbl,
-    .ag-history:not(.on):not(.focus):not(:hover):not(.hover-open) .ag-hist-brand-text,
-    .ag-history:not(.on):not(.focus):not(:hover):not(.hover-open) .ag-user-main .nm,
-    .ag-history:not(.on):not(.focus):not(:hover):not(.hover-open) .ag-ws .nm{max-width:0 !important;opacity:0 !important;transition-delay:0s}
+    /* --- what the rail actually shows --- */
+    .ag-history:not(.on):not(:hover):not(.hover-open) .lbl,
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-hist-brand-text,
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-user-main .nm,
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-ws .nm{max-width:0 !important;opacity:0 !important;transition-delay:0s}
 
-    .ag-history:not(.on):not(.focus):not(:hover):not(.hover-open) .ag-ws .chev,
-    .ag-history:not(.on):not(.focus):not(:hover):not(.hover-open) .ag-hist-view,
-    .ag-history:not(.on):not(.focus):not(:hover):not(.hover-open) .ag-chats-ttl,
-    .ag-history:not(.on):not(.focus):not(:hover):not(.hover-open) .ag-upsell,
-    .ag-history:not(.on):not(.focus):not(:hover):not(.hover-open) .ag-user-gear{display:none !important}
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-ws .chev,
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-chats-ttl,
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-hist-foot,
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-user-gear{display:none !important}
 
-    /* The workspace menu is click-opened; letting it render inside a panel
-       that disappears on mouse-out would strand it. */
-    .ag-history:not(.on):not(.focus) .ag-ws-menu{display:none !important}
-    .ag-history:not(.on):not(.focus):not(:hover):not(.hover-open) .ag-flyout{display:none !important}
+    /* Click-opened, so letting it render inside a panel that vanishes on
+       mouse-out would strand it. */
+    .ag-history:not(.on) .ag-ws-menu{display:none !important}
 
-    /* Recent chats STAY in the rail as bare document icons (Replit does the
-       same) — dropping them would make the collapsed sidebar a dead end for
-       getting back into a conversation. A hairline separates them from the
-       nav above, matching the reference. */
-    .ag-history:not(.on):not(.focus):not(:hover):not(.hover-open) .ag-hist-chats{border-top:1px solid var(--line);margin:5px 9px 0;padding-top:6px}
-    .ag-history:not(.on):not(.focus):not(:hover):not(.hover-open) .ag-hist-chats.is-empty{border-top:0;margin:0;padding-top:0}
-    .ag-history:not(.on):not(.focus):not(:hover):not(.hover-open) .ag-chats-list{padding:0;overflow:hidden}
-    .ag-history:not(.on):not(.focus):not(:hover):not(.hover-open) .ag-chat-item{width:32px;margin:0 auto;padding:7px 0;justify-content:center;gap:0}
-    /* The dot carries side margins for the expanded row; in the rail they
-       are what push it off centre. Same fix as the other two pages. */
-    .ag-history:not(.on):not(.focus):not(:hover):not(.hover-open) .ag-chat-item .sdot{margin:0}
-    .ag-history:not(.on):not(.focus):not(:hover):not(.hover-open) .ag-chat-item span{display:none}
-    .ag-history:not(.on):not(.focus):not(:hover):not(.hover-open) .ag-chats-empty{display:none}
+    /* The apps stay in the rail as bare status dots — dropping them would
+       make the collapsed sidebar a dead end for getting back into one. */
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-hist-chats{border-top:1px solid var(--line);margin:5px 9px 0;padding-top:6px}
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-chats-list{padding:0;overflow:hidden}
+    /* Fills the list box rather than being a fixed 32px inside it: the
+       list is inset 9px each side for its hairline, so a 32px child could
+       not centre in the 26px that leaves and sat 3px right. */
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-chat-item{width:100%;margin:0;padding:7px 0;justify-content:center;gap:0}
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-chat-item span{display:none}
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-chats-empty{display:none}
 
-    /* padding-top clears the fixed #agDeskSidebarToggle at top:12px/left:12px. */
-    .ag-history:not(.on):not(.focus):not(:hover):not(.hover-open) .ag-hist-head{padding:8px 0 4px !important;height:44px !important;flex:0 0 44px !important;overflow:hidden;justify-content:center}
-    .ag-history:not(.on):not(.focus):not(:hover):not(.hover-open) .ag-hist-mark{margin:0 auto}
-    .ag-history:not(.on):not(.focus):not(:hover):not(.hover-open) .ag-hist-tabs{padding:4px 0 6px !important;align-items:center}
-    .ag-history:not(.on):not(.focus):not(:hover):not(.hover-open) .ag-hist-tab{width:32px;padding:7px 0;justify-content:center;gap:0}
-    .ag-history:not(.on):not(.focus):not(:hover):not(.hover-open) .ag-tab-new{background:transparent;box-shadow:none}
-    .ag-history:not(.on):not(.focus):not(:hover):not(.hover-open) .ag-tab-new .tab-ic.ring{background:var(--card);border-color:var(--line);box-shadow:0 1px 2px rgba(0,0,0,.06)}
-    .ag-history:not(.on):not(.focus):not(:hover):not(.hover-open) .ag-hist-user{background:transparent}
-    .ag-history:not(.on):not(.focus):not(:hover):not(.hover-open) .ag-ws-wrap{padding:0 !important;display:flex;justify-content:center}
+    /* Height clears the fixed sidebar toggle sitting at top-left. */
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-hist-head{padding:8px 0 4px !important;height:44px !important;flex:0 0 44px !important;overflow:hidden;justify-content:center}
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-hist-mark{margin:0 auto}
+    /* The rail is 44px of logo. Nothing else fits, and the search box it
+       would focus is not on screen there either. */
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-hist-search{display:none !important}
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-hist-tabs{padding:4px 0 6px !important;align-items:center}
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-hist-tab{width:32px;padding:7px 0;justify-content:center;gap:0}
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-tab-new{background:transparent;box-shadow:none}
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-tab-new .tab-ic.ring{background:var(--card);border-color:var(--line);box-shadow:0 1px 2px rgba(0,0,0,.06)}
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-hist-user{background:transparent;justify-content:center}
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-ws-wrap{padding:0 !important;display:flex;justify-content:center}
+    /* gap:0 matters: the name is still a flex item at max-width:0, so the
+       pill's 9px gap was being counted and justify-content:center pushed
+       the avatar ~5px left of the rail. */
     /* No pill chrome in the rail. The white background and border make
        it read as a dropdown when the name and chevron are there; with only
        the avatar showing they are just a ring drawn around a circle. */
-    .ag-history:not(.on):not(.focus):not(:hover):not(.hover-open) .ag-ws{width:32px;padding:5px 0;justify-content:center;gap:0;background:transparent;border-color:transparent}
-    .ag-history:not(.on):not(.focus):not(:hover):not(.hover-open) .ag-hist-foot{border-top:0;padding:0 !important}
-    .ag-history:not(.on):not(.focus):not(:hover):not(.hover-open) .ag-foot-link{width:32px;margin:0 auto;padding:7px 0;justify-content:center;gap:0}
-    .ag-history:not(.on):not(.focus):not(:hover):not(.hover-open) .ag-hist-user{margin-top:auto;padding:8px 0 !important;justify-content:center}
-    .ag-history:not(.on):not(.focus):not(:hover):not(.hover-open) .ag-user-main{flex:0 0 auto;width:32px;padding:5px 0;justify-content:center;gap:0}
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-ws{width:32px;margin:6px auto;padding:3px;justify-content:center;gap:0;background:transparent;border-color:transparent}
+    /* The dot carries side margins for the expanded row; in the rail they
+       are what pushes it off centre. */
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-chat-item .sdot{margin:0}
 
-    /* With the rail visible the floating pill would sit ON it and read as
-       a stray button, so it sheds its label and becomes the rail's top
-       icon. .on is the open state (toggleSidebar keeps it in sync), so
-       :not(.on) is exactly "the rail is showing". */
+
+    /* Collapsed: the toggle is an icon, not a labelled button. Same as
+       the builder — the word "Sidebar" beside a 44px rail is wider than
+       the rail it describes. */
     #agDeskSidebarToggle:not(.on) span{display:none !important}
     #agDeskSidebarToggle:not(.on){padding:4px !important;width:30px !important;height:30px !important;
       left:calc(var(--sb-w) - 40px) !important;justify-content:center !important}
@@ -2072,91 +1988,195 @@
     #agDeskSidebarToggle.on span{display:none !important}
     #agDeskSidebarToggle.on{padding:4px !important;width:30px !important;height:30px !important;
       justify-content:center !important;left:calc(var(--sb-w) - 40px) !important}
-    body.is-building #agDeskSidebarToggle{display:none !important}
+    .ag-history.on .ag-hist-search{order:2;margin-left:auto;margin-right:0}
+    .ag-history.on .ag-hist-mark{order:3;margin-left:0}
+    .ag-history:hover .ag-hist-search,.ag-history.hover-open .ag-hist-search{order:2;margin-left:auto;margin-right:0}
+    .ag-history:hover .ag-hist-mark,.ag-history.hover-open .ag-hist-mark{order:3;margin-left:0}
+    #agDeskSidebarToggle:not(.on){left:7px !important}
+    #agDeskSidebarToggle.on{left:7px !important}
+
+    /* The content column sits beside the rail, so it only needs to clear
+       the fixed toggle button, not the whole panel. */
+    .ag-main .nav{padding-left:96px}
+    .ag-history.on ~ .ag-main .nav{padding-left:clamp(18px,4vw,40px)}
   }
 
-  /* Vertical nav list, Replit-style — not a horizontal tab row: with 5
-     items a horizontal row either overflows (found live: two items were
-     hidden behind a native scrollbar) or gets cramped. Full-width rows
-     stacked vertically has no such ceiling. */
-  /* Plain icon + label rows, no chips or indicator bars — Replit's nav is
-     quiet, with a light fill on the active row and nothing else. */
-  /* flex:0 0 auto — never shrink. This used to be flex:0 1 auto with
-     min-height:0 (let it shrink below content height) paired with
-     overflow:visible (needed so the Projects flyout below can escape at
-     desktop width) — but that combination means that the moment content
-     doesn't fit the viewport, the excess nav rows aren't clipped OR
-     scrolled, they just paint straight over .ag-hist-view in the next
-     flex slot. Never shrinking removes the failure mode entirely: the
-     nav always renders at its real height, and .ag-hist-view (flex:1 1
-     auto; min-height:0; overflow-y:auto below) is what absorbs a short
-     viewport instead, scrolling its own list rather than being painted
-     over. */
-  .ag-hist-tabs{display:flex;flex-direction:column;gap:4px;padding:2px var(--sb-pad) 6px;width:100%;box-sizing:border-box;
-    flex:0 0 auto;overflow:visible !important;scrollbar-width:none}
-  .ag-hist-tabs::-webkit-scrollbar{display:none}
-  .ag-hist-tab{width:100%;box-sizing:border-box;display:flex;align-items:center;gap:10px;border:0;background:none;color:var(--ink);cursor:pointer;
-    padding:7px 6px;border-radius:8px;font-size:.75rem;font-weight:450;text-align:left;transition:background .14s,color .14s}
-  .ag-hist-tab svg{width:18px;height:18px;flex:none;color:var(--ink-2)}
-  .ag-hist-tab:hover{background:var(--paper-2)}
-  .ag-hist-tab.on{background:var(--paper-2);font-weight:600}
-  .ag-hist-tab.on svg{color:var(--ink)}
-  /* Visual break between the main nav and the help group, matching the reference */
-  .ag-hist-gap{height:16px;flex:0 0 16px}
-
-  /* Projects hover flyout. Anchored to the row (position:relative on the
-     hoverable row, not on the scroll container) so it tracks the row if
-     the nav ever scrolls. */
-  .ag-hist-hoverable{position:relative}
-  .ag-flyout{position:absolute !important;left:calc(100% + 4px) !important;top:-6px !important;z-index:999999 !important;width:230px !important;
-    background:var(--card) !important;border:1px solid var(--line) !important;border-radius:12px !important;padding:10px 8px 6px !important;
-    box-shadow:0 16px 45px -8px rgba(11,22,38,.4) !important;
-    opacity:0 !important;visibility:hidden !important;transform:translateX(4px) !important;transition:opacity .16s ease,transform .16s ease,visibility .16s ease !important;
-    display:flex !important;flex-direction:column !important;gap:2px !important;cursor:default !important;pointer-events:none !important}
-  .ag-hist-hoverable:hover .ag-flyout,.ag-flyout:hover{opacity:1 !important;visibility:visible !important;transform:none !important;pointer-events:auto !important}
-  .ag-flyout-h{font-size:.8rem;color:var(--mut);font-weight:500;padding:0 8px 6px}
-  .ag-flyout-list{display:flex;flex-direction:column;gap:1px}
-  .ag-flyout-item{display:flex;align-items:center;gap:10px;padding:8px;border-radius:8px;
-    font-size:.9rem;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:.13s}
-  .ag-flyout-item:hover{background:var(--paper-2)}
-  .ag-flyout-item i{width:26px;height:26px;flex:none;border-radius:7px;background:#12202e;color:#fff;
-    display:grid;place-items:center;font-style:normal;font-weight:600;font-size:.8rem}
-  .ag-flyout-item span{overflow:hidden;text-overflow:ellipsis}
-  .ag-flyout-empty{padding:6px 8px 10px;font-size:.85rem;color:var(--mut)}
-  /* No room to fly out beside a 290px drawer on a phone — and it would
-     sit under the finger that opened it. */
-  /* Recent projects flyout visible on hover */
-
-  /* Mobile density pass — the whole rail has to FIT a phone with no
-     internal scrolling. At desktop metrics the nav alone is ~382px of a
-     ~600px screen, which pushed the plan block and Upgrade below the
-     fold. Everything here is a height reduction.
-
-     Placed at the END of the sidebar CSS on purpose: these selectors are
-     no more specific than the base rules they override, so source order
-     decides. An identical block sitting ABOVE them did nothing at all —
-     .ag-hist-new kept its display:flex and the rows kept desktop
-     padding. Same trap as .ag-hist-close earlier in this file. */
   @media (max-width:900px){
-    .ag-hist-head{padding:10px 10px 12px 114px !important}
-    .ag-ws{margin:2px 10px 6px;width:calc(100% - 20px);padding:6px 10px 6px 6px}
-    .ag-ws .av{width:24px;height:24px;font-size:.75rem}
-    .ag-ws .nm{font-size:.88rem}
-    .ag-act{margin:0 10px 5px;width:calc(100% - 20px);padding:8px 12px;font-size:.88rem}
-    .ag-act svg{width:15px;height:15px}
-    .ag-hist-tabs{padding:0 10px 2px;gap:2px}
-    .ag-hist-tab{padding:8px 10px;font-size:.9rem;gap:11px}
-    .ag-hist-tab svg{width:18px;height:18px}
-    .ag-hist-gap{height:12px;flex:0 0 12px}
-    .ag-hist-foot{padding:6px 0 4px;flex:0 0 auto}
-    .ag-hist-foot .ttl{font-size:.84rem;margin-bottom:2px}
-    .ag-meter-row{padding:2px 4px;gap:8px}
-    .ag-meter-row svg{width:15px;height:15px}
-    .ag-meter-row .lab{font-size:.76rem}
-    .ag-meter-row .lab i{font-size:.71rem}
-    .ag-upgrade{margin-top:6px;padding:9px;font-size:.88rem}
-    .ag-hist-links{margin-top:5px;font-size:.71rem}
+    .ag-history{position:fixed !important;top:0 !important;left:0 !important;bottom:0 !important;
+      height:100vh !important;width:240px !important;max-width:80vw !important;z-index:999999 !important;
+      transform:translateX(-100%) !important;transition:transform .28s var(--ease) !important;box-shadow:4px 0 24px rgba(0,0,0,.5)}
+    .ag-history.on{transform:translateX(0) !important}
+
+    /* CLOSED ON PHONE = the same icon rail as desktop, not nothing.
+       It used to translate fully off-screen, so closing the drawer left the
+       page with no navigation at all. Same argument as the desktop rail,
+       same 44px.
+
+       The element is NARROWED to the rail rather than translated most of the
+       way off: translating leaves it 240px wide with only its left edge
+       showing, and its contents keep laying out for the full 240px, so the
+       centred icons land off the visible strip and it renders as an empty
+       bar. Shrinking it collapses the inner layout, exactly as on desktop. */
+    .ag-history:not(.on){
+      width:var(--rail) !important;min-width:var(--rail) !important;max-width:var(--rail) !important;
+      transform:translateX(0) !important;box-shadow:none !important;overflow:hidden !important;
+      transition:width .28s var(--ease),transform .28s var(--ease) !important;
+      /* Clears the fixed #agDeskSidebarToggle at top:10px. Its desktop
+         hide-on-hover rule cannot apply here — there is no hover on touch,
+         so the button must stay reachable and the rail starts below it. */
+      padding-top:44px !important}
+
+    /* position:fixed means the rail overlays rather than pushes, so the
+       content needs that width back as padding. */
+    .ag-main{padding-left:var(--rail)}
+
+    /* --- rail contents: icons only (desktop's rules, minus :hover) --- */
+    .ag-history:not(.on) .lbl,
+    .ag-history:not(.on) .ag-hist-brand-text,
+    .ag-history:not(.on) .ag-user-main .nm,
+    .ag-history:not(.on) .ag-ws .nm{max-width:0 !important;opacity:0 !important;overflow:hidden !important}
+    .ag-history:not(.on) .ag-ws .chev,
+    .ag-history:not(.on) .ag-hist-view,
+    .ag-history:not(.on) .ag-chats-ttl,
+    .ag-history:not(.on) .ag-upsell,
+    /* Same as this page's desktop rail: the search button and the mark
+       both want the head's 44px, and side by side they overflow it —
+       which pushed the Souqi mark off the left edge entirely. */
+    .ag-history:not(.on) .ag-hist-search,
+    .ag-history:not(.on) .ag-ws-menu,
+    .ag-history:not(.on) .ag-flyout{display:none !important}
+    .ag-history:not(.on) .ag-hist-chats{border-top:1px solid var(--line);margin:5px 6px 0;padding-top:6px}
+    .ag-history:not(.on) .ag-hist-chats.is-empty{border-top:0;margin:0;padding-top:0}
+    .ag-history:not(.on) .ag-chats-list{padding:0;overflow:hidden}
+    .ag-history:not(.on) .ag-chat-item{width:32px;margin:0 auto;padding:7px 0;justify-content:center;gap:0}
+    .ag-history:not(.on) .ag-chat-item .sdot{margin:0}
+    .ag-history:not(.on) .ag-chat-item span{display:none}
+    .ag-history:not(.on) .ag-chats-empty{display:none}
+    .ag-history:not(.on) .ag-hist-head{padding:8px 0 4px !important;height:44px !important;flex:0 0 44px !important;overflow:hidden;justify-content:center}
+    .ag-history:not(.on) .ag-hist-mark{margin:0 auto}
+    /* The workspace row keeps its white card look and its asymmetric
+       6px/10px padding from the expanded panel, so in the rail it was the one
+       icon sitting inside a visible white pill, nudged off-centre by the extra
+       right padding — every other icon is transparent and centred. Desktop
+       already strips it in the rail; this is the same treatment. */
+    .ag-history:not(.on) .ag-ws-wrap{padding:0 !important;display:flex;justify-content:center}
+    .ag-history:not(.on) .ag-ws{width:32px !important;margin:0 !important;padding:5px 0 !important;
+      justify-content:center;gap:0;background:transparent !important;border-color:transparent !important}
+    .ag-history:not(.on) .ag-hist-tabs{padding:4px 0 6px !important;align-items:center}
+    .ag-history:not(.on) .ag-hist-tab{width:32px;padding:7px 0;justify-content:center;gap:0}
+    .ag-history:not(.on) .ag-tab-new{background:transparent;box-shadow:none}
+    .ag-history:not(.on) .ag-hist-user{background:transparent}
+    .ag-history:not(.on) .ag-hist-user{flex-direction:column;gap:3px;padding-left:0;padding-right:0}
+    .ag-history:not(.on) .ag-user-main{flex:none;width:32px;padding:5px 0;justify-content:center}
+    .ag-history:not(.on) .ag-user-gear{display:grid !important;flex:none;width:30px;height:24px}
+    /* Matches this page's own desktop rail, which hides the footer entirely:
+       the plan card, meters and legal links have no 44px form, and left
+       visible they overflow the rail as wrapped, clipped text. */
+    .ag-history:not(.on) .ag-hist-foot{display:none !important}
+
+    /* Icon only on phones. The word "Sidebar" is wider than the 44px rail it
+       sits on, so the label covered the rail's own icons rather than
+       labelling anything. Centred in the rail (7px = (44-30)/2) it reads as
+       the rail's top item instead of a pill parked on top of it. */
+    #agDeskSidebarToggle{position:fixed !important;top:10px !important;left:7px !important;
+      z-index:999999 !important;padding:4px !important;width:30px !important;height:30px !important;
+      justify-content:center !important}
+    #agDeskSidebarToggle span{display:none !important}
+
+    /* OPEN: mark at the far left of the header, control at the far right —
+       the same arrangement as desktop. The drawer is 240px (clamped to
+       80vw on very narrow screens), so the control is offset from whichever
+       of those actually applies rather than from a hardcoded 240. */
+    #agDeskSidebarToggle.on{left:calc(min(240px, 80vw) - 40px) !important}
+
+    /* A real 1px divider, as the desktop rail has. Rail and page background
+       are the same token, so with no border the seam between them rendered
+       as an inconsistent hairline — present on some scroll positions and
+       device pixel ratios, absent on others. An explicit border is the fix;
+       leaving it to sub-pixel rounding is what made it look like a glitch. */
+    .ag-history:not(.on){border-right:1px solid var(--line) !important}
+
+    /* The drawer's overlay shadow was rgba(0,0,0,.5) — a black scrim edge
+       that reads as a hard dark band against light paper. Softer, and warm
+       enough to belong to the theme. */
+    .ag-history.on{box-shadow:6px 0 28px -10px rgba(11,22,38,.28) !important}
+    .ag-hist-backdrop{display:block !important;position:fixed !important;top:0 !important;right:0 !important;bottom:0 !important;left:min(var(--sb-w),80vw) !important;
+      background:var(--scrim) !important;
+      backdrop-filter:var(--scrim-blur) !important;z-index:999998 !important;opacity:0 !important;pointer-events:none !important;transition:opacity .28s ease !important}
+    .ag-hist-backdrop.on{opacity:1 !important;pointer-events:auto !important}
   }
+
+  /* ---- upgrade card ----
+     The builder's replacement for the three credit meters and the ✦ Upgrade
+     button that /projects and /deployments carry in this same slot. Kept
+     here, after the copied block, so the shared rules above stay a clean
+     copy and this reads as the one deliberate difference it is. */
+  /* ---- upgrade card ---- */
+  .ag-upsell{margin:6px var(--sb-pad) 5px;padding:14px 11px 17px;border:1px solid var(--line);border-radius:13px;
+    background:var(--card);box-shadow:0 1px 3px rgba(0,0,0,.06),0 6px 18px -10px rgba(0,0,0,.22);
+    transition:background-color .22s ease}
+  .up-head{display:flex;align-items:center;gap:8px;text-decoration:none;color:inherit}
+  /* The tint belongs to the whole card, not its top strip. It used to live
+     on .up-head — the title row only — bled out to the card edges with
+     negative margins, so the card lit up across the top and stopped dead at
+     the meter. That reads as a rendering fault, not a hover. */
+  .ag-upsell:hover{background:rgba(26,166,223,.12)}
+  .up-txt{flex:1;min-width:0}
+  .up-txt b{display:block;font-size:.7rem;font-weight:600;color:var(--ink);letter-spacing:-.012em;line-height:1.25}
+  .up-txt small{display:block;font-size:.625rem;color:var(--mut);margin-top:2px;line-height:1.3}
+  .up-spark{flex:none;width:27px;height:27px;border-radius:9px;display:grid;place-items:center;
+    background:var(--accent);color:#fff;transition:.15s;box-shadow:0 3px 10px -3px rgba(26,166,223,.6)}
+  .ag-upsell:hover .up-spark{background:var(--accent-2)}
+  .up-spark svg{width:14px;height:14px;fill:#fff}
+  .up-meter{display:flex;align-items:center;justify-content:space-between;margin-top:13px;font-size:.655rem}
+  .up-lab{color:var(--ink-2)}
+  .up-pct{color:var(--ink);font-weight:600}
+  .up-bar{display:block;height:6px;border-radius:999px;background:var(--paper-2);overflow:hidden;margin-top:8px}
+  .up-bar i{display:block;height:100%;background:var(--accent);border-radius:999px;transition:width .4s var(--ease-sb)}
+
+  /* ---- recent-chat filter ----
+     The other builder-only addition, kept out here with the upgrade card so
+     the copied block above stays a clean copy. Display:none by default, so
+     with the field closed this sidebar is identical to /projects — the
+     button reveals it. */
+  .ag-chats-find{display:none;flex:0 0 auto;padding:0 var(--sb-pad) 6px}
+  .ag-chats-find.on{display:block}
+  .ag-chats-find input{width:100%;box-sizing:border-box;padding:6px 9px;font:inherit;font-size:.75rem;
+    color:var(--ink);background:var(--card);border:1px solid var(--line);border-radius:8px;outline:none;
+    transition:border-color .14s ease,box-shadow .14s ease}
+  .ag-chats-find input::placeholder{color:var(--mut)}
+  .ag-chats-find input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(26,166,223,.14)}
+  .ag-chats-find input::-webkit-search-cancel-button{cursor:pointer}
+  /* Lit while the field is open, so the button reads as a toggle rather
+     than something that fired once and did nothing visible. */
+  .ag-hist-search.on{background:var(--paper-2);color:var(--ink)}
+  .ag-chats-none{padding:14px;color:var(--mut);font-size:.75rem;line-height:1.5;text-align:center}
+  /* A text field has no 44px form, and the button that opens it is already
+     hidden in the rail by the copied block — so the field cannot be reached
+     from there and must not be occupying space in it either. Same for the
+     building state, which hides the whole panel. */
+  @media (min-width:901px){
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-chats-find{display:none !important}
+  }
+  @media (max-width:900px){
+    .ag-history:not(.on) .ag-chats-find{display:none !important}
+  }
+
+  /* ---- .focus: the building state ----
+     Added to #agHistory while a build runs and removed when it finishes
+     (see the is-building handling in the script). The rail gets out of the
+     way completely — this is the one case where width:0 is the right
+     answer, because during a build there is nothing to navigate to.
+     Last in the block on purpose: these selectors are no more specific
+     than the rail and hover rules above, so source order is what decides.
+     :hover is spelled out because .ag-history:not(.on):hover would
+     otherwise re-expand the panel the moment the pointer crossed it. */
+  .ag-history.focus,
+  .ag-history.focus:hover{
+    width:0 !important;flex:0 0 0px !important;min-width:0 !important;max-width:0 !important;
+    margin-right:0 !important;padding-top:0 !important;overflow:hidden !important;
+    border-right:0 !important;box-shadow:none !important;transform:translateX(-100%) !important}
+  .ag-history.focus ~ .ag-main{padding-left:0}
 
   .ag-hist-view{flex:1 1 auto;min-height:0;overflow-y:auto;display:none}
   .ag-hist-view.on{display:block}
@@ -2268,9 +2288,9 @@
     .pl-go,.pl-edit{flex:1 1 auto;text-align:center}
   }
 
-  .ag-set-overlay{position:fixed;inset:0;z-index:9999999 !important;background:rgba(8,7,6,.32);
+  .ag-set-overlay{position:fixed;inset:0;z-index:9999999 !important;background:var(--scrim);
     display:flex;align-items:center;justify-content:center;padding:clamp(8px,3.5vh,40px);
-    -webkit-backdrop-filter:blur(14px) saturate(115%);backdrop-filter:blur(14px) saturate(115%)}
+    -webkit-backdrop-filter:var(--scrim-blur);backdrop-filter:var(--scrim-blur)}
   .ag-set-overlay[hidden]{display:none !important;pointer-events:none !important;visibility:hidden !important}
   .ag-set-overlay iframe{width:min(1393px,92vw);height:min(700px,80vh);border:0;border-radius:13px;
     background:var(--card);box-shadow:0 30px 90px -28px rgba(0,0,0,.55)}
@@ -2293,38 +2313,52 @@
       scroll-snap-align: start !important;
     }
   }
+  @media (max-width:900px){
+    .ag-history.on{width:240px !important;max-width:80vw !important;height:100dvh !important}
+    .ag-history.on .ag-hist-head{flex:0 0 42px !important}
+    .ag-history.on .ag-hist-user{padding-top:3px;padding-bottom:5px}
+    .ag-history.on .ag-hist-install,.ag-history.on .ag-hist-links{white-space:nowrap;gap:3px}
+    .ag-hist-backdrop{left:min(240px,80vw) !important}
+    .ag-history.on .ag-hist-search{order:2;margin-left:auto;margin-right:0}
+    .ag-history.on .ag-hist-mark{order:3;margin-left:0}
+    #agDeskSidebarToggle{left:7px !important}
+    #agDeskSidebarToggle.on{left:7px !important}
+    #agDeskSidebarToggle:not(.on){display:none !important}
+    .ag-history:not(.on){padding-top:0 !important}
+    .ag-history.on{overflow:hidden !important;overflow-y:hidden !important}
+    .ag-history.on .ag-hist-head{padding-top:6px !important;padding-bottom:4px !important}
+    .ag-history.on .ag-ws{margin-top:4px;margin-bottom:4px}
+    .ag-history.on .ag-hist-tabs{gap:0;padding-top:0;padding-bottom:2px}
+    .ag-history.on .ag-hist-tab{padding-top:5px;padding-bottom:5px}
+    .ag-history.on .ag-hist-chats{flex:1 1 0;min-height:0}
+    .ag-history.on .ag-chats-list{min-height:0;overflow:hidden}
+    .ag-history.on .ag-chat-item{padding-top:4px;padding-bottom:4px}
+    .ag-history.on .ag-hist-foot{padding:4px 8px}
+    .ag-history.on .ag-hist-foot .ttl{font-size:.74rem;margin-bottom:2px}
+    .ag-history.on .ag-upsell{margin:3px 0 4px;padding:8px}
+    .ag-history.on .ag-hist-install,.ag-history.on .ag-hist-links{font-size:.58rem;margin-top:3px}
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-user-gear{display:grid !important;flex:none;width:30px;height:24px}
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-user-gear{order:1}
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-user-main{order:2}
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-hist-user{padding-bottom:8px}
+    .ag-history:not(.on) .ag-user-gear{order:1 !important}
+    .ag-history:not(.on) .ag-user-main{order:2 !important}
+    .ag-history:not(.on) .ag-hist-user{padding-bottom:8px}
+  }
 </style>
 <link rel="stylesheet" href="/css/upgrade-modal.css">
 </head>
-<body>
-
-
-<!-- Settings opens as an overlay over the builder, Replit-style, rather
-     than navigating to /settings — the preview on the right stays exactly
-     where it is, and closing returns to the same build without a reload.
-     /settings still exists as a real page for direct links; this iframes
-     it so there is one implementation of the settings UI, not two. -->
-<div class="ag-set-overlay" id="agSetOverlay" hidden>
-  <iframe id="agSetFrame" title="Settings" src="about:blank"></iframe>
-</div>
-
-<div class="ag-hist-backdrop" id="agHistBackdrop"></div>
-<!-- No "on" here — .ag-history's own default (no media query needed,
-     both the ≥901px and ≤900px rules agree) is collapsed/width:0, "on"
-     is what a real open() call adds. Hardcoding it open in the markup
-     meant the drawer rendered open on every fresh load, on every
-     viewport, WITHOUT ever going through toggleSidebar()/openHistory()
-     — and since those are the only things that also add "on" to
-     #agHistBackdrop, the backdrop never synced: no dimming, no
-     pointer-events, so tapping outside the drawer did nothing, and the
-     very first real click on the Sidebar button read as "does nothing"
-     because it was actually closing a drawer nobody had opened yet. -->
+<body><div class="ag-hist-backdrop" id="agHistBackdrop"></div>
+<!-- No "on" here, unlike /projects and /deployments. Hardcoding it open
+     meant the drawer rendered open on every load WITHOUT going through
+     toggleSidebar() — and that is the only thing which also lights
+     #agHistBackdrop and the toggle, so the backdrop never synced and the
+     first real click read as "does nothing". initSidebarState() sets the
+     state instead, and the builder opens on the rail so the preview pane
+     starts wide. -->
 <aside class="ag-history" id="agHistory" aria-label="Your account">
-  <!-- Sidebar/close button FIRST, logo second — matches where the outer
-       #agDeskSidebarToggle sits (top-left) so this button doesn't visibly
-       jump from left to right the moment the drawer opens. -->
   <div class="ag-hist-head">
-    <span class="ag-hist-mark"><svg viewBox="0 0 24 24" fill="none" stroke="url(#souqiBag)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><defs><linearGradient id="souqiBag" x1="4" y1="4" x2="20" y2="20" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#1f8ae0"/><stop offset="1" stop-color="#22c55e"/></linearGradient></defs><path d="M5.2 8h13.6a1.4 1.4 0 0 1 1.39 1.55l-.86 9.4a1.9 1.9 0 0 1-1.89 1.75H6.56a1.9 1.9 0 0 1-1.89-1.75l-.86-9.4A1.4 1.4 0 0 1 5.2 8Z"/><path d="M8.9 10.4V4.9h6.2v5.5"/></svg></span>
+    <span class="ag-hist-mark"><svg viewBox="0 0 24 24" fill="none" stroke="url(#souqiBag)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><defs><linearGradient id="souqiBag" x1="4" y1="4" x2="20" y2="20" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#1f8ae0"/><stop offset="1" stop-color="#22c55e"/></linearGradient></defs><path d="M5.2 8h13.6a1.4 1.4 0 0 1 1.39 1.55l-.86 9.4a1.9 1.9 0 0 1-1.89 1.75H6.56a1.9 1.9 0 0 1-1.89-1.75l-.86-9.4A1.4 1.4 0 0 1 5.2 8Z"/><path d="M8.9 10.4V4.9h6.2v5.5"/></svg></span><button type="button" class="ag-hist-search" id="agHistSearch" title="Search" aria-label="Search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.6-3.6"/></svg></button>
     <b class="ag-hist-brand-text"><span>Souqi</span><span>Code</span></b>
   </div>
 
@@ -2336,19 +2370,14 @@
     </button>
     <div class="ag-ws-menu" id="agWsMenu">
       <div class="ag-ws-signed" id="agWsSigned">Not signed in</div>
-      <a class="ag-ws-item" href="#" id="agWsSettings">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      <a class="ag-ws-item" href="/settings">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
         Settings
       </a>
       <a class="ag-ws-item" href="/pricing">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2l2.4 6.4L21 10l-5.2 4.2L17.2 21 12 17.3 6.8 21l1.4-6.8L3 10l6.6-1.6z"/></svg>
         Plans &amp; pricing
       </a>
-      <div class="ag-ws-sep" id="agWsSignOutSep" hidden></div>
-      <button type="button" class="ag-ws-item" id="agWsSignOut" hidden>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>
-        Sign out
-      </button>
       <a class="ag-ws-item" href="/login" id="agWsSignIn">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><path d="M10 17l5-5-5-5"/><path d="M15 12H3"/></svg>
         Sign in
@@ -2357,56 +2386,51 @@
   </div>
 
   <div class="ag-hist-tabs" id="agHistTabs" role="tablist">
-    <button type="button" class="ag-hist-tab ag-tab-new" id="agActNew" title="New chat">
-      <i class="tab-ic ring"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></i><span class="lbl">New</span></button>
+    <a class="ag-hist-tab ag-tab-new" href="/agent" title="New chat">
+      <i class="tab-ic ring"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></i><span class="lbl">New</span></a>
 
-    <a class="ag-hist-tab ag-hist-hoverable" href="/projects" title="Projects">
-      <i class="tab-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M8 4h9a2 2 0 0 1 2 2v11"/><rect x="4" y="7" width="12" height="13" rx="2"/></svg></i><span class="lbl">Projects</span>
-      <span class="ag-flyout" id="agProjFlyout">
-        <span class="ag-flyout-h">Recent Projects</span>
-        <span class="ag-flyout-list" id="agProjFlyoutList"><span class="ag-flyout-empty">Nothing built yet</span></span>
-      </span>
-    </a>
+    <a class="ag-hist-tab" href="/projects" title="Projects">
+      <i class="tab-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M8 4h9a2 2 0 0 1 2 2v11"/><rect x="4" y="7" width="12" height="13" rx="2"/></svg></i><span class="lbl">Projects</span></a>
 
-    <!-- Deployments. An anchor, not a data-view button: the other two are
-         panels that render inside this page, and this is a different page.
-         Same position and same icon as the sidebar on /projects and
-         /deployments, so the row does not move as you navigate between
-         them — it was the one entry missing here. -->
     <a class="ag-hist-tab" href="/deployments" title="Deployments">
       <i class="tab-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="m3.3 7 8.7 5 8.7-5M12 22V12"/></svg></i><span class="lbl">Deployments</span></a>
 
-    <button type="button" class="ag-hist-tab" data-view="favorites" title="Favorites">
-      <i class="tab-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8L3.5 9.7l5.9-.9z"/></svg></i><span class="lbl">Favorites</span></button>
+    <a class="ag-hist-tab" href="/agent#favorites" title="Favorites">
+      <i class="tab-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8L3.5 9.7l5.9-.9z"/></svg></i><span class="lbl">Favorites</span></a>
 
-    <button type="button" class="ag-hist-tab" data-view="integrations" data-panel="integrations" title="Integrations">
-      <i class="tab-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="m12 3 9 5-9 5-9-5 9-5z"/><path d="m3 12 9 5 9-5"/><path d="m3 17 9 5 9-5"/></svg></i><span class="lbl">Integrations</span></button>
+    <a class="ag-hist-tab" href="/settings#integrations" title="Integrations">
+      <i class="tab-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="m12 3 9 5-9 5-9-5 9-5z"/><path d="m3 12 9 5 9-5"/><path d="m3 17 9 5 9-5"/></svg></i><span class="lbl">Integrations</span></a>
 
-    <button type="button" class="ag-hist-tab" data-view="security" data-panel="security" title="Security">
-      <i class="tab-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/></svg></i><span class="lbl">Security</span></button>
+    <a class="ag-hist-tab" href="/settings#security" title="Security">
+      <i class="tab-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/></svg></i><span class="lbl">Security</span></a>
   </div>
 
-  <!-- Recent chats. The rail keeps these as bare document icons (Replit
-       does the same) rather than dropping them, so the collapsed sidebar
-       is still a way back into a conversation. -->
+  <!-- Recent chats — the same slot /projects fills with apps and
+       /deployments with deployments. Only the list id differs, because
+       only the contents do: those two already disagree here (agProjList
+       vs agAppList), so there is no shared value to copy. -->
   <div class="ag-hist-chats" id="agHistChats">
     <div class="ag-chats-ttl">Recent</div>
-    <div class="ag-chats-list" id="agChatsList"><div class="ag-hist-loading">Loading…</div></div>
-  </div>
-
-  <!-- Favorites still has a panel; it just renders in place of the Recent
-       list instead of below it (see .ag-hist-chats[hidden] in switchView). -->
-  <div class="ag-hist-view" id="viewFavorites">
-    <div class="ag-hist-list" id="agFavList"><div class="ag-hist-loading">Loading…</div></div>
+    <!-- The one addition to the copied sidebar. On /projects and
+         /deployments the header's search button jumps to a search input the
+         page already has; the builder has no such field, so the button had
+         nothing to point at. This is it — the Recent list is what there is
+         to search here. Collapsed by default, so the rail looks identical
+         to the other two until the button is pressed. -->
+    <div class="ag-chats-find" id="agChatsFind">
+      <input type="search" id="agChatsFindInput" placeholder="Filter chats…" autocomplete="off" aria-label="Filter chats">
+    </div>
+    <div class="ag-chats-list" id="agChatsList"><div class="ag-hist-loading ag-chats-empty">Loading…</div></div>
   </div>
 
   <div class="ag-hist-foot">
-    <!-- One upgrade card with a single allowance meter, not three separate
-         credit meters plus a button plus install links plus a legal row.
-         Everything removed here is still reachable (plans from the card and
-         the workspace menu, legal from the footer of the marketing site) —
-         the sidebar just stopped being where it all lived, which is what was
-         eating the space chat history needed. -->
+    <div class="ttl" id="agPlanTtl">Your Free Plan</div>
+    <div class="ag-plan-alert" id="agPlanAlert" hidden>You've reached your usage limit</div>
+    <!-- The one deliberate difference from /projects and /deployments:
+         where they carry three credit meters and an Upgrade button, the
+         builder carries a single card with one allowance meter. Everything
+         dropped is still reachable (plans from the card and the workspace
+         menu), and the space it frees is what chat history needs. -->
     <div class="ag-upsell">
       <a class="up-head" href="/pricing" onclick="openUpgradeModal(event)">
         <span class="up-txt"><b>Upgrade your plan</b><small>Unlock more credits</small></span>
@@ -2418,11 +2442,19 @@
       </div>
       <span class="up-bar"><i id="agAllowBar" style="width:0%"></i></span>
     </div>
-
-    <a class="ag-hist-tab ag-foot-link" href="/home" title="Learn more">
-      <i class="tab-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7V18h8v-3.3A7 7 0 0 0 12 2z"/></svg></i><span class="lbl">Learn more</span></a>
+    <div class="ag-hist-install">
+      <span>Install Souqi on</span>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2" width="10" height="20" rx="2"/><line x1="11" y1="18" x2="13" y2="18"/></svg>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+      <span>•</span>
+      <a href="/changelog">Changelog</a>
+    </div>
+    <div class="ag-hist-links">
+      <a href="/terms" target="_blank" rel="noopener">Terms</a><span>·</span>
+      <a href="/privacy" target="_blank" rel="noopener">Privacy</a><span>·</span>
+      <a href="/pricing">Plans</a>
+    </div>
   </div>
-
 
   <div class="ag-hist-user" id="agHistUser">
     <button type="button" class="ag-user-main" id="agUserMain" title="Account settings">
@@ -2433,20 +2465,31 @@
   </div>
 </aside>
 
-<div class="ag-main" id="agMain">
-  <!-- No "on" class here: the markup used to ship this button pre-lit while
-       .ag-history started closed, so on load it claimed the sidebar was
-       open when it wasn't. State is set by initSidebarState() in the
-       script and by toggleSidebar() thereafter — nowhere else. -->
-  <button type="button" class="ag-pv-toggle-btn" id="agDeskSidebarToggle" title="Toggle Sidebar">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-      <rect x="3" y="3" width="18" height="18" rx="3.5"/>
-      <path d="M9 3v18"/>
-      <rect class="pane-left" x="3.8" y="3.8" width="5.2" height="16.4" rx="1" fill="transparent" stroke="none"/>
-    </svg>
-    <span>Sidebar</span>
-  </button>
+<!-- Settings opens as an overlay over the builder, Replit-style, rather
+     than navigating to /settings — the preview on the right stays exactly
+     where it is, and closing returns to the same build without a reload.
+     /settings still exists as a real page for direct links; this iframes
+     it so there is one implementation of the settings UI, not two.
+     The copied sidebar needs no builder-specific hrefs for this: its plain
+     <a href="/settings…"> links are caught by the delegated handler in the
+     script below and routed here. -->
+<div class="ag-set-overlay" id="agSetOverlay" hidden>
+  <iframe id="agSetFrame" title="Settings" src="about:blank"></iframe>
+</div>
 
+<!-- No "on" for the same reason as the aside: shipping this pre-lit while
+     the sidebar starts collapsed made it claim the panel was open on load.
+     initSidebarState() and toggleSidebar() own this class, nothing else. -->
+<button type="button" class="ag-pv-toggle-btn" id="agDeskSidebarToggle" title="Toggle Sidebar">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="3" y="3" width="18" height="18" rx="3.5"/>
+    <path d="M9 3v18"/>
+    <rect class="pane-left" x="3.8" y="3.8" width="5.2" height="16.4" rx="1" fill="transparent" stroke="none"/>
+  </svg>
+  <span>Sidebar</span>
+</button>
+
+<div class="ag-main" id="agMain">
   <button type="button" class="ag-pv-toggle-btn" id="agDeskPreviewToggle" title="Show / Hide Preview panel">
     <svg id="agDeskPreviewToggleIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
       <rect x="3" y="3" width="18" height="18" rx="3.5"/>
@@ -3821,7 +3864,21 @@
     if (agDeskPreviewToggle && window.matchMedia("(max-width:900px)").matches) {
       agDeskPreviewToggle.style.display = isShowing ? "none" : "";
     }
+
+    // Collapsing drops any active chat filter. The field is hidden in the
+    // rail but its filter is not, so leaving it on meant the rail showed a
+    // subset of the chat dots with nothing on screen to explain why — a
+    // list that looks like it lost entries rather than one being filtered.
+    if (!isShowing && typeof window.closeChatFilter === "function") window.closeChatFilter();
   };
+  const agHistoryRail = document.querySelector(".ag-history");
+  if (agHistoryRail) agHistoryRail.addEventListener("click", (event) => {
+    if (!agHistoryRail.classList.contains("on")) {
+      event.preventDefault();
+      event.stopPropagation();
+      window.toggleSidebar(true);
+    }
+  });
   const agDeskSidebarToggle = $("agDeskSidebarToggle");
   const agHistCloseBtn = $("agHistClose");
 
@@ -3844,11 +3901,17 @@
     const open = () => {
       clearTimeout(closeTimer);
       // .on is the pinned state — never fight with it.
-      if (!hist.classList.contains("on")) hist.classList.add("hover-open");
+      if (!hist.classList.contains("on")) {
+        hist.classList.remove("hover-suppressed");
+        hist.classList.add("hover-open");
+      }
     };
     const close = () => {
       clearTimeout(closeTimer);
-      closeTimer = setTimeout(() => hist.classList.remove("hover-open"), 140);
+      closeTimer = setTimeout(() => {
+        hist.classList.remove("hover-open");
+        hist.classList.remove("hover-suppressed");
+      }, 140);
     };
 
     agDeskSidebarToggle.addEventListener("mouseenter", open);
@@ -3860,6 +3923,7 @@
     agDeskSidebarToggle.addEventListener("click", () => {
       clearTimeout(closeTimer);
       hist.classList.remove("hover-open");
+      if (hist.classList.contains("on")) hist.classList.add("hover-suppressed");
     });
   })();
 
@@ -3899,6 +3963,7 @@
   function setMobilePane(showPreview) {
     agSection.classList.toggle("tab-hidden", showPreview);
     agPreview.classList.toggle("tab-hidden", !showPreview);
+    document.body.classList.toggle("preview-mode", showPreview);
     if (agDeskPreviewToggleLabel) agDeskPreviewToggleLabel.textContent = showPreview ? "Back to chat" : "Preview";
     if (agDeskPreviewToggleIcon) agDeskPreviewToggleIcon.innerHTML = showPreview ? BACK_ICON : PANE_ICON;
     if (agDeskPreviewToggle) {
@@ -3950,15 +4015,32 @@
       const isOpen = agModelPopover.classList.toggle("open");
       agModelPill.classList.toggle("open", isOpen);
       if (isOpen) {
-        // Open downward by default, but flip up when the space below the
-        // pill cannot hold the panel and the space above can. Measured
-        // per-open because the composer moves: it is centred on the
-        // new-chat screen and pinned to the bottom mid-conversation.
+        // Always open downward and keep the options inside the space below
+        // the pill when the viewport is short.
         const r = agModelPill.getBoundingClientRect();
-        const h = agModelPopover.offsetHeight;
-        const below = window.innerHeight - r.bottom - 16;
-        const above = r.top - 16;
-        agModelPopover.classList.toggle("drop-up", below < h && above > below);
+        const below = Math.max(96, window.innerHeight - r.bottom - 16);
+        agModelPopover.style.maxHeight = below + "px";
+
+        // Horizontal clamp, same reasoning as the flip above: CSS cannot see
+        // the available space. The panel is right-anchored to the pill and
+        // 250px wide, and on a phone the pill sits far enough left that the
+        // panel's left edge lands OUTSIDE .ag — which has overflow-x:hidden,
+        // so it was silently cut off mid-word rather than overflowing
+        // ("AGENT MODE" rendering as "GENT MODE"). Shift it back inside.
+        agModelPopover.style.marginRight = "";
+        const clip = agModelPopover.closest(".ag") || document.documentElement;
+        const cb = clip.getBoundingClientRect();
+        const pb = agModelPopover.getBoundingClientRect();
+        const PAD = 8;
+        // Positive when the panel starts left of the clipping edge.
+        let shift = (cb.left + PAD) - pb.left;
+        if (shift > 0) {
+          // Never push it past the clipping box's other edge — on a very
+          // narrow screen the panel can be wider than the room available,
+          // and shoving it right would only move the clipped half.
+          shift = Math.min(shift, Math.max(0, cb.right - PAD - pb.right));
+          if (shift > 0) agModelPopover.style.marginRight = (-shift) + "px";
+        }
       }
     });
     document.addEventListener("click", (e) => {
@@ -4269,18 +4351,6 @@
           + '<span class="m">' + meta + ' · ' + esc(timeAgo(p.updatedAt)) + '</span></span></a>';
       }).join("") : '<div class="ag-recent-empty">No recent projects yet — what you build will show up here.</div>';
       $("agRecent").hidden = false;
-
-      // Same rows feed the sidebar's Projects hover flyout — one fetch,
-      // both surfaces, so they can never disagree about what exists.
-      $("agProjFlyoutList").innerHTML = rows.length
-        ? rows.slice(0, 5).map((p) => {
-            const t = p.title || "Untitled app";
-            const c = TYPE_COLOR[p.buildType] || "#8b98a5";
-            return '<a class="ag-flyout-item" href="/agent/' + esc(p.slug) + '">'
-              + '<i style="color:' + c + '">' + esc(t.charAt(0).toUpperCase() || "A") + '</i>'
-              + '<span>' + esc(t) + '</span></a>';
-          }).join("")
-        : '<span class="ag-flyout-empty">Nothing built yet</span>';
     }).catch(() => { /* the rest of the new-chat screen still works without it */ });
   }
   loadRecentProjects();
@@ -4394,37 +4464,6 @@
 
   let favLoaded = false, settingsLoaded = false;
 
-  const agFavList = $("agFavList");
-  wireProjectList(agFavList);
-  async function loadFavorites() {
-    if (favLoaded) return;
-    favLoaded = true;
-    try {
-      const res = await fetch("/api/projects?kind=code&favorite=1&limit=20");
-      const rows = (await res.json()).projects || [];
-      agFavList.innerHTML = rows.length ? rows.map(projectItemHtml).join("")
-        : '<div class="ag-hist-empty">Star a build to pin it here.</div>';
-    } catch (e) {
-      agFavList.innerHTML = '<div class="ag-hist-empty">Couldn\'t load favorites.</div>';
-      favLoaded = false;
-    }
-  }
-
-  async function loadSettings() {
-    if (settingsLoaded) return;
-    settingsLoaded = true;
-    try {
-      const res = await fetch("/api/codeagent/usage");
-      const d = await res.json();
-      $("setFreeEdits").textContent = d.freeEdits;
-      $("setUsage").textContent = d.budgetUsd > 0 ? "$" + d.spentUsd.toFixed(2) + " / $" + d.budgetUsd.toFixed(2) : "$" + d.spentUsd.toFixed(2);
-    } catch (e) {
-      $("setUsage").textContent = "—";
-      settingsLoaded = false;
-    }
-  }
-
-  const HIST_LOADERS = { favorites: loadFavorites, settings: loadSettings };
   /* Settings is the one tab that opens the full overlay instead of a
      drawer view — it's a whole page's worth of UI (profile, theme,
      history, security) that never fit in 340px. Everything else stays
@@ -4440,6 +4479,7 @@
     const src = "/settings" + (panel ? "#" + panel : "");
     if (agSetFrame.getAttribute("src") !== src) agSetFrame.setAttribute("src", src);
     agSetOverlay.hidden = false;
+    if (window.SouqiLoading) window.SouqiLoading.hide();
   }
   function closeSettings() { agSetOverlay.hidden = true; }
   agSetOverlay.addEventListener("click", (e) => { if (e.target === agSetOverlay) closeSettings(); });
@@ -4448,26 +4488,21 @@
   window.addEventListener("message", (e) => {
     if (e.data === "souqi:settings:close") closeSettings();
   });
-
-  $("agHistTabs").addEventListener("click", (e) => {
-    const tab = e.target.closest(".ag-hist-tab"); if (!tab) return;
-    const view = tab.dataset.view;
-    if (!view) return; // a real link (Projects) — let it navigate, nothing to toggle
-    // Items that live in the settings overlay rather than as a drawer
-    // view — Replit routes these the same way (its sidebar Security and
-    // Integrations open the Settings modal on that section).
-    if (tab.dataset.panel) { openSettings(tab.dataset.panel); return; }
-    if (view === "settings") { openSettings(); return; }
-    // A drawer view takes the Recent list’s place rather than stacking under
-    // it — two scrolling lists in a 240px column is unreadable. Clicking the
-    // active tab again closes the view and returns to Recent.
-    const already = tab.classList.contains("on");
-    $("agHistTabs").querySelectorAll(".ag-hist-tab").forEach((t) => t.classList.toggle("on", !already && t === tab));
-    document.querySelectorAll(".ag-hist-view").forEach((v) => v.classList.toggle("on", !already && v.id === "view" + view.charAt(0).toUpperCase() + view.slice(1)));
-    const chats = $("agHistChats");
-    if (chats) chats.hidden = !already;
-    if (already) return;
-    HIST_LOADERS[view] && HIST_LOADERS[view]();
+  // Any <a href="/settings"> or <a href="/pricing"> anywhere on the page
+  // (e.g. the workspace dropdown or account gear) opens the overlay instead of navigating.
+  document.addEventListener("click", (e) => {
+    if (e.target.closest("#agUserMain") || e.target.closest("#agUserGear")) {
+      e.preventDefault(); openSettings(); return;
+    }
+    const a = e.target.closest('a[href^="/settings"], a[href^="/pricing"], .ag-upgrade');
+    if (!a || e.metaKey || e.ctrlKey || e.shiftKey || a.target === "_blank") return;
+    e.preventDefault();
+    const href = a.getAttribute("href") || "";
+    if (a.classList.contains("ag-upgrade") || href.startsWith("/pricing")) {
+      if (window.openUpgradeModal) window.openUpgradeModal(e); else location.href = "/pricing";
+    } else {
+      openSettings(href.replace("/settings", "").replace("#", "") || undefined);
+    }
   });
 
   function openHistory() { agHistory.classList.add("on"); agHistBackdrop.classList.add("on"); }
@@ -4475,8 +4510,6 @@
   if (agHistOpen) agHistOpen.addEventListener("click", openHistory);
   if (agHistClose) agHistClose.addEventListener("click", closeHistory);
   agHistBackdrop.addEventListener("click", closeHistory);
-
-  $("agActNew").addEventListener("click", () => { location.href = "/agent"; });
 
   // Workspace pill: click-toggled dropdown (real account data, no fake
   // multi-workspace switcher — Souqi only ever has the one workspace per
@@ -4499,10 +4532,6 @@
     });
     document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeWsMenu(); });
   }
-  $("agWsSettings").addEventListener("click", (e) => { e.preventDefault(); closeWsMenu(); openSettings(); });
-  $("agWsSignOut").addEventListener("click", () => {
-    fetch("/auth/logout", { method: "POST", credentials: "same-origin" }).catch(() => {}).then(() => { location.href = "/agent"; });
-  });
 
   // Plan block in the sidebar footer.
   /* Chat history in the sidebar. Same source as the Projects flyout and the
@@ -4558,6 +4587,60 @@
   }
   loadChatHistory();
 
+  /* ---- sidebar chat search ----
+     Filters the Recent list in place rather than navigating anywhere. The
+     button toggles the field; typing narrows the list; Escape or an empty
+     value restores it. Matching is on the item's own title/text, so it keeps
+     working regardless of how the list was rendered. */
+  (function chatSearch() {
+    const btn = $("agHistSearch"), box = $("agChatsFind"), input = $("agChatsFindInput"),
+          list = $("agChatsList");
+    if (!btn || !box || !input || !list) return;
+
+    function apply() {
+      const q = input.value.trim().toLowerCase();
+      const items = list.querySelectorAll(".ag-chat-item");
+      let shown = 0;
+      items.forEach((el) => {
+        const hay = ((el.getAttribute("title") || "") + " " + (el.textContent || "")).toLowerCase();
+        const hit = !q || hay.indexOf(q) >= 0;
+        el.style.display = hit ? "" : "none";
+        if (hit) shown++;
+      });
+      let empty = list.querySelector(".ag-chats-none");
+      if (q && !shown && items.length) {
+        if (!empty) {
+          empty = document.createElement("div");
+          empty.className = "ag-chats-none";
+          list.appendChild(empty);
+        }
+        empty.textContent = "No chats match “" + input.value.trim() + "”";
+      } else if (empty) {
+        empty.remove();
+      }
+    }
+
+    function close() {
+      box.classList.remove("on"); btn.classList.remove("on");
+      input.value = ""; apply();
+    }
+    // toggleSidebar() calls this when the rail collapses — see the note there.
+    window.closeChatFilter = close;
+
+    btn.addEventListener("click", () => {
+      const opening = !box.classList.contains("on");
+      box.classList.toggle("on", opening);
+      btn.classList.toggle("on", opening);
+      if (opening) input.focus(); else close();
+    });
+    input.addEventListener("input", apply);
+    input.addEventListener("keydown", (e) => { if (e.key === "Escape") { close(); btn.focus(); } });
+    // The list is re-rendered when chats load or change; re-apply so an
+    // active filter is not silently dropped by a refresh.
+    new MutationObserver(() => { if (input.value.trim()) apply(); })
+      .observe(list, { childList: true });
+  })();
+
   /* Account row — both halves open Settings, since that is the only thing
      it does. The gear is there because it is what people look for. */
   const agUserMain = $("agUserMain"), agUserGear = $("agUserGear");
@@ -4581,8 +4664,6 @@
       $("agWsAv").textContent = (name.charAt(0) || "S").toUpperCase();
       setGreeting(name);
       $("agWsSigned").textContent = "Signed in as " + (d.email || name);
-      $("agWsSignOut").hidden = false;
-      $("agWsSignOutSep").hidden = false;
       $("agWsSignIn").hidden = true;
     } else {
       // Signed out: the name becomes the way IN. The gear stays — Settings is
@@ -4590,6 +4671,11 @@
       // work without one), and hiding it left a signed-out visitor with no
       // route into Settings from the sidebar at all.
       $("agUserNm").textContent = "Sign in";
+      // Same for the workspace pill, which /projects and /deployments also
+      // relabel when signed out. Left at its markup default it claimed
+      // "Your Workspace" to a visitor who has no account yet — the one
+      // thing still reading differently in an otherwise identical rail.
+      $("agWsNm").textContent = "Sign in";
       // Leave the neutral glyph in place. "?" and "S" both read as an
       // identity the page does not have.
       if (agUserMain) agUserMain.dataset.signedOut = "1";
@@ -4714,37 +4800,19 @@
 
 <!-- Replit-style Upgrade Modal overlay for inside app/chat -->
 <script src="/js/nav-loading.js?v=1"></script>
-<script src="/js/upgrade-modal.js" defer>
-  /* The toggle is a SIBLING of the sidebar, not a child, so moving the
-     pointer off the rail and onto the button ends :hover — collapsing the
-     panel and hiding the button out from under the click that was coming.
-     hover-open holds both open for as long as the pointer is on it. */
-  (function () {
-    var btn = document.getElementById('agDeskSidebarToggle');
-    var aside = document.getElementById('agHistory');
-    if (!btn || !aside) return;
-    /* Closing has to close NOW, not whenever the pointer wanders off.
-       hover-open is what keeps the panel from collapsing while you reach
-       for the button — but after a click that closed the sidebar the
-       pointer is still ON the button, so that same class held the panel
-       open and the button visible, and the close looked like it had not
-       worked. suppress drops the hold until the pointer leaves. */
-    var suppress = false;
-    btn.addEventListener('mouseenter', function () {
-      if (!suppress) aside.classList.add('hover-open');
-    });
-    btn.addEventListener('mouseleave', function () {
-      suppress = false;
-      aside.classList.remove('hover-open');
-    });
-    // Runs after the handler that toggles .on, so this reads the NEW state.
-    btn.addEventListener('click', function () {
-      if (!aside.classList.contains('on')) {
-        suppress = true;
-        aside.classList.remove('hover-open');
-      }
-    });
-  })();
-</script>
+<script src="/js/upgrade-modal.js" defer></script>
+<!-- This tag has a src, so the HTML spec never executes inline content
+     inside it. It used to hold a copy of the sidebar's hover-open handling
+     — dead, with no error to notice. Closed properly now, and the copy is
+     gone rather than revived: railHoverFromToggle() above already owns
+     hover-open, and does strictly more. It binds the rail as well as the
+     toggle, so the panel holds open while the pointer crosses between
+     them, and it closes on a 140ms cancellable timer instead of instantly
+     — which is the whole point of the class, and exactly what running the
+     copy alongside it would have cancelled out. Its click handler covers
+     the close-now case the copy used a `suppress` flag for: after a click
+     the pointer is already inside the button, so no fresh mouseenter can
+     re-add the class until it leaves. /projects and /deployments keep the
+     standalone block; they have no railHoverFromToggle to defer to. -->
 </body>
 </html>
