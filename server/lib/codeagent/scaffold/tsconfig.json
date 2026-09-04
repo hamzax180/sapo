@@ -15,7 +15,5 @@
     "noUnusedParameters": false,
     "noFallthroughCasesInSwitch": true
   },
-  "files": [],
-  "include": [],
-  "exclude": ["**/*"]
+  "include": ["src"]
 }
