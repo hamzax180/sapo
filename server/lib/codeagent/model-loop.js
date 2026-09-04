@@ -1569,20 +1569,34 @@ function fallbackPlan(prompt, buildType) {
   };
 }
 
-const ASSESS_SYSTEM_PROMPT = `You decide whether a request to build a small React app has enough detail to build something worth showing, AND you're the one who'd actually say so out loud — respond like a helpful person, not a form.
+const MAX_CLARIFYING_QUESTIONS = 2;
 
-Respond with JSON only, no other text.
+const ASSESS_SYSTEM_PROMPT = `You are Souqi's agent. You are talking with someone about an app they want, and each turn you decide whether you now know enough to build it.
 
-If there is ANY indication of what to build — a subject, a purpose, a business, an app type — respond {"clear": true}. Prefer this. A short prompt like "a todo app" or "a bakery landing page" is enough; do not ask for polish (colors, exact wording, fonts) that a first draft can just take a reasonable guess at.
+Respond with JSON only, no other text. Three actions:
 
-Only if the request is genuinely a greeting, a test, small talk, a question about YOU (who/what you are, whether you're really the agent, what you can do) rather than about something to build, or gives no indication AT ALL of what to build, respond {"clear": false, "reply": "..."}. The reply is what the user actually sees, so make it sound like a person: if they said hi, say hi back; if they asked who you are, just answer that — don't ignore either to interrogate them. Keep it short, warm, and end with an open, inviting question about what to build. Examples of the RIGHT tone:
-  "hey" -> "Hey! 👋 What would you like me to build for you?"
-  "test" -> "All set and ready to go — what should I build?"
-  "yo whats up" -> "Not much, just waiting to build something for you! What did you have in mind?"
-  "are you the souqi agent" -> "Yep, that's me! 🙂 What should I build for you?"
-Do NOT write "Quick question before I build:" or anything that sounds like a support ticket.
+{"action":"build","brief":"..."}
+  You know enough to build something worth showing.
+  "brief" is one sentence describing what to build, folding in EVERYTHING they have told you across the whole conversation — not just their last message. This brief is what actually gets built, so if they told you it is for a bakery, that it needs online ordering, and that they want it to feel warm, all of that belongs in the brief. Write the brief in English even when the conversation is in another language.
 
-LANGUAGE: write "reply" in the SAME language the user wrote in — Turkish in, Turkish out; Arabic in, Arabic out. The examples above are English only because the user wrote English. Match their script too: reply to Arabic in Arabic script, not transliteration. If the language is genuinely unclear, use English. The JSON keys stay in English always.`;
+{"action":"ask","reply":"..."}
+  There is a real idea here, but ONE specific thing would meaningfully change what you build. Ask exactly that, in one short question.
+  Ask about SHAPE, never about polish: what it is for, who uses it, what the main thing on screen should be, whether anything needs saving. Do NOT ask about colours, fonts or exact wording — a first draft makes a reasonable guess at those and they are easier to change once something is on screen.
+
+{"action":"chat","reply":"..."}
+  Not a build request at all: a greeting, small talk, or a question about you. Answer it like a person would, then invite them to say what they want built.
+
+HOW TO BEHAVE
+
+You get at most ${MAX_CLARIFYING_QUESTIONS} "ask" turns in a whole conversation, so spend them on what changes the build most. After that, build with sensible assumptions and let them correct it once it is on screen — seeing something is worth more than answering another question.
+
+If they tell you to just build it, go ahead, surprise them, or "whatever you think" — action is "build" immediately, however thin the request is. Never argue with that.
+
+Read the WHOLE conversation before answering. If they have already told you something, do not ask for it again; fold it into the brief instead. Never ask two things at once. Never write "Quick question before I build:" or anything else that sounds like a form.
+
+One good question beats three. If you can build something reasonable, build it.
+
+LANGUAGE: write "reply" in the SAME language and script the user wrote in — Turkish in, Turkish out; Arabic in, Arabic script out, not transliteration. If the language is genuinely unclear, use English. The JSON keys and "brief" stay English always.`;
 
 /* ---------- deterministic chitchat gate ----------
    assessPrompt below asks a MODEL whether a prompt is a real build request,
@@ -1695,53 +1709,118 @@ function quickAssess(userPrompt) {
  * @param {string} userPrompt
  * @returns {Promise<{clear:boolean, reply?:string, costUsd?:number}>}
  */
-async function assessPrompt(userPrompt) {
-  const quick = quickAssess(userPrompt);
-  if (quick) return quick;
+/**
+ * One conversational turn.
+ *
+ * This used to be a binary gate — {clear:true} go build, {clear:false} say
+ * something and stop — and it took no history, so whatever the person said in
+ * reply started again from nothing. That is what made the agent feel like it
+ * only knew how to build: it could deflect, but it could not have a
+ * conversation, because it could not remember one.
+ *
+ * Now it returns one of three actions and reads the whole thread:
+ *   build - enough to go on; `brief` folds in everything said so far
+ *   ask   - a real idea, one specific thing missing, one short question
+ *   chat  - not a build request; answer like a person
+ *
+ * `clear` is still returned so every existing caller keeps working: both
+ * "ask" and "chat" want the same thing from the client — show the reply and
+ * wait — which is exactly what the old {clear:false} path already does.
+ *
+ * Still fails OPEN. If the call fails, times out or answers with nonsense,
+ * the verdict is "build": a broken assessment must never be the reason
+ * someone cannot build something.
+ */
+async function assessPrompt(userPrompt, opts) {
+  const history = (opts && opts.history) || [];
+  const asked = Math.max(0, Number((opts && opts.asked) || 0));
 
-  // The other half of the Gemini bill: one of these per build that gets past
-  // quickAssess. Same prompt, same verdict — so it is cached on the same terms
-  // as the plan above.
+  const quick = quickAssess(userPrompt);
+  if (quick) return Object.assign({ action: "chat" }, quick);
+
+  /* The ceiling on questions is enforced HERE rather than trusted to the
+     prompt. A model that keeps finding one more thing to ask turns into an
+     interrogation, and the person came here to see something built — so once
+     the budget is spent, the answer is build, whatever the model would have
+     preferred. Unanswered details still surface: the plan shown next lists
+     them as assumptions. */
+  if (asked >= MAX_CLARIFYING_QUESTIONS) {
+    return { clear: true, action: "build" };
+  }
+
+  /* History is part of the key. Without it the same words asked in two
+     different conversations would share one cached verdict — and the whole
+     point of this function now is that the same words mean different things
+     depending on what came before them. */
   const key = cacheKey(userPrompt, {
-    kind: "assess", promptHash: promptFingerprint(ASSESS_SYSTEM_PROMPT)
+    kind: "assess", asked: asked,
+    promptHash: promptFingerprint(ASSESS_SYSTEM_PROMPT),
+    history: historyKey(buildHistory(history))
   });
   const cached = cacheGet(key);
   if (cached) return Object.assign({}, cached, { cached: true, costUsd: 0 });
 
-  const messages = [
-    { role: "system", content: ASSESS_SYSTEM_PROMPT },
-    { role: "user", content: String(userPrompt || "").slice(0, MAX_USER_PROMPT_CHARS) }
-  ];
+  const messages = [{ role: "system", content: ASSESS_SYSTEM_PROMPT }]
+    .concat(buildHistory(history), [
+      { role: "user", content: String(userPrompt || "").slice(0, MAX_USER_PROMPT_CHARS) }
+    ]);
+
   const res = await client.chat({
     // `reply` is spoken straight back to the user, so this is the single
     // most language-sensitive call in the agent — it routes to prose.
     route: "prose", messages,
-    maxTokens: 200, temperature: 0.4, timeoutMs: 15000
+    maxTokens: 320, temperature: 0.5, timeoutMs: 15000
   });
   // Not cached: the call never happened, so there is no answer to remember —
   // only an outage, which must not be pinned for 24h.
-  if (!res.ok || !res.message || typeof res.message.content !== "string") return { clear: true };
+  if (!res.ok || !res.message || typeof res.message.content !== "string") {
+    return { clear: true, action: "build" };
+  }
+
   try {
     const parsed = JSON.parse(res.message.content);
-    if (parsed.clear === false && typeof parsed.reply === "string" && parsed.reply.trim()) {
-      const out = { clear: false, reply: parsed.reply.trim().slice(0, 400) };
+    const action = String(parsed.action || "").toLowerCase();
+    const reply = typeof parsed.reply === "string" ? parsed.reply.trim().slice(0, 400) : "";
+
+    if ((action === "ask" || action === "chat") && reply) {
+      const out = { clear: false, action: action, reply: reply };
       cacheSet(key, out, res.costUsd || 0);
       return Object.assign({}, out, { costUsd: res.costUsd });
     }
-    // A well-formed {clear:true} — a real verdict, worth remembering.
-    const out = { clear: true };
+
+    if (action === "build") {
+      const brief = typeof parsed.brief === "string" ? parsed.brief.trim().slice(0, 600) : "";
+      const out = { clear: true, action: "build" };
+      // Only worth carrying when it actually adds something. A brief that is
+      // just the prompt back again would replace what the person wrote with a
+      // paraphrase of it, which is a downgrade, not a summary.
+      if (brief && brief.length > String(userPrompt || "").trim().length) out.brief = brief;
+      cacheSet(key, out, res.costUsd || 0);
+      return Object.assign({}, out, { costUsd: res.costUsd });
+    }
+
+    /* An old-style {clear:false, reply} still works — treated as chat. Kept
+       because the cache can hold verdicts written by the previous prompt for
+       a day after a deploy. */
+    if (parsed.clear === false && reply) {
+      const out = { clear: false, action: "chat", reply: reply };
+      cacheSet(key, out, res.costUsd || 0);
+      return Object.assign({}, out, { costUsd: res.costUsd });
+    }
+
+    const out = { clear: true, action: "build" };
     cacheSet(key, out, res.costUsd || 0);
     return Object.assign({}, out, { costUsd: res.costUsd });
   } catch (e) {
     // Malformed JSON from the assessment call — fail open, not a build-blocking
     // error, and do NOT cache: the model succeeded but said nothing usable, and
     // caching that would keep answering with a shrug.
-    return { clear: true, costUsd: res.costUsd };
+    return { clear: true, action: "build", costUsd: res.costUsd };
   }
 }
 
 module.exports = {
   quickAssess, buildPlan, proposeChanges, proposeWithRepair, proposeWithClientBuild, assessPrompt, TOOLS_SCHEMA, SYSTEM_PROMPT,
-  buildHistory, buildCodebaseContext,
+  buildHistory, buildCodebaseContext, MAX_CLARIFYING_QUESTIONS,
   systemPromptFor, parseToolCalls, validateWriteFileArgs, cacheKey, clearCache, cacheStatsSnapshot
 };

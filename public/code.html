@@ -2839,6 +2839,16 @@
   let projectSlug = "";
   let emptyShown = true;
   let pendingPrompt = ""; // the original ask, kept until a clarifying question is answered
+
+  /* The conversation before a project exists.
+
+     A fresh chat has no project, so the server has nowhere to read the
+     thread from — and until it did, the agent forgot every answer the
+     moment it asked for one: it could ask "what is it for?", get told,
+     and ask again. The turns are kept here and sent with the next
+     message. Cleared when a build lands or a new chat starts, because
+     that is when the thread has served its purpose. */
+  let convo = [];
   let selectedType = "website";
 
   // Preview paywall state — fetched once so the very first build already
@@ -3482,6 +3492,9 @@
     // the ORIGINAL one. Combine them so the build call sees the whole
     // picture, same as the site builder's own answer-a-question flow.
     const effectivePrompt = pendingPrompt ? pendingPrompt + ". " + prompt : prompt;
+    // The raw message, not the concatenation — the server reads the thread
+    // as turns and would otherwise see the same words twice.
+    convo.push({ role: "user", body: prompt });
     // The type only applies to a FRESH build (a follow-up is editing the
     // existing app, not starting a new kind of one) — sent separately
     // rather than prefixed client-side, so the server can apply it to the
@@ -3528,6 +3541,9 @@
         body: JSON.stringify({
           prompt: effectivePrompt, projectId: projectId || undefined, buildType: buildType,
           logo: logo, canBuild: !!window.__wcSupported,
+          // What has been said so far, so a question the agent asked can be
+          // answered rather than restarted.
+          conversation: convo,
           // Intent only — the API key for `provider` lives server-side on the
           // account and is never sent from here.
           mode: agentMode, provider: agentProvider, thinking: thinkingEnabled,
@@ -3540,7 +3556,7 @@
 
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
-      let buf = "", errorMsg = "", result = null, clarifyReply = null, chitchat = null, gate = null, publishRequested = false, confirmPlan = null;
+      let buf = "", errorMsg = "", result = null, clarifyReply = null, clarifyAction = "chat", chitchat = null, gate = null, publishRequested = false, confirmPlan = null;
       for (;;) {
         const chunk = await reader.read();
         if (chunk.done) break;
@@ -3608,7 +3624,7 @@
           }
           if (em[1] === "stage") onStage(payload.id, payload.state, payload.detail);
           else if (em[1] === "result") result = payload;
-          else if (em[1] === "needsAnswer") clarifyReply = payload.reply;
+          else if (em[1] === "needsAnswer") { clarifyReply = payload.reply; clarifyAction = payload.action || "chat"; }
           else if (em[1] === "confirm") confirmPlan = payload;
           else if (em[1] === "chitchat") chitchat = payload.reply;
           else if (em[1] === "publishRequest") publishRequested = true;
@@ -3643,12 +3659,19 @@
       }
       if (clarifyReply) {
         pendingPrompt = effectivePrompt;
+        /* The agent's own turn goes in the thread too. Its questions are half
+           the conversation, and the count of them is what the server uses to
+           know when it has asked enough and should just build. */
+        convo.push({ role: "agent", kind: clarifyAction, body: clarifyReply });
         showQuestions(clarifyReply);
         return;
       }
       if (confirmPlan) { showPlan(confirmPlan); return; }
       if (!result) throw new Error("No result came back");
       pendingPrompt = "";
+      // The build is the answer the conversation was working toward; from
+      // here follow-ups have the project itself for context.
+      convo = [];
 
       const isFirstBuild = !projectId;
       projectId = result.projectId; projectSlug = result.slug;

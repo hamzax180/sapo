@@ -3253,13 +3253,41 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
   // first pass — the only thing worth skipping this call for was never
   // "long prompts" in general, it was "obviously-a-build prompts", and
   // the model call itself is what actually tells those apart.
+  // Set by the assessment below when the conversation produced more detail
+  // than the last message carries on its own.
+  let conversationBrief = null;
   if (!isFollowUp) {
-    const assessment = await assessPrompt(prompt);
+    /* The conversation so far, as the client has it.
+
+       A fresh chat has no project yet, so there is nothing on the server to
+       read the thread from — which is exactly why the agent used to forget
+       every answer the moment it asked for one. The client keeps the thread
+       and sends it; without this, assessPrompt sees a single orphaned line
+       and either asks the same question again or builds without the answer. */
+    const convo = Array.isArray(req.body && req.body.conversation)
+      ? req.body.conversation.slice(-12)
+      : [];
+    // How many questions this conversation has already spent.
+    const asked = convo.filter(function (m) {
+      return m && m.role === "agent" && m.kind === "ask";
+    }).length;
+
+    const assessment = await assessPrompt(prompt, { history: convo, asked: asked });
     if (!assessment.clear) {
-      sseFrame(res, "needsAnswer", { reply: assessment.reply });
+      /* "ask" and "chat" mean the same thing to the client - show this and
+         wait - but not to the person reading it, and the client counts the
+         asks to know when the budget is spent. */
+      sseFrame(res, "needsAnswer", {
+        reply: assessment.reply,
+        action: assessment.action || "chat"
+      });
       sseFrame(res, "done", {});
       return res.end();
     }
+    /* What they said ACROSS the conversation, not just the line that tipped
+       it into buildable. Without this, the answers given to the agent's own
+       questions never reach the thing doing the building. */
+    if (assessment.brief) conversationBrief = assessment.brief;
 
     /* Confirm before building.
        A build takes a minute, spends credits and produces a whole app, and
@@ -3296,10 +3324,14 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
   // ---- WebContainers flow: server proposes files, client builds ----
   try {
     sseFrame(res, "stage", { id: "propose", state: "start", detail: project ? "Making the change" : "Writing your app" });
-    let effectivePrompt = prompt;
+    /* The brief when the conversation produced one, the raw prompt
+       otherwise. This is the payoff for asking at all: "a bakery site", "it
+       needs online ordering" and "for a small shop" arrive as one instruction
+       instead of three messages the builder never saw. */
+    let effectivePrompt = conversationBrief || prompt;
     if (!project) {
       const buildType = String((req.body && req.body.buildType) || "");
-      effectivePrompt = prompt + (CODEAGENT_TYPE_HINT[buildType] || "");
+      effectivePrompt = effectivePrompt + (CODEAGENT_TYPE_HINT[buildType] || "");
       // Logo attachment: with WebContainers, the logo is written client-side.
       // Append the hint if a logo was provided so the model references it.
       const logo = req.body && req.body.logo;
