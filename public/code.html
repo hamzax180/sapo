@@ -3493,6 +3493,35 @@
           const payload = JSON.parse(dm[1]);
           if (em[1] === "files") {
             const wc = window.__wc;
+
+            // No WebContainer on this device — every phone, and any
+            // browser without SharedArrayBuffer. There is no compiler
+            // here, so there are no build errors to report, and saying
+            // so immediately is the only honest answer.
+            //
+            // What happened instead: window.__wc is never created on
+            // this path and window.__wcError is never set, so NEITHER
+            // exit condition of the wait below could ever become true.
+            // Every build spun the full 120 seconds and then reported
+            // "WebContainer failed to initialize" as a BUILD ERROR,
+            // which the server feeds straight into the model's repair
+            // loop — so it spent a round fixing a fault that did not
+            // exist, and the server allows up to three rounds. Six
+            // minutes of stalling and several wasted model calls, on
+            // every build, on every phone.
+            //
+            // ok:true means "nothing to repair", which is true.
+            // verified records that nothing was checked either, so the
+            // distinction is not lost; the server ignores fields it
+            // does not read.
+            if (!window.__wcSupported) {
+              await fetch("/api/codeagent/build-feedback", {
+                method: "POST", headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ buildId: payload.buildId, ok: true, errors: [], raw: "", verified: false })
+              });
+              continue;
+            }
+
             if (!wc || !window.__wcReady) {
               const waitStart = Date.now();
               while (!window.__wcReady && !window.__wcError && Date.now() - waitStart < 120000) {
