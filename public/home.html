@@ -158,11 +158,16 @@
   /* 3D Flank Device Mockups */
   .bh-composer{display:block;max-width:720px;width:100%;margin:clamp(26px,4vw,42px) auto 0;position:relative;z-index:10;text-align:left}
   .ag-box{
-    --glow-a:26,166,223;   /* cyan accent */
-    --glow-b:124,58,237;   /* violet      */
-    --glow-c:15,118,220;   /* deep blue   */
-    --beam-a:26,166,223;
-    --beam-b:124,58,237;
+    /* Cyan -> violet -> PINK. The third stop used to be a deep blue,
+       which put every hue in the ring inside one quarter of the colour
+       wheel: the result read as a single soft blue wash rather than a
+       spectrum, and no amount of opacity fixed that, because the problem
+       was hue spread and not level. */
+    --glow-a:34,211,238;   /* cyan   */
+    --glow-b:139,92,246;   /* violet */
+    --glow-c:236,72,153;   /* pink   */
+    --beam-a:34,211,238;
+    --beam-b:236,72,153;
     --glow-alpha:1;
     --glow-focus:1;
     position:relative;background:var(--card);border:1px solid var(--line);border-radius:16px;
@@ -173,6 +178,31 @@
       0 1px 3px rgba(0,0,0,.08),
       inset 0 1px 0 rgba(255,255,255,.55);
     transition:border-color .2s,box-shadow .2s
+  }
+  /* Same treatment as /agent: a neutral surface so the ring's hues read
+     true, and the third colour carried into the box-shadow so the pink is
+     present at the rim rather than only inside the bloom. */
+  :root[data-theme="dark"] .ag-box{
+    --glow-alpha:1;
+    /* Neutral, and a step lighter than --card's warm #2a2622. Warm brown
+       under a cyan ring muddies it toward grey; a neutral surface lets
+       the colour read as the colour it is. */
+    background:#2b2a33;
+    border-color:rgba(255,255,255,.09);
+    box-shadow:
+      0 0 40px -2px rgba(var(--glow-a),.40),
+      0 0 18px -4px rgba(var(--glow-b),.34),
+      0 0 26px -6px rgba(var(--glow-c),.30),
+      0 1px 3px rgba(0,0,0,.45),
+      inset 0 1px 0 rgba(255,255,255,.07);
+  }
+  :root[data-theme="dark"] .ag-box:focus-within{
+    box-shadow:
+      0 0 52px -2px rgba(var(--glow-a),.55),
+      0 0 22px -4px rgba(var(--glow-b),.44),
+      0 0 30px -6px rgba(var(--glow-c),.40),
+      0 4px 14px rgba(var(--glow-a),.22),
+      inset 0 1px 0 rgba(255,255,255,.09);
   }
   .ag-box.power-mode, .bh-composer.power-mode{
     --glow-a:225,29,72; --glow-b:251,113,133; --glow-c:159,18,57;

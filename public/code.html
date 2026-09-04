@@ -383,11 +383,16 @@
      inset, radius, blur and duration below is written exactly once. */
   .ag-box{
     /* rgb triplets so alpha can vary per layer via rgba(var(--x),a) */
-    --glow-a:26,166,223;   /* cyan accent */
-    --glow-b:124,58,237;   /* violet      */
-    --glow-c:15,118,220;   /* deep blue   */
-    --beam-a:26,166,223;
-    --beam-b:124,58,237;
+    /* Cyan -> violet -> PINK. The third stop used to be a deep blue,
+       which put every hue in the ring inside one quarter of the colour
+       wheel: the result read as a single soft blue wash rather than a
+       spectrum, and no amount of opacity fixed that, because the problem
+       was hue spread and not level. */
+    --glow-a:34,211,238;   /* cyan   */
+    --glow-b:139,92,246;   /* violet */
+    --glow-c:236,72,153;   /* pink   */
+    --beam-a:34,211,238;
+    --beam-b:236,72,153;
     /* Two independent multipliers, composed in ::before's opacity below.
        --glow-alpha is the THEME's overall level, --glow-focus is the
        focus intensification. Keeping them separate means focusing in dark
@@ -420,26 +425,36 @@
     --beam-a:225,29,72;
     --beam-b:251,113,133;
   }
-  /* The dark theme's paper is a WARM near-black (#1c1917), not a cool
-     navy, so the same cyan/violet bloom reads far hotter against it than
-     it does on the light paper. Pull the bloom back rather than recolour
-     it — the accent itself is unchanged between themes, and the beam
-     should stay just as bright. The white inner rim also has to go: on a
-     dark card a 55%-white top edge looks like a rendering seam. */
+  /* The bloom used to be pulled back to .62 here, because a cyan/violet
+     wash over the WARM near-black paper (#1c1917) reads hotter than the
+     same wash on light paper. That was right for a wash and wrong now:
+     the surface below is neutral rather than warm, so the hues stop
+     fighting the paper under them and the ring can run at full strength,
+     which is the entire point of having one.
+
+     The white inner rim still has to go. On a dark card a 55%-white top
+     edge looks like a rendering seam. */
   :root[data-theme="dark"] .ag-box{
-    --glow-alpha:.62;
+    --glow-alpha:1;
+    /* Neutral, and a step lighter than --card's warm #2a2622. Warm brown
+       under a cyan ring muddies it toward grey; a neutral surface lets
+       the colour read as the colour it is. */
+    background:#2b2a33;
+    border-color:rgba(255,255,255,.09);
     box-shadow:
-      0 0 34px -2px rgba(var(--glow-a),.26),
-      0 0 12px -3px rgba(var(--glow-b),.20),
-      0 1px 3px rgba(0,0,0,.4),
-      inset 0 1px 0 rgba(255,255,255,.06);
+      0 0 40px -2px rgba(var(--glow-a),.40),
+      0 0 18px -4px rgba(var(--glow-b),.34),
+      0 0 26px -6px rgba(var(--glow-c),.30),
+      0 1px 3px rgba(0,0,0,.45),
+      inset 0 1px 0 rgba(255,255,255,.07);
   }
   :root[data-theme="dark"] .ag-box:focus-within{
     box-shadow:
-      0 0 44px -2px rgba(var(--glow-a),.38),
-      0 0 16px -3px rgba(var(--glow-b),.28),
-      0 4px 12px rgba(var(--glow-a),.18),
-      inset 0 1px 0 rgba(255,255,255,.06);
+      0 0 52px -2px rgba(var(--glow-a),.55),
+      0 0 22px -4px rgba(var(--glow-b),.44),
+      0 0 30px -6px rgba(var(--glow-c),.40),
+      0 4px 14px rgba(var(--glow-a),.22),
+      inset 0 1px 0 rgba(255,255,255,.09);
   }
   /* 44/2-2 = 20px reach, exactly the padding budget — the halo brightens
      and widens to the limit without ever reaching the clip line. */
