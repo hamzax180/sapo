@@ -102,6 +102,31 @@ app.use("/code.html", crossOriginIsolate);
 
 app.use(express.static(path.join(__dirname, "..", "public")));
 
+/* Wait for Mongo before running any route that might need it.
+   -----------------------------------------------------------------
+   getMasterDb() returns `db || null` and never connects on its own, so
+   whether a request works depends entirely on whether the connection had
+   already resolved by the time it arrived. With a long-lived server that
+   is fine: ensureDb() is awaited before app.listen(), so by the time a
+   request can arrive the connection exists.
+
+   On Vercel there is no listen() to gate on. ensureDb() was started and
+   not awaited, so every request landing on a COLD instance saw null and
+   answered 503 "Master DB not available" â€” while warm instances served
+   the same route perfectly. That is why signup failed consistently and
+   /api/account/me looked fine: signup is rare enough to always land cold.
+
+   Awaiting it here costs nothing once warm (an already-resolved promise)
+   and is the difference between working and not on the first request to
+   a new instance. Failures still fall through: ensureDb() swallows its
+   own error and clears the cached promise, so the route below still gets
+   null and still answers 503 â€” this removes the race, not the error
+   path. Static assets are served above this line and never wait. */
+app.use(async (req, res, next) => {
+  try { await ensureDb(); } catch (e) { /* route-level null check reports it */ }
+  next();
+});
+
 const JWT_SECRET = process.env.JWT_SECRET || "dev-insecure-secret";
 // Fail closed: never boot production with a default/placeholder secret.
 if (process.env.NODE_ENV === "production" && (!process.env.JWT_SECRET || JWT_SECRET === "dev-insecure-secret")) {
