@@ -653,6 +653,12 @@
   .cfg-checks li.s-fail::before{background:var(--danger)}
   .cfg-checks b{flex:none;min-width:132px;font-weight:600}
   .cfg-checks span{color:var(--mut);line-height:1.5}
+  .cfg-env{list-style:none;margin:0;padding:6px 16px 0}
+  .cfg-env li{display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--line)}
+  .cfg-env li:last-child{border-bottom:0}
+  .cfg-env code{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--mono);font-size:.8rem;color:var(--ink)}
+  .cfg-env span{flex:none;font-family:var(--mono);font-size:.78rem;color:var(--mut);letter-spacing:.04em}
+  .cfg-env button{flex:none;padding:4px 10px;font-size:.75rem}
   .dbnote:last-child{border-bottom:0}
   .dbnote code{font-family:var(--mono);font-size:.75rem;background:var(--paper-2);border:1px solid var(--line);
     border-radius:5px;padding:1px 5px;color:var(--ink)}
@@ -1020,6 +1026,16 @@
     dependencies: "Dependencies",
     response: "What visitors receive"
   };
+
+  /* Environment variables. envList is null while loading and [] when there
+     are none — the difference decides between a skeleton and "none yet", and
+     collapsing them shows "none" to someone whose variables are still on the
+     way. envKey/envVal are drafts for the same reason dbDraft is one. */
+  var envList = null;
+  var envKey = "";
+  var envVal = "";
+  var envMsg = null;
+  var envBusy = false;
   var dbDraft = "";
 
   /* The data browser. dbTables is the list, dbTable the one being read,
@@ -1316,7 +1332,9 @@
       g.subdomain, g.locked, k.available, k.reason, cfgDraft,
       cd.domain, cd.verified, domDraft, domMsg, domBusy,
       secIssues ? secIssues.length : 0,
-      (d.checks || []).map(function (k) { return k.id + k.status; }).join(",")].join("|");
+      (d.checks || []).map(function (k) { return k.id + k.status; }).join(","),
+      envList ? envList.map(function (v) { return v.key + v.masked; }).join(",") : "?",
+      envKey, envVal.length, envMsg, envBusy].join("|");
   }
 
   /* ---------------- database ---------------- */
@@ -1693,6 +1711,38 @@
       if (domMsg) out += '<div class="cfg-hint bad">' + esc(domMsg) + "</div>";
     }
 
+    // ---- environment variables ----
+    /* Post-deploy only, and honest about two things people get wrong here:
+       a value can never be read back out, and nothing changes in the running
+       container until the next deploy. */
+    if (st) {
+      out += '<div class="cfg-sec"><b>Environment variables</b></div>';
+      if (envList === null) {
+        out += '<div class="sk" style="height:52px;margin:10px 16px"></div>';
+      } else {
+        out += '<div class="dbnote">Values are written and never read back — we can show ' +
+          "the last four characters and nothing more. Changes take effect on the next deploy.</div>";
+        if (envList.length) {
+          out += '<ul class="cfg-env">';
+          for (var ei = 0; ei < envList.length; ei++) {
+            var ev = envList[ei];
+            out += "<li><code>" + esc(ev.key) + "</code><span>" + esc(ev.masked || "") + "</span>" +
+              '<button type="button" class="btn-g" data-env="rm:' + esc(ev.key) + '"' +
+              (envBusy ? " disabled" : "") + ">Remove</button></li>";
+          }
+          out += "</ul>";
+        }
+        out += '<div class="dbform">' +
+          '<input type="text" id="envKey" placeholder="API_KEY" autocomplete="off" ' +
+          'spellcheck="false" value="' + esc(envKey) + '">' +
+          '<input type="password" id="envVal" placeholder="value" autocomplete="new-password" ' +
+          'value="' + esc(envVal) + '">' +
+          '<button type="button" class="btn-d" data-env="add"' + (envBusy ? " disabled" : "") + ">" +
+          (envBusy ? "Saving…" : "Add") + "</button></div>";
+        if (envMsg) out += '<div class="cfg-hint bad">' + esc(envMsg) + "</div>";
+      }
+    }
+
     // ---- checks ----
     /* Real tests, kept visibly apart from "What we enforce" below. That
        separation is the whole point: these ran and could have come out
@@ -1798,8 +1848,8 @@
        from someone mid-way through pasting a connection URL or typing a name.
        dbDraft/cfgDraft keep the text; this keeps the caret. */
     var ae = document.activeElement;
-    var typing = ae && (ae.id === "dbUrl" || ae.id === "cfgName" || ae.id === "domName")
-      ? ae.id : null;
+    var typing = ae && (ae.id === "dbUrl" || ae.id === "cfgName" || ae.id === "domName" ||
+      ae.id === "envKey" || ae.id === "envVal") ? ae.id : null;
 
     $("detailBody").innerHTML = out;
 
@@ -1824,6 +1874,7 @@
     cfgInfo = null; cfgDraft = ""; cfgCheck = null; clearTimeout(cfgCheckT);
     domDraft = ""; domMsg = null; domBusy = false;
     secIssues = null;
+    envList = null; envKey = ""; envVal = ""; envMsg = null; envBusy = false;
     renderDetail._sig = null;          // a different app must always repaint
     location.hash = "#" + key;
     $("viewList").hidden = true; $("viewDetail").hidden = false;
@@ -1832,6 +1883,7 @@
     refreshDetail().catch(function () { }).then(schedule);
     loadDatabase();
     loadConfig();
+    loadEnv();
   }
   function closeDetail() {
     openKey = null; detail = null;
@@ -1840,6 +1892,7 @@
     cfgInfo = null; cfgDraft = ""; cfgCheck = null; clearTimeout(cfgCheckT);
     domDraft = ""; domMsg = null; domBusy = false;
     secIssues = null;
+    envList = null; envKey = ""; envVal = ""; envMsg = null; envBusy = false;
     if (location.hash) location.hash = "";
     $("viewDetail").hidden = true; $("viewList").hidden = false;
     renderList(); schedule();
@@ -1886,6 +1939,8 @@
     var dbact = e.target.closest("[data-dbact]");
     if (dbact) { runDbAction(dbact); return; }
 
+    var env = e.target.closest("[data-env]");
+    if (env) { runEnv(env.getAttribute("data-env")); return; }
     var dom = e.target.closest("[data-dom]");
     if (dom) { runDomain(dom.getAttribute("data-dom")); return; }
     var act = e.target.closest("[data-act]");
@@ -1899,6 +1954,8 @@
     if (!e.target) return;
     if (e.target.id === "dbUrl") dbDraft = e.target.value;
     if (e.target.id === "domName") { domDraft = e.target.value; return; }
+    if (e.target.id === "envKey") { envKey = e.target.value; return; }
+    if (e.target.id === "envVal") { envVal = e.target.value; return; }
     if (e.target.id === "cfgName") {
       cfgDraft = e.target.value;
       cfgCheck = null;              // the old answer was about the old text
@@ -1961,6 +2018,64 @@
     }).catch(function (err) {
       toast(err.message);
       btn.disabled = false; btn.textContent = was;
+    });
+  }
+
+  /* Post-deploy only: the plane keys env off deployProjectId, which does not
+     exist until the first deploy. The route answers { env: [] } rather than
+     erroring in that case, so this stays quiet on a project that has none. */
+  function loadEnv() {
+    var key = openKey;
+    return api("GET", "/api/deploy/" + encodeURIComponent(key) + "/env")
+      .then(function (d) {
+        if (openKey !== key) return;
+        envList = (d && d.env) || [];
+        renderDetail._sig = null; renderDetail();
+      })
+      .catch(function () {
+        if (openKey !== key) return;
+        envList = [];
+        renderDetail._sig = null; renderDetail();
+      });
+  }
+
+  /* Add or remove one variable.
+     The key shape is checked here for an instant answer, but the reserved
+     list is NOT mirrored — the plane owns it, and a second copy here would
+     drift the first time one is added. Its refusal is shown as-is. */
+  function runEnv(what) {
+    var key = openKey;
+    if (!key || envBusy) return;
+    var p;
+
+    if (what === "add") {
+      var k = (envKey || "").trim();
+      var v = envVal;
+      if (!k) { toast("Name the variable first."); return; }
+      if (!/^[A-Za-z_][A-Za-z0-9_]{0,63}$/.test(k)) {
+        envMsg = "Use letters, digits and underscores, starting with a letter.";
+        renderDetail._sig = null; renderDetail();
+        return;
+      }
+      var body = { env: {} };
+      body.env[k] = v;                       // nested: the plane reads body.env
+      p = api("PUT", "/api/deploy/" + encodeURIComponent(key) + "/env", body);
+    } else {
+      p = api("DELETE", "/api/deploy/" + encodeURIComponent(key) + "/env/" +
+        encodeURIComponent(what.slice(3)));
+    }
+
+    envBusy = true; envMsg = null;
+    renderDetail._sig = null; renderDetail();
+
+    p.then(function () {
+      if (what === "add") { envKey = ""; envVal = ""; }
+      toast("Saved — it takes effect on the next deploy.");
+    }).catch(function (err) {
+      envMsg = err.message;
+    }).then(function () {
+      envBusy = false;
+      return loadEnv();
     });
   }
 
