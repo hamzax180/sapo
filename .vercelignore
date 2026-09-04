@@ -21,16 +21,18 @@ node_modules/
 server/tests/
 docs/
 
-# The scaffold is NOT excluded. It used to be, to silence spurious TS2307
-# warnings in the build log — but the root tsconfig.json already excludes
-# "server/lib/codeagent/scaffold/**/*", which solves that properly, and
-# excluding the files here solved it by deleting them from the deployment.
+# The scaffold directory is excluded, and nothing at runtime reads it:
+# scaffold-files.js requires scaffold-data.json instead, which is generated
+# by scripts/build-scaffold-data.js and IS shipped.
 #
-# scaffold-files.js reads this directory at request time to assemble a
-# project's source before uploading it to the deploy plane. With src/ and
-# vite.config.ts missing, every deployed app shipped a tree whose
-# index.html pointed at a /src/main.tsx that was not there, and the build
-# died with "Rollup failed to resolve import /src/main.tsx".
+# It has to be excluded. Included, Vercel's function bundler transpiles the
+# TypeScript it finds here — App.tsx becomes App.js plus a source map,
+# vite.config.ts becomes vite.config.js — while index.html still asks for
+# main.tsx, so a deployed app builds 2 modules and dies in workbox with an
+# empty dist. Excluding it without the JSON is the opposite failure:
+# "Rollup failed to resolve import /src/main.tsx". The blob avoids both,
+# because a .json is neither compiled nor dropped.
+server/lib/codeagent/scaffold/
 
 # Test and demo scripts — not imported by the app, just inflate the bundle.
 server/*-test.js
