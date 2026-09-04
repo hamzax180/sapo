@@ -3144,11 +3144,15 @@ app.get("/api/codeagent/:key", async (req, res, next) => {
       } catch (e) { /* the sandbox died without telling this process — fall through as not-alive */ }
     }
 
+    const reopenSrc = await projects.materialize(project.id);
+
     res.json({
       project: { id: project.id, slug: project.slug, title: project.title, prompt: project.prompt, createdAt: project.createdAt, updatedAt: project.updatedAt },
       turns: turns,
-      files: revision && revision.config && revision.config.files ? Object.keys(revision.config.files).filter((f) => f.startsWith("src/")) : [],
-      fileContents: revision && revision.config ? revision.config.files : null,
+      // The whole tree, not the last diff — otherwise reopening a project
+      // after a follow-up edit renders only the files that edit touched.
+      files: Object.keys(reopenSrc.files).filter((f) => f.startsWith("src/")),
+      fileContents: Object.keys(reopenSrc.files).length ? reopenSrc.files : null,
       previewUrl: "/api/codeagent/preview/" + encodeURIComponent(project.slug), sandboxAlive: sandboxAlive
     });
   } catch (e) { next(e); }
@@ -3438,10 +3442,24 @@ app.post("/api/deploy/:key/deploy", deployLimiter, async (req, res, next) => {
 
     // The source is the head revision's file map, which is already
     // {path: contents} — the exact shape the deploy plane wants.
-    const revision = await projects.head(project.id);
-    const files = revision && revision.config ? revision.config.files : null;
+    // materialize(), not head(). A revision stores only what the model
+    // wrote that turn — it is told to write "every file you create or
+    // change", so a follow-up records two files, not twelve. head() is
+    // therefore the last diff, and deploying it would ship whichever
+    // files happened to change most recently. materialize() replays the
+    // revision chain to rebuild the whole tree.
+    const src = await projects.materialize(project.id);
+    const files = src.files;
     if (!files || !Object.keys(files).length) {
       return res.status(400).json({ error: "this project has no source to deploy yet — build it first" });
+    }
+    if (!src.complete) {
+      // The walk could not reach a root: MAX_REVISIONS pruned an ancestor,
+      // and a file written once and never touched again lived only there.
+      // Shipping a knowingly partial tree would build the wrong app.
+      return res.status(409).json({
+        error: "this project's early history has been pruned, so its full source cannot be rebuilt — make an edit that rewrites the app, then deploy"
+      });
     }
 
     // A revision holds only the model's half of the project: it is told
@@ -3530,9 +3548,10 @@ app.post("/api/deploy/:key/:action", deployLimiter, async (req, res, next) => {
     // A redeploy must ship the CURRENT source, not whatever was staged
     // last time — otherwise the button silently rebuilds a stale tree.
     if (name === "redeploy") {
-      const revision = await projects.head(project.id);
-      const files = revision && revision.config ? revision.config.files : null;
-      if (files && Object.keys(files).length) {
+      // Same reasoning as the first deploy: the head revision is a diff.
+      const src = await projects.materialize(project.id);
+      const files = src.files;
+      if (files && Object.keys(files).length && src.complete) {
         // Same merge as the first deploy — a redeploy shipping only the
         // model's half would fail detection in exactly the same way.
         const up = await deployplane.uploadSource(cookieOf(req), project.deploymentId, scaffoldFiles.withScaffold(files));

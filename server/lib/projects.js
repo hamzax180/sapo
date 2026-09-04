@@ -281,6 +281,53 @@ async function head(projectId) {
   return getRevision(project.headRevision);
 }
 
+/**
+ * The project's COMPLETE source, rebuilt by replaying its revisions.
+ *
+ * A revision stores only what the model wrote that turn — it is told to
+ * "call write_file for every file you create or change", so a follow-up
+ * writes two files, not twelve. head() therefore returns the last diff,
+ * not the project. Reading files off it gave a tree with whichever files
+ * happened to change last: one real project here has a head revision of
+ * four components, with no App.tsx at all.
+ *
+ * addRevision records parentId, so the chain is walkable. This follows it
+ * back to the root and replays oldest-first, so a later write of a file
+ * wins over an earlier one.
+ *
+ * `complete` is false when the walk could not reach a root. MAX_REVISIONS
+ * prunes the oldest revisions of a long-lived project, and a file written
+ * once and never touched again lives only in a revision that pruning can
+ * delete — so this reports when it cannot promise a whole tree rather than
+ * quietly returning a partial one.
+ */
+async function materialize(projectId) {
+  const project = await get(projectId);
+  if (!project || !project.headRevision) return { files: {}, complete: false, revisions: 0 };
+
+  const chain = [];
+  const seen = new Set();
+  let id = project.headRevision;
+  while (id && !seen.has(id)) {
+    seen.add(id);
+    const rev = await getRevision(id);
+    if (!rev) break;                 // pruned: the chain stops here
+    chain.push(rev);
+    id = rev.parentId;
+  }
+
+  // Oldest first, so a later revision's version of a file overwrites the
+  // earlier one — the same precedence as replaying the edits in order.
+  const files = {};
+  for (const rev of chain.slice().reverse()) {
+    const f = rev.config && rev.config.files;
+    if (f) for (const [path, content] of Object.entries(f)) files[path] = content;
+  }
+
+  const rootReached = chain.length > 0 && !chain[chain.length - 1].parentId;
+  return { files: files, complete: rootReached, revisions: chain.length };
+}
+
 /* ================= turns ================= */
 
 async function addTurn(projectId, turn) {
@@ -318,7 +365,7 @@ async function listTurns(projectId) {
 module.exports = {
   init, ensureIndexes, owns, slugify,
   create, get, findBySlug, findPublished, findByCustomDomain, uniquePublicSlug, list, patch, remove,
-  addRevision, getRevision, listRevisions, head,
+  addRevision, getRevision, listRevisions, head, materialize,
   addTurn, listTurns,
   TTL_UNCLAIMED_MS, MAX_REVISIONS
 };
