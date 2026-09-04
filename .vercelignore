@@ -21,12 +21,16 @@ node_modules/
 server/tests/
 docs/
 
-# Scaffold template src files — these are WebContainer templates with their
-# own package.json/tsconfig; they aren't compiled by Vercel and their
-# react/vite imports aren't installed at the repo root, causing spurious
-# TS2307 warnings in every Vercel build log.
-server/lib/codeagent/scaffold/src/
-server/lib/codeagent/scaffold/vite.config.ts
+# The scaffold is NOT excluded. It used to be, to silence spurious TS2307
+# warnings in the build log — but the root tsconfig.json already excludes
+# "server/lib/codeagent/scaffold/**/*", which solves that properly, and
+# excluding the files here solved it by deleting them from the deployment.
+#
+# scaffold-files.js reads this directory at request time to assemble a
+# project's source before uploading it to the deploy plane. With src/ and
+# vite.config.ts missing, every deployed app shipped a tree whose
+# index.html pointed at a /src/main.tsx that was not there, and the build
+# died with "Rollup failed to resolve import /src/main.tsx".
 
 # Test and demo scripts — not imported by the app, just inflate the bundle.
 server/*-test.js
