@@ -2723,6 +2723,14 @@
 <script type="module">
   import { WCRuntime } from '/js/codeagent/wc-runtime.js';
   import { parseBuildErrors } from '/js/codeagent/build-parser-client.js';
+  import { inlineModules } from '/js/codeagent/inline-modules.js';
+
+  // Exposed BEFORE the support check, and outside its branches, because
+  // this is what the srcdoc fallback needs — and that fallback is exactly
+  // the path taken when WebContainers are unavailable. Setting it inside
+  // the supported branch, next to __parseBuildErrors, would have made it
+  // present only where it is never used.
+  window.__inlineModules = inlineModules;
 
   // Detect WebContainer support: requires SharedArrayBuffer (cross-origin
   // isolated) and is unavailable on mobile browsers (iOS Safari, Android
@@ -2741,22 +2749,20 @@
     window.__parseBuildErrors = parseBuildErrors;
 
     // Boot + install in the background — don't block page load
-    (async () => {
-      try {
-        await wc.boot();
-        const install = await wc.install();
-        if (install.ok) {
-          console.log('[wc] Ready.');
-          window.__wcReady = true;
-        } else {
-          console.error('[wc] npm install failed:', install.output);
-          window.__wcError = 'npm install failed — ' + (install.output || '').slice(-200);
-        }
-      } catch (e) {
-        console.error('[wc] Boot failed:', e.message);
-        window.__wcError = e.message;
+    // prepare() caches the boot+install promise on the runtime, so this
+    // head start is the SAME promise anything later awaits rather than a
+    // detached job nothing can observe. That was the bug: the preview
+    // gated on isBooted(), which is true the moment the container exists,
+    // and ran `npm run preview` while npm install was still going.
+    wc.prepare().then((ok) => {
+      if (ok) {
+        console.log('[wc] Ready.');
+        window.__wcReady = true;
+      } else {
+        console.error('[wc] npm install failed:', wc.installError());
+        window.__wcError = 'npm install failed — ' + wc.installError().slice(-200);
       }
-    })();
+    });
   }
 </script>
 <script>
@@ -3653,6 +3659,23 @@
   async function renderAppPreview(fileContents) {
     const wc = window.__wc;
     if (wc && wc.isBooted()) {
+      // Wait for npm install. Already resolved once warm, so this is free
+      // after the first preview; before that it is the difference between
+      // a working preview and `jsh: command not found: vite`.
+      if (agPvEmpty) {
+        agPvEmpty.style.display = "";
+        agPvEmpty.textContent = "Installing dependencies…";
+      }
+      await wc.prepare();
+      if (!wc.isReady()) {
+        console.error("[preview] dependencies are not installed:", wc.installError());
+        if (agPvEmpty) {
+          agPvEmpty.style.display = "";
+          agPvEmpty.textContent = "Could not install dependencies. Check the console for the npm output.";
+        }
+        return;
+      }
+      if (agPvEmpty) agPvEmpty.style.display = "none";
       const p = await wc.startPreview(agPvIframe);
       if (p.ok) {
         // Best-effort: the mockup should feel like a real device, not a
@@ -3669,35 +3692,53 @@
             doc.head.appendChild(style);
           } catch (e) { /* cross-origin — nothing we can do from here */ }
         });
+      } else {
+        // The preview command exited non-zero. There was no branch here at
+        // all, so the iframe simply stayed blank — the failure produced no
+        // message, no fallback and nothing in the console, which made a
+        // broken build look identical to a slow one. startPreview now
+        // returns the exit code and whatever the command printed; the
+        // stderr is the only thing that says WHY, and it used to be piped
+        // into a sink that dropped every byte.
+        console.warn("[preview] npm run preview exited " + p.code + (p.output ? ":\n" + p.output : " with no output"));
+        if (agPvEmpty) {
+          agPvEmpty.style.display = "";
+          agPvEmpty.textContent = "The preview server did not start. Check the console for the build output.";
+        }
       }
     } else if (fileContents && fileContents["src/App.tsx"]) {
-      // Standalone Mobile preview fallback: render React app directly via CDN inside iframe srcdoc
-      let appCode = (fileContents["src/App.tsx"] || "");
-
-      // Convert lucide-react imports to destructuring from Lucide global
-      appCode = appCode.replace(/import\s+\{([^}]+)\}\s+from\s+['"]lucide-react['"];?/g, function(match, icons) {
-        return 'const {' + icons + '} = window.LucideReact || window.lucide || {};';
-      });
-
-      // Convert react imports to destructuring from React global
-      appCode = appCode.replace(/import\s+React\s*,?\s*(\{[\s\S]*?\})?\s*from\s+['"]react['"];?/g, function(match, destructured) {
-        if (destructured) return 'const ' + destructured + ' = React;';
-        return '';
-      });
-
-      // Remove any other external package imports (css, components, etc.)
-      appCode = appCode.replace(/import\s+[\s\S]*?from\s+['"][^./][^'"]*['"];?/g, '');
-      appCode = appCode.replace(/import\s+['"].*?\.css['"];?/g, '');
-
-      // Make export default function App work inside inline Babel script.
-      // No synthetic "()" here — the source's own parameter list (usually
-      // just "()", but strip "export default " only) immediately follows
-      // in the untouched remainder of the string; adding one produced
-      // "function App()() {", a syntax error that silently blanked the
-      // whole preview (CSP was blocking the CDN scripts too, until now,
-      // which is why this never got far enough to surface on its own).
-      appCode = appCode.replace(/export\s+default\s+function\s+App\b/, 'function App');
-      appCode = appCode.replace(/export\s+default\s+App;?/, '');
+      // Preview fallback for devices without WebContainer support.
+      //
+      // Everything here used to operate on src/App.tsx alone, stripping its
+      // imports with regexes. That is right for a one-file app and wrong
+      // for everything the model actually produces: a portfolio arrives as
+      // App.tsx plus six components, and stripping the imports only moves
+      // the failure from a parse error to "Header is not defined".
+      // inlineModules walks the local import graph and concatenates the
+      // whole thing, dependencies first.
+      let appCode, inlineWarnings = [];
+      if (window.__inlineModules) {
+        const flat = window.__inlineModules("src/App.tsx", fileContents);
+        appCode = flat.code;
+        inlineWarnings = flat.warnings;
+        if (flat.modules.length > 1) {
+          console.log("[preview] inlined " + flat.modules.length + " modules: " + flat.modules.join(", "));
+        }
+      } else {
+        // The module script has not loaded yet. Render the entry alone
+        // rather than nothing, and say so — this is the old behaviour,
+        // kept only as a floor.
+        appCode = (fileContents["src/App.tsx"] || "")
+          .replace(/import\s+[\s\s]*?from\s+['"][^'"]*['"];?/g, "")
+          .replace(/import\s+['"][^'"]*['"];?/g, "")
+          .replace(/export\s+default\s+(function|class)\s+/, "$1 ")
+          .replace(/export\s+default\s+[A-Za-z_$][\w$]*;?/, "")
+          .replace(/export\s+(?=(function|class|const|let|var)\s)/g, "");
+        inlineWarnings = ["the module inliner was not loaded; only src/App.tsx is rendered"];
+      }
+      if (inlineWarnings.length) {
+        console.warn("[preview] " + inlineWarnings.length + " issue(s) flattening the app:\n  " + inlineWarnings.join("\n  "));
+      }
 
       const html = '<!DOCTYPE html><html><head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />' +
         '<script src="https://cdn.tailwindcss.com"><' + '/script>' +
@@ -3725,7 +3766,11 @@
         // outright until the directive above included these hosts.
         '<script>try{' +
         'var __src=' + JSON.stringify(
-          'const { useState, useEffect, useRef, useMemo, useCallback } = React;\n' +
+          // No hardcoded React destructure: inlineModules emits one built
+          // from what the modules actually import, and two
+          // `const { useState } = React` in one scope is a redeclaration
+          // error that blanks the whole preview.
+          '' +
           appCode + '\n' +
           'ReactDOM.createRoot(document.getElementById("root")).render(<App />);\n'
         ) + ';' +

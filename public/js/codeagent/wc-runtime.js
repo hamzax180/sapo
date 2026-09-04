@@ -184,6 +184,46 @@ class WCRuntime {
     return { ok: res.ok, output: res.stdout };
   }
 
+  /**
+   * Boot and install, once, and let anyone wait for it.
+   *
+   * isBooted() only says a WebContainer exists — it says nothing about
+   * whether node_modules does. The two were being conflated: boot+install
+   * ran detached in the background while startPreview() gated on
+   * isBooted(), so `npm run preview` could fire while npm install was
+   * still unpacking, or after it had failed. Either way vite was not on
+   * disk yet and the command died with 127, which reads as a broken
+   * scaffold rather than a race.
+   *
+   * Cached, so calling it per preview costs nothing after the first.
+   * Never rejects: callers ask isReady() and get installError() for the
+   * reason, because "install failed" is a state to render, not an
+   * exception to unwind through a UI event handler.
+   */
+  prepare(onLog) {
+    if (!this._prepare) {
+      this._prepare = (async () => {
+        try {
+          await this.boot(onLog);
+          const res = await this.install(onLog);
+          this._installed = res.ok;
+          if (!res.ok) this._installError = (res.output || "").slice(-2000);
+        } catch (e) {
+          this._installed = false;
+          this._installError = e.message;
+        }
+        return this._installed === true;
+      })();
+    }
+    return this._prepare;
+  }
+
+  /** True only when npm install has finished successfully. */
+  isReady() { return this._installed === true; }
+
+  /** Why prepare() failed, when it did. */
+  installError() { return this._installError || ""; }
+
   async writeFiles(files) {
     if (!webcontainerInstance) throw new Error("WebContainer not booted");
     
@@ -202,6 +242,19 @@ class WCRuntime {
   }
 
   async build(onLog) {
+    // Both build and preview need node_modules, and three separate callers
+    // invoked this without waiting for the install — two of them inside a
+    // catch that swallowed the result. Ensuring it here fixes all of them
+    // at once, and cannot be forgotten by the next caller. Free once warm.
+    await this.prepare(onLog);
+    if (!this.isReady()) {
+      const why = this.installError() || "dependencies are not installed";
+      if (onLog) onLog("Cannot build: " + why);
+      // Same shape _runCommand returns, so callers that read .stdout to
+      // parse build errors still work and report something true rather
+      // than a confusing "command not found: vite".
+      return { ok: false, code: 127, stdout: "", stderr: why };
+    }
     if (onLog) onLog("Running npm run build...");
     return await this._runCommand('npm', ['run', 'build'], onLog);
   }
@@ -214,21 +267,36 @@ class WCRuntime {
       const onReady = (port, url) => {
         if (port === 4173) {
           if (iframeEl) iframeEl.src = url;
+          unsubscribe();
           resolve({ ok: true, url });
         }
       };
-      webcontainerInstance.on('server-ready', onReady);
-      
+      // WebContainer's on() RETURNS the unsubscribe function; there is no
+      // off() on the instance. Calling one threw "webcontainerInstance.off
+      // is not a function" — and it threw from inside the exit and catch
+      // handlers, which are exactly the paths that run when the preview
+      // fails. So a failed preview never resolved or rejected: the promise
+      // hung, the iframe stayed blank, and the only visible symptom was a
+      // TypeError naming a line that was itself the error handler.
+      const unsubscribe = webcontainerInstance.on('server-ready', onReady);
+
+      // Capture the output instead of discarding it. When the command
+      // fails, its stderr is the only thing that says why, and it was
+      // being written into a sink that dropped every byte.
+      let output = "";
+
       webcontainerInstance.spawn('npm', ['run', 'preview']).then(process => {
-        process.output.pipeTo(new WritableStream({ write() {} })).catch(() => {});
+        process.output.pipeTo(new WritableStream({
+          write(chunk) { if (output.length < 4000) output += chunk; }
+        })).catch(() => {});
         process.exit.then(code => {
           if (code !== 0) {
-            webcontainerInstance.off('server-ready', onReady);
-            resolve({ ok: false, url: '' });
+            unsubscribe();
+            resolve({ ok: false, url: '', code: code, output: output.trim() });
           }
         });
       }).catch(err => {
-        webcontainerInstance.off('server-ready', onReady);
+        unsubscribe();
         reject(err);
       });
     });
