@@ -143,6 +143,38 @@ localhost `APP_DOMAIN`, a reused secret, or `ALLOW_DEV_AUTH=1` never reaches a
 public host. `.env` is built and checked locally and copied with mode 600 —
 secrets are never generated on the server.
 
+## Going somewhere else
+
+`provision.js` is Hetzner-only — it talks to their API to create the server,
+and hands it a cloud-init that hardens it. Everything after that is provider
+agnostic: `ship.sh` only needs an IP and a host with Docker on it.
+
+So on OVH, netcup, or a box you already have, buy the server in the web
+console and run the cloud-init half yourself:
+
+```bash
+bash scripts/prepare-host.sh <ip>          # what cloud-init does, over ssh
+bash scripts/ship.sh <ip>                  # unchanged from here on
+```
+
+`prepare-host.sh` creates nothing and costs nothing. It installs Docker and
+the compose plugin from Docker's own apt repository — a stock Ubuntu image
+has neither, where Hetzner's `docker-ce` image has both — then applies the
+identical hardening: password auth off, root login key-only, ufw down to 22
+/ 80 / 443, container log rotation, and the `10.200.0.0/16` address pool
+that stops Docker running out of networks at ~31 deployments.
+
+It is idempotent, and it reports without touching anything if you ask:
+
+```bash
+SSH_USER=ubuntu bash scripts/prepare-host.sh <ip>     # non-root login
+bash scripts/prepare-host.sh <ip> --check             # report only
+```
+
+One thing to size for: the capacity numbers below assume 8GB and 80GB, which
+is `cx32`. Match the RAM or `MAX_CONTAINERS` is optimistic; a smaller disk is
+survivable but images and logs are what fill it, in that order.
+
 Caddy issues a certificate per hostname on first request, gated by
 `/internal/tls-ask` so only real deployments get one — without that gate,
 anyone pointing DNS at the box could make it request certificates on their

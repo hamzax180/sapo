@@ -22,3 +22,10 @@ server/mcp.json
 deploy/.env
 deploy/node_modules/
 deploy/builds/
+
+# Never commit private keys or env backups.
+*.pem
+id_ed25519*
+id_rsa*
+.env.bak*
+**/.env.bak.*

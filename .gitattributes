@@ -1,0 +1,26 @@
+# Line endings.
+#
+# core.autocrlf=true on this machine, so a plain checkout on Windows gives
+# every text file CRLF. That is harmless for the files that only ever run
+# here — and silently fatal for the ones that get shipped to a Linux host
+# and executed there.
+#
+# `set -euo pipefail\r` makes bash read the option name as "pipefail\r",
+# which is not an option, so the script dies on its second line with
+# "invalid option name". It cost an evening to find, because ship.sh and
+# prepare-host.sh run in Git Bash on Windows, which tolerates the CR — only
+# backup.sh, which runs ON the server, ever failed.
+#
+# Shell scripts and Dockerfiles are LF in the working tree, always,
+# whatever anyone's autocrlf says.
+*.sh            text eol=lf
+Dockerfile*     text eol=lf
+*.bash          text eol=lf
+
+# Same reasoning: these are read by containers or by tooling that does not
+# want a stray CR at the end of a value.
+*.yml           text eol=lf
+*.yaml          text eol=lf
+*.json          text eol=lf
+*.sql           text eol=lf
+.env.example    text eol=lf

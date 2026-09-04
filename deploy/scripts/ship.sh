@@ -55,8 +55,30 @@ $SSH "docker compose version >/dev/null 2>&1" || fail "docker compose plugin is 
 say "Copying the stack to ${REMOTE_DIR}"
 $SSH "mkdir -p ${REMOTE_DIR} /opt/platform/builds"
 # node_modules is rebuilt in the image; .git and builds must never travel.
+#
+# docker-compose.override.yml must not travel either, and its own header
+# says so: it is local-development only. Compose merges an override file
+# automatically by name, so shipping it silently applied the dev config to
+# production — publishing the api port and starting MinIO with the
+# throwaway credentials written in that file. It also defeats verify.js,
+# which asserts the published-ports rule by reading docker-compose.yml,
+# the file that ships; an override changing those ports is invisible to it.
 tar --exclude=node_modules --exclude=.git --exclude=builds --exclude=.env \
+    --exclude=docker-compose.override.yml \
     -czf - . | $SSH "tar -xzf - -C ${REMOTE_DIR}"
+# Remove one left by an earlier ship, or the merge keeps happening.
+$SSH "rm -f ${REMOTE_DIR}/docker-compose.override.yml"
+
+# Strip CR from anything that will be EXECUTED on the host.
+#
+# .gitattributes now pins these to LF, but that only applies to a fresh
+# checkout, and it cannot help a machine whose working tree is already CRLF
+# — which is every Windows clone made before it existed. The failure is
+# invisible from the shipping side: ship.sh and prepare-host.sh run in Git
+# Bash, which tolerates a trailing CR, so only scripts that run ON the
+# server break, and they break with "set: pipefail: invalid option name",
+# which names neither the file nor the real cause.
+$SSH "find ${REMOTE_DIR} -type f \\( -name '*.sh' -o -name 'Dockerfile*' \\) -exec sed -i 's/\\r\$//' {} +"
 # .env goes separately with tight permissions — it is the one file that
 # matters if this box is ever shared or imaged.
 scp -q .env "${SSH_USER}@${HOST}:${REMOTE_DIR}/.env"
@@ -66,19 +88,31 @@ echo "  copied"
 say "Building and starting"
 $SSH "cd ${REMOTE_DIR} && docker compose up -d --build" 2>&1 | sed 's/^/  /'
 
+# Probed from INSIDE the platform network, not from the host. The api
+# publishes no port in docker-compose.yml — that is the whole point of the
+# proxy — so `curl localhost:4500` on the host only ever worked because
+# docker-compose.override.yml was being shipped and published it. With the
+# override correctly excluded above, a host-side probe tests nothing that
+# exists. Caddy is on the same network, is up before the api, and its
+# alpine base has wget.
+#
+# And it waits for ok:true rather than merely a reply. The api answers
+# /health perfectly well while the worker is dead or its hosts row is
+# missing — which is exactly the state this gate is supposed to catch, and
+# it previously shipped green through it.
 say "Waiting for health"
+HEALTH=""
 for i in $(seq 1 30); do
-  if $SSH "curl -sf localhost:4500/health >/dev/null 2>&1"; then
-    echo "  api is up"
-    break
-  fi
+  HEALTH="$($SSH "cd ${REMOTE_DIR} && docker compose exec -T caddy wget -qO- http://api:4500/health" 2>/dev/null || true)"
+  case "$HEALTH" in
+    *'"ok":true'*) echo "  api and worker are up"; break ;;
+  esac
   if [ "$i" -eq 30 ]; then
-    fail "the api did not come up. Check: bash scripts/ship.sh $HOST --logs"
+    [ -n "$HEALTH" ] && echo "  last response: $HEALTH"
+    fail "the stack did not become healthy. Check: bash scripts/ship.sh $HOST --logs"
   fi
   sleep 2
 done
-
-HEALTH="$($SSH 'curl -s localhost:4500/health')"
 say "Health"
 echo "  $HEALTH"
 

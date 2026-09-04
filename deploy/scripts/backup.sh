@@ -193,7 +193,14 @@ do_restore_userdb() {
 install_cron() {
   local job="15 3 * * * cd ${HERE} && /usr/bin/env bash scripts/backup.sh >> /var/log/souqi-backup.log 2>&1"
   # Idempotent: strip any previous line for this script before adding.
-  ( crontab -l 2>/dev/null | grep -v "scripts/backup.sh" ; echo "$job" ) | crontab -
+  #
+  # `|| true` is load-bearing, not defensive noise. grep exits 1 when it
+  # prints no lines, and on a host with no crontab at all it prints none —
+  # so under `set -e` + `pipefail` the subshell died before `echo "$job"`
+  # ever ran, fed an empty stdin to `crontab -`, and installed nothing
+  # while reporting failure. It only worked on a box that already had a
+  # crontab holding one unrelated line — never the fresh server this is for.
+  ( { crontab -l 2>/dev/null || true; } | grep -v "scripts/backup.sh" || true ; echo "$job" ) | crontab -
   say "Installed"
   echo "  15 3 * * *  ->  ${BACKUP_DIR}"
   echo "  log: /var/log/souqi-backup.log"

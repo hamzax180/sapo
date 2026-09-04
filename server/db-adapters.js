@@ -93,6 +93,19 @@ async function getDbClient(workspace) {
     console.log(`[DB] Connecting to PostgreSQL/Neon for workspace: ${workspaceId}`);
     const pool = new Pool({
       connectionString: dbUri,
+      // One pool per workspace is cached above, and every deployed app gets
+      // its own database — so this ceiling is PER TENANT and the instance
+      // total is (tenants x max). pg's default of 10 puts ten tenants at 100
+      // connections, which is exactly Postgres's own default max_connections:
+      // the eleventh tenant, or a spike across the existing ten, starts
+      // getting "too many connections". That failure is not contained to the
+      // tenant causing it — the platform registry DB shares the instance, so
+      // one app's traffic would take the dashboard down with it. 5 keeps ten
+      // tenants at half the limit, and each backend costs the box 5-10 MB of
+      // RAM besides. Put PgBouncer in transaction mode in front before this
+      // needs raising; multiplexing is the fix past a dozen tenants, not a
+      // bigger number here.
+      max: 5,
       connectionTimeoutMillis: 5000,
       ssl: dbUri.includes("sslmode=require") || dbUri.includes("neon.tech") ? { rejectUnauthorized: false } : false
     });
