@@ -1413,7 +1413,11 @@ async function proposeWithClientBuild({ userPrompt, maxRounds, onFiles, onRound,
       const fallbackCalls = collect([{ path: "src/App.tsx", content: fallbackContent }]);
       const fallbackBuild = await onFiles(fallbackCalls);
       if (fallbackBuild.ok) {
-        return { ok: true, calls: fallbackCalls, note: "⚠️ I couldn't reach the AI model, so this is a starter template rather than what you asked for. Reason: " + ((build.errors && build.errors[0] && build.errors[0].message) || "the build kept failing"), fellBack: true, round, rounds: round + 1, repaired: true, costUsd: totalCost, jsonRetries };
+        /* NOT "I couldn't reach the AI model". This branch is reached with
+           the model's files in hand and its cost already counted — it was
+           reached fine and the BUILD is what failed. Saying otherwise sends
+           someone off to check an API key that is working perfectly. */
+        return { ok: true, calls: fallbackCalls, note: "⚠️ The build kept failing, so this is a starter template rather than what you asked for. Reason: " + ((build.errors && build.errors[0] && build.errors[0].message) || "the build kept failing"), fellBack: true, round, rounds: round + 1, repaired: true, costUsd: totalCost, jsonRetries };
       }
       return { ok: false, reason: "build still failing after " + (cap + 1) + " attempt(s)", round, rounds: round + 1, lastErrors: build.errors, costUsd: totalCost };
     }
@@ -1425,8 +1429,24 @@ async function proposeWithClientBuild({ userPrompt, maxRounds, onFiles, onRound,
     const errorSummary = errorsToReport.slice(0, 8)
       .map((e) => (e.file ? e.file + ":" + e.line + " — " + e.message : e.message))
       .join("\n");
+
+    /* When nothing parsed, the model is handed "build failed but no
+       recognised diagnostic format was found" and asked to fix it — which
+       is not something anyone can act on, so it spends the rounds it has
+       left guessing and the run ends in the starter template.
+
+       The build parser only knows tsc and esbuild output. Anything else —
+       a failed install, a module that will not resolve, a crash — yields no
+       file-scoped diagnostics at all, and build.raw was sitting right here
+       being dropped. */
+    const parsedSomething = errorsToReport.some((e) => e.file);
+    const rawTail = (!parsedSomething && build.raw)
+      ? "\n\nThe build printed this:\n" +
+        String(build.raw).trim().split("\n").slice(-40).join("\n").slice(-3000)
+      : "";
+
     messages = (attempt.messages || messages).concat([attempt.message], toolResponses, [
-      { role: "user", content: "The build failed with these errors:\n" + errorSummary + "\n\nFix them. Call write_file again with the corrected file(s) — rewrite each WHOLE file you change, not a diff. Only rewrite the files that actually need fixing." }
+      { role: "user", content: "The build failed with these errors:\n" + errorSummary + rawTail + "\n\nFix them. Call write_file again with the corrected file(s) — rewrite each WHOLE file you change, not a diff. Only rewrite the files that actually need fixing." }
     ]);
   }
 }
