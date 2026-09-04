@@ -2989,22 +2989,29 @@
   }
 
   function clearEmpty() {
+    /* Two jobs, and they must not share a guard.
+
+       Leaving the new-chat screen has to happen whenever a conversation is
+       underway. Removing the empty-state element is a one-time thing. Both
+       used to sit behind `if (!emptyShown) return`, so any call made once
+       emptyShown was already false skipped the first job entirely — which is
+       how "Your recent Projects" ended up sitting under an active chat,
+       holding .is-new, with the composer pushed up above it.
+
+       Tiles, examples and recent projects belong to the new-chat screen, not
+       to an empty log, and dropping .is-new returns .ag-hero to
+       display:contents — the normal scrolling-log-under-sticky-composer
+       layout. */
+    const extras = $("agNewExtras");
+    if (extras) extras.hidden = true;
+    const recent = $("agRecent");
+    if (recent) recent.hidden = true;
+    agSection.classList.remove("is-new");
+
     if (!emptyShown) return;
     emptyShown = false;
     const el = $("agEmptyState");
     if (el) el.remove();
-    // Tiles/examples belong to the new-chat screen, not the empty log per
-    // se — hidden the moment a first message actually goes out, rather
-    // than waiting the full build round-trip for isFirstBuild to hide
-    // them, which left them sitting under an in-progress conversation.
-    const extras = $("agNewExtras");
-    if (extras) extras.hidden = true;
-    // Same for recent projects (now a sibling of the hero, not inside
-    // extras) — and dropping .is-new returns .ag-hero to display:contents,
-    // restoring the normal scrolling-log-under-sticky-composer layout.
-    const recent = $("agRecent");
-    if (recent) recent.hidden = true;
-    agSection.classList.remove("is-new");
   }
 
   function el(cls, html) { const d = document.createElement("div"); d.className = cls; if (html != null) d.innerHTML = html; return d; }
