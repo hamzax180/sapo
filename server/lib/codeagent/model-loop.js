@@ -1277,7 +1277,7 @@ async function proposeWithRepair({ userPrompt, tools, maxRounds, onRound, mode, 
  * @param {function} [opts.onRound] - (info) => void, same shape as proposeWithRepair
  * @returns {Promise<{ok, calls?, round?, rounds, repaired?, costUsd, reason?}>}
  */
-async function proposeWithClientBuild({ userPrompt, maxRounds, onFiles, onRound, mode, byok, thinking, mcp, onToolCall, history }) {
+async function proposeWithClientBuild({ userPrompt, maxRounds, onFiles, onRound, mode, byok, thinking, mcp, onToolCall, history, hasExistingEntry }) {
   const cap = (maxRounds !== null && maxRounds !== undefined) ? maxRounds : 3;
   const opts = { mode, byok, thinking, mcp, onToolCall };
   const hist = buildHistory(history);
@@ -1376,14 +1376,20 @@ async function proposeWithClientBuild({ userPrompt, maxRounds, onFiles, onRound,
        becomes three utility files, a green tick and a black screen: the model
        wrote its types, its data and a formatter, then stopped before the app.
 
-       Only on a fresh build. A follow-up legitimately rewrites one component
-       and leaves App.tsx alone, and the tree it lands on already has one.
+       Judged against the tree this lands on, not against this turn's writes.
+       A follow-up legitimately rewrites one component and never touches
+       App.tsx — but only if the project already HAS one, which is why the
+       caller passes that in rather than the loop guessing from whether there
+       is conversation history. Guessing from history was wrong in the case
+       that matters most: a project whose first build produced no entry file
+       has history from the second message onward, so the check that would
+       have caught it switched itself off exactly then.
 
        Reported as a build failure rather than thrown, so it re-enters the
        repair loop the same way a type error does — the model is asked for the
        missing file, and a run that still never produces one falls through to
        the template at round === cap instead of shipping an empty project. */
-    if (build.ok && !hist.length && !written.has("src/App.tsx")) {
+    if (build.ok && !hasExistingEntry && !written.has("src/App.tsx")) {
       build = {
         ok: false,
         errors: [{

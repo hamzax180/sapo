@@ -3308,15 +3308,32 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
           " — import and use it as the site's logo/brand mark (e.g. in the header) instead of inventing a placeholder.";
       }
     }
+    let hasExistingEntry = false;
     if (project) {
       // For follow-ups, give the model the FULL current project code so it
       // can make surgical edits. A one-file app gets its App.tsx; a multi-file
       // app gets every source file. The model needs to see the whole app to
       // change one part without breaking the rest.
-      const head = await projects.head(project.id);
-      const files = head && head.config && head.config.files;
+      /* materialize, not head. The comment above says "the FULL current
+         project code" and head does not provide it: a revision records only
+         the files the model wrote that turn — it is told to write "every file
+         you create or change", so a follow-up records two files, not twelve.
+         The deploy path already replays the chain for exactly this reason.
+         Showing the model two files and calling it the codebase is how it
+         comes to rewrite an app from the fraction it was shown. */
+      const full = await projects.materialize(project.id);
+      const files = (full && full.files) || {};
       const srcFiles = {};
-      for (const [k, v] of Object.entries(files || {})) if (k.startsWith("src/")) srcFiles[k] = v;
+      for (const [k, v] of Object.entries(files)) if (k.startsWith("src/")) srcFiles[k] = v;
+      /* Whether the project ALREADY has an entry file, which is the only
+         thing that makes "this build wrote no App.tsx" safe to judge: a
+         follow-up that edits one component legitimately never touches it.
+
+         An incomplete walk counts as "has one". It cannot prove the file is
+         absent, only that it could not be reached — and the two mistakes are
+         not equal: a missed guard costs one unclear preview, a false one
+         makes the model overwrite a working App.tsx it was never shown. */
+      hasExistingEntry = !!srcFiles["src/App.tsx"] || !(full && full.complete);
 
       if (Object.keys(srcFiles).length) {
         // buildCodebaseContext fits whole files where it can, marks any
@@ -3362,6 +3379,7 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
 
     const agentOpts = {
       mode: agentMode, byok: byok, thinking: thinking, mcp: mcp,
+      hasExistingEntry: hasExistingEntry,
       // What was said before this message. The codebase tells the model
       // WHAT the app is; this tells it what the user has been asking for,
       // so "now make it bigger" has something to refer to.

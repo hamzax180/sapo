@@ -19,7 +19,7 @@
 "use strict";
 const assert = require("assert");
 const client = require("./lib/ai/client");
-const { proposeChanges, proposeWithRepair, assessPrompt, buildPlan, parseToolCalls, validateWriteFileArgs, TOOLS_SCHEMA, clearCache, cacheKey, cacheStatsSnapshot } = require("./lib/codeagent/model-loop");
+const { proposeChanges, proposeWithRepair, proposeWithClientBuild, assessPrompt, buildPlan, parseToolCalls, validateWriteFileArgs, TOOLS_SCHEMA, clearCache, cacheKey, cacheStatsSnapshot } = require("./lib/codeagent/model-loop");
 
 let passed = 0, failed = 0;
 async function check(name, fn) {
@@ -64,6 +64,94 @@ function fakeTools(buildResults) {
 const ROUTES = { prose: { baseUrl: "https://x.invalid/prose", model: "gemini-3.8-flash", key: "k" }, json: { baseUrl: "https://x.invalid/json", model: "deepseek-chat", key: "k" } };
 
 (async () => {
+  console.log("\n── a build with no entry file is not a build ───────");
+
+  /* src/main.tsx mounts src/App.tsx. A tree without it type-checks perfectly
+     and renders nothing, which is how "build an e-commerce storefront" came
+     back as three utility files, a green tick and a black screen. */
+
+  await check("no App.tsx on a fresh build -> not accepted, the model is asked for it", async () => {
+    const utils = toolCallMsg([
+      { path: "src/types.ts", content: "export type Product = { id: string };" },
+      { path: "src/data.ts", content: "export const products = [];" }
+    ]);
+    const withApp = toolCallMsg([{ path: "src/App.tsx", content: "export default function App(){return null}" }]);
+    client.init({ enabled: true, routes: ROUTES, fetchImpl: fetchReturning([utils, withApp]) });
+
+    const rounds = [];
+    const res = await proposeWithClientBuild({
+      userPrompt: "build an e-commerce storefront",
+      hasExistingEntry: false,
+      onFiles: async () => ({ ok: true, errors: [] }),   // it always type-checks
+      onRound: (r) => rounds.push(r)
+    });
+
+    assert.strictEqual(rounds[0].ok, false, "round 0 was accepted despite having no entry file");
+    assert.strictEqual(rounds[0].errors[0].code, "NO_ENTRY");
+    assert.strictEqual(res.ok, true, "the second round supplied App.tsx and should succeed");
+    assert.ok(res.calls.some((c) => c.path === "src/App.tsx"), "the result has no entry file");
+    assert.ok(res.calls.some((c) => c.path === "src/types.ts"),
+      "the earlier files were dropped instead of accumulated");
+  });
+
+  /* The case the first version of this guard missed. It gated on "is there
+     conversation history", which is false only on the very first message — so
+     a project whose first build produced no App.tsx had history from message
+     two onward, and the check switched itself off exactly when it was needed. */
+  await check("no App.tsx on a FOLLOW-UP to a project that has none -> still caught", async () => {
+    const utils = toolCallMsg([{ path: "src/lib/format.ts", content: "export const f = (n:number)=>String(n);" }]);
+    const withApp = toolCallMsg([{ path: "src/App.tsx", content: "export default function App(){return null}" }]);
+    client.init({ enabled: true, routes: ROUTES, fetchImpl: fetchReturning([utils, withApp]) });
+
+    const rounds = [];
+    await proposeWithClientBuild({
+      userPrompt: "add electronics",
+      hasExistingEntry: false,
+      history: [{ role: "user", body: "build e commerce" }, { role: "assistant", body: "done" }],
+      onFiles: async () => ({ ok: true, errors: [] }),
+      onRound: (r) => rounds.push(r)
+    });
+    assert.strictEqual(rounds[0].ok, false,
+      "history made the guard skip — the exact case it exists for");
+    assert.strictEqual(rounds[0].errors[0].code, "NO_ENTRY");
+  });
+
+  await check("a follow-up that edits one component is left alone", async () => {
+    const edit = toolCallMsg([{ path: "src/components/Header.tsx", content: "export const Header = () => null;" }]);
+    client.init({ enabled: true, routes: ROUTES, fetchImpl: fetchReturning([edit]) });
+
+    let modelCalls = 0;
+    const respond = fetchReturning([edit]);
+    client.init({ enabled: true, routes: ROUTES, fetchImpl: async () => { modelCalls++; return respond(); } });
+
+    const res = await proposeWithClientBuild({
+      userPrompt: "make the header sticky",
+      hasExistingEntry: true,                 // the project already has one
+      onFiles: async () => ({ ok: true, errors: [] })
+    });
+    assert.strictEqual(res.ok, true, "an ordinary edit was rejected for not rewriting App.tsx");
+    assert.strictEqual(modelCalls, 1, "the guard forced a pointless repair round");
+    assert.deepStrictEqual(res.calls.map((c) => c.path), ["src/components/Header.tsx"]);
+  });
+
+  await check("a fresh build that does write App.tsx passes straight through", async () => {
+    const good = toolCallMsg([
+      { path: "src/App.tsx", content: "export default function App(){return null}" },
+      { path: "src/data.ts", content: "export const x = 1;" }
+    ]);
+    let modelCalls = 0;
+    const respond = fetchReturning([good]);
+    client.init({ enabled: true, routes: ROUTES, fetchImpl: async () => { modelCalls++; return respond(); } });
+
+    const res = await proposeWithClientBuild({
+      userPrompt: "build a calculator",
+      hasExistingEntry: false,
+      onFiles: async () => ({ ok: true, errors: [] })
+    });
+    assert.strictEqual(res.ok, true);
+    assert.strictEqual(modelCalls, 1, "a correct build was sent back for repair");
+  });
+
   console.log("\n── validateWriteFileArgs: path safety ──────────────");
 
   await check("a normal src/ path is accepted", () => {
