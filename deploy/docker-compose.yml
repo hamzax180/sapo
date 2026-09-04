@@ -96,6 +96,16 @@ services:
 
   caddy:
     image: caddy:2-alpine
+    # Pinned, for the same reason souqi-userdb is: the worker attaches this
+    # container to every per-app network by NAME, over the Docker socket.
+    # Without it Compose derives the name from the project directory —
+    # "deploy-caddy-1" in the repo, "stack-caddy-1" once ship.sh copies the
+    # stack to /opt/platform/stack — so the name the worker was configured
+    # with was right in development and wrong on every real host. The
+    # network connect failed, Caddy never joined the app network, and every
+    # deployed app answered 502 while looking perfectly healthy: container
+    # Up, deployment RUNNING, route installed, nothing to see in any log.
+    container_name: souqi-caddy
     restart: unless-stopped
     # The only published ports in the entire stack. Application ports are
     # never published — that is what forces all traffic through the proxy.

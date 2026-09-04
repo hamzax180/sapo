@@ -92,7 +92,9 @@ const cfg = {
 
   // The proxy container the worker attaches to each per-deployment network.
   // Compose names it <project>-caddy-1; override when the project name differs.
-  proxyContainer: process.env.PROXY_CONTAINER || "deploy-caddy-1",
+  // Must match container_name in docker-compose.yml, not the name Compose
+  // would derive from whatever directory the stack happens to live in.
+  proxyContainer: process.env.PROXY_CONTAINER || "souqi-caddy",
 
   // The customer-data Postgres. Like the proxy, it is attached to each
   // app's network at deploy time and is otherwise on none — see the
