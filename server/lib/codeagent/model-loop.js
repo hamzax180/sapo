@@ -1101,12 +1101,15 @@ async function proposeWithRepair({ userPrompt, tools, maxRounds, onRound, mode, 
     if (attempt.retried) jsonRetries += 1;
 
     for (const c of attempt.calls) await tools.write_file(c.path, c.content);
+    // The sandbox already holds every earlier round's files on disk, so
+    // the build sees the whole tree. Only what we RETURN was partial.
+    const allCalls = collect(attempt.calls);
     const build = await tools.build(180000);
 
-    if (onRound) onRound({ round, ok: build.ok, calls: attempt.calls, errors: build.ok ? undefined : build.errors });
+    if (onRound) onRound({ round, ok: build.ok, calls: allCalls, errors: build.ok ? undefined : build.errors });
 
     if (build.ok) {
-      return { ok: true, calls: attempt.calls, note: attempt.note, round, rounds: round + 1, repaired: round > 0, costUsd: totalCost, jsonRetries };
+      return { ok: true, calls: allCalls, note: attempt.note, round, rounds: round + 1, repaired: round > 0, costUsd: totalCost, jsonRetries };
     }
     if (round === cap) {
       return { ok: false, reason: "build still failing after " + (cap + 1) + " attempt(s)", round, rounds: round + 1, lastErrors: build.errors, costUsd: totalCost };
@@ -1188,7 +1191,9 @@ async function proposeWithClientBuild({ userPrompt, maxRounds, onFiles, onRound,
       }
       // Fallback: if LLM provider is overloaded or failing, generate clean fallback App.tsx
       const fallbackContent = getFallbackAppCode(userPrompt);
-      const fallbackCalls = [{ path: "src/App.tsx", content: fallbackContent }];
+      // Onto the accumulated tree, not instead of it: a bare App.tsx as
+      // the whole project throws away every other file the model wrote.
+      const fallbackCalls = collect([{ path: "src/App.tsx", content: fallbackContent }]);
       const fallbackBuild = await onFiles(fallbackCalls);
       if (fallbackBuild.ok) {
         if (onRound) onRound({ round, ok: true, calls: fallbackCalls });
@@ -1203,20 +1208,26 @@ async function proposeWithClientBuild({ userPrompt, maxRounds, onFiles, onRound,
     if (attempt.retried) jsonRetries += 1;
 
     if (round === 0) {
-      cacheSet(key, { ok: true, calls: attempt.calls, retried: attempt.retried, cached: false, usage: attempt.usage, costUsd: attempt.costUsd });
+      cacheSet(key, { ok: true, calls: attempt.calls, retried: attempt.retried, cached: false, usage: attempt.usage, costUsd: attempt.costUsd }, attempt.costUsd || 0);
     }
 
-    const build = await onFiles(attempt.calls);
+    // The client gets the accumulated tree too. Handing it one round's
+    // subset would type-check a file against components that are not
+    // there and report errors for code that is actually fine.
+    const allCalls = collect(attempt.calls);
+    const build = await onFiles(allCalls);
 
-    if (onRound) onRound({ round, ok: build.ok, calls: attempt.calls, errors: build.ok ? undefined : build.errors });
+    if (onRound) onRound({ round, ok: build.ok, calls: allCalls, errors: build.ok ? undefined : build.errors });
 
     if (build.ok) {
-      return { ok: true, calls: attempt.calls, note: attempt.note, round, rounds: round + 1, repaired: round > 0, costUsd: totalCost, jsonRetries };
+      return { ok: true, calls: allCalls, note: attempt.note, round, rounds: round + 1, repaired: round > 0, costUsd: totalCost, jsonRetries };
     }
     if (round === cap) {
       // Final Fallback if repair attempts failed: return guaranteed compiling fallback App.tsx
       const fallbackContent = getFallbackAppCode(userPrompt);
-      const fallbackCalls = [{ path: "src/App.tsx", content: fallbackContent }];
+      // Onto the accumulated tree, not instead of it: a bare App.tsx as
+      // the whole project throws away every other file the model wrote.
+      const fallbackCalls = collect([{ path: "src/App.tsx", content: fallbackContent }]);
       const fallbackBuild = await onFiles(fallbackCalls);
       if (fallbackBuild.ok) {
         return { ok: true, calls: fallbackCalls, note: "⚠️ I couldn't reach the AI model, so this is a starter template rather than what you asked for. Reason: " + ((build.errors && build.errors[0] && build.errors[0].message) || "the build kept failing"), fellBack: true, round, rounds: round + 1, repaired: true, costUsd: totalCost, jsonRetries };
