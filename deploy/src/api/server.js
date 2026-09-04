@@ -373,6 +373,15 @@ app.get("/deployments/:id/status", requireUser, async (req, res, next) => {
             ageSeconds: seen ? Math.round((Date.now() - seen.getTime()) / 1000) : null
           }
         : null,
+      // Advisory, every one of them. Ordered so the reader meets them in the
+      // same sequence each time rather than in whatever order they finished.
+      checks: (await many(
+        `SELECT check_id, status, summary, detail
+           FROM deployment_checks WHERE deployment_id=$1 ORDER BY check_id`,
+        [dep.id]
+      )).map((c) => ({
+        id: c.check_id, status: c.status, summary: c.summary, detail: c.detail
+      })),
       customDomain: dep.custom_domain
         ? { domain: dep.custom_domain, verified: dep.custom_domain_verified,
             target: dep.domain }

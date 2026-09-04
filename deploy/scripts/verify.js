@@ -459,6 +459,64 @@ async function main() {
       "generate() mints a JWT_SECRET, which would reject every main-app session");
   });
 
+  console.log("\n── deployment checks ────────────────────────────────");
+
+  /* These report on software that has already shipped. The moment one can
+     fail a deployment, a slow registry or an unreachable probe starts marking
+     working apps broken — so "advisory" is a property to assert, not a
+     comment to write. */
+  check("no check can fail a deployment", () => {
+    const src = fs.readFileSync(path.join(__dirname, "..", "src", "worker", "pipeline.js"), "utf8");
+    for (const fn of ["auditDependencies", "checkResponse"]) {
+      const call = new RegExp("await\\s+" + fn + "\\([^;]*?;", "s");
+      const m = call.exec(src);
+      assert.ok(m, fn + " is never called");
+      assert.ok(/\.catch\(/.test(m[0]),
+        fn + " is awaited without a .catch, so a thrown check fails the deploy");
+    }
+    // And none of them reaches for the one function that marks a deploy dead.
+    const bodies = /async function (?:auditDependencies|checkResponse)[\s\S]*?\n}/g;
+    let b, seen = 0;
+    while ((b = bodies.exec(src)) !== null) {
+      seen++;
+      assert.ok(!/return fail\(/.test(b[0]), "a check calls fail() and can kill the deployment");
+    }
+    assert.strictEqual(seen, 2, "expected both check functions, found " + seen);
+  });
+
+  check("the dependency audit runs in a container, not on the host", () => {
+    const src = fs.readFileSync(path.join(__dirname, "..", "src", "docker", "engine.js"), "utf8");
+    const m = /async function runNpmAudit[\s\S]*?\n}/.exec(src);
+    assert.ok(m, "runNpmAudit is gone");
+    const body = m[0];
+    assert.ok(/"run", "--rm"/.test(body), "the audit does not run in a throwaway container");
+    // The host has no npm and must never execute anything out of a customer's
+    // tree; and the audit must not be able to edit what it is auditing.
+    assert.ok(/:ro"/.test(body), "the build context is mounted writable into the audit container");
+    assert.ok(/"--cap-drop", "ALL"/.test(body), "the audit container keeps capabilities");
+    assert.ok(/no-new-privileges/.test(body), "the audit container can gain privileges");
+    assert.ok(/"--user", "65534:65534"/.test(body), "the audit container runs as root");
+    assert.ok(!/--privileged/.test(body), "the audit container is privileged");
+  });
+
+  check("the checks table is keyed so a redeploy overwrites", () => {
+    const sql = fs.readFileSync(path.join(__dirname, "..", "db", "schema.sql"), "utf8");
+    const m = /CREATE TABLE IF NOT EXISTS deployment_checks[\s\S]*?\);/.exec(sql);
+    assert.ok(m, "deployment_checks is not in the schema");
+    assert.ok(/PRIMARY KEY \(deployment_id, check_id\)/.test(m[0]),
+      "without that key the upsert has nothing to conflict on and history piles up");
+    assert.ok(/REFERENCES deployments\(id\) ON DELETE CASCADE/.test(m[0]),
+      "check rows outlive the deployment they describe");
+  });
+
+  check("recording a check cannot break a deploy either", () => {
+    const src = fs.readFileSync(path.join(__dirname, "..", "src", "worker", "pipeline.js"), "utf8");
+    const m = /async function recordCheck[\s\S]*?\n}/.exec(src);
+    assert.ok(m, "recordCheck is gone");
+    assert.ok(/catch \(e\)/.test(m[0]),
+      "a failed INSERT propagates, so a check nobody asked for can fail a deployment");
+  });
+
   console.log("\n── custom domains ───────────────────────────────────");
 
   /* The certificate gate. This is the only thing between "anyone with an

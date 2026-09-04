@@ -204,3 +204,23 @@ ALTER TABLE hosts ADD COLUMN IF NOT EXISTS worker_seen_at  TIMESTAMPTZ;
 
 INSERT INTO hosts (id, provider, status) VALUES ('local','local','ACTIVE')
   ON CONFLICT (id) DO NOTHING;
+
+-- ---------------------------------------------------------------------------
+-- Automated checks run against a deployment.
+--
+-- Everything here is ADVISORY and says so. The one check that can stop a
+-- deploy is the secret scan, and it runs in the main app before any source is
+-- uploaded — so it never writes a row here, because by the time there would
+-- be a deployment to attach one to, it has already refused.
+--
+-- Keyed by (deployment_id, check_id) and upserted, so a redeploy reports on
+-- what is actually running rather than accumulating history nobody reads.
+CREATE TABLE IF NOT EXISTS deployment_checks (
+  deployment_id TEXT NOT NULL REFERENCES deployments(id) ON DELETE CASCADE,
+  check_id      TEXT NOT NULL,
+  status        TEXT NOT NULL,      -- pass | warn | fail | skipped
+  summary       TEXT,
+  detail        JSONB,
+  at            TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (deployment_id, check_id)
+);

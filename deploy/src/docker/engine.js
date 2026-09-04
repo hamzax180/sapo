@@ -154,6 +154,57 @@ async function buildImage({ deploymentId, contextDir, onLine, timeoutMs }) {
   ], { onLine, timeoutMs: timeoutMs || 15 * 60 * 1000 });
 }
 
+/**
+ * `npm audit` against a prepared build context.
+ *
+ * In a throwaway container, never on the host: the host has no npm and must
+ * never execute anything out of a customer's tree. The context is mounted
+ * read-only and the cache goes to a tmpfs, so the audit cannot modify the
+ * thing it is auditing.
+ *
+ * No --network flag, deliberately: this one needs the registry to answer, and
+ * it is our container running our command, not the customer's app.
+ *
+ * npm exits non-zero whenever it finds anything, so `ok` is meaningless here —
+ * the JSON on stdout is the result, and a parse failure is the only real
+ * failure.
+ */
+async function runNpmAudit(contextDir, opts) {
+  const r = await docker([
+    "run", "--rm",
+    "--security-opt", "no-new-privileges",
+    "--cap-drop", "ALL",
+    "--memory", "512m", "--memory-swap", "512m",
+    "--pids-limit", "256",
+    "--user", "65534:65534",
+    "--tmpfs", "/tmp:rw,noexec,nosuid,size=128m",
+    "--env", "npm_config_cache=/tmp/.npm",
+    "--env", "npm_config_update_notifier=false",
+    "--env", "npm_config_fund=false",
+    "--volume", contextDir + ":/app:ro",
+    "--workdir", "/app",
+    "node:20-alpine",
+    "npm", "audit", "--json"
+  ], { timeoutMs: (opts && opts.timeoutMs) || 120000 });
+
+  let parsed = null;
+  try { parsed = JSON.parse(r.stdout); } catch (e) { parsed = null; }
+  if (!parsed) {
+    const why = r.timedOut ? "the audit timed out"
+      : (r.stderr || "").trim().split("\n").slice(-1)[0] || "npm produced no report";
+    return { ok: false, error: why };
+  }
+
+  const v = (parsed.metadata && parsed.metadata.vulnerabilities) || {};
+  return {
+    ok: true,
+    counts: {
+      critical: v.critical || 0, high: v.high || 0, moderate: v.moderate || 0,
+      low: v.low || 0, info: v.info || 0, total: v.total || 0
+    }
+  };
+}
+
 /* ---------- external database forwarder ----------
    An app's network is --internal, so a database out on the internet is
    unreachable from it. Dropping --internal would hand every app on the box
@@ -495,6 +546,7 @@ module.exports = {
   stop, start, restart, removeContainer, removeImage, logs, inspectState,
   statsAll, listManaged, pruneImages, version,
   networkName, ensureDeploymentNetwork, connectProxy, removeDeploymentNetwork,
+  runNpmAudit,
   dbProxyName, egressNetworkName, ensureEgressNetwork, buildDbProxyArgs,
   runDbProxy, removeDbProxy, dbProxyTarget, listDbProxies, DBPROXY_IMAGE,
   connectUserDb, disconnectUserDb

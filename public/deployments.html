@@ -645,6 +645,14 @@
   .cfg-block ul{margin:0;padding-left:18px;font-size:.8rem;line-height:1.85}
   .cfg-block code{font-family:var(--mono);font-size:.78rem;color:var(--ink)}
   .cfg-block span{color:var(--mut);font-family:var(--mono);font-size:.75rem}
+  .cfg-checks{list-style:none;margin:0;padding:8px 16px 14px}
+  .cfg-checks li{display:flex;gap:10px;align-items:baseline;padding:4px 0;font-size:.8rem}
+  .cfg-checks li::before{content:"";flex:none;width:7px;height:7px;border-radius:50%;margin-top:5px;background:var(--mut)}
+  .cfg-checks li.s-pass::before{background:var(--ok)}
+  .cfg-checks li.s-warn::before{background:var(--warn)}
+  .cfg-checks li.s-fail::before{background:var(--danger)}
+  .cfg-checks b{flex:none;min-width:132px;font-weight:600}
+  .cfg-checks span{color:var(--mut);line-height:1.5}
   .dbnote:last-child{border-bottom:0}
   .dbnote code{font-family:var(--mono);font-size:.75rem;background:var(--paper-2);border:1px solid var(--line);
     border-radius:5px;padding:1px 5px;color:var(--ink)}
@@ -1005,6 +1013,13 @@
      name the file and line: the toast only has room for the summary, and
      "there is a credential somewhere in your app" is not actionable. */
   var secIssues = null;
+
+  /* What each check is called in front of a person. The check_id is a
+     database column and reads like one. */
+  var CHECK_NAME = {
+    dependencies: "Dependencies",
+    response: "What visitors receive"
+  };
   var dbDraft = "";
 
   /* The data browser. dbTables is the list, dbTable the one being read,
@@ -1300,7 +1315,8 @@
       b.mode, b.configured, b.name, b.masked, b.sizeBytes, b.builtinKept, dbTab,
       g.subdomain, g.locked, k.available, k.reason, cfgDraft,
       cd.domain, cd.verified, domDraft, domMsg, domBusy,
-      secIssues ? secIssues.length : 0].join("|");
+      secIssues ? secIssues.length : 0,
+      (d.checks || []).map(function (k) { return k.id + k.status; }).join(",")].join("|");
   }
 
   /* ---------------- database ---------------- */
@@ -1675,6 +1691,23 @@
           '<div class="cfg-acts"><button type="button" class="btn-g" data-dom="detach">Remove</button></div>';
       }
       if (domMsg) out += '<div class="cfg-hint bad">' + esc(domMsg) + "</div>";
+    }
+
+    // ---- checks ----
+    /* Real tests, kept visibly apart from "What we enforce" below. That
+       separation is the whole point: these ran and could have come out
+       differently, the list below is a description of the runtime and is true
+       before anything is built. Merging them into one score would restate the
+       claim settings.html declined to make. */
+    var checks = (detail && detail.checks) || [];
+    if (st && checks.length) {
+      out += '<div class="cfg-sec"><b>Checks</b></div><ul class="cfg-checks">';
+      for (var ci = 0; ci < checks.length; ci++) {
+        var ck = checks[ci];
+        out += '<li class="s-' + esc(ck.status) + '"><b>' + esc(CHECK_NAME[ck.id] || ck.id) +
+          "</b><span>" + esc(ck.summary || ck.status) + "</span></li>";
+      }
+      out += "</ul>";
     }
 
     // ---- what we enforce ----

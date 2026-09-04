@@ -15,6 +15,7 @@
 "use strict";
 
 const dns = require("dns");
+const https = require("https");
 const fsp = require("fs/promises");
 const path = require("path");
 const { cfg } = require("../config");
@@ -254,6 +255,110 @@ async function ensureDbForwarder(deploymentId, url) {
   return { ok: true, host: host, port: port, ip: addr };
 }
 
+/* ---------- checks ----------
+   Advisory, all of them. The only check that can stop a deploy is the secret
+   scan, and it runs in the main app before any source is uploaded — so it
+   never reaches this file. Everything here reports on something that already
+   shipped, which is exactly why none of it may fail a deployment: a probe
+   that cannot reach the app must not mark a working app broken. */
+
+async function recordCheck(deploymentId, checkId, status, summary, detail) {
+  try {
+    await query(
+      `INSERT INTO deployment_checks (deployment_id, check_id, status, summary, detail, at)
+            VALUES ($1,$2,$3,$4,$5, now())
+       ON CONFLICT (deployment_id, check_id) DO UPDATE
+            SET status=EXCLUDED.status, summary=EXCLUDED.summary,
+                detail=EXCLUDED.detail, at=now()`,
+      [deploymentId, checkId, status, summary || null, detail ? JSON.stringify(detail) : null]
+    );
+  } catch (e) {
+    // A check that cannot be recorded is not a deploy that should fail.
+    console.warn("[checks] could not record " + checkId + ": " + e.message);
+  }
+}
+
+/**
+ * What npm knows about the dependency tree that was actually built.
+ *
+ * Reported, never blocking, and "fail" here means the row says fail — the app
+ * still deploys. Refusing on a transitive advisory in a generated app would
+ * stop almost every deploy, and the person who asked for a football calendar
+ * cannot act on it anyway.
+ */
+async function auditDependencies(id, contextDir) {
+  const r = await engine.runNpmAudit(contextDir);
+  if (!r.ok) {
+    await recordCheck(id, "dependencies", "skipped", r.error);
+    await log(id, "system", "Dependency audit skipped — " + r.error, "stderr");
+    return;
+  }
+  const c = r.counts;
+  const status = c.critical > 0 ? "fail" : (c.high > 0 ? "warn" : "pass");
+  const summary = c.total === 0
+    ? "no known vulnerabilities in " + "the dependency tree"
+    : c.critical + " critical, " + c.high + " high, " + c.moderate + " moderate, " + c.low + " low";
+  await recordCheck(id, "dependencies", status, summary, c);
+  await log(id, "system", "Dependency audit: " + summary);
+}
+
+/**
+ * What a browser is actually told when it loads the app.
+ *
+ * Fetched over the public hostname rather than the container, because the
+ * question is what a visitor receives — which includes whatever Caddy adds on
+ * the way out. Missing headers are a warn, never a failure: most working
+ * software does not set a CSP, and a check that cries wolf on every deploy is
+ * one nobody reads by the third.
+ */
+function probeHeaders(url) {
+  const RECOMMENDED = {
+    "strict-transport-security": "HSTS",
+    "x-content-type-options": "nosniff",
+    "content-security-policy": "content security policy",
+    "referrer-policy": "referrer policy"
+  };
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = (v) => { if (!settled) { settled = true; resolve(v); } };
+    let req;
+    try {
+      req = https.get(url, { timeout: 12000 }, (res) => {
+        res.resume();
+        const h = res.headers || {};
+        const present = [], missing = [];
+        for (const k of Object.keys(RECOMMENDED)) (h[k] ? present : missing).push(RECOMMENDED[k]);
+        finish({
+          ok: true,
+          code: res.statusCode,
+          // authorized is false only when the certificate did not verify.
+          tls: !(res.socket && res.socket.authorized === false),
+          present: present, missing: missing
+        });
+      });
+    } catch (e) { return finish({ ok: false, error: e.message }); }
+    req.on("timeout", () => { req.destroy(); finish({ ok: false, error: "no answer within 12s" }); });
+    req.on("error", (e) => finish({ ok: false, error: e.message }));
+  });
+}
+
+async function checkResponse(id, url) {
+  const r = await probeHeaders(url);
+  if (!r.ok) {
+    await recordCheck(id, "response", "skipped", "could not be reached from here — " + r.error);
+    return;
+  }
+  if (!r.tls) {
+    await recordCheck(id, "response", "fail", "the certificate did not verify", { code: r.code });
+    return;
+  }
+  const status = r.missing.length ? "warn" : "pass";
+  const summary = "served over HTTPS with a valid certificate" +
+    (r.missing.length ? "; not setting " + r.missing.join(", ") : "; all recommended headers set");
+  await recordCheck(id, "response", status, summary,
+    { code: r.code, present: r.present, missing: r.missing });
+}
+
 /* ---------- the pipeline ---------- */
 
 /**
@@ -312,6 +417,12 @@ async function deploy(dep, sourceDir) {
       const tail = (built.stderr || built.stdout || "").trim().split("\n").slice(-3).join(" | ");
       return fail(id, built.timedOut ? "the build timed out" : ("the build failed — " + (tail || "see build logs")));
     }
+
+    /* Between build and run, while the context is still on disk. It is not
+       allowed to affect either: a slow registry must not delay someone's
+       deploy into a timeout, and a vulnerable transitive dependency is a
+       thing to tell them, not a reason to refuse. */
+    await auditDependencies(id, ctx).catch(() => { });
 
     // --- 5. run -------------------------------------------------------
     await setStatus(id, "STARTING", { image_name: engine.imageName(id), internal_port: spec.port });
@@ -397,6 +508,10 @@ async function deploy(dep, sourceDir) {
 
     await setStatus(id, "RUNNING", { container_name: run.name, error: null });
     await log(id, "system", "Live at https://" + dep.domain);
+
+    // Only now, because until this point there was nothing to ask.
+    await checkResponse(id, "https://" + dep.domain).catch(() => { });
+
     await cleanupBuildContext(id);
     return { ok: true, domain: dep.domain, url: "https://" + dep.domain };
 
@@ -615,5 +730,6 @@ async function browseProjectDatabase(projectId, what) {
 module.exports = {
   deploy, stop, start, restart, destroy,
   ensureDatabase, deleteProjectDatabase, measureProjectDatabase, browseProjectDatabase,
-  setStatus, log, waitForRunning, cleanupBuildContext, projectEnv
+  setStatus, log, waitForRunning, cleanupBuildContext, projectEnv,
+  recordCheck, auditDependencies, checkResponse, probeHeaders
 };
