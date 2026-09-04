@@ -20,6 +20,9 @@
 "use strict";
 
 const { execFile } = require("child_process");
+const fsp = require("fs/promises");
+const os = require("os");
+const path = require("path");
 const { cfg } = require("../config");
 
 const DEFAULT_TIMEOUT_MS = 10 * 60 * 1000;
@@ -122,6 +125,10 @@ async function removeDeploymentNetwork(deploymentId) {
   const net = networkName(deploymentId);
   await docker(["network", "disconnect", "--force", net, cfg.proxyContainer], { timeoutMs: 20000 });
   await docker(["network", "disconnect", "--force", net, cfg.userDbContainer], { timeoutMs: 20000 });
+  // And now three: an external-database forwarder is a member too, and one
+  // held endpoint is enough to make `network rm` fail with "has active
+  // endpoints" and leak a dead network per deleted deployment.
+  await docker(["network", "disconnect", "--force", net, dbProxyName(deploymentId)], { timeoutMs: 20000 });
   return docker(["network", "rm", net], { timeoutMs: 20000 });
 }
 
@@ -145,6 +152,175 @@ async function buildImage({ deploymentId, contextDir, onLine, timeoutMs }) {
     "--force-rm",
     contextDir
   ], { onLine, timeoutMs: timeoutMs || 15 * 60 * 1000 });
+}
+
+/* ---------- external database forwarder ----------
+   An app's network is --internal, so a database out on the internet is
+   unreachable from it. Dropping --internal would hand every app on the box
+   unrestricted egress and invalidate the isolation this file exists to
+   provide, so instead each deployment with an external database gets its own
+   one-target TCP pipe.
+
+   The forwarder sits on two networks: this deployment's --internal one, where
+   it becomes the app's only route off-network, and an egress network of its
+   own whose only member it is. It holds no credentials — the password stays
+   in the app's environment, where it already was.
+
+   It answers to the DATABASE'S OWN HOSTNAME as a network alias rather than a
+   generic "dbproxy". That is the load-bearing choice: the app dials the exact
+   name in its connection string, so TLS SNI and certificate verification
+   still match and sslmode=verify-full keeps working. Rewriting the URL to
+   point at a proxy hostname would break verification and invite people to
+   downgrade to sslmode=require to make it work again — trading away the
+   customer's transport security to accommodate our plumbing. */
+const dbProxyName = (id) => "souqi-dbproxy-" + String(id).replace(/[^a-zA-Z0-9_.-]/g, "");
+const egressNetworkName = (id) => "souqi_egress_" + String(id).replace(/[^a-zA-Z0-9_.-]/g, "");
+const DBPROXY_IMAGE = "souqi-dbproxy:1";
+
+/* Built here rather than pulled from a community socat image, so the only
+   registry this platform trusts stays the one the app images already use.
+   Pinning the alpine tag pins socat with it. */
+async function ensureDbProxyImage() {
+  const found = await docker(["image", "inspect", DBPROXY_IMAGE, "--format", "{{.Id}}"]);
+  if (found.ok) return { ok: true, existed: true };
+
+  const dir = await fsp.mkdtemp(path.join(os.tmpdir(), "souqi-dbproxy-"));
+  try {
+    await fsp.writeFile(path.join(dir, "Dockerfile"), [
+      "FROM alpine:3.20",
+      "RUN apk add --no-cache socat",
+      // nobody. The forwarder binds a high port, so it never needs root.
+      "USER 65534:65534",
+      'ENTRYPOINT ["/usr/bin/socat"]',
+      ""
+    ].join("\n"), "utf8");
+    const built = await docker(["build", "--tag", DBPROXY_IMAGE, "--force-rm", dir],
+      { timeoutMs: 5 * 60 * 1000 });
+    return { ok: built.ok, existed: false, error: built.stderr };
+  } finally {
+    await fsp.rm(dir, { recursive: true, force: true }).catch(() => { });
+  }
+}
+
+/** The one network on this host that is deliberately NOT --internal. Its only
+    member is one deployment's forwarder; a shared egress network would put two
+    tenants' forwarders on one L2 and undo exactly what the per-deployment app
+    networks provide. */
+async function ensureEgressNetwork(deploymentId) {
+  const net = egressNetworkName(deploymentId);
+  const found = await docker(["network", "ls", "--filter", "name=^" + net + "$", "--format", "{{.Name}}"]);
+  if (found.stdout.trim() === net) return { ok: true, existed: true, network: net };
+  const made = await docker(["network", "create", "--driver", "bridge",
+    "--label", "souqi.managed=true", "--label", "souqi.deployment=" + deploymentId, net]);
+  return { ok: made.ok, existed: false, network: net, error: made.stderr };
+}
+
+/**
+ * The argv for a forwarder, as a pure function — same reason buildRunArgs is
+ * one. scripts/verify.js asserts on this directly, so "the forwarder is
+ * hardened and points at exactly one address" is checked without a daemon.
+ *
+ * `targetIp` is a resolved literal, never a name. If socat were given the
+ * hostname it would ask Docker's embedded DNS, which on the app network
+ * answers with the forwarder's own alias — the forwarder would dial itself.
+ */
+function buildDbProxyArgs({ deploymentId, host, targetIp, port, memoryMb, pids }) {
+  const name = dbProxyName(deploymentId);
+  const p = Number(port);
+
+  return {
+    name: name,
+    args: [
+      "run", "--detach",
+      "--name", name,
+
+      "--cpus", "0.25",
+      "--memory", (memoryMb || 32) + "m",
+      "--memory-swap", (memoryMb || 32) + "m",
+      "--pids-limit", String(pids || 32),
+      "--ulimit", "nofile=1024:2048",
+
+      "--security-opt", "no-new-privileges",
+      "--cap-drop", "ALL",
+      "--read-only",
+      "--user", "65534:65534",
+
+      "--network", egressNetworkName(deploymentId),
+      // Nothing published, here as everywhere else in this file.
+      "--restart", "unless-stopped",
+      "--label", "souqi.managed=true",
+      "--label", "souqi.deployment=" + deploymentId,
+      "--label", "souqi.role=dbproxy",
+      /* The name this forwarder is FOR, recorded on the container itself.
+         It lets the reconcile loop re-resolve and notice a moved database
+         without reading the project row or decrypting the URL to find out
+         where it was supposed to point. */
+      "--label", "souqi.dbhost=" + String(host || ""),
+      "--label", "souqi.dbport=" + String(p),
+
+      DBPROXY_IMAGE,
+      // One listener, one target, both fixed when the container is created.
+      "TCP-LISTEN:" + p + ",fork,reuseaddr",
+      "TCP:" + targetIp + ":" + p
+    ]
+  };
+}
+
+async function runDbProxy({ deploymentId, host, targetIp, port }) {
+  const img = await ensureDbProxyImage();
+  if (!img.ok) return { ok: false, error: "could not build the forwarder image — " + (img.error || "") };
+
+  const net = await ensureEgressNetwork(deploymentId);
+  if (!net.ok) return { ok: false, error: "could not create the egress network — " + (net.error || "") };
+
+  // A previous revision may still be running against a stale address.
+  await removeDbProxy(deploymentId, { keepNetwork: true });
+
+  const built = buildDbProxyArgs({ deploymentId, host: host, targetIp: targetIp, port: port });
+  const res = await docker(built.args, { timeoutMs: 60000 });
+  if (!res.ok) return { ok: false, error: res.stderr.trim() };
+
+  /* The alias is the whole trick: it makes the app's UNCHANGED connection
+     string resolve to the forwarder, inside this app's network only. */
+  const joined = await docker(["network", "connect", "--alias", host,
+    networkName(deploymentId), built.name], { timeoutMs: 20000 });
+  if (!joined.ok && !/already exists|already connected/i.test(joined.stderr || "")) {
+    return { ok: false, error: joined.stderr.trim() };
+  }
+  return { ok: true, name: built.name, target: targetIp + ":" + port };
+}
+
+async function removeDbProxy(deploymentId, opts) {
+  const r = await docker(["rm", "--force", "--volumes", dbProxyName(deploymentId)], { timeoutMs: 30000 });
+  if (!(opts && opts.keepNetwork)) {
+    await docker(["network", "rm", egressNetworkName(deploymentId)], { timeoutMs: 20000 });
+  }
+  return { ok: true, removed: r.ok };
+}
+
+/** Every forwarder on this host, with the hostname it stands in for and the
+    literal address it is currently dialling. Read from labels and argv, so no
+    connection string has to be decrypted to answer "has this database
+    moved?". */
+async function listDbProxies() {
+  const r = await docker(["ps", "--filter", "label=souqi.role=dbproxy", "--format",
+    "{{.Label \"souqi.deployment\"}}\t{{.Label \"souqi.dbhost\"}}\t{{.Label \"souqi.dbport\"}}"]);
+  if (!r.ok) return [];
+  return r.stdout.split(/\r?\n/).map((l) => l.trim()).filter(Boolean).map((l) => {
+    const [deploymentId, host, port] = l.split("\t");
+    return { deploymentId: deploymentId, host: host, port: Number(port) };
+  }).filter((p) => p.deploymentId && p.host);
+}
+
+/** What address is this deployment's forwarder actually pointed at? Empty when
+    there is no forwarder. Used by the reconcile loop to notice that a managed
+    database has moved. */
+async function dbProxyTarget(deploymentId) {
+  const r = await docker(["inspect", "--format", "{{range .Args}}{{.}} {{end}}",
+    dbProxyName(deploymentId)], { timeoutMs: 15000 });
+  if (!r.ok) return null;
+  const m = /TCP:([^\s:]+):(\d+)/.exec(r.stdout);
+  return m ? { ip: m[1], port: Number(m[2]) } : null;
 }
 
 /* ---------- run ----------
@@ -319,5 +495,7 @@ module.exports = {
   stop, start, restart, removeContainer, removeImage, logs, inspectState,
   statsAll, listManaged, pruneImages, version,
   networkName, ensureDeploymentNetwork, connectProxy, removeDeploymentNetwork,
+  dbProxyName, egressNetworkName, ensureEgressNetwork, buildDbProxyArgs,
+  runDbProxy, removeDbProxy, dbProxyTarget, listDbProxies, DBPROXY_IMAGE,
   connectUserDb, disconnectUserDb
 };

@@ -19,6 +19,7 @@ const dockerfiles = require("../src/framework/dockerfiles");
 const detect = require("../src/framework/detect");
 const secrets = require("../src/secrets");
 const caddy = require("../src/proxy/caddy");
+const domains = require("../src/domains");
 const providers = require("../src/providers");
 const auth = require("../src/api/auth");
 const objects = require("../src/storage/objects");
@@ -456,6 +457,154 @@ async function main() {
       "generate() would rotate a live SECRET_KEY, making stored env vars undecryptable");
     assert.ok(!/\["JWT_SECRET",\s*\d+\]/.test(gen),
       "generate() mints a JWT_SECRET, which would reject every main-app session");
+  });
+
+  console.log("\n── custom domains ───────────────────────────────────");
+
+  /* The certificate gate. This is the only thing between "anyone with an
+     account" and "Souqi asks Let's Encrypt for a certificate on a name that
+     is not ours", so it is asserted at the source: the query must not be
+     satisfiable by an unverified row. */
+  check("tls-ask will not issue for an unverified custom domain", () => {
+    const api = fs.readFileSync(path.join(__dirname, "..", "src", "api", "server.js"), "utf8");
+    const m = api.match(/tls-ask[\s\S]{0,1800}?res\.status\(404\)\.end\(\)/);
+    assert.ok(m, "could not find the tls-ask handler");
+    const body = m[0];
+    assert.ok(/custom_domain/.test(body),
+      "tls-ask ignores custom_domain, so a custom domain can never get a certificate");
+    assert.ok(/custom_domain\s*=\s*\$1\s+AND\s+custom_domain_verified/.test(body),
+      "tls-ask matches custom_domain WITHOUT requiring custom_domain_verified - " +
+      "attaching any name would be enough to have a certificate issued for it");
+    assert.ok(/status\s*<>\s*'DELETED'/.test(body),
+      "tls-ask would issue for a deleted deployment's hostname");
+  });
+
+  check("an unverified custom domain is not routed", () => {
+    assert.deepStrictEqual(
+      domains.hostnamesFor({ domain: "app-1.souqi.site", custom_domain: "shop.example.com",
+                             custom_domain_verified: false }),
+      ["app-1.souqi.site"],
+      "an unverified custom domain would be served over plain HTTP with no certificate");
+  });
+
+  check("a verified custom domain is routed beside the generated one", () => {
+    assert.deepStrictEqual(
+      domains.hostnamesFor({ domain: "app-1.souqi.site", custom_domain: "shop.example.com",
+                             custom_domain_verified: true }),
+      ["app-1.souqi.site", "shop.example.com"],
+      "a verified custom domain is not routed, or it replaces the generated hostname");
+  });
+
+  /* Six call sites add or remove routes. The invariant holds only if every
+     one asks hostnamesFor instead of reading dep.domain, so that is checked
+     directly - a new site that forgets is the failure mode. */
+  check("no route site reads dep.domain directly", () => {
+    for (const f of ["worker/pipeline.js", "worker/index.js"]) {
+      const src = fs.readFileSync(path.join(__dirname, "..", "src", f), "utf8");
+      assert.ok(!/(add|remove)Route\(\s*dep\.domain/.test(src),
+        f + " routes dep.domain directly, so a custom domain silently stops being served");
+    }
+  });
+
+  check("a custom domain cannot claim the platform's own zone", () => {
+    for (const bad of ["souqi.site", "app-1.souqi.site", "anything.souqi.site"]) {
+      assert.ok(!domains.validateCustomDomain(bad, "souqi.site").ok,
+        bad + " was accepted, a second unverified route to a name we already own");
+    }
+    assert.ok(domains.validateCustomDomain("shop.example.com", "souqi.site").ok,
+      "a genuine custom domain was refused");
+  });
+
+  console.log("\n── external database forwarder ──────────────────────");
+
+  /* Phase 3 exists to make an external database reachable WITHOUT weakening
+     the isolation the rest of this file asserts. If the forwarder is not
+     hardened, "the app can only reach one address" becomes "the app can
+     reach one address through a container that can reach anything". */
+  const fwd = engine.buildDbProxyArgs({
+    deploymentId: "dep_x", host: "db.example.com", targetIp: "203.0.113.7", port: 5432
+  });
+
+  check("the forwarder is hardened like an app container", () => {
+    const a = fwd.args;
+    assert.ok(a.includes("--cap-drop") && a[a.indexOf("--cap-drop") + 1] === "ALL",
+      "the forwarder keeps Linux capabilities");
+    assert.ok(a.includes("no-new-privileges"), "the forwarder can gain privileges via setuid");
+    assert.ok(a.includes("--read-only"), "the forwarder's root filesystem is writable");
+    assert.ok(a.includes("--user") && a[a.indexOf("--user") + 1] === "65534:65534",
+      "the forwarder runs as root");
+    assert.ok(!a.includes("--privileged"), "the forwarder is privileged");
+    assert.ok(!a.some((x) => /docker\.sock/.test(String(x))), "the forwarder mounts the Docker socket");
+    assert.ok(!a.includes("-p") && !a.includes("--publish"),
+      "the forwarder publishes a port to the host");
+    assert.ok(!a.some((x) => String(x) === "host"), "the forwarder uses host networking");
+  });
+
+  check("the forwarder dials exactly one literal address", () => {
+    const spec = fwd.args[fwd.args.length - 1];
+    assert.strictEqual(spec, "TCP:203.0.113.7:5432",
+      "the forwarder's target is not a single fixed address");
+    /* A hostname here would be resolved by Docker's embedded DNS, which on
+       the app network answers with this container's own alias — the
+       forwarder would dial itself and the app would hang. */
+    assert.ok(/^TCP:\d+\.\d+\.\d+\.\d+:\d+$/.test(spec),
+      "the forwarder targets a name rather than a resolved address");
+    const listen = fwd.args[fwd.args.length - 2];
+    assert.ok(/^TCP-LISTEN:\d+,fork,reuseaddr$/.test(listen),
+      "the forwarder's listener is not a single fixed port");
+    assert.strictEqual(fwd.args.filter((x) => /^TCP:/.test(String(x))).length, 1,
+      "the forwarder has more than one target");
+  });
+
+  check("the forwarder is never on the platform network", () => {
+    // The failure this prevents is the same one the userdb check describes:
+    // a container on both an app network and souqi_platform gives every app
+    // a two-hop route to the platform database and the Caddy admin API.
+    const nets = fwd.args.filter((x, i) => fwd.args[i - 1] === "--network");
+    assert.deepStrictEqual(nets, [engine.egressNetworkName("dep_x")],
+      "the forwarder starts on " + nets.join(", ") + "; it must start on its own egress network alone");
+    assert.ok(!fwd.args.includes("souqi_platform"), "the forwarder is on the platform network");
+  });
+
+  check("each deployment's egress network is its own", () => {
+    assert.notStrictEqual(engine.egressNetworkName("dep_a"), engine.egressNetworkName("dep_b"),
+      "two tenants' forwarders would share one L2");
+    assert.notStrictEqual(engine.dbProxyName("dep_a"), engine.dbProxyName("dep_b"));
+  });
+
+  check("only the egress network is allowed off the box", () => {
+    const src = fs.readFileSync(path.join(__dirname, "..", "src", "docker", "engine.js"), "utf8");
+    const egress = /async function ensureEgressNetwork[\s\S]*?\n}/.exec(src);
+    const appnet = /async function ensureDeploymentNetwork[\s\S]*?\n}/.exec(src);
+    assert.ok(egress && appnet, "could not find the network helpers");
+    assert.ok(!/--internal/.test(egress[0]),
+      "the egress network is --internal, so the forwarder cannot reach the database either");
+    assert.ok(/--internal/.test(appnet[0]),
+      "the app network is no longer --internal, so every app now has unrestricted egress");
+  });
+
+  check("the app container itself gained no egress", () => {
+    // The point of the forwarder is that THIS did not have to change.
+    const app = engine.buildRunArgs({
+      deploymentId: "dep_x", port: 3000, cpu: 1, memoryMb: 512, pids: 128, env: {}
+    });
+    const nets = app.args.filter((x, i) => app.args[i - 1] === "--network");
+    assert.deepStrictEqual(nets, [engine.networkName("dep_x")],
+      "the app container is on " + nets.join(", ") + "; it must be on its own internal network alone");
+    assert.ok(!app.args.includes(engine.egressNetworkName("dep_x")),
+      "the app container was put on the egress network, which gives it the whole internet");
+  });
+
+  check("teardown detaches the forwarder before dropping the network", () => {
+    const src = fs.readFileSync(path.join(__dirname, "..", "src", "docker", "engine.js"), "utf8");
+    const rm = /async function removeDeploymentNetwork[\s\S]*?\n}/.exec(src);
+    assert.ok(rm, "could not find removeDeploymentNetwork");
+    const body = rm[0];
+    const disconnect = body.indexOf("dbProxyName");
+    const drop = body.indexOf('"network", "rm"');
+    assert.ok(disconnect > -1,
+      "the forwarder is never disconnected, so `network rm` is refused and a dead network leaks per deployment");
+    assert.ok(disconnect < drop, "the network is dropped before the forwarder is detached");
   });
 
   console.log("\n── user databases ───────────────────────────────────");

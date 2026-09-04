@@ -14,11 +14,13 @@
    ================================================================= */
 "use strict";
 
+const dns = require("dns");
 const path = require("path");
 const { cfg } = require("../config");
 const { pool, query, many, one } = require("../db");
 const engine = require("../docker/engine");
 const caddy = require("../proxy/caddy");
+const domains = require("../domains");
 const capacity = require("../monitor/capacity");
 const pipeline = require("./pipeline");
 const cleanup = require("../monitor/cleanup");
@@ -271,6 +273,32 @@ async function tick() {
  *   - a container is running but has no proxy route (Caddy restarted)
  *   - a row is stuck in BUILDING (the worker died mid-build)
  */
+/* A managed database can move. The forwarder dials a literal address, so when
+   the provider rotates it the app keeps working right up until the old address
+   stops answering — the worst kind of breakage, because nothing changed on our
+   side. Re-resolving here turns that into a self-healing minute rather than a
+   support ticket. */
+async function reconcileDbForwarders() {
+  for (const p of await engine.listDbProxies()) {
+    const live = await engine.dbProxyTarget(p.deploymentId);
+    if (!live) continue;
+    let addr = null;
+    try { addr = (await dns.promises.lookup(p.host, { family: 4 })).address; }
+    catch (e) { continue; }              // a DNS blip must not tear down a working pipe
+    if (!addr || addr === live.ip) continue;
+
+    const again = await engine.runDbProxy({
+      deploymentId: p.deploymentId, host: p.host, targetIp: addr, port: p.port
+    });
+    console.log("[worker] " + p.host + " moved " + live.ip + " -> " + addr +
+      (again.ok ? ", forwarder repointed" : ", could not repoint: " + again.error));
+    if (again.ok) {
+      await pipeline.log(p.deploymentId, "system",
+        "Your database moved to a new address; the forwarder was repointed at it");
+    }
+  }
+}
+
 async function reconcile() {
   try {
     const rows = await many(
@@ -302,7 +330,7 @@ async function reconcile() {
       );
       if (!st.exists) {
         await pipeline.setStatus(dep.id, "STOPPED", { error: "the container is no longer present on this host" });
-        await caddy.removeRoute(dep.domain);
+        for (const host of domains.hostnamesFor(dep)) await caddy.removeRoute(host);
         continue;
       }
       if (st.status === "running" && dep.status !== "RUNNING") {
@@ -313,11 +341,16 @@ async function reconcile() {
       }
       // Re-add a route Caddy has forgotten. Cheap, idempotent, and the
       // difference between a working app and a 502 nobody can explain.
-      if (st.status === "running" && dep.domain && !routed.has(dep.domain)) {
-        await caddy.addRoute(dep.domain, engine.containerName(dep.id), dep.internal_port || 3000);
-        console.log("[worker] re-added missing route for", dep.domain);
+      if (st.status === "running") {
+        for (const host of domains.hostnamesFor(dep)) {
+          if (routed.has(host)) continue;
+          await caddy.addRoute(host, engine.containerName(dep.id), dep.internal_port || 3000);
+          console.log("[worker] re-added missing route for", host);
+        }
       }
     }
+
+    await reconcileDbForwarders().catch(() => { });
 
     // Heartbeat. Cheap, and it is what lets /health distinguish "the worker
     // is fine" from "nothing has processed a deployment for an hour".

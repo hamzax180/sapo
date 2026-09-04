@@ -14,12 +14,14 @@
    ================================================================= */
 "use strict";
 
+const dns = require("dns");
 const fsp = require("fs/promises");
 const path = require("path");
 const { cfg } = require("../config");
 const { query, one } = require("../db");
 const engine = require("../docker/engine");
 const caddy = require("../proxy/caddy");
+const domains = require("../domains");
 const capacity = require("../monitor/capacity");
 const detect = require("../framework/detect");
 const dockerfiles = require("../framework/dockerfiles");
@@ -190,10 +192,9 @@ async function ensureDatabase(dep, id) {
     );
   }
 
-  /* Only the built-in cluster lives on the app networks. An external
-     database is somewhere on the internet, which the app container
-     cannot reach at all — its network is --internal. That is a real
-     limitation and it is logged rather than hidden. */
+  /* The built-in cluster joins the app's network directly. An external one
+     cannot: it is out on the internet and the app's network is --internal.
+     It gets a one-target forwarder instead, below. */
   if (mode === "builtin") {
     const attached = await engine.connectUserDb(id);
     if (!attached.ok) {
@@ -203,10 +204,54 @@ async function ensureDatabase(dep, id) {
     }
     await log(id, "system", got.existed ? "Connected to your database" : "Created your database");
   } else {
-    await log(id, "system", "Using your external database");
+    /* An external database is out on the internet, and this app's network is
+       --internal, so on its own the app cannot reach it — a deploy would
+       succeed and then fail on the first query. Rather than drop --internal,
+       which would give every app on the box unrestricted egress, the app
+       gets a forwarder that can reach exactly one address.
+
+       The forwarder answers to the database's own hostname, so the
+       connection string is injected UNCHANGED and TLS still verifies
+       against the real certificate. */
+    const fwd = await ensureDbForwarder(id, got.url);
+    if (!fwd.ok) {
+      await log(id, "system", "WARNING: " + fwd.error +
+        " — your app will not be able to reach your database", "stderr");
+    } else {
+      await log(id, "system", "Using your external database at " + fwd.host + ":" + fwd.port +
+        ", reachable through a forwarder that can dial nothing else");
+    }
   }
 
   return { url: got.url, mode: mode };
+}
+
+/**
+ * Point this deployment's forwarder at the host in `url`.
+ *
+ * The address is resolved HERE, in the worker, and socat is given the literal.
+ * Handing socat the hostname instead would make it ask Docker's embedded DNS,
+ * which on the app network answers with the forwarder's own alias — it would
+ * dial itself. Resolving once per deploy also means a moved database is
+ * noticed by the reconcile loop rather than failing quietly forever.
+ */
+async function ensureDbForwarder(deploymentId, url) {
+  const parsed = dbproviders.get("external").parse(url);
+  if (!parsed.ok) return { ok: false, error: parsed.error };
+
+  const host = parsed.url.hostname;
+  const port = Number(parsed.url.port || 5432);
+
+  let addr = null;
+  try { addr = (await dns.promises.lookup(host, { family: 4 })).address; }
+  catch (e) { addr = null; }
+  if (!addr) return { ok: false, error: "could not resolve " + host, host: host, port: port };
+
+  const run = await engine.runDbProxy({
+    deploymentId: deploymentId, host: host, targetIp: addr, port: port
+  });
+  if (!run.ok) return { ok: false, error: run.error || "the forwarder did not start", host: host, port: port };
+  return { ok: true, host: host, port: port, ip: addr };
 }
 
 /* ---------- the pipeline ---------- */
@@ -332,7 +377,11 @@ async function deploy(dep, sourceDir) {
         (attached.error || ""), "stderr");
     }
 
-    const routed = await caddy.addRoute(dep.domain, run.name, spec.port);
+    let routed = { ok: true };
+    for (const host of domains.hostnamesFor(dep)) {
+      const r = await caddy.addRoute(host, run.name, spec.port);
+      if (!r.ok) routed = r;                  // report the first that failed
+    }
     if (!routed.ok) {
       // Not fatal. The container is healthy and the route can be reconciled;
       // failing here would mark a working app as broken.
@@ -393,7 +442,7 @@ async function waitForRunning(id, timeoutMs) {
 
 async function stop(dep) {
   await engine.stop(dep.id);
-  await caddy.removeRoute(dep.domain);
+  for (const host of domains.hostnamesFor(dep)) await caddy.removeRoute(host);
   await setStatus(dep.id, "STOPPED");
   await log(dep.id, "system", "Stopped");
   return { ok: true };
@@ -405,7 +454,9 @@ async function start(dep) {
   if (!r.ok) return fail(dep.id, "could not start the container — " + r.stderr.trim());
   const healthy = await waitForRunning(dep.id, 30000);
   if (!healthy.ok) return fail(dep.id, healthy.reason);
-  await caddy.addRoute(dep.domain, engine.containerName(dep.id), dep.internal_port || 3000);
+  for (const host of domains.hostnamesFor(dep)) {
+    await caddy.addRoute(host, engine.containerName(dep.id), dep.internal_port || 3000);
+  }
   await setStatus(dep.id, "RUNNING", { error: null });
   await log(dep.id, "system", "Started");
   return { ok: true };
@@ -424,7 +475,7 @@ async function restart(dep) {
 
 /** Full teardown, in the order the spec lays out. */
 async function destroy(dep) {
-  await caddy.removeRoute(dep.domain);
+  for (const host of domains.hostnamesFor(dep)) await caddy.removeRoute(host);
   await engine.removeContainer(dep.id);
   await engine.removeImage(dep.id);
   /* The database container leaves this network, and NOTHING is dropped.
@@ -438,6 +489,10 @@ async function destroy(dep) {
      from here — one dead network leaked per deleted deployment, against a
      default address pool of about thirty. */
   await engine.disconnectUserDb(dep.id);
+  // The forwarder is a member of this network too, and takes its own egress
+  // network with it. Same reason as the line above: an attached member is
+  // enough to make the rm fail.
+  await engine.removeDbProxy(dep.id);
   // After the container is gone, or the network still has a member and the
   // rm is refused — leaking one dead network per deleted deployment.
   await engine.removeDeploymentNetwork(dep.id);

@@ -90,6 +90,10 @@ async function sweepOrphanContainers() {
     if (keep.has(id)) continue;
     await engine.removeContainer(id);
     await engine.removeImage(id);
+    // An external-database forwarder belongs to the orphan too, and takes its
+    // egress network with it. destroy() removes it on the normal path; this is
+    // for the abnormal one, where the row went away without that running.
+    await engine.removeDbProxy(id);
     // The per-deployment network is part of the orphan, not a separate thing.
     await engine.removeDeploymentNetwork(id);
     removed++;

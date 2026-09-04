@@ -81,6 +81,35 @@ ALTER TABLE deployments ADD COLUMN IF NOT EXISTS container_state     TEXT;
 ALTER TABLE deployments ADD COLUMN IF NOT EXISTS container_exit_code INTEGER;
 ALTER TABLE deployments ADD COLUMN IF NOT EXISTS container_restarts  INTEGER;
 ALTER TABLE deployments ADD COLUMN IF NOT EXISTS container_seen_at   TIMESTAMPTZ;
+-- ---------------------------------------------------------------------------
+-- Hostnames a tenant chose, rather than ones derived from the deployment id.
+-- ---------------------------------------------------------------------------
+-- A custom domain is stored alongside the platform one rather than replacing
+-- it: the souqi address keeps working, and it is what the CNAME points at.
+--
+-- custom_domain_verified is the one column here with teeth. /internal/tls-ask
+-- decides which hostnames this platform will request certificates for, and it
+-- must never say yes to a domain nobody has proved they control — that is an
+-- abuse vector and the fastest way to a Let's Encrypt rate limit that would
+-- block real customers. Unverified rows exist; they are simply not authorised.
+ALTER TABLE deployments ADD COLUMN IF NOT EXISTS custom_domain          TEXT;
+ALTER TABLE deployments ADD COLUMN IF NOT EXISTS custom_domain_verified BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE deployments ADD COLUMN IF NOT EXISTS custom_domain_seen_at  TIMESTAMPTZ;
+
+-- Uniqueness among LIVE deployments only.
+--
+-- `domain TEXT UNIQUE` on the column held a name forever, because destroy()
+-- sets status='DELETED' and keeps the row (worker/pipeline.js). That was
+-- invisible while every hostname was app-<id> — nobody wants that name back.
+-- Once a person picks "my-shop", deleting the app must not burn the name for
+-- everyone including its owner. A partial index frees it while keeping the
+-- row, so the history of what was deployed where survives.
+ALTER TABLE deployments DROP CONSTRAINT IF EXISTS deployments_domain_key;
+CREATE UNIQUE INDEX IF NOT EXISTS deployments_domain_live_idx
+  ON deployments(domain) WHERE status <> 'DELETED';
+CREATE UNIQUE INDEX IF NOT EXISTS deployments_custom_domain_live_idx
+  ON deployments(custom_domain) WHERE custom_domain IS NOT NULL AND status <> 'DELETED';
+
 CREATE INDEX IF NOT EXISTS deployments_project_idx ON deployments(project_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS deployments_user_idx    ON deployments(user_id, created_at DESC);
 -- The worker claims work with this; partial index keeps it small as the

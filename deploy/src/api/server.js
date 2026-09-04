@@ -14,6 +14,7 @@
 
 const express = require("express");
 const crypto = require("crypto");
+const dns = require("dns");
 const fsp = require("fs/promises");
 const path = require("path");
 
@@ -25,6 +26,7 @@ const { query, one, many } = require("../db");
 // that needs the daemon is queued for the worker (lifecycle) or asked of the
 // worker's internal API (runtime logs).
 const caddy = require("../proxy/caddy");
+const domains = require("../domains");
 const capacity = require("../monitor/capacity");
 const pipeline = require("../worker/pipeline");
 const secrets = require("../secrets");
@@ -165,8 +167,15 @@ app.get("/internal/tls-ask", auth.requireInternal, async (req, res) => {
   // certificate for the one hostname the platform itself talks to.
   if (cfg.controlDomain && domain === cfg.controlDomain) return res.status(200).end();
 
+  // custom_domain_verified is not optional here. Without it, attaching a
+  // domain — which anyone with an account can do, for a name they do not own
+  // — would be enough to make Souqi request a certificate for it on its own
+  // Let's Encrypt account. That is the abuse the comment above describes, and
+  // the fast route to a rate limit that would block real customers.
   const row = await one(
-    "SELECT 1 FROM deployments WHERE domain=$1 AND status <> 'DELETED'",
+    `SELECT 1 FROM deployments
+      WHERE status <> 'DELETED'
+        AND (domain=$1 OR (custom_domain=$1 AND custom_domain_verified))`,
     [domain]
   );
   return row ? res.status(200).end() : res.status(404).end();
@@ -196,22 +205,75 @@ app.post("/deployments", requireUser, async (req, res, next) => {
     }
 
     const id = newId("dep");
-    // Hostname derives from the id, so it inherits the same character set and
-    // can never contain anything a DNS label disallows.
-    const domain = "app-" + id.split("_")[1].slice(0, 12) + "." + cfg.appDomain;
 
-    const dep = await one(
-      `INSERT INTO deployments
-         (id, project_id, user_id, status, framework, domain, host_id, cpu_limit, memory_mb, pids_limit)
-       VALUES ($1,$2,$3,'QUEUED',$4,$5,$6,$7,$8,$9)
-       RETURNING *`,
-      [id, projectId, req.userId, project.framework || "unknown", domain, cfg.hostId,
-       cfg.defaults.cpu, cfg.defaults.memoryMb, cfg.defaults.pids]
-    );
+    // The hostname is either generated or chosen. Generated derives from the
+    // id, so it inherits the id's character set and can never contain
+    // anything a DNS label disallows — that was the whole guarantee, and it
+    // stops being free the moment a person types the label instead. Chosen
+    // labels go through domains.validateSubdomain, which re-establishes it
+    // and additionally refuses the names this platform needs for itself.
+    let domain;
+    const wanted = req.body && req.body.subdomain;
+    if (wanted) {
+      const v = domains.validateSubdomain(wanted, cfg.appDomain, cfg.controlDomain);
+      if (!v.ok) return res.status(400).json({ error: v.error });
+      domain = domains.hostnameFor(v.label, cfg.appDomain);
+    } else {
+      domain = domains.generatedHostname(id, cfg.appDomain);
+    }
+
+    // deployments.domain is UNIQUE, which is the real guard against two
+    // tenants claiming one hostname — a check-then-insert would race.
+    // 23505 is unique_violation; anything else is a genuine fault.
+    try {
+      await one(
+        `INSERT INTO deployments
+           (id, project_id, user_id, status, framework, domain, host_id, cpu_limit, memory_mb, pids_limit)
+         VALUES ($1,$2,$3,'QUEUED',$4,$5,$6,$7,$8,$9)
+         RETURNING *`,
+        [id, projectId, req.userId, project.framework || "unknown", domain, cfg.hostId,
+         cfg.defaults.cpu, cfg.defaults.memoryMb, cfg.defaults.pids]
+      );
+    } catch (e) {
+      if (e && e.code === "23505") {
+        return res.status(409).json({ error: "that name is already taken — try another" });
+      }
+      throw e;
+    }
     await query("INSERT INTO domains (domain, deployment_id) VALUES ($1,$2) ON CONFLICT DO NOTHING", [domain, id]);
     await pipeline.log(id, "system", "Queued");
 
     res.status(201).json({ deploymentId: id, status: "QUEUED", url: "https://" + domain });
+  } catch (e) { next(e); }
+});
+
+/**
+ * GET /name-available?name=my-shop
+ *
+ * Answers the Configure screen while someone is typing. Deliberately NOT
+ * mounted under /deployments/... — that path already has a :id route, and a
+ * literal segment beside a parameter is the kind of ordering dependency that
+ * works until somebody reorders the file.
+ *
+ * This is advisory. The authority is the partial unique index on
+ * deployments(domain), enforced at INSERT, because anything checked here can
+ * be taken between the check and the create.
+ */
+app.get("/name-available", requireUser, async (req, res, next) => {
+  try {
+    const v = domains.validateSubdomain(req.query.name, cfg.appDomain, cfg.controlDomain);
+    if (!v.ok) return res.json({ available: false, reason: v.error });
+
+    const host = domains.hostnameFor(v.label, cfg.appDomain);
+    // Matches the live-only index: a deleted deployment does not hold a name.
+    const taken = await one(
+      "SELECT 1 FROM deployments WHERE domain=$1 AND status <> 'DELETED'", [host]
+    );
+    res.json({
+      available: !taken,
+      hostname: host,
+      reason: taken ? "that name is already taken" : null
+    });
   } catch (e) { next(e); }
 });
 
@@ -311,9 +373,138 @@ app.get("/deployments/:id/status", requireUser, async (req, res, next) => {
             ageSeconds: seen ? Math.round((Date.now() - seen.getTime()) / 1000) : null
           }
         : null,
+      customDomain: dep.custom_domain
+        ? { domain: dep.custom_domain, verified: dep.custom_domain_verified,
+            target: dep.domain }
+        : null,
       // Distinguishes "no container" from "nobody has looked yet".
       observed: Boolean(seen)
     });
+  } catch (e) { next(e); }
+});
+
+/* ---------- custom domains ---------- */
+
+/* The record a customer creates at their DNS provider points at the app's
+   generated hostname, which already resolves here. That keeps the platform
+   from handing out a bare IP it would then be unable to change. */
+const cnameTarget = (dep) => dep.domain;
+
+/**
+ * Does `domain` actually resolve to `target`?
+ *
+ * CNAME first. Providers that flatten a CNAME at the apex into A records are
+ * common enough that comparing resolved addresses is the difference between
+ * "works" and "correctly configured but reads as broken" — the same fallback
+ * the published-sites check uses.
+ */
+async function pointsAt(domain, target) {
+  const t = String(target || "").toLowerCase().replace(/\.$/, "");
+  if (!t) return false;
+  try {
+    const cnames = await dns.promises.resolveCname(domain).catch(() => []);
+    if (cnames.some((r) => String(r).toLowerCase().replace(/\.$/, "") === t)) return true;
+    const [mine, theirs] = await Promise.all([
+      dns.promises.resolve4(domain).catch(() => []),
+      dns.promises.resolve4(t).catch(() => [])
+    ]);
+    return mine.length > 0 && theirs.some((ip) => mine.includes(ip));
+  } catch (e) { return false; }
+}
+
+/**
+ * PUT /deployments/:id/domain   { domain }
+ *
+ * Attaches a custom domain, ALWAYS unverified. Nothing in this request proves
+ * the caller owns the name, so nothing here may grant routing or a
+ * certificate. It records the intent and returns the record to create.
+ */
+app.put("/deployments/:id/domain", requireUser, async (req, res, next) => {
+  try {
+    const dep = await ownedDeployment(req, res); if (!dep) return;
+    const v = domains.validateCustomDomain(req.body && req.body.domain, cfg.appDomain);
+    if (!v.ok) return res.status(400).json({ error: v.error });
+
+    // Re-submitting the domain already attached must not reset verification,
+    // or a stray save would take a working app off the air.
+    if (dep.custom_domain === v.domain) {
+      return res.json({
+        domain: v.domain, verified: dep.custom_domain_verified, target: cnameTarget(dep)
+      });
+    }
+
+    try {
+      await query(
+        `UPDATE deployments
+            SET custom_domain=$2, custom_domain_verified=false, custom_domain_seen_at=NULL
+          WHERE id=$1`,
+        [dep.id, v.domain]
+      );
+    } catch (e) {
+      // The partial unique index over live rows; another app holds this name.
+      if (e && e.code === "23505") {
+        return res.status(409).json({ error: "that domain is already connected to another app" });
+      }
+      throw e;
+    }
+
+    // Whatever was attached before stops being served now: it is no longer a
+    // hostname this deployment answers on.
+    if (dep.custom_domain && dep.custom_domain_verified) {
+      await caddy.removeRoute(dep.custom_domain);
+    }
+    res.json({ domain: v.domain, verified: false, target: cnameTarget(dep) });
+  } catch (e) { next(e); }
+});
+
+/**
+ * POST /deployments/:id/domain/verify
+ *
+ * The only thing that can set custom_domain_verified, and therefore the only
+ * thing that can make tls-ask accept the name. Verification is a live DNS
+ * lookup against the record we asked for; until it passes, Caddy will not ask
+ * Let's Encrypt for a certificate and the hostname is not routed.
+ *
+ * Routing is left to the worker's reconcile loop (within a minute) rather than
+ * done here: adding a route needs the container name, and this process has no
+ * Docker socket by design — see the note beside the imports.
+ */
+app.post("/deployments/:id/domain/verify", requireUser, async (req, res, next) => {
+  try {
+    const dep = await ownedDeployment(req, res); if (!dep) return;
+    if (!dep.custom_domain) return res.status(400).json({ error: "no domain is attached" });
+
+    const target = cnameTarget(dep);
+    if (!(await pointsAt(dep.custom_domain, target))) {
+      return res.json({
+        domain: dep.custom_domain, verified: false, target,
+        reason: "DNS does not point here yet — a new record can take a few minutes"
+      });
+    }
+
+    await query(
+      `UPDATE deployments SET custom_domain_verified=true, custom_domain_seen_at=now()
+        WHERE id=$1`,
+      [dep.id]
+    );
+    res.json({ domain: dep.custom_domain, verified: true, target });
+  } catch (e) { next(e); }
+});
+
+/** DELETE /deployments/:id/domain — detach, and stop serving it immediately. */
+app.delete("/deployments/:id/domain", requireUser, async (req, res, next) => {
+  try {
+    const dep = await ownedDeployment(req, res); if (!dep) return;
+    if (dep.custom_domain && dep.custom_domain_verified) {
+      await caddy.removeRoute(dep.custom_domain);
+    }
+    await query(
+      `UPDATE deployments
+          SET custom_domain=NULL, custom_domain_verified=false, custom_domain_seen_at=NULL
+        WHERE id=$1`,
+      [dep.id]
+    );
+    res.json({ ok: true });
   } catch (e) { next(e); }
 });
 

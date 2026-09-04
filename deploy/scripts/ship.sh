@@ -38,9 +38,14 @@ PREFLIGHT_TARGET=server node scripts/preflight.js || exit 1
 
 
 say "Running the verification suites"
-node scripts/verify.js      > /dev/null || fail "security checks failed — not shipping"
-node scripts/verify-auth.js > /dev/null || fail "session checks failed — not shipping"
-echo "  71 checks passed"
+VERIFY="$(node scripts/verify.js)"           || fail "security checks failed — not shipping"
+VERIFY_AUTH="$(node scripts/verify-auth.js)" || fail "session checks failed — not shipping"
+# Report what the suites actually said. The count used to be written here
+# by hand, and it was wrong the first time a check was added — an operator
+# reading "71 checks passed" while 141 ran has been told something false by
+# the tool whose whole job is to reassure them.
+printf '%s\n' "$VERIFY"      | tail -n1 | sed 's/^/  /'
+printf '%s\n' "$VERIFY_AUTH" | tail -n1 | sed 's/^/  /'
 
 # ---- remote ----
 SSH="ssh -o StrictHostKeyChecking=accept-new ${SSH_USER}@${HOST}"
