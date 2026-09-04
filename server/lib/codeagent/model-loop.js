@@ -1325,7 +1325,19 @@ async function proposeWithClientBuild({ userPrompt, maxRounds, onFiles, onRound,
     return Array.from(written.values());
   };
 
-  for (let round = 0; round <= cap; round++) {
+  /* The entry guard gets its own budget, separate from the repair one.
+     Asking for a missing App.tsx is not a repair — it is telling the model
+     it has not finished yet — and spending build-repair rounds on it means
+     the first REAL build error arrives at the cap with no attempt left to
+     fix it.
+
+     Observed exactly that: two rounds to get the app written, a genuine
+     unresolved-import error on the third, and a starter template shipped
+     over eleven files of working components. */
+  let entryRounds = 0;
+  const MAX_ENTRY_ROUNDS = 2;
+
+  for (let round = 0; round <= cap + entryRounds; round++) {
     let attempt = await attemptOnce(messages, opts);
     if (!attempt.ok) {
       // A BYOK failure is the USER's key, model or credit — never Souqi's
@@ -1390,6 +1402,7 @@ async function proposeWithClientBuild({ userPrompt, maxRounds, onFiles, onRound,
        missing file, and a run that still never produces one falls through to
        the template at round === cap instead of shipping an empty project. */
     if (build.ok && !hasExistingEntry && !written.has("src/App.tsx")) {
+      if (entryRounds < MAX_ENTRY_ROUNDS) entryRounds++;
       build = {
         ok: false,
         errors: [{
@@ -1405,7 +1418,7 @@ async function proposeWithClientBuild({ userPrompt, maxRounds, onFiles, onRound,
     if (build.ok) {
       return { ok: true, calls: allCalls, note: attempt.note, round, rounds: round + 1, repaired: round > 0, costUsd: totalCost, jsonRetries };
     }
-    if (round === cap) {
+    if (round >= cap + entryRounds) {
       // Final Fallback if repair attempts failed: return guaranteed compiling fallback App.tsx
       const fallbackContent = getFallbackAppCode(userPrompt);
       // Onto the accumulated tree, not instead of it: a bare App.tsx as
