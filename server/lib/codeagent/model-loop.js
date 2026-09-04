@@ -1365,7 +1365,34 @@ async function proposeWithClientBuild({ userPrompt, maxRounds, onFiles, onRound,
     // subset would type-check a file against components that are not
     // there and report errors for code that is actually fine.
     const allCalls = collect(attempt.calls);
-    const build = await onFiles(allCalls);
+    let build = await onFiles(allCalls);
+
+    /* A tree that type-checks but has no entry point is not a build that
+       succeeded.
+
+       src/main.tsx mounts src/App.tsx, so without that file the project
+       renders nothing at all — and the preview has no error to show either,
+       because nothing failed. That is how "build an e-commerce storefront"
+       becomes three utility files, a green tick and a black screen: the model
+       wrote its types, its data and a formatter, then stopped before the app.
+
+       Only on a fresh build. A follow-up legitimately rewrites one component
+       and leaves App.tsx alone, and the tree it lands on already has one.
+
+       Reported as a build failure rather than thrown, so it re-enters the
+       repair loop the same way a type error does — the model is asked for the
+       missing file, and a run that still never produces one falls through to
+       the template at round === cap instead of shipping an empty project. */
+    if (build.ok && !hist.length && !written.has("src/App.tsx")) {
+      build = {
+        ok: false,
+        errors: [{
+          file: "src/App.tsx", line: 1, col: 1, code: "NO_ENTRY",
+          message: "src/App.tsx is missing, so the app renders nothing. Write it now, " +
+            "with a default export that composes the files you have already written."
+        }]
+      };
+    }
 
     if (onRound) onRound({ round, ok: build.ok, calls: allCalls, errors: build.ok ? undefined : build.errors });
 

@@ -1685,11 +1685,31 @@
     body.preview-mode .ag-main{height:100dvh;overflow:hidden !important}
     body.preview-mode .ag-preview{position:fixed !important;inset:0 !important;width:100% !important;height:100dvh !important;
       min-height:0 !important;padding-top:52px !important;overflow:hidden !important;background:var(--paper-2)}
+    /* Inset by the rail, not by nothing.
+
+       The stage spans the whole viewport while the icon rail is
+       position:fixed over its left 44px, so centring inside the stage
+       parked the phone half a rail to the left of the space anyone can
+       actually see. Measured: frame centre 390, visible centre 412. */
     body.preview-mode .ag-pv-stage{height:calc(100dvh - 52px) !important;min-height:0 !important;max-height:none !important;
-      padding:12px 0 16px !important;overflow:hidden !important}
-    body.preview-mode .ag-pv-frame.mobile,
+      padding:10px 0 12px !important;overflow:hidden !important;
+      margin-left:44px !important;width:calc(100% - 44px) !important}
+
+    /* Fill the stage rather than the viewport. The frame was sized
+       calc(100svh - 110px) while its container is (100dvh - 52px) less
+       padding, so it left ~30px of height unused and came out smaller
+       than the room it had.
+
+       Height drives the phone and aspect-ratio derives the width from
+       it, so the height has to respect BOTH limits: the lesser of the
+       stage's height and the height the remaining width can support.
+       Without the second, a narrow screen gets a phone whose implied
+       width overflows and is clipped by the stage's own overflow. */
+    body.preview-mode .ag-pv-frame.mobile{
+      height:min(100%, calc((100vw - 44px) * 19.5 / 9)) !important;
+      max-height:100% !important}
     body.preview-mode .ag-pv-frame.tablet,
-    body.preview-mode .ag-pv-frame.desktop{max-height:100% !important}
+    body.preview-mode .ag-pv-frame.desktop{height:100% !important;max-height:100% !important}
   }
   @media (max-width:640px){
     .ag-say,.ag-card{padding-inline-start:0;margin-inline-start:0}
@@ -3804,6 +3824,18 @@
         'document.getElementById("root").innerHTML="<pre style=\\"white-space:pre-wrap;padding:16px;color:#b3261e;font:12px monospace\\">Preview error: "+(e&&e.message?e.message:e)+"</pre>";' +
         '}<' + '/script></body></html>';
       agPvIframe.srcdoc = html;
+    } else {
+      /* No WebContainer, and no entry component to fall back to.
+
+         There was no branch here at all, so the iframe simply kept whatever
+         it already had — an empty screen with nothing to explain it, which
+         looks exactly like a build that is still running. */
+      const n = fileContents ? Object.keys(fileContents).length : 0;
+      previewMessage(n
+        ? "This build has no src/App.tsx, so there is nothing to render yet."
+        : "Nothing to preview yet.");
+      console.warn("[preview] no src/App.tsx among " + n + " file(s): " +
+        (fileContents ? Object.keys(fileContents).join(", ") : "none"));
     }
   }
 
