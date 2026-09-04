@@ -37,6 +37,8 @@ const securityHeaders = require("./middleware/securityHeaders");
 const { rateLimit } = require("./middleware/rateLimit");
 const { encryptSecret, decryptSecret } = require("./lib/crypto");
 const aiProviders = require("./lib/ai/providers");
+const scaffoldFiles = require("./lib/codeagent/scaffold-files");
+const stripeLib = require("./lib/stripe");
 const mcpClient = require("./lib/codeagent/mcp");
 const requestLog = require("./middleware/requestLog");
 const metrics = require("./lib/metrics");
@@ -3442,6 +3444,16 @@ app.post("/api/deploy/:key/deploy", deployLimiter, async (req, res, next) => {
       return res.status(400).json({ error: "this project has no source to deploy yet — build it first" });
     }
 
+    // A revision holds only the model's half of the project: it is told
+    // not to write index.html, package.json, vite.config.ts or the rest,
+    // and PROTECTED_PATHS enforces that. Uploading it alone handed the
+    // deploy plane a tree with no package.json and no index.html, and it
+    // answered "could not work out how to build this project" — which was
+    // correct, because there was nothing there to build. The WebContainer
+    // never hit this: it mounts the scaffold and writes the model's files
+    // over it, which is the same precedence used here.
+    const source = scaffoldFiles.withScaffold(files);
+
     let deployProjectId = project.deployProjectId;
     if (!deployProjectId) {
       const created = await deployplane.createProject(cookie, project.title || project.slug || "souqi-app");
@@ -3521,7 +3533,9 @@ app.post("/api/deploy/:key/:action", deployLimiter, async (req, res, next) => {
       const revision = await projects.head(project.id);
       const files = revision && revision.config ? revision.config.files : null;
       if (files && Object.keys(files).length) {
-        const up = await deployplane.uploadSource(cookieOf(req), project.deploymentId, files);
+        // Same merge as the first deploy — a redeploy shipping only the
+        // model's half would fail detection in exactly the same way.
+        const up = await deployplane.uploadSource(cookieOf(req), project.deploymentId, scaffoldFiles.withScaffold(files));
         if (!up.ok) return planeError(res, up);
       }
     }
