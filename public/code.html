@@ -1498,7 +1498,11 @@
   }
 
   .ag-pv-empty{position:absolute;inset:0;margin:auto;display:flex;align-items:center;justify-content:center;text-align:center;color:var(--mut);font-size:.94rem;padding:24px;max-width:28ch;z-index:5;background:#fff;pointer-events:none}
-  .ag-pv-frame.mobile .ag-pv-empty{border-radius:42px;background:#fff}
+  /* Radius only. This rule used to repeat `background:#fff`, which is already
+     set above — and repeating it here was not harmless: it ties with the dark
+     override on specificity and wins on source order, so in dark mode the
+     empty state rendered white text on a white card inside a black phone. */
+  .ag-pv-frame.mobile .ag-pv-empty{border-radius:42px}
 
   /* Preview paywall — the built app is real and running the moment the
      first build finishes, but its PIXELS stay blurred until the visitor
