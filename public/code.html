@@ -2664,7 +2664,7 @@
           <div class="foot"></div>
         </div>
         <div class="ip-screen">
-          <div class="ag-pv-boot" id="agPvBoot">
+          <div class="ag-pv-boot hidden" id="agPvBoot">
             <svg class="apple-logo" viewBox="0 0 24 24" fill="currentColor">
               <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
             </svg>
@@ -3691,17 +3691,11 @@
       // Wait for npm install. Already resolved once warm, so this is free
       // after the first preview; before that it is the difference between
       // a working preview and `jsh: command not found: vite`.
-      if (agPvEmpty) {
-        agPvEmpty.style.display = "";
-        agPvEmpty.textContent = "Installing dependencies…";
-      }
+      previewProgress("Installing dependencies\u2026");
       await wc.prepare();
       if (!wc.isReady()) {
         console.error("[preview] dependencies are not installed:", wc.installError());
-        if (agPvEmpty) {
-          agPvEmpty.style.display = "";
-          agPvEmpty.textContent = "Could not install dependencies. Check the console for the npm output.";
-        }
+        previewMessage("Could not install dependencies. Check the console for the npm output.");
         return;
       }
       if (agPvEmpty) agPvEmpty.style.display = "none";
@@ -3730,10 +3724,7 @@
         // stderr is the only thing that says WHY, and it used to be piped
         // into a sink that dropped every byte.
         console.warn("[preview] npm run preview exited " + p.code + (p.output ? ":\n" + p.output : " with no output"));
-        if (agPvEmpty) {
-          agPvEmpty.style.display = "";
-          agPvEmpty.textContent = "The preview server did not start. Check the console for the build output.";
-        }
+        previewMessage("The preview server did not start. Check the console for the build output.");
       }
     } else if (fileContents && fileContents["src/App.tsx"]) {
       // Preview fallback for devices without WebContainer support.
@@ -3831,6 +3822,29 @@
     }
     const bootEl = $("agPvBoot");
     if (bootEl) { setTimeout(() => bootEl.classList.add("hidden"), 400); }
+  }
+
+  /* Progress goes on the boot screen's own label. That is the thing on screen
+     during a build, so it is where a "still working" message belongs. */
+  function previewProgress(text) {
+    const bl = $("agBootLabel");
+    if (bl) bl.textContent = text;
+  }
+
+  /* A terminal message takes over the device screen — and MUST hide the boot
+     screen to do it.
+
+     #agPvEmpty is z-index 5 and .ag-pv-boot is an opaque z-index 35, so every
+     failure written to it during a build was painted UNDERNEATH the Apple
+     logo: "could not install dependencies" and "the preview server did not
+     start" have never once been visible. A broken preview looked exactly like
+     a slow one, which is the single thing it must never look like. */
+  function previewMessage(text) {
+    const boot = $("agPvBoot");
+    if (boot) boot.classList.add("hidden");
+    if (!agPvEmpty) return;
+    agPvEmpty.style.display = "";
+    agPvEmpty.textContent = text;
   }
 
   agPvIframe.onload = () => {
@@ -4540,8 +4554,7 @@
       console.warn("loadProjectPreview failed:", slug, err.message);
       if (bootEl) bootEl.classList.add("hidden");
       if (iframe) iframe.hidden = true;
-      agPvEmpty.style.display = "";
-      agPvEmpty.textContent = "Couldn't load preview. Open it in the editor instead.";
+      previewMessage("Couldn't load preview. Open it in the editor instead.");
     }
   }
 
