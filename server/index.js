@@ -3499,7 +3499,14 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
 
     if (!project) {
       const createdBuildType = String((req.body && req.body.buildType) || "website");
-      project = await projects.create({ title: prompt.slice(0, 60) || "Untitled app", prompt, meta: { kind: "code", buildType: createdBuildType }, owner });
+      /* The plan's title when the confirm step produced one — it read the
+         whole request and named it — and a stripped-down version of the
+         prompt otherwise. Never the raw prompt: `prompt.slice(0, 60)` cut
+         "build me a football staduim woow 3d animation" mid-word and made
+         that the app's name everywhere it appears. */
+      const planTitle = String((req.body && req.body.planTitle) || "").trim();
+      const newTitle = planTitle.slice(0, 60) || projects.titleFromPrompt(prompt);
+      project = await projects.create({ title: newTitle, prompt, meta: { kind: "code", buildType: createdBuildType }, owner });
     }
     await projects.addTurn(project.id, { role: "user", kind: "text", body: prompt });
     const revision = await projects.addRevision(

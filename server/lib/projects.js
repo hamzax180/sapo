@@ -57,6 +57,81 @@ async function ensureIndexes() {
   } catch (e) { /* indexes are an optimisation, never a hard dependency */ }
 }
 
+/* ---- titles -------------------------------------------------------- */
+
+/* A project was titled `prompt.slice(0, 60)` — the raw first message, verbatim
+   and mid-word. So the card said "build me a football staduim woow 3d anim"
+   when what it is, is a football stadium. The instruction is not the name.
+
+   This strips the asking and keeps the subject. It is deliberately dumb: no
+   model call, no network, no cost, and it runs the same whether or not a
+   provider is reachable — the plan's own title is better when there is one,
+   and the caller prefers it. This is the floor, not the ceiling. */
+
+/* The lead-in people type before saying what they want, in pieces so
+   "can you please make me an" is stripped as readily as "build a". A regex
+   literal, not new RegExp: the string form needs every backslash doubled and
+   it has been silently flattened to `^s*` twice already. */
+const ASK_PREFIX = /^\s*(?:(?:please|pls|plz|hey|hi|hello|yo|ok|okay)[,\s]+)*(?:(?:can|could|would|will)\s+(?:you|u)\s+)?(?:(?:please|pls|plz)\s+)*(?:i\s+(?:want|need|would\s+like)\s+(?:you\s+to\s+)?)?(?:go\s+ahead\s+and\s+)?(?:build|make|create|design|generate|develop|code|write|do)\s+(?:me\s+|us\s+|for\s+me\s+)?(?:an|a|the|my|some)?\s*/i;
+
+/* Asking for a thing without a verb: "i want a dashboard", "i need an
+   invoice app". ASK_PREFIX is anchored on the verb, so on its own it
+   matched none of this and the title kept the whole request. */
+const WISH_PREFIX = /^\s*(?:(?:please|pls|plz|hey|hi|hello|yo)[,\s]+)*(?:i\s+(?:want|need|would\s+like)|(?:can|could)\s+(?:you|u)\s+(?:get|give)\s+me)\s+(?:an|a|the|my|some)?\s*/i;
+
+// Noise people type around a request that is not part of what it is.
+const FILLER = /\b(?:pls|plz|please|asap|quickly|woow+|wow+|omg|cool|nice|thanks|thx)\b/gi;
+
+// A clause with nothing in it but a greeting is not what the app is called.
+const GREETING_ONLY = /^(?:hi|hey|hello+|yo+|sup|ok|okay|test|testing)$/i;
+
+const SMALL_WORDS = new Set(["a", "an", "the", "for", "of", "and", "or", "to", "in", "on", "with", "at", "by", "is", "she", "he", "it"]);
+
+/**
+ * A short, human title from a build prompt.
+ *
+ * Caps at 6 words / 48 chars because this is a card label, not a sentence.
+ * Deliberately dumb: no model call, no network, no cost, and identical
+ * whether or not a provider is reachable. The plan's title is better when
+ * there is one and the caller prefers it; this is the floor.
+ */
+function titleFromPrompt(prompt) {
+  const original = String(prompt || "").replace(/\s+/g, " ").trim();
+  if (!original) return "Untitled app";
+
+  // Someone typing in capitals is shouting, not naming an initialism, so the
+  // whole thing gets normalised. Otherwise short all-caps words are left
+  // alone: API and iOS are how they are spelled.
+  const letters = original.replace(/[^A-Za-z]/g, "");
+  const shouting = letters.length > 6 && letters === letters.toUpperCase();
+
+  // The first clause that actually says something: "hello. hello. build me a
+  // porto for hamza" is named by the third clause, not by "Hello".
+  const clauses = original.split(/[.!?;\n]+/).map((c) => c.trim()).filter(Boolean);
+  let s = clauses.find((c) => !GREETING_ONLY.test(c.replace(/[^\w\s]/g, "").trim()))
+    || clauses[0] || original;
+
+  const stripped = s.replace(ASK_PREFIX, "");
+  s = (stripped === s ? s.replace(WISH_PREFIX, "") : stripped)
+    .replace(FILLER, " ").replace(/\s+/g, " ").trim();
+  if (!s) return "Untitled app";
+
+  const words = s.split(" ").slice(0, 6);
+  // A title ending on "a", "for" or "is" reads as a sentence someone cut off.
+  while (words.length > 1 && SMALL_WORDS.has(words[words.length - 1].toLowerCase())) words.pop();
+
+  let out = words.join(" ");
+  if (out.length > 48) out = out.slice(0, 48).replace(/\s+\S*$/, "");
+
+  return out.split(" ").map((w, i) => {
+    const lower = w.toLowerCase();
+    if (i > 0 && SMALL_WORDS.has(lower)) return lower;
+    if (!shouting && w.length <= 4 && w === w.toUpperCase() && /[A-Z]/.test(w)) return w;  // API, 3D
+    if (!shouting && /[a-z]/.test(w) && /[A-Z]/.test(w.slice(1))) return w;                // camelCase
+    return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
+  }).join(" ") || "Untitled app";
+}
+
 /* ---- slugs --------------------------------------------------------- */
 
 function slugify(title) {
@@ -408,5 +483,6 @@ module.exports = {
   addRevision, getRevision, listRevisions, head, materialize,
   addTurn, listTurns,
   claimAnon,
+  titleFromPrompt,
   TTL_UNCLAIMED_MS, MAX_REVISIONS
 };

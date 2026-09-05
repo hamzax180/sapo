@@ -27,6 +27,20 @@
     --body:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
     --mono:ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace;
     --ease:cubic-bezier(.16,1,.3,1);
+    /* Card elevation, per theme. These used to be hardcoded at the hover
+       rule - a pale blue border and a navy-tinted shadow - so in dark mode
+       the border read as a bright outline and the shadow was invisible
+    /* Card layering. A flat fill and one shadow read as a div; a surface
+       gradient, a lit top edge, a hairline and a tray ground read as a card.
+       Tokens because they were hardcoded at the hover rule before, where dark
+       mode got a pale blue border and a shadow it could not cast. */
+    --card-surface:linear-gradient(180deg,#ffffff,#fdfbf8);
+    --card-sheen:#ffffff;
+    --hair:#efeae1;
+    --card-tray:rgba(250,247,242,.72);
+    --card-rest-shadow:0 1px 2px rgba(24,20,14,.05),0 1px 1px rgba(24,20,14,.03);
+    --card-hover-border:#dcd4c6;
+    --card-hover-shadow:0 2px 4px rgba(24,20,14,.04),0 14px 30px -14px rgba(24,20,14,.3);
     /* Sidebar geometry, matching the builder rail so the two pages feel
        like one product rather than two that happen to share colours. */
     --rail:44px; --sb-w:238px; --sb-pad:6px; --ease-sb:cubic-bezier(.32,.72,0,1);
@@ -49,6 +63,13 @@
     --tint:#3d3428; --tint-2:#2d2420;
     --stone:#2e2a26; --dark:#0a0908; --line:#3a352e; --navy-800:#0d0b0a;
     --accent:#1aa6df; --accent-2:#118cc0; --accent-ink:#e6edf3;
+    --card-surface:linear-gradient(180deg,#302b26,#282420);
+    --card-sheen:rgba(255,255,255,.055);
+    --hair:rgba(255,255,255,.06);
+    --card-tray:rgba(0,0,0,.16);
+    --card-rest-shadow:0 1px 2px rgba(0,0,0,.45);
+    --card-hover-border:rgba(255,255,255,.15);
+    --card-hover-shadow:0 2px 6px rgba(0,0,0,.35),0 16px 34px -16px rgba(0,0,0,.8);
   }
   html, body{background:var(--paper);overscroll-behavior-x:none;overflow-x:hidden}
   .ag-main, .wrap{overflow-x:hidden}
@@ -390,7 +411,6 @@
        which pushed the Souqi mark off the left edge entirely. */
     .ag-history:not(.on) .ag-hist-search,
     .ag-history:not(.on) .ag-ws-menu,
-    .ag-history:not(.on) .ag-flyout{display:none !important}
     .ag-history:not(.on) .ag-hist-chats{border-top:1px solid var(--line);margin:5px 6px 0;padding-top:6px}
     .ag-history:not(.on) .ag-hist-chats.is-empty{border-top:0;margin:0;padding-top:0}
     .ag-history:not(.on) .ag-chats-list{padding:0;overflow:hidden}
@@ -513,7 +533,8 @@
   /* ---- status pills ----
      Colour carries the meaning; motion carries "this is still moving".
      A settled state must be visually still, or everything looks busy. */
-  .pill{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:4px 11px 4px 9px;
+  .pill{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:3px 9px 3px 7px;
+    box-shadow:inset 0 0 0 1px color-mix(in srgb,currentColor 26%,transparent);
     font-size:.76rem;font-weight:600;letter-spacing:.01em;white-space:nowrap;position:relative;overflow:hidden}
   .pill .dot{width:6px;height:6px;border-radius:50%;background:currentColor;flex:none}
   .pill.s-none{color:var(--mut);background:rgba(139,152,165,.14)}
@@ -538,18 +559,90 @@
   @keyframes breathe{0%,100%{box-shadow:0 0 0 0 rgba(34,165,101,.55)}70%{box-shadow:0 0 0 5px rgba(34,165,101,0)}}
 
   /* ---- app cards ---- */
-  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px}
-  .app{display:flex;flex-direction:column;gap:10px;text-align:left;border:1px solid var(--line);background:var(--card);
-    border-radius:16px;padding:15px 16px 14px;cursor:pointer;transition:transform .26s var(--ease),box-shadow .26s var(--ease),border-color .16s;width:100%}
-  .app:hover{border-color:#c6dbe7;box-shadow:0 10px 26px -14px rgba(11,22,38,.32);transform:translateY(-2px)}
-  .app .top{display:flex;align-items:center;gap:10px}
-  .app .tile{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;flex:none;
-    font-family:var(--disp);font-weight:700;font-size:1rem;color:#fff}
+  /* 300, not 248. The status pill sits on the title row, so a narrower
+     column left the title about 100px and clamped "build me a football
+     stadium" after two two-word lines. A card that cannot show its own name
+     is not denser, it is just smaller. */
+  /* ===================================================================
+     APP CARD - generated into projects.html and deployments.html from one
+     source, so the two cannot drift again. They already had, into tile
+     colour meaning build type on one page and a hash of the key on the
+     other, so one app was two different colours depending where you looked.
+     Any change belongs in both; edit the source, not the copies.
+
+     Flat fill, flat border, one shadow: the card read as a div with text in
+     it. What makes a console card look built is layering - a surface with a
+     gradient rather than a colour, a lit top edge, a tray under the hairline,
+     and a tile that has depth instead of being a coloured square.
+     =================================================================== */
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}
+
+  .app{position:relative;isolation:isolate;display:flex;flex-direction:column;text-align:left;
+    border:1px solid var(--line);border-radius:16px;background:var(--card-surface);
+    padding:15px 16px 0;cursor:pointer;width:100%;
+    box-shadow:var(--card-rest-shadow);
+    transition:transform .24s var(--ease),box-shadow .24s var(--ease),border-color .18s}
+  /* Above the glow. Both pseudo-elements are positioned and the children are
+     not, so without this the spotlight paints over the title. */
+  .app>*{position:relative;z-index:1}
+
+  /* The lit top edge, as a pseudo-element rather than a second border: no
+     layout cost and it follows the radius for free. */
+  .app::before{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;
+    box-shadow:inset 0 1px 0 var(--card-sheen)}
+  /* Under the cursor the card glows in ITS OWN colour - --tile is the identity
+     colour the tile is painted with, set inline per card. --mx/--my track the
+     pointer; with no JS they fall back to the tile's corner, so this degrades
+     to a fixed corner glow rather than to nothing. */
+  .app::after{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;
+    z-index:0;opacity:0;transition:opacity .3s var(--ease);
+    background:radial-gradient(420px circle at var(--mx,16%) var(--my,0%),
+      var(--tile,var(--accent)),transparent 62%)}
+  .app:hover{border-color:var(--card-hover-border);box-shadow:var(--card-hover-shadow);transform:translateY(-2px)}
+  .app:hover::after{opacity:.09}
+  .app:hover .tile{transform:scale(1.06) rotate(-1.5deg)}
+  /* A focus ring is not a hover state. Keyboard users were getting the mouse
+     treatment and no ring at all. */
+  .app:focus-visible{outline:2px solid var(--accent);outline-offset:2px;
+    box-shadow:var(--card-hover-shadow)}
+
+  .app .top{display:flex;align-items:flex-start;gap:11px;padding-bottom:13px}
+  /* One inline --tile drives the fill, the inner highlight and the drop glow.
+     The wash over it is fixed white-to-black, so every identity colour gets
+     the same light without needing a second value per card. */
+  .app .tile{width:36px;height:36px;border-radius:11px;display:grid;place-items:center;flex:none;
+    font-family:var(--disp);font-weight:700;font-size:1.02rem;color:#fff;
+    background-color:var(--tile);
+    background-image:linear-gradient(152deg,rgba(255,255,255,.32),rgba(255,255,255,0) 46%,rgba(0,0,0,.22));
+    box-shadow:0 4px 12px -5px var(--tile),inset 0 1px 0 rgba(255,255,255,.36),
+      inset 0 0 0 1px rgba(0,0,0,.09);
+    text-shadow:0 1px 2px rgba(0,0,0,.22);
+    transition:transform .24s var(--ease)}
   .app .nm{flex:1;min-width:0}
-  .app .nm b{display:block;font-size:.95rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .app .nm i{display:block;font-style:normal;font-size:.76rem;color:var(--mut);margin-top:2px}
-  .app .foot{display:flex;align-items:center;gap:8px;font-size:.78rem;color:var(--mut);min-height:20px}
-  .app .foot .url{color:var(--accent-2);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  /* Two lines, then ellipsis. One nowrap line cut "A portfolio site for a
+     photographer" mid-word with nowhere to recover it from; the element also
+     carries a title attribute now. */
+  .app .nm b{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;
+    overflow:hidden;font-size:.925rem;font-weight:600;line-height:1.32;
+    letter-spacing:-.006em;word-break:break-word}
+  .app .nm i{display:block;font-style:normal;font-size:.735rem;color:var(--mut);margin-top:4px;
+    letter-spacing:.004em;font-variant-numeric:tabular-nums}
+
+  /* The footer is a tray, not a fourth line of text: a hairline above it, its
+     own ground, bled out to the card's edges. That separation is most of what
+     makes a console card look like one. */
+  .app .foot{display:flex;align-items:center;gap:8px;font-size:.765rem;color:var(--mut);
+    min-height:22px;margin:0 -16px;padding:9px 16px 10px;
+    border-top:1px solid var(--hair);background:var(--card-tray);
+    border-radius:0 0 15px 15px}
+  .app .foot .sp{flex:1}
+  /* An unconstrained inline SVG fills its flex line. META_PRIV's padlock did
+     exactly that the moment the old .body .m svg rule went with .body - a
+     12px lock became a 200px one and the card grew around it. */
+  .app .foot svg{width:12px;height:12px;flex:none}
+
+  .app .foot .url{color:var(--accent-2);font-weight:500;white-space:nowrap;
+    overflow:hidden;text-overflow:ellipsis}
   :root[data-theme="dark"] .app .foot .url{color:var(--accent)}
 
   /* ---- skeletons: a shape that says "nearly there", not a spinner ---- */
@@ -594,6 +687,8 @@
   @media (prefers-reduced-motion:reduce){
     .step.now .bead{animation:none}
     .pill.s-building::after,.pill .dot{animation:none !important}
+    .app,.app .tile{transition:none}
+    .app:hover,.app:hover .tile{transform:none}
     .sk::after{animation:none}
   }
 
@@ -744,12 +839,24 @@
   .toast.on{opacity:1;transform:translate(-50%,0)}
 
   @media (max-width:640px){
+    /* Two up. The pill collapses to its dot here: at half a phone width a
+       full pill leaves the title about 79px, which is two words a line. The
+       word it drops is on the element as a label, so the status is still
+       available to a screen reader and on long-press rather than being
+       carried by colour alone. */
     .grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
-    .app{min-width:0;padding:10px 9px}
-    .app .top{gap:6px}
-    .app .tile{width:30px;height:30px;font-size:.9rem}
-    .app .nm b{font-size:.78rem}
-    .app .nm i{font-size:.66rem}
+    .app{padding:11px 12px 0;min-width:0;border-radius:14px}
+    .app .top{gap:8px;padding-bottom:10px}
+    .app .tile{width:28px;height:28px;font-size:.82rem;border-radius:9px}
+    .app .nm b{font-size:.82rem;line-height:1.3}
+    .app .nm i{font-size:.69rem;margin-top:2px}
+    /* The ring goes with the fill - a bare ring around a dot is a circle
+       around nothing. */
+    .app .pill{padding:0;background:none !important;box-shadow:none;font-size:0;gap:0;margin-top:4px}
+    .app .pill .dot{width:8px;height:8px}
+    .app .foot{font-size:.71rem;gap:6px;min-height:18px;
+      margin:0 -12px;padding:7px 12px 8px;border-radius:0 0 13px 13px}
+    .app .foot svg{width:11px;height:11px}
     .app .foot{gap:4px;font-size:.66rem}
     .app .foot .url{min-width:0}
     .step{width:64px}
@@ -803,6 +910,45 @@
     .ag-history:not(.on) .ag-user-main{order:2 !important}
     .ag-history:not(.on) .ag-hist-user{padding-bottom:8px}
   }
+
+  /* ---- recent-projects flyout -----------------------------------------
+     Hovering Projects in the rail lists the recent ones next to it, so you
+     can reach an app without loading the page that lists them. Generated
+     into all three pages that carry the rail; edit the source, not a copy.
+
+     position:fixed and a direct child of <body>: the rail is a flex column
+     with its own stacking and overflow rules on three pages, and an
+     absolutely-positioned panel inside it was going to be clipped by one of
+     them. Fixed to the viewport sidesteps all of it. */
+  .ag-fly{position:fixed;z-index:120;min-width:236px;max-width:290px;
+    background:var(--card-surface,var(--card));border:1px solid var(--line);border-radius:13px;
+    box-shadow:0 1px 2px rgba(0,0,0,.06),0 18px 40px -18px rgba(24,20,14,.42);
+    padding:5px;opacity:0;visibility:hidden;transform:translateX(-6px);pointer-events:none;
+    transition:opacity .16s ease,transform .16s var(--ease,ease),visibility .16s}
+  :root[data-theme="dark"] .ag-fly{box-shadow:0 1px 2px rgba(0,0,0,.5),0 20px 44px -18px rgba(0,0,0,.85)}
+  .ag-fly.open{opacity:1;visibility:visible;transform:none;pointer-events:auto}
+  /* The gap between the rail and the panel is dead space the pointer has to
+     cross. This bridges it so the panel does not close mid-reach. */
+  .ag-fly::before{content:"";position:absolute;top:0;bottom:0;right:100%;width:14px}
+  .ag-fly .ttl{font-size:.655rem;font-weight:450;color:var(--mut);padding:6px 8px 5px;
+    letter-spacing:.02em;text-transform:uppercase}
+  .ag-fly a{display:flex;align-items:center;gap:9px;padding:6px 8px;border-radius:9px;
+    color:var(--ink);text-decoration:none;font-size:.8rem;line-height:1.25}
+  .ag-fly a:hover{background:var(--paper-2)}
+  .ag-fly a .tl{width:22px;height:22px;border-radius:7px;flex:none;display:grid;place-items:center;
+    font-family:var(--disp);font-weight:700;font-size:.7rem;color:#fff;
+    background-color:var(--tile);
+    background-image:linear-gradient(152deg,rgba(255,255,255,.32),rgba(255,255,255,0) 46%,rgba(0,0,0,.22));
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.34),inset 0 0 0 1px rgba(0,0,0,.09)}
+  .ag-fly a .tx{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .ag-fly a .dt{width:6px;height:6px;border-radius:50%;background:var(--ok);flex:none}
+  .ag-fly .none{padding:9px 8px 10px;font-size:.78rem;color:var(--mut)}
+  .ag-fly .all{display:block;margin-top:3px;padding-top:6px;border-top:1px solid var(--line);
+    text-align:center;font-size:.75rem;color:var(--mut)}
+  .ag-fly .all:hover{color:var(--ink)}
+  /* Touch has no hover: the panel would open on the tap that navigates and
+     then sit there over the page it opened. */
+  @media (hover:none),(max-width:900px){ .ag-fly{display:none !important} }
 </style>
 <link rel="stylesheet" href="/css/upgrade-modal.css">
 </head>
@@ -980,6 +1126,17 @@
   var LIVE = { QUEUED: 1, BUILDING: 1, STARTING: 1 };   // still moving → poll fast
   var TILE = ["#1aa6df", "#7c5cff", "#f59e0b", "#ec4899", "#10b981", "#6b6ff0"];
 
+  /* What the footer says when there is no URL to show. The pill already gives
+     the status; this says what it MEANS for the person looking at it. */
+  var FOOT_NOTE = {
+    QUEUED: "waiting for a worker",
+    BUILDING: "building now",
+    STARTING: "starting up",
+    STOPPED: "stopped - start it to bring it back",
+    FAILED: "the last deploy failed",
+    DELETED: "deleted"
+  };
+
   var all = [];          // rows from /api/deploy/overview
   var capacity = null;
   var account = null;    // /api/account/me, for the plan block
@@ -1053,6 +1210,34 @@
     for (i = 0; i < s.length; i++) n = (n * 31 + s.charCodeAt(i)) >>> 0;
     return TILE[n % TILE.length];
   }
+
+  /* The card's spotlight follows the cursor.
+
+     One delegated listener, not one per card: both grids are re-rendered
+     wholesale on every poll, so per-card handlers would be re-attached and
+     leaked on each pass. rAF-coalesced because pointermove fires far faster
+     than the compositor can use, and skipped entirely for touch (there is no
+     cursor to follow) and for reduced motion. */
+  (function () {
+    var still = window.matchMedia ? matchMedia("(prefers-reduced-motion:reduce)") : { matches: false };
+    var next = null, queued = false;
+    function flush() {
+      queued = false;
+      var n = next; next = null;
+      if (!n) return;
+      var r = n.c.getBoundingClientRect();
+      if (!r.width || !r.height) return;
+      n.c.style.setProperty("--mx", ((n.x - r.left) / r.width * 100).toFixed(1) + "%");
+      n.c.style.setProperty("--my", ((n.y - r.top) / r.height * 100).toFixed(1) + "%");
+    }
+    addEventListener("pointermove", function (e) {
+      if (still.matches || e.pointerType === "touch") return;
+      var c = e.target && e.target.closest && e.target.closest(".card,.app");
+      if (!c) return;
+      next = { c: c, x: e.clientX, y: e.clientY };
+      if (!queued) { queued = true; requestAnimationFrame(flush); }
+    }, { passive: true });
+  })();
   function timeAgo(iso) {
     if (!iso) return "";
     var s = (Date.now() - new Date(iso)) / 1000;
@@ -1071,7 +1256,12 @@
     var s = status || "NONE";
     var cls = "s-" + String(s).toLowerCase();
     if (FLOW.indexOf(s) < 0 && ["STOPPED", "FAILED"].indexOf(s) < 0) { cls = "s-none"; s = "Not deployed"; }
-    return '<span class="pill ' + cls + '"><span class="dot"></span>' + esc(String(s).toLowerCase()) + '</span>';
+    /* title + aria-label so the word survives the phone layout, where the
+       pill collapses to its dot to leave the title room. Without them the
+       status would be carried by colour alone at that size. */
+    var word = String(s).toLowerCase();
+    return '<span class="pill ' + cls + '" title="' + esc(word) + '" aria-label="' + esc(word) + '">' +
+      '<span class="dot"></span>' + esc(word) + '</span>';
   }
 
   /* ---------------- API ----------------
@@ -1246,15 +1436,19 @@
     $("listBody").innerHTML = '<div class="grid">' + list.map(function (r) {
       var title = r.title || "Untitled app";
       var live = r.status === "RUNNING" && r.url;
-      return '<button type="button" class="app" data-key="' + esc(r.key) + '">' +
+      return '<button type="button" class="app" data-key="' + esc(r.key) + '"' +
+        ' title="' + esc(title) + '" style="--tile:' + tileColor(r.key) + '">' +
         '<span class="top">' +
-          '<span class="tile" style="background:' + tileColor(r.key) + '">' + esc(title.charAt(0).toUpperCase() || "A") + '</span>' +
+          '<span class="tile">' + esc(title.charAt(0).toUpperCase() || "A") + '</span>' +
           '<span class="nm"><b>' + esc(title) + '</b><i>' + esc(timeAgo(r.updatedAt)) + '</i></span>' +
           pill(r.status) +
         '</span>' +
         '<span class="foot">' +
+          /* Never an empty row. A deployment with a status but no URL - stopped,
+             failed, mid-build - used to render an empty span here, so the card
+             had a blank strip where every other card said something. */
           (live ? '<span class="url">' + esc(String(r.url).replace(/^https?:\/\//, "")) + "</span>"
-                : '<span>' + (r.status ? "" : "never deployed") + "</span>") +
+                : '<span>' + esc(r.status ? FOOT_NOTE[r.status] || "not running" : "never deployed") + "</span>") +
         "</span></button>";
     }).join("") + "</div>";
   }
@@ -2393,6 +2587,91 @@
       q.scrollIntoView({ block: 'center', behavior: 'smooth' });
       q.focus(); q.select();
     });
+  })();
+
+  /* ---- recent-projects flyout -----------------------------------------
+     Hovering Projects in the rail lists the recent ones beside it. Generated
+     into all three pages that carry the rail; edit the source, not a copy. */
+  (function () {
+    var tab = document.querySelector('.ag-hist-tab[href="/projects"]');
+    if (!tab || !window.matchMedia || !matchMedia("(hover:hover)").matches) return;
+
+    var PAL = ["#1aa6df", "#7c5cff", "#f59e0b", "#ec4899", "#10b981", "#6b6ff0"];
+    function hue(s) {
+      var n = 0, i; s = String(s || "");
+      for (i = 0; i < s.length; i++) n = (n * 31 + s.charCodeAt(i)) >>> 0;
+      return PAL[n % PAL.length];
+    }
+    function safe(s) {
+      return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+        return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+      });
+    }
+
+    var fly = document.createElement("div");
+    fly.className = "ag-fly";
+    fly.setAttribute("role", "menu");
+    fly.innerHTML = '<div class="ttl">Recent projects</div><div class="none">Loading\u2026</div>';
+    document.body.appendChild(fly);
+
+    var loaded = 0, hideAt = null;
+
+    function place() {
+      var r = tab.getBoundingClientRect();
+      fly.style.left = Math.round(r.right + 10) + "px";
+      // Anchored to the tab, then pulled back inside the viewport if the rail
+      // sits low enough that the panel would run off the bottom.
+      var top = Math.round(r.top - 6);
+      fly.style.top = Math.max(8, Math.min(top, innerHeight - fly.offsetHeight - 8)) + "px";
+    }
+
+    function render(list) {
+      if (!list.length) {
+        fly.innerHTML = '<div class="ttl">Recent projects</div>'
+          + '<div class="none">Nothing here yet.</div>'
+          + '<a class="all" href="/agent">Start one</a>';
+        return;
+      }
+      fly.innerHTML = '<div class="ttl">Recent projects</div>' + list.map(function (p) {
+        var t = p.title || "Untitled app";
+        return '<a href="/agent/' + safe(p.slug) + '" title="' + safe(t) + '">'
+          + '<span class="tl" style="--tile:' + hue(p.slug || p.id) + '">'
+          + safe(t.charAt(0).toUpperCase() || "A") + '</span>'
+          + '<span class="tx">' + safe(t) + '</span>'
+          + (p.deployed ? '<span class="dt" title="Live"></span>' : "")
+          + '</a>';
+      }).join("") + '<a class="all" href="/projects">See all</a>';
+    }
+
+    function load() {
+      // Once per page load. A rail hover is not a reason to re-fetch, and
+      // this fires on every pass of the pointer across the tab.
+      if (loaded) return;
+      loaded = 1;
+      fetch("/api/projects?limit=6", { credentials: "same-origin" })
+        .then(function (r) { return r.ok ? r.json() : { projects: [] }; })
+        .then(function (d) { render((d && d.projects) || []); place(); })
+        .catch(function () { loaded = 0; fly.innerHTML = '<div class="ttl">Recent projects</div><div class="none">Could not load.</div>'; });
+    }
+
+    function open() {
+      clearTimeout(hideAt);
+      load();
+      fly.classList.add("open");
+      place();
+    }
+    // A short grace period, not an immediate close: the pointer has to leave
+    // the tab to reach the panel, and without this it never arrives.
+    function close() { clearTimeout(hideAt); hideAt = setTimeout(function () { fly.classList.remove("open"); }, 180); }
+
+    tab.addEventListener("pointerenter", open);
+    tab.addEventListener("pointerleave", close);
+    tab.addEventListener("focus", open);
+    fly.addEventListener("pointerenter", function () { clearTimeout(hideAt); });
+    fly.addEventListener("pointerleave", close);
+    addEventListener("keydown", function (e) { if (e.key === "Escape") { clearTimeout(hideAt); fly.classList.remove("open"); } });
+    addEventListener("scroll", function () { if (fly.classList.contains("open")) place(); }, { passive: true });
+    addEventListener("resize", function () { if (fly.classList.contains("open")) place(); });
   })();
 </script>
 </body>

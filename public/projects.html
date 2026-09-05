@@ -26,6 +26,19 @@
     --disp:'Jost','Century Gothic',system-ui,sans-serif;
     --body:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
     --ease:cubic-bezier(.16,1,.3,1);
+    /* Card elevation. These were hardcoded at the hover rule — a pale blue
+       border and a navy-tinted shadow — so in dark mode the border read as a
+    /* Card layering. A flat fill and one shadow read as a div; a surface
+       gradient, a lit top edge, a hairline and a tray ground read as a card.
+       Tokens because they were hardcoded at the hover rule before, where dark
+       mode got a pale blue border and a shadow it could not cast. */
+    --card-surface:linear-gradient(180deg,#ffffff,#fdfbf8);
+    --card-sheen:#ffffff;
+    --hair:#efeae1;
+    --card-tray:rgba(250,247,242,.72);
+    --card-rest-shadow:0 1px 2px rgba(24,20,14,.05),0 1px 1px rgba(24,20,14,.03);
+    --card-hover-border:#dcd4c6;
+    --card-hover-shadow:0 2px 4px rgba(24,20,14,.04),0 14px 30px -14px rgba(24,20,14,.3);
     /* Sidebar geometry, shared with the builder and the deployments page
        so the rail is the same object on all three. */
     --rail:44px; --sb-w:238px; --sb-pad:6px; --ease-sb:cubic-bezier(.32,.72,0,1);
@@ -44,6 +57,13 @@
   }
   :root[data-theme="dark"]{
     --paper:#1c1917; --paper-2:#24211e; --card:#2a2622;
+    --card-surface:linear-gradient(180deg,#302b26,#282420);
+    --card-sheen:rgba(255,255,255,.055);
+    --hair:rgba(255,255,255,.06);
+    --card-tray:rgba(0,0,0,.16);
+    --card-rest-shadow:0 1px 2px rgba(0,0,0,.45);
+    --card-hover-border:rgba(255,255,255,.15);
+    --card-hover-shadow:0 2px 6px rgba(0,0,0,.35),0 16px 34px -16px rgba(0,0,0,.8);
     --ink:#f0eadc; --ink-2:#a49e92; --mut:#7e766a;
     --tint:#3d3428; --tint-2:#2d2420;
     --stone:#2e2a26; --dark:#0a0908; --line:#3a352e; --navy-800:#0d0b0a;
@@ -384,7 +404,6 @@
        which pushed the Souqi mark off the left edge entirely. */
     .ag-history:not(.on) .ag-hist-search,
     .ag-history:not(.on) .ag-ws-menu,
-    .ag-history:not(.on) .ag-flyout{display:none !important}
     .ag-history:not(.on) .ag-hist-chats{border-top:1px solid var(--line);margin:5px 6px 0;padding-top:6px}
     .ag-history:not(.on) .ag-hist-chats.is-empty{border-top:0;margin:0;padding-top:0}
     .ag-history:not(.on) .ag-chats-list{padding:0;overflow:hidden}
@@ -494,50 +513,154 @@
   .viewtog button svg{width:16px;height:16px}
   .viewtog span{width:1px;background:var(--line)}
 
-  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px}
-  .card{display:block;text-align:left;border:1px solid var(--line);background:var(--card);border-radius:16px;
-    overflow:hidden;cursor:pointer;transition:.15s}
-  .card:hover{border-color:#c6dbe7;box-shadow:0 8px 22px -12px rgba(11,22,38,.28);transform:translateY(-1px)}
-  .thumb{height:128px;position:relative;background:var(--paper-2);display:grid;place-items:center}
-  .thumb .tile{width:44px;height:44px;border-radius:11px;display:grid;place-items:center;
-    font-family:var(--disp);font-weight:700;font-size:1.3rem;color:#fff}
-  .thumb .star{position:absolute;top:10px;right:10px;border:0;background:rgba(18,32,46,.06);color:var(--mut);
-    width:28px;height:28px;border-radius:8px;display:grid;place-items:center;cursor:pointer;transition:.15s}
-  .thumb .star:hover{background:rgba(18,32,46,.1);color:var(--ink)}
-  .thumb .star.on{color:#e0a11a}
-  .thumb .star svg{width:15px;height:15px}
-  .thumb .star.on svg{fill:currentColor}
-  .body{padding:12px 14px 14px}
-  .body .t{font-size:.94rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .body .m{display:flex;align-items:center;gap:5px;font-size:.79rem;color:var(--mut);margin-top:4px}
-  .body .m svg{width:12px;height:12px;flex:none}
+  /* ===================================================================
+     APP CARD - generated into projects.html and deployments.html from one
+     source, so the two cannot drift again. They already had, into tile
+     colour meaning build type on one page and a hash of the key on the
+     other, so one app was two different colours depending where you looked.
+     Any change belongs in both; edit the source, not the copies.
 
-  /* Placed AFTER the base .grid/.thumb/.body rules on purpose: this
+     Flat fill, flat border, one shadow: the card read as a div with text in
+     it. What makes a console card look built is layering - a surface with a
+     gradient rather than a colour, a lit top edge, a tray under the hairline,
+     and a tile that has depth instead of being a coloured square.
+     =================================================================== */
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}
+
+  .card{position:relative;isolation:isolate;display:flex;flex-direction:column;text-align:left;
+    border:1px solid var(--line);border-radius:16px;background:var(--card-surface);
+    padding:15px 16px 0;cursor:pointer;width:100%;
+    box-shadow:var(--card-rest-shadow);
+    transition:transform .24s var(--ease),box-shadow .24s var(--ease),border-color .18s}
+  /* Above the glow. Both pseudo-elements are positioned and the children are
+     not, so without this the spotlight paints over the title. */
+  .card>*{position:relative;z-index:1}
+
+  /* The lit top edge, as a pseudo-element rather than a second border: no
+     layout cost and it follows the radius for free. */
+  .card::before{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;
+    box-shadow:inset 0 1px 0 var(--card-sheen)}
+  /* Under the cursor the card glows in ITS OWN colour - --tile is the identity
+     colour the tile is painted with, set inline per card. --mx/--my track the
+     pointer; with no JS they fall back to the tile's corner, so this degrades
+     to a fixed corner glow rather than to nothing. */
+  .card::after{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;
+    z-index:0;opacity:0;transition:opacity .3s var(--ease);
+    background:radial-gradient(420px circle at var(--mx,16%) var(--my,0%),
+      var(--tile,var(--accent)),transparent 62%)}
+  .card:hover{border-color:var(--card-hover-border);box-shadow:var(--card-hover-shadow);transform:translateY(-2px)}
+  .card:hover::after{opacity:.09}
+  .card:hover .tile{transform:scale(1.06) rotate(-1.5deg)}
+  /* A focus ring is not a hover state. Keyboard users were getting the mouse
+     treatment and no ring at all. */
+  .card:focus-visible{outline:2px solid var(--accent);outline-offset:2px;
+    box-shadow:var(--card-hover-shadow)}
+
+  .card .top{display:flex;align-items:flex-start;gap:11px;padding-bottom:13px}
+  /* One inline --tile drives the fill, the inner highlight and the drop glow.
+     The wash over it is fixed white-to-black, so every identity colour gets
+     the same light without needing a second value per card. */
+  .card .tile{width:36px;height:36px;border-radius:11px;display:grid;place-items:center;flex:none;
+    font-family:var(--disp);font-weight:700;font-size:1.02rem;color:#fff;
+    background-color:var(--tile);
+    background-image:linear-gradient(152deg,rgba(255,255,255,.32),rgba(255,255,255,0) 46%,rgba(0,0,0,.22));
+    box-shadow:0 4px 12px -5px var(--tile),inset 0 1px 0 rgba(255,255,255,.36),
+      inset 0 0 0 1px rgba(0,0,0,.09);
+    text-shadow:0 1px 2px rgba(0,0,0,.22);
+    transition:transform .24s var(--ease)}
+  .card .nm{flex:1;min-width:0}
+  /* Two lines, then ellipsis. One nowrap line cut "A portfolio site for a
+     photographer" mid-word with nowhere to recover it from; the element also
+     carries a title attribute now. */
+  .card .nm b{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;
+    overflow:hidden;font-size:.925rem;font-weight:600;line-height:1.32;
+    letter-spacing:-.006em;word-break:break-word}
+  .card .nm i{display:block;font-style:normal;font-size:.735rem;color:var(--mut);margin-top:4px;
+    letter-spacing:.004em;font-variant-numeric:tabular-nums}
+
+  /* The footer is a tray, not a fourth line of text: a hairline above it, its
+     own ground, bled out to the card's edges. That separation is most of what
+     makes a console card look like one. */
+  .card .foot{display:flex;align-items:center;gap:8px;font-size:.765rem;color:var(--mut);
+    min-height:22px;margin:0 -16px;padding:9px 16px 10px;
+    border-top:1px solid var(--hair);background:var(--card-tray);
+    border-radius:0 0 15px 15px}
+  .card .foot .sp{flex:1}
+  /* An unconstrained inline SVG fills its flex line. META_PRIV's padlock did
+     exactly that the moment the old .body .m svg rule went with .body - a
+     12px lock became a 200px one and the card grew around it. */
+  .card .foot svg{width:12px;height:12px;flex:none}
+
+  .card .star{border:0;background:transparent;color:var(--mut);flex:none;
+    width:26px;height:26px;border-radius:8px;display:grid;place-items:center;cursor:pointer;
+    transition:background .15s,color .15s}
+  .card .star:hover{background:var(--tint-2);color:var(--ink)}
+  .card .star.on{color:#e0a11a}
+  .card .star svg{width:15px;height:15px}
+  .card .star.on svg{fill:currentColor}
+
+  /* ---- status, worded the same on both pages ---- */
+  .pill{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:3px 9px 3px 7px;
+    font-size:.705rem;font-weight:600;letter-spacing:.012em;flex:none;position:relative;
+    overflow:hidden;white-space:nowrap;
+    box-shadow:inset 0 0 0 1px color-mix(in srgb,currentColor 26%,transparent)}
+  .pill .dot{width:6px;height:6px;border-radius:50%;background:currentColor;flex:none}
+  .pill.s-none{color:var(--mut);background:rgba(139,152,165,.14)}
+  .pill.s-building{color:#a9760a;background:rgba(224,161,26,.16)}
+  .pill.s-running{color:#187a4b;background:rgba(34,165,101,.16)}
+  .pill.s-failed{color:var(--danger);background:rgba(217,45,32,.14)}
+  :root[data-theme="dark"] .pill.s-building{color:#e0a11a}
+  :root[data-theme="dark"] .pill.s-running{color:#3ecb84}
+  :root[data-theme="dark"] .pill.s-failed{color:#f87171}
+  @keyframes cardBreathe{0%,100%{box-shadow:0 0 0 0 rgba(34,165,101,.55)}70%{box-shadow:0 0 0 5px rgba(34,165,101,0)}}
+  .pill.s-running .dot{animation:cardBreathe 2.4s ease-in-out infinite}
+
+  @media (prefers-reduced-motion:reduce){
+    .pill .dot{animation:none !important}
+    .card,.card .tile{transition:none}
+    .card:hover{transform:none}
+    .card:hover .tile{transform:none}
+  }
+
+  /* Placed AFTER the base .grid/.card rules on purpose: this
      selector is no more specific than those, so source order decides —
      an identical block sitting earlier in the file did nothing at all. */
   @media (max-width:640px){
-    /* auto-fill with a 220px minimum never fits two cards under ~460px,
-       so it collapses to one column full-width on a phone — force 2 and
-       scale the thumbnail/text down to match, same treatment as the
-       Recent Projects grid in code.html. */
-    .grid{grid-template-columns:repeat(2,1fr);gap:10px}
-    .thumb{height:80px}
-    .sk .sk-thumb{height:80px}
-    .sk .sk-body{padding:9px 10px 11px}
-    .thumb .tile{width:32px;height:32px;font-size:1rem;border-radius:9px}
-    .thumb .star{width:24px;height:24px}
-    .thumb .star svg{width:13px;height:13px}
-    .body{padding:9px 10px 11px}
-    .body .t{font-size:.83rem}
-    .body .m{font-size:.72rem;margin-top:3px}
+    /* Two up. The pill collapses to its dot here: at half a phone width a
+       full pill leaves the title about 79px, which is two words a line. The
+       word it drops is on the element as a label, so the status is still
+       available to a screen reader and on long-press rather than being
+       carried by colour alone. */
+    .grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+    .card{padding:11px 12px 0;min-width:0;border-radius:14px}
+    .card .top{gap:8px;padding-bottom:10px}
+    .card .tile{width:28px;height:28px;font-size:.82rem;border-radius:9px}
+    .card .nm b{font-size:.82rem;line-height:1.3}
+    .card .nm i{font-size:.69rem;margin-top:2px}
+    /* The ring goes with the fill - a bare ring around a dot is a circle
+       around nothing. */
+    .card .pill{padding:0;background:none !important;box-shadow:none;font-size:0;gap:0;margin-top:4px}
+    .card .pill .dot{width:8px;height:8px}
+    .card .foot{font-size:.71rem;gap:6px;min-height:18px;
+      margin:0 -12px;padding:7px 12px 8px;border-radius:0 0 13px 13px}
+    .card .foot svg{width:11px;height:11px}
+    .card .star{width:22px;height:22px}
+    .card .star svg{width:13px;height:13px}
   }
 
   .rows{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:14px;overflow:hidden;background:var(--card)}
   .row{display:flex;align-items:center;gap:12px;padding:12px 14px;border-bottom:1px solid var(--line);cursor:pointer;transition:.15s}
   .row:last-child{border-bottom:0}
   .row:hover{background:var(--paper-2)}
+  /* Same treatment as the grid tile, round instead of squircle: the colour
+     comes from the row's inline --tile so both views paint one app one way. */
   .row .tile{width:34px;height:34px;border-radius:99px;display:grid;place-items:center;flex:none;
-    font-family:var(--disp);font-weight:700;font-size:.95rem;color:#fff}
+    font-family:var(--disp);font-weight:700;font-size:.95rem;color:#fff;
+    background-color:var(--tile);
+    background-image:linear-gradient(152deg,rgba(255,255,255,.32),rgba(255,255,255,0) 46%,rgba(0,0,0,.22));
+    box-shadow:0 3px 10px -5px var(--tile),inset 0 1px 0 rgba(255,255,255,.34),
+      inset 0 0 0 1px rgba(0,0,0,.09);
+    text-shadow:0 1px 2px rgba(0,0,0,.22)}
   .row .t{flex:1;min-width:0;font-size:.9rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .row .m{display:flex;align-items:center;gap:5px;font-size:.79rem;color:var(--mut);flex:none}
   .row .m svg{width:12px;height:12px}
@@ -575,13 +698,29 @@
      because a card here is a thumbnail over two lines. Matching the shape is
      the entire point: the grid does not reflow when the data lands. */
   @keyframes sweep{to{transform:translateX(100%)}}
-  .sk{border:1px solid var(--line);background:var(--card);border-radius:16px;overflow:hidden;position:relative}
+  /* The skeleton mirrors the card's anatomy, not just its colours: same
+     padding, same tile size, same tray. Its whole job is to hold the row's
+     height until the data lands, and one of the wrong height causes the
+     reflow it exists to prevent - it was 14.7px short of the card. */
+  .sk{border:1px solid var(--line);background:var(--card-surface);border-radius:16px;
+    overflow:hidden;position:relative;padding:15px 16px 0;display:flex;flex-direction:column}
   .sk::after{content:"";position:absolute;inset:0;transform:translateX(-100%);
     background:linear-gradient(90deg,transparent,rgba(139,152,165,.13),transparent);animation:sweep 1.4s var(--ease) infinite}
-  .sk .sk-thumb{display:block;height:128px;background:var(--paper-2)}
-  .sk .sk-body{display:block;padding:12px 14px 14px}
-  .sk .bar{display:block;height:10px;border-radius:6px;background:var(--paper-2)}
-  .sk .bar+.bar{height:8px;margin-top:8px;opacity:.7}
+  /* Matches the real card's box, not the old thumbnail one — a skeleton
+     that is the wrong height makes the grid jump when the data lands, which
+     is the one thing it exists to prevent. */
+  /* min-height, because the card's name block is a shade taller than the
+     tile beside it and the tile is all the skeleton has. */
+  .sk .sk-top{display:flex;gap:11px;padding-bottom:13px;min-height:38px}
+  .sk .sk-thumb{display:block;height:36px;width:36px;border-radius:11px;background:var(--paper-2);flex:none}
+  .sk .sk-body{flex:1;min-width:0;padding-top:3px}
+  .sk .bar{display:block;height:11px;border-radius:6px;background:var(--paper-2)}
+  .sk .bar+.bar{height:9px;margin-top:9px;opacity:.7}
+  /* 46px is what .card .foot measures: its 9/10 padding around a 26px star
+     button, plus the hairline. Stated as one number because there is nothing
+     inside the skeleton's tray for padding to sit around. */
+  .sk .sk-foot{display:block;height:46px;margin:0 -16px;
+    border-top:1px solid var(--hair);background:var(--card-tray);border-radius:0 0 15px 15px}
   @media (prefers-reduced-motion:reduce){.sk::after{animation:none}}
   @media (max-width:900px){
     .ag-history.on{width:240px !important;max-width:80vw !important;height:100dvh !important}
@@ -618,6 +757,45 @@
     .ag-history:not(.on) .ag-user-main{order:2 !important}
     .ag-history:not(.on) .ag-hist-user{padding-bottom:8px}
   }
+
+  /* ---- recent-projects flyout -----------------------------------------
+     Hovering Projects in the rail lists the recent ones next to it, so you
+     can reach an app without loading the page that lists them. Generated
+     into all three pages that carry the rail; edit the source, not a copy.
+
+     position:fixed and a direct child of <body>: the rail is a flex column
+     with its own stacking and overflow rules on three pages, and an
+     absolutely-positioned panel inside it was going to be clipped by one of
+     them. Fixed to the viewport sidesteps all of it. */
+  .ag-fly{position:fixed;z-index:120;min-width:236px;max-width:290px;
+    background:var(--card-surface,var(--card));border:1px solid var(--line);border-radius:13px;
+    box-shadow:0 1px 2px rgba(0,0,0,.06),0 18px 40px -18px rgba(24,20,14,.42);
+    padding:5px;opacity:0;visibility:hidden;transform:translateX(-6px);pointer-events:none;
+    transition:opacity .16s ease,transform .16s var(--ease,ease),visibility .16s}
+  :root[data-theme="dark"] .ag-fly{box-shadow:0 1px 2px rgba(0,0,0,.5),0 20px 44px -18px rgba(0,0,0,.85)}
+  .ag-fly.open{opacity:1;visibility:visible;transform:none;pointer-events:auto}
+  /* The gap between the rail and the panel is dead space the pointer has to
+     cross. This bridges it so the panel does not close mid-reach. */
+  .ag-fly::before{content:"";position:absolute;top:0;bottom:0;right:100%;width:14px}
+  .ag-fly .ttl{font-size:.655rem;font-weight:450;color:var(--mut);padding:6px 8px 5px;
+    letter-spacing:.02em;text-transform:uppercase}
+  .ag-fly a{display:flex;align-items:center;gap:9px;padding:6px 8px;border-radius:9px;
+    color:var(--ink);text-decoration:none;font-size:.8rem;line-height:1.25}
+  .ag-fly a:hover{background:var(--paper-2)}
+  .ag-fly a .tl{width:22px;height:22px;border-radius:7px;flex:none;display:grid;place-items:center;
+    font-family:var(--disp);font-weight:700;font-size:.7rem;color:#fff;
+    background-color:var(--tile);
+    background-image:linear-gradient(152deg,rgba(255,255,255,.32),rgba(255,255,255,0) 46%,rgba(0,0,0,.22));
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.34),inset 0 0 0 1px rgba(0,0,0,.09)}
+  .ag-fly a .tx{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .ag-fly a .dt{width:6px;height:6px;border-radius:50%;background:var(--ok);flex:none}
+  .ag-fly .none{padding:9px 8px 10px;font-size:.78rem;color:var(--mut)}
+  .ag-fly .all{display:block;margin-top:3px;padding-top:6px;border-top:1px solid var(--line);
+    text-align:center;font-size:.75rem;color:var(--mut)}
+  .ag-fly .all:hover{color:var(--ink)}
+  /* Touch has no hover: the panel would open on the tap that navigates and
+     then sit there over the page it opened. */
+  @media (hover:none),(max-width:900px){ .ag-fly{display:none !important} }
 </style>
 <link rel="stylesheet" href="/css/upgrade-modal.css">
 </head>
@@ -777,12 +955,12 @@
     </div>
     <div id="pListBody">
       <div class="grid" aria-hidden="true">
-      <div class="sk"><span class="sk-thumb"></span><span class="sk-body"><span class="bar" style="width:64%"></span><span class="bar" style="width:42%"></span></span></div>
-      <div class="sk"><span class="sk-thumb"></span><span class="sk-body"><span class="bar" style="width:52%"></span><span class="bar" style="width:36%"></span></span></div>
-      <div class="sk"><span class="sk-thumb"></span><span class="sk-body"><span class="bar" style="width:71%"></span><span class="bar" style="width:45%"></span></span></div>
-      <div class="sk"><span class="sk-thumb"></span><span class="sk-body"><span class="bar" style="width:58%"></span><span class="bar" style="width:39%"></span></span></div>
-      <div class="sk"><span class="sk-thumb"></span><span class="sk-body"><span class="bar" style="width:67%"></span><span class="bar" style="width:33%"></span></span></div>
-      <div class="sk"><span class="sk-thumb"></span><span class="sk-body"><span class="bar" style="width:49%"></span><span class="bar" style="width:44%"></span></span></div>
+      <div class="sk"><span class="sk-top"><span class="sk-thumb"></span><span class="sk-body"><span class="bar" style="width:64%"></span><span class="bar" style="width:42%"></span></span></span><span class="sk-foot"></span></div>
+      <div class="sk"><span class="sk-top"><span class="sk-thumb"></span><span class="sk-body"><span class="bar" style="width:52%"></span><span class="bar" style="width:36%"></span></span></span><span class="sk-foot"></span></div>
+      <div class="sk"><span class="sk-top"><span class="sk-thumb"></span><span class="sk-body"><span class="bar" style="width:71%"></span><span class="bar" style="width:45%"></span></span></span><span class="sk-foot"></span></div>
+      <div class="sk"><span class="sk-top"><span class="sk-thumb"></span><span class="sk-body"><span class="bar" style="width:58%"></span><span class="bar" style="width:39%"></span></span></span><span class="sk-foot"></span></div>
+      <div class="sk"><span class="sk-top"><span class="sk-thumb"></span><span class="sk-body"><span class="bar" style="width:67%"></span><span class="bar" style="width:33%"></span></span></span><span class="sk-foot"></span></div>
+      <div class="sk"><span class="sk-top"><span class="sk-thumb"></span><span class="sk-body"><span class="bar" style="width:49%"></span><span class="bar" style="width:44%"></span></span></span><span class="sk-foot"></span></div>
       </div>
       <span style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap">Loading your projects…</span>
     </div>
@@ -930,28 +1108,89 @@
     });
   }
 
+  /* Colour is IDENTITY, not category.
+
+     It used to come from TYPE_COLOR[buildType], which meant a page of
+     websites was a page of identical blue squares — and deployments.html
+     derived the same tile from a hash of the key, so one app was two
+     different colours depending on which page you were looking at. Hashing
+     the slug gives a stable, varied colour that means "this app", and the
+     build type moved to the metadata line where a word says it better. */
+  var TILE = ["#1aa6df", "#7c5cff", "#f59e0b", "#ec4899", "#10b981", "#6b6ff0"];
+  function tileColor(s) {
+    var n = 0, i; s = String(s || "");
+    for (i = 0; i < s.length; i++) n = (n * 31 + s.charCodeAt(i)) >>> 0;
+    return TILE[n % TILE.length];
+  }
+
+  /* The card's spotlight follows the cursor.
+
+     One delegated listener, not one per card: both grids are re-rendered
+     wholesale on every poll, so per-card handlers would be re-attached and
+     leaked on each pass. rAF-coalesced because pointermove fires far faster
+     than the compositor can use, and skipped entirely for touch (there is no
+     cursor to follow) and for reduced motion. */
+  (function () {
+    var still = window.matchMedia ? matchMedia("(prefers-reduced-motion:reduce)") : { matches: false };
+    var next = null, queued = false;
+    function flush() {
+      queued = false;
+      var n = next; next = null;
+      if (!n) return;
+      var r = n.c.getBoundingClientRect();
+      if (!r.width || !r.height) return;
+      n.c.style.setProperty("--mx", ((n.x - r.left) / r.width * 100).toFixed(1) + "%");
+      n.c.style.setProperty("--my", ((n.y - r.top) / r.height * 100).toFixed(1) + "%");
+    }
+    addEventListener("pointermove", function (e) {
+      if (still.matches || e.pointerType === "touch") return;
+      var c = e.target && e.target.closest && e.target.closest(".card,.app");
+      if (!c) return;
+      next = { c: c, x: e.clientX, y: e.clientY };
+      if (!queued) { queued = true; requestAnimationFrame(flush); }
+    }, { passive: true });
+  })();
+
+  /* The card knew this all along and never said it: /api/projects returns
+     `deployed`, and the old card rendered "Private - 21h ago" instead. */
+  /* title + aria-label so the word survives the phone layout, where the pill
+     collapses to its dot to leave the title room. Without them the status
+     would be carried by colour alone at that size. */
+  function statusPill(p) {
+    if (p.deployed) return '<span class="pill s-running" title="Live" aria-label="Live"><span class="dot"></span>Live</span>';
+    return '<span class="pill s-none" title="Not deployed" aria-label="Not deployed"><span class="dot"></span>Not deployed</span>';
+  }
+
   function renderGrid(list) {
     return '<div class="grid">' + list.map(function (p) {
       var title = p.title || "Untitled app";
-      var color = TYPE_COLOR[p.buildType] || "#8b98a5";
       var star = p.favorite ? "on" : "";
-      var meta = p.published ? META_PUB : META_PRIV;
-      return '<a class="card" href="/agent/' + esc(p.slug) + '">'
-        + '<span class="thumb"><span class="tile" style="background:' + color + '">' + esc(title.charAt(0).toUpperCase() || "A") + '</span>'
-        + '<button type="button" class="star ' + star + '" data-slug="' + esc(p.slug) + '" data-fav="' + (p.favorite ? "1" : "0") + '" aria-label="Favorite" onclick="event.preventDefault()">' + STAR + '</button></span>'
-        + '<span class="body"><span class="t">' + esc(title) + '</span>'
-        + '<span class="m">' + meta + ' · ' + esc(timeAgo(p.updatedAt)) + '</span></span></a>';
+      var kind = p.buildType && p.buildType !== "website" ? esc(p.buildType) + " \u00b7 " : "";
+      return '<a class="card" href="/agent/' + esc(p.slug) + '" title="' + esc(title) + '"'
+        + ' style="--tile:' + tileColor(p.slug || p.id) + '">'
+        + '<span class="top">'
+        + '<span class="tile">' + esc(title.charAt(0).toUpperCase() || "A") + '</span>'
+        + '<span class="nm"><b>' + esc(title) + '</b>'
+        + '<i>' + kind + esc(timeAgo(p.updatedAt)) + '</i></span>'
+        + statusPill(p)
+        + '</span>'
+        + '<span class="foot">' + (p.published ? META_PUB : META_PRIV)
+        + '<span class="sp"></span>'
+        + '<button type="button" class="star ' + star + '" data-slug="' + esc(p.slug)
+        + '" data-fav="' + (p.favorite ? "1" : "0") + '" aria-label="Favorite" '
+        + 'onclick="event.preventDefault()">' + STAR + '</button>'
+        + '</span></a>';
     }).join("") + '</div>';
   }
 
   function renderRows(list) {
     return '<div class="rows">' + list.map(function (p) {
       var title = p.title || "Untitled app";
-      var color = TYPE_COLOR[p.buildType] || "#8b98a5";
+      var color = tileColor(p.slug || p.id);
       var star = p.favorite ? "on" : "";
       var meta = p.published ? META_PUB : META_PRIV;
-      return '<a class="row" href="/agent/' + esc(p.slug) + '">'
-        + '<span class="tile" style="background:' + color + '">' + esc(title.charAt(0).toUpperCase() || "A") + '</span>'
+      return '<a class="row" href="/agent/' + esc(p.slug) + '" style="--tile:' + color + '">'
+        + '<span class="tile">' + esc(title.charAt(0).toUpperCase() || "A") + '</span>'
         + '<span class="t">' + esc(title) + '</span>'
         + '<span class="m">' + meta + ' · ' + esc(timeAgo(p.updatedAt)) + '</span>'
         + '<button type="button" class="star ' + star + '" data-slug="' + esc(p.slug) + '" data-fav="' + (p.favorite ? "1" : "0") + '" aria-label="Favorite" onclick="event.preventDefault()">' + STAR + '</button></a>';
@@ -1175,6 +1414,91 @@
       q.scrollIntoView({ block: 'center', behavior: 'smooth' });
       q.focus(); q.select();
     });
+  })();
+
+  /* ---- recent-projects flyout -----------------------------------------
+     Hovering Projects in the rail lists the recent ones beside it. Generated
+     into all three pages that carry the rail; edit the source, not a copy. */
+  (function () {
+    var tab = document.querySelector('.ag-hist-tab[href="/projects"]');
+    if (!tab || !window.matchMedia || !matchMedia("(hover:hover)").matches) return;
+
+    var PAL = ["#1aa6df", "#7c5cff", "#f59e0b", "#ec4899", "#10b981", "#6b6ff0"];
+    function hue(s) {
+      var n = 0, i; s = String(s || "");
+      for (i = 0; i < s.length; i++) n = (n * 31 + s.charCodeAt(i)) >>> 0;
+      return PAL[n % PAL.length];
+    }
+    function safe(s) {
+      return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+        return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+      });
+    }
+
+    var fly = document.createElement("div");
+    fly.className = "ag-fly";
+    fly.setAttribute("role", "menu");
+    fly.innerHTML = '<div class="ttl">Recent projects</div><div class="none">Loading\u2026</div>';
+    document.body.appendChild(fly);
+
+    var loaded = 0, hideAt = null;
+
+    function place() {
+      var r = tab.getBoundingClientRect();
+      fly.style.left = Math.round(r.right + 10) + "px";
+      // Anchored to the tab, then pulled back inside the viewport if the rail
+      // sits low enough that the panel would run off the bottom.
+      var top = Math.round(r.top - 6);
+      fly.style.top = Math.max(8, Math.min(top, innerHeight - fly.offsetHeight - 8)) + "px";
+    }
+
+    function render(list) {
+      if (!list.length) {
+        fly.innerHTML = '<div class="ttl">Recent projects</div>'
+          + '<div class="none">Nothing here yet.</div>'
+          + '<a class="all" href="/agent">Start one</a>';
+        return;
+      }
+      fly.innerHTML = '<div class="ttl">Recent projects</div>' + list.map(function (p) {
+        var t = p.title || "Untitled app";
+        return '<a href="/agent/' + safe(p.slug) + '" title="' + safe(t) + '">'
+          + '<span class="tl" style="--tile:' + hue(p.slug || p.id) + '">'
+          + safe(t.charAt(0).toUpperCase() || "A") + '</span>'
+          + '<span class="tx">' + safe(t) + '</span>'
+          + (p.deployed ? '<span class="dt" title="Live"></span>' : "")
+          + '</a>';
+      }).join("") + '<a class="all" href="/projects">See all</a>';
+    }
+
+    function load() {
+      // Once per page load. A rail hover is not a reason to re-fetch, and
+      // this fires on every pass of the pointer across the tab.
+      if (loaded) return;
+      loaded = 1;
+      fetch("/api/projects?limit=6", { credentials: "same-origin" })
+        .then(function (r) { return r.ok ? r.json() : { projects: [] }; })
+        .then(function (d) { render((d && d.projects) || []); place(); })
+        .catch(function () { loaded = 0; fly.innerHTML = '<div class="ttl">Recent projects</div><div class="none">Could not load.</div>'; });
+    }
+
+    function open() {
+      clearTimeout(hideAt);
+      load();
+      fly.classList.add("open");
+      place();
+    }
+    // A short grace period, not an immediate close: the pointer has to leave
+    // the tab to reach the panel, and without this it never arrives.
+    function close() { clearTimeout(hideAt); hideAt = setTimeout(function () { fly.classList.remove("open"); }, 180); }
+
+    tab.addEventListener("pointerenter", open);
+    tab.addEventListener("pointerleave", close);
+    tab.addEventListener("focus", open);
+    fly.addEventListener("pointerenter", function () { clearTimeout(hideAt); });
+    fly.addEventListener("pointerleave", close);
+    addEventListener("keydown", function (e) { if (e.key === "Escape") { clearTimeout(hideAt); fly.classList.remove("open"); } });
+    addEventListener("scroll", function () { if (fly.classList.contains("open")) place(); }, { passive: true });
+    addEventListener("resize", function () { if (fly.classList.contains("open")) place(); });
   })();
 </script>
 <!-- No site-footer.js here on purpose. This is an app shell — sidebar
