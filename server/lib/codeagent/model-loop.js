@@ -1277,7 +1277,7 @@ async function proposeWithRepair({ userPrompt, tools, maxRounds, onRound, mode, 
  * @param {function} [opts.onRound] - (info) => void, same shape as proposeWithRepair
  * @returns {Promise<{ok, calls?, round?, rounds, repaired?, costUsd, reason?}>}
  */
-async function proposeWithClientBuild({ userPrompt, maxRounds, onFiles, onRound, mode, byok, thinking, mcp, onToolCall, history, hasExistingEntry }) {
+async function proposeWithClientBuild({ userPrompt, maxRounds, onFiles, onRound, onProposal, mode, byok, thinking, mcp, onToolCall, history, hasExistingEntry }) {
   const cap = (maxRounds !== null && maxRounds !== undefined) ? maxRounds : 3;
   const opts = { mode, byok, thinking, mcp, onToolCall };
   const hist = buildHistory(history);
@@ -1298,6 +1298,12 @@ async function proposeWithClientBuild({ userPrompt, maxRounds, onFiles, onRound,
   const cached = cacheGet(key);
 
   if (cached) {
+    // Reported here too: a cache hit writes the same real files, and a build
+    // that lists them only when it happens to miss the cache looks like it
+    // did less work rather than like it did the work faster.
+    if (onProposal) {
+      try { onProposal({ round: 0, calls: cached.calls || [] }); } catch (e) { /* observability only */ }
+    }
     const build = await onFiles(cached.calls);
     if (onRound) onRound({ round: 0, ok: build.ok, calls: cached.calls, errors: build.ok ? undefined : build.errors });
     if (build.ok) {
@@ -1377,6 +1383,15 @@ async function proposeWithClientBuild({ userPrompt, maxRounds, onFiles, onRound,
     // subset would type-check a file against components that are not
     // there and report errors for code that is actually fine.
     const allCalls = collect(attempt.calls);
+    /* What the model just wrote, before it is checked. The step log had one
+       line for the whole of this - "Writing your app" - and then nothing for
+       however long a large app takes. These are files that genuinely exist
+       by now, so reporting them is describing the work, not narrating over
+       a spinner. */
+    if (onProposal) {
+      try { onProposal({ round: round, calls: attempt.calls || [] }); }
+      catch (e) { /* observability only — never fail a build over a callback */ }
+    }
     let build = await onFiles(allCalls);
 
     /* A tree that type-checks but has no entry point is not a build that

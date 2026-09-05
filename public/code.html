@@ -285,9 +285,24 @@
      overshoot, while agent rows (agIn) drift in more quietly. Motion
      direction carries authorship without needing a label. */
   .ag-user{align-self:flex-end;max-width:min(86%,560px);margin:18px 0 2px;text-align:right}
-  .ag-user .bubble{display:inline-block;background:var(--tint-2);border:1px solid #cbe7f6;color:var(--ink);
-    border-radius:16px;padding:12px 16px;font-size:.98rem;line-height:1.5;text-align:left;white-space:pre-wrap;
+  /* Layered rather than a flat fill: a gradient down the bubble, a lit top
+     edge and a shadow in the accent's own hue, so it sits on the page
+     instead of being painted onto it. Same treatment as the app cards. */
+  .ag-user .bubble{display:inline-block;color:var(--ink);
+    background-image:linear-gradient(165deg,
+      color-mix(in srgb,var(--tint-2) 92%,#fff),
+      color-mix(in srgb,var(--tint-2) 88%,var(--accent) 6%));
+    border:1px solid color-mix(in srgb,var(--accent) 24%,transparent);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.6),
+      0 1px 2px color-mix(in srgb,var(--accent) 10%,transparent),
+      0 8px 20px -12px color-mix(in srgb,var(--accent) 45%,transparent);
+    border-radius:16px 16px 5px 16px;padding:12px 16px;font-size:.98rem;line-height:1.5;
+    text-align:left;white-space:pre-wrap;
     transform-origin:100% 100%;animation:agSent .42s var(--ease) both}
+  :root[data-theme="dark"] .ag-user .bubble{
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.08),
+      0 1px 2px rgba(0,0,0,.4),
+      0 10px 24px -12px color-mix(in srgb,var(--accent) 55%,transparent)}
   .ag-user .when{display:block;font-size:.76rem;color:var(--mut);margin-top:6px;
     opacity:0;animation:agIn .3s var(--ease) .16s forwards}
   @keyframes agSent{
@@ -322,6 +337,7 @@
     .ag-empty h2{animation-duration:.01ms!important;animation-delay:0s!important}
     .ag-think:not(.busy) .ic svg{animation:none}
     .ag-th-dot{animation:none!important}
+    .ag-thinking:not(.done) .ag-th-label{animation:none!important}
     /* The composer bloom and rim beam keep their appearance but stop
        moving — a continuously travelling light is exactly the kind of
        thing this preference is asking us to stop. */
@@ -345,7 +361,7 @@
   .ag-say.warn{color:#b06d00}
 
   .ag-thinking{margin:2px 0 8px;opacity:0;animation:agIn .35s var(--ease) forwards}
-  .ag-th-head-row{display:flex;align-items:center;justify-space-between:space-between;width:100%}
+  .ag-th-head-row{display:flex;align-items:center;justify-content:space-between;width:100%}
   .ag-th-head{display:flex;align-items:center;gap:10px;flex:1;border:0;background:none;cursor:pointer;padding:10px 2px;font:inherit;text-align:left;color:var(--ink-2);border-radius:8px;transition:background .15s}
   .ag-interrupt-row{display:flex;align-items:center;justify-content:flex-end;width:100%;margin:2px 0 10px;opacity:0;animation:agIn .3s var(--ease) forwards}
   .ag-interrupt-btn{display:inline-flex;align-items:center;gap:6px;background:rgba(239,68,68,0.1);color:#ef4444;border:1px solid rgba(239,68,68,0.3);border-radius:999px;padding:4px 12px;font-size:.78rem;font-weight:600;cursor:pointer;transition:all .16s ease;flex:none}
@@ -364,7 +380,30 @@
     70%{box-shadow:0 0 0 7px color-mix(in srgb,var(--accent) 0%,transparent);transform:scale(1.15)}
     100%{box-shadow:0 0 0 0 color-mix(in srgb,var(--accent) 0%,transparent);transform:scale(1)}
   }
-  .ag-th-label{font-size:1.08rem;font-weight:600;color:var(--ink)}
+  .ag-th-label{font-size:1.08rem;font-weight:600;color:var(--ink);
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:min(60vw,420px)}
+  /* A light travelling across the words while the turn is live. Guarded by
+     @supports because the effect works by making the text itself
+     transparent and painting a gradient through it - where background-clip
+     does not apply, that is an invisible label rather than a plain one. */
+  @supports ((-webkit-background-clip:text) or (background-clip:text)){
+    .ag-thinking:not(.done) .ag-th-label{
+      background-image:linear-gradient(100deg,
+        var(--ink-2) 30%, var(--ink) 45%, var(--ink) 55%, var(--ink-2) 70%);
+      background-size:250% 100%;
+      -webkit-background-clip:text;background-clip:text;
+      -webkit-text-fill-color:transparent;color:transparent;
+      animation:thShimmer 2.4s linear infinite}
+  }
+  @keyframes thShimmer{from{background-position:200% 0}to{background-position:-50% 0}}
+
+  /* A file the model wrote. Monospace because it is a path, and dimmer than
+     a stage name because a list of twelve should read as one block of work
+     rather than twelve announcements. */
+  .ag-th-body .ag-think.is-file{padding:3px 2px;font-size:.85rem;color:var(--mut);
+    font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+  .ag-th-body .ag-think.is-file .ic{width:16px;height:16px;border:0;background:none}
+  .ag-th-body .ag-think.is-file .ic svg{width:11px;height:11px;color:var(--ok)}
   .ag-th-time{font-size:.85rem;color:var(--mut);font-weight:400}
   .ag-th-chev{width:14px;height:14px;color:var(--mut);margin-inline-start:auto;flex:none;transition:transform .2s var(--ease)}
   .ag-thinking.collapsed .ag-th-chev{transform:rotate(-90deg)}
@@ -3290,9 +3329,9 @@
     const existing = $("agInterruptRow");
     if (existing) existing.remove();
   }
-  function think(label, container) {
+  function think(label, container, cls) {
     clearEmpty();
-    const row = el("ag-think busy", '<span class="ic">' + ICON.dot + "</span><span></span>");
+    const row = el("ag-think busy" + (cls ? " " + cls : ""), '<span class="ic">' + ICON.dot + "</span><span></span>");
     row.lastChild.textContent = label;
     (container || agLog).appendChild(row); toBottom();
     return { done(next) { row.classList.remove("busy"); row.querySelector(".ic").innerHTML = ICON.check; if (next) row.lastChild.textContent = next; } };
@@ -3366,7 +3405,17 @@
     const clockTimer = setInterval(() => { timeEl.textContent = Math.round((Date.now() - t0) / 1000) + "s"; }, 500);
 
     return {
-      addStep(label) { return think(label, bodyEl); },
+      /* The header mirrors the newest step. Collapsed - which is most of the
+         time once you have seen one build - the panel used to say "Thinking"
+         for the whole turn, so the one line always on screen was the one line
+         that never told you anything. */
+      addStep(label, cls, headerLabel) {
+        // headerLabel lets a step read one way in the log and another in the
+        // header: a file row says the path, the header says how many so far.
+        const h = headerLabel === undefined ? label : headerLabel;
+        if (h) labelEl.textContent = h;
+        return think(label, bodyEl, cls);
+      },
       done() {
         clearInterval(clockTimer);
         const secs = Math.max(1, Math.round((Date.now() - t0) / 1000));
@@ -3539,6 +3588,7 @@
     const startedAt = Date.now();
     const handles = {};
     let thinkPanel = null;
+    let filesSeen = 0;
 
     // For follow-up edits, keep the existing preview visible — don't
     // cover it with the full boot screen. Only show boot on fresh builds.
@@ -3604,14 +3654,24 @@
       // Every stage (sandbox, install, writing the app, repair rounds,
       // preview) is a step inside ONE shared thinking panel for the turn —
       // created lazily on whichever stage arrives first.
-      if (!thinkPanel) thinkPanel = thinkingBlock(prompt);
+      if (!thinkPanel) { thinkPanel = thinkingBlock(prompt); filesSeen = 0; }
       if (state === "start") { handles[id] = thinkPanel.addStep(detail || STAGE_LABEL[id] || id); return; }
       if (handles[id]) { handles[id].done(detail); return; }
       // round-N events only ever arrive as "done" — no matching "start" was
       // sent (proposeWithRepair only reports once a round's build finished),
       // so show them as an already-completed step rather than a spinner
       // that never appeared.
-      const h = thinkPanel.addStep(detail); h.done();
+      const isFile = String(id || "").indexOf("file-") === 0;
+      if (isFile) filesSeen += 1;
+      const h = thinkPanel.addStep(
+        detail,
+        isFile ? "is-file" : "",
+        // A path in the header would just be the last one to arrive. The
+        // count is what is actually changing, and it is the only thing on
+        // screen while the panel is collapsed.
+        isFile ? "Writing your app \u00b7 " + filesSeen + " file" + (filesSeen === 1 ? "" : "s") : undefined
+      );
+      h.done();
     }
 
     // Only meaningful on the first build — a follow-up edits an app that

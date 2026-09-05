@@ -3353,6 +3353,16 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
 
   // ---- WebContainers flow: server proposes files, client builds ----
   try {
+    /* The work that happens before a single file is written was invisible:
+       reading the request, deciding it is a build rather than a question,
+       and — on a follow-up — loading the app that already exists. All of it
+       has already run by this point; none of it was ever said out loud. */
+    sseFrame(res, "stage", { id: "read", state: "done",
+      detail: project ? "Read your message and the app so far" : "Read your request" });
+    if (conversationBrief) {
+      sseFrame(res, "stage", { id: "brief", state: "done",
+        detail: "Folded the conversation into one brief" });
+    }
     sseFrame(res, "stage", { id: "propose", state: "start", detail: project ? "Making the change" : "Writing your app" });
     /* The brief when the conversation produced one, the raw prompt
        otherwise. This is the payoff for asking at all: "a bakery site", "it
@@ -3422,6 +3432,11 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
     const canBuild = req.body && req.body.canBuild !== false; // default true if omitted (desktop)
     const agentMode = String((req.body && req.body.mode) || "economy").toLowerCase();
     const thinking = !!(req.body && req.body.thinking);
+    /* Reported here and not with the other opening steps: both of these are
+       declared on this line, and reading them earlier is a dead-zone throw
+       that takes the whole build down with it. */
+    sseFrame(res, "stage", { id: "model", state: "done",
+      detail: (agentMode === "power" ? "Powered Souqi" : "Eco Souqi") + (thinking ? ", thinking" : "") });
     const byok = await resolveByok(req, req.body && req.body.provider);
 
     // MCP is a Powered Souqi capability, and connecting costs a process
@@ -3446,7 +3461,21 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
       // WHAT the app is; this tells it what the user has been asking for,
       // so "now make it bigger" has something to refer to.
       history: priorTurns,
-      onToolCall: (c) => sseFrame(res, "stage", { id: "tool-" + c.name, state: "done", detail: "Used " + c.name })
+      onToolCall: (c) => sseFrame(res, "stage", { id: "tool-" + c.name, state: "done", detail: "Used " + c.name }),
+      /* One line per file the model wrote. The log used to say "Writing your
+         app" and then nothing until it finished, which on a twelve-file app
+         is a spinner for a minute with no way to tell whether anything is
+         happening. Each of these is a file that exists by the time it is
+         reported. */
+      onProposal: (p) => {
+        for (const c of (p.calls || [])) {
+          const lines = String(c.content || "").split("\n").length;
+          sseFrame(res, "stage", {
+            id: "file-" + p.round + "-" + c.path, state: "done",
+            detail: c.path + "  \u00b7  " + lines + " line" + (lines === 1 ? "" : "s")
+          });
+        }
+      }
     };
 
     let result;
@@ -3477,10 +3506,18 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
           });
         },
         onRound: (r) => {
-          sseFrame(res, "stage", {
-            id: "round-" + r.round, state: "done",
-            detail: r.ok ? "Build succeeded" : ("Fixing " + (r.errors ? r.errors.length : 0) + " issue(s)")
-          });
+          /* "Fixing 3 issue(s)" says nothing about what is wrong. The errors
+             are right here and the first one is almost always the cause of
+             the rest, so name it and count the remainder. */
+          let detail = "Checked out clean";
+          if (!r.ok) {
+            const errs = r.errors || [];
+            const first = errs[0];
+            const where = first && first.file ? first.file.replace(/^src\//, "") + ": " : "";
+            const what = first && first.message ? String(first.message).slice(0, 70) : "a build error";
+            detail = "Fixing " + where + what + (errs.length > 1 ? "  (+" + (errs.length - 1) + " more)" : "");
+          }
+          sseFrame(res, "stage", { id: "round-" + r.round, state: "done", detail: detail });
         }
       }));
     }
