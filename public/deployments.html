@@ -920,32 +920,28 @@
      with its own stacking and overflow rules on three pages, and an
      absolutely-positioned panel inside it was going to be clipped by one of
      them. Fixed to the viewport sidesteps all of it. */
-  .ag-fly{position:fixed;z-index:120;min-width:236px;max-width:290px;
-    background:var(--card-surface,var(--card));border:1px solid var(--line);border-radius:13px;
-    box-shadow:0 1px 2px rgba(0,0,0,.06),0 18px 40px -18px rgba(24,20,14,.42);
-    padding:5px;opacity:0;visibility:hidden;transform:translateX(-6px);pointer-events:none;
+  .ag-fly{position:fixed;z-index:120;min-width:252px;max-width:302px;
+    background:var(--card);border:1px solid var(--line);border-radius:15px;
+    box-shadow:0 4px 10px -4px rgba(24,20,14,.10),0 22px 48px -20px rgba(24,20,14,.34);
+    padding:9px 8px 11px;opacity:0;visibility:hidden;transform:translateX(-6px);pointer-events:none;
     transition:opacity .16s ease,transform .16s var(--ease,ease),visibility .16s}
-  :root[data-theme="dark"] .ag-fly{box-shadow:0 1px 2px rgba(0,0,0,.5),0 20px 44px -18px rgba(0,0,0,.85)}
+  :root[data-theme="dark"] .ag-fly{box-shadow:0 4px 10px -4px rgba(0,0,0,.5),0 24px 52px -20px rgba(0,0,0,.85)}
   .ag-fly.open{opacity:1;visibility:visible;transform:none;pointer-events:auto}
   /* The gap between the rail and the panel is dead space the pointer has to
      cross. This bridges it so the panel does not close mid-reach. */
   .ag-fly::before{content:"";position:absolute;top:0;bottom:0;right:100%;width:14px}
-  .ag-fly .ttl{font-size:.655rem;font-weight:450;color:var(--mut);padding:6px 8px 5px;
-    letter-spacing:.02em;text-transform:uppercase}
-  .ag-fly a{display:flex;align-items:center;gap:9px;padding:6px 8px;border-radius:9px;
-    color:var(--ink);text-decoration:none;font-size:.8rem;line-height:1.25}
+  /* Names, at a size you read rather than scan. The coloured tile that was
+     here repeated the one on the card the link leads to and made a list of
+     six titles look like a toolbar. */
+  .ag-fly .ttl{font-size:.79rem;font-weight:450;color:var(--mut);padding:4px 12px 9px}
+  .ag-fly a{display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:10px;
+    color:var(--ink);text-decoration:none;font-size:.9rem;line-height:1.3}
   .ag-fly a:hover{background:var(--paper-2)}
-  .ag-fly a .tl{width:22px;height:22px;border-radius:7px;flex:none;display:grid;place-items:center;
-    font-family:var(--disp);font-weight:700;font-size:.7rem;color:#fff;
-    background-color:var(--tile);
-    background-image:linear-gradient(152deg,rgba(255,255,255,.32),rgba(255,255,255,0) 46%,rgba(0,0,0,.22));
-    box-shadow:inset 0 1px 0 rgba(255,255,255,.34),inset 0 0 0 1px rgba(0,0,0,.09)}
   .ag-fly a .tx{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  /* The one mark left: it says the app is live, which the name cannot. */
   .ag-fly a .dt{width:6px;height:6px;border-radius:50%;background:var(--ok);flex:none}
-  .ag-fly .none{padding:9px 8px 10px;font-size:.78rem;color:var(--mut)}
-  .ag-fly .all{display:block;margin-top:3px;padding-top:6px;border-top:1px solid var(--line);
-    text-align:center;font-size:.75rem;color:var(--mut)}
-  .ag-fly .all:hover{color:var(--ink)}
+  .ag-fly .none{padding:6px 12px 8px;font-size:.85rem;color:var(--mut)}
+  .ag-fly .start{color:var(--accent)}
   /* Touch has no hover: the panel would open on the tap that navigates and
      then sit there over the page it opened. */
   @media (hover:none),(max-width:900px){ .ag-fly{display:none !important} }
@@ -2596,12 +2592,6 @@
     var tab = document.querySelector('.ag-hist-tab[href="/projects"]');
     if (!tab || !window.matchMedia || !matchMedia("(hover:hover)").matches) return;
 
-    var PAL = ["#1aa6df", "#7c5cff", "#f59e0b", "#ec4899", "#10b981", "#6b6ff0"];
-    function hue(s) {
-      var n = 0, i; s = String(s || "");
-      for (i = 0; i < s.length; i++) n = (n * 31 + s.charCodeAt(i)) >>> 0;
-      return PAL[n % PAL.length];
-    }
     function safe(s) {
       return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
         return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
@@ -2629,18 +2619,18 @@
       if (!list.length) {
         fly.innerHTML = '<div class="ttl">Recent projects</div>'
           + '<div class="none">Nothing here yet.</div>'
-          + '<a class="all" href="/agent">Start one</a>';
+          + '<a class="start" href="/agent">Start one</a>';
         return;
       }
+      // No "see all" row: the tab this hangs off IS the link to /projects,
+      // and a second one under the list only repeats it.
       fly.innerHTML = '<div class="ttl">Recent projects</div>' + list.map(function (p) {
         var t = p.title || "Untitled app";
         return '<a href="/agent/' + safe(p.slug) + '" title="' + safe(t) + '">'
-          + '<span class="tl" style="--tile:' + hue(p.slug || p.id) + '">'
-          + safe(t.charAt(0).toUpperCase() || "A") + '</span>'
           + '<span class="tx">' + safe(t) + '</span>'
           + (p.deployed ? '<span class="dt" title="Live"></span>' : "")
           + '</a>';
-      }).join("") + '<a class="all" href="/projects">See all</a>';
+      }).join("");
     }
 
     function load() {
