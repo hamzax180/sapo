@@ -465,6 +465,12 @@ async function addTurn(projectId, turn) {
     seq: existing.length,
     role: turn.role === "user" ? "user" : "agent",
     kind: turn.kind || "text",
+    /* Which conversation inside the project this turn belongs to.
+       "" is the original thread: every turn written before projects had
+       more than one, and the default for anything that does not say. Read
+       it back through chatOf() rather than comparing raw, so old rows and
+       new ones sort into the same bucket. */
+    chatId: String(turn.chatId || "").slice(0, 40),
     body: String(turn.body === null || turn.body === undefined ? "" : turn.body).slice(0, 4000),
     detail: turn.detail ? String(turn.detail).slice(0, 300) : "",
     revisionId: turn.revisionId || null,
@@ -483,17 +489,56 @@ async function addTurn(projectId, turn) {
   return row;
 }
 
-async function listTurns(projectId) {
+/* One project can hold several conversations. They share the app - the
+   files, the revisions, the deployment - and differ only in what has been
+   said, which is the point: "start a new chat here" means keep the thing
+   you built and stop carrying three days of context into every reply. */
+const MAIN_CHAT = "";
+
+function chatOf(turn) { return String((turn && turn.chatId) || MAIN_CHAT); }
+
+/**
+ * @param {string} projectId
+ * @param {string} [chatId] when given, only that conversation's turns
+ */
+async function listTurns(projectId, chatId) {
   const c = col("turns");
-  if (c) return c.find({ projectId: projectId }, { projection: { _id: 0 } }).sort({ seq: 1 }).toArray();
-  return (mem.turns.get(projectId) || []).slice();
+  const all = c
+    ? await c.find({ projectId: projectId }, { projection: { _id: 0 } }).sort({ seq: 1 }).toArray()
+    : (mem.turns.get(projectId) || []).slice();
+  if (chatId === null || chatId === undefined) return all;
+  const want = String(chatId);
+  return all.filter((r) => chatOf(r) === want);
+}
+
+/**
+ * The project's conversations, newest activity first.
+ *
+ * Titled by the first thing the person said in each, because that is what
+ * they would recognise - the same reason a project is titled from its
+ * prompt rather than numbered.
+ */
+async function listChats(projectId) {
+  const all = await listTurns(projectId);
+  const byId = new Map();
+  for (const r of all) {
+    const key = chatOf(r);
+    let c = byId.get(key);
+    if (!c) { c = { id: key, title: "", turns: 0, at: r.at }; byId.set(key, c); }
+    c.turns += 1;
+    if (r.at > c.at) c.at = r.at;
+    if (!c.title && r.role === "user" && r.body) c.title = String(r.body).slice(0, 60);
+  }
+  // A project with no turns at all still has the one chat you are looking at.
+  if (!byId.size) byId.set(MAIN_CHAT, { id: MAIN_CHAT, title: "", turns: 0, at: new Date().toISOString() });
+  return [...byId.values()].sort((a, b) => (a.at < b.at ? 1 : -1));
 }
 
 module.exports = {
   init, ensureIndexes, owns, slugify,
   create, get, findBySlug, findPublished, findByCustomDomain, uniquePublicSlug, list, patch, remove,
   addRevision, getRevision, listRevisions, head, materialize,
-  addTurn, listTurns,
+  addTurn, listTurns, listChats, MAIN_CHAT,
   claimAnon,
   titleFromPrompt,
   TTL_UNCLAIMED_MS, MAX_REVISIONS

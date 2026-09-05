@@ -198,6 +198,43 @@
     padding:7px 15px;font-size:.84rem;font-weight:500;color:var(--ink-2);cursor:pointer;transition:.16s}
   .ag-head .ag-new:hover{border-color:#c6dbe7;color:var(--ink)}
 
+  /* ---- conversations within one project ------------------------------
+     "New build" starts a new PROJECT. This starts a new conversation in
+     the one you are already in: same app, same files, same deployment,
+     nothing carried over but the app itself. Three days of context is the
+     reason an edit request starts getting answered in terms of a decision
+     made on Monday. */
+  .ag-head .ag-chats{position:relative;margin-inline-start:auto;border:1px solid var(--line);
+    background:var(--card);border-radius:999px;padding:7px 12px 7px 14px;font:inherit;
+    font-size:.84rem;font-weight:500;color:var(--ink-2);cursor:pointer;transition:.16s;
+    display:flex;align-items:center;gap:7px;max-width:230px}
+  .ag-head .ag-chats:hover{border-color:#c6dbe7;color:var(--ink)}
+  .ag-head .ag-chats .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .ag-head .ag-chats svg{width:13px;height:13px;flex:none;opacity:.7}
+  /* When this is showing it owns the auto margin, or both it and New build
+     take one and the pair drifts apart. */
+  .ag-head .ag-chats:not([hidden])~.ag-new{margin-inline-start:8px}
+
+  .ag-chatpop{position:fixed;z-index:130;min-width:236px;max-width:320px;background:var(--card);
+    border:1px solid var(--line);border-radius:13px;padding:6px;
+    box-shadow:0 4px 10px -4px rgba(24,20,14,.10),0 22px 48px -20px rgba(24,20,14,.34);
+    opacity:0;visibility:hidden;transform:translateY(-4px);
+    transition:opacity .14s ease,transform .14s var(--ease),visibility .14s}
+  :root[data-theme="dark"] .ag-chatpop{box-shadow:0 4px 10px -4px rgba(0,0,0,.5),0 24px 52px -20px rgba(0,0,0,.85)}
+  .ag-chatpop.open{opacity:1;visibility:visible;transform:none}
+  .ag-chatpop .ttl{font-size:.72rem;color:var(--mut);padding:5px 10px 6px}
+  .ag-chatpop button{display:flex;align-items:center;gap:9px;width:100%;border:0;background:none;
+    color:var(--ink);font:inherit;font-size:.85rem;text-align:left;padding:8px 10px;
+    border-radius:9px;cursor:pointer}
+  .ag-chatpop button:hover{background:var(--paper-2)}
+  .ag-chatpop button.on{background:var(--paper-2);font-weight:600}
+  .ag-chatpop button .tx{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .ag-chatpop button .n{flex:none;font-size:.74rem;color:var(--mut);font-variant-numeric:tabular-nums}
+  .ag-chatpop svg{width:15px;height:15px;flex:none;color:var(--ink-2)}
+  .ag-chatpop .sep{height:1px;background:var(--line);margin:5px 6px}
+  .ag-chatpop .fresh{color:var(--accent)}
+  .ag-chatpop .fresh svg{color:var(--accent)}
+
   /* The one thing in the left column that scrolls. min-height:0 is what
      lets it actually shrink inside the flex column instead of pushing the
      composer off the bottom. */
@@ -2603,6 +2640,10 @@
     <div class="ag-head">
       <span class="mark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 16 4-4-4-4M6 8l-4 4 4 4M14.5 4l-5 16"/></svg></span>
       <b>Souqi Code</b>
+      <button type="button" class="ag-chats" id="agChats" hidden aria-haspopup="menu">
+        <span class="nm" id="agChatsLabel">Chat</span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg>
+      </button>
       <button type="button" class="ag-new" id="agNew">New build</button>
     </div>
     <!-- Hero wrapper: greeting + composer + tiles/examples as ONE group.
@@ -2882,6 +2923,9 @@
   let building = false;
   let projectId = "";
   let projectSlug = "";
+  /* Which conversation inside the project is on screen. "" is the original
+     thread, so a link with no ?chat= opens what it always did. */
+  let chatId = new URLSearchParams(location.search).get("chat") || "";
   let emptyShown = true;
   let pendingPrompt = ""; // the original ask, kept until a clarifying question is answered
 
@@ -3597,7 +3641,8 @@
           // Set by the plan card's "Build it" button; the server only asks
           // for confirmation when this is absent.
           confirmed: !!(opts && opts.confirmed),
-          planTitle: (opts && opts.planTitle) || ""
+          planTitle: (opts && opts.planTitle) || "",
+          chatId: chatId
         })
       });
       if (!res.ok || !res.body) throw new Error("That didn't work");
@@ -3723,6 +3768,9 @@
 
       const isFirstBuild = !projectId;
       projectId = result.projectId; projectSlug = result.slug;
+      // The chat now exists server-side; reflect it without a round trip.
+      if (!chats.some((c) => c.id === chatId)) chats.unshift({ id: chatId, title: "", turns: 2, at: new Date().toISOString() });
+      renderChatsControl();
       refreshPublishState();   // a freshly built app can be published
       if (isFirstBuild) {
         try { history.replaceState(null, "", "/agent/" + projectSlug); } catch (e) { /* non-fatal */ }
@@ -4571,6 +4619,84 @@
 
   $("agNew").addEventListener("click", () => { location.href = "/agent"; });
 
+  /* ---- conversations within one project --------------------------------
+     Switching is a navigation, not a teardown: /agent/<slug>?chat=<id> goes
+     back through boot(), which already knows how to replay a transcript and
+     rebuild the preview. Doing it in place would mean a second copy of that,
+     and the two would drift. It also means back/forward work and a chat has
+     a link. */
+  let chats = [];
+
+  const chatPop = document.createElement("div");
+  chatPop.className = "ag-chatpop";
+  chatPop.setAttribute("role", "menu");
+  document.body.appendChild(chatPop);
+
+  const IC_CHAT = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-8 8H4l2-3a8 8 0 1 1 15-5z"/></svg>';
+  const IC_PLUS = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>';
+
+  function chatLabel(c, i) {
+    return c.title || (c.id === "" ? "First chat" : "Chat " + (i + 1));
+  }
+
+  function renderChatsControl() {
+    const btn = $("agChats");
+    if (!btn) return;
+    // Only meaningful inside a project: a fresh page has nothing to switch to.
+    if (!projectSlug) { btn.hidden = true; return; }
+    btn.hidden = false;
+    const i = chats.findIndex((c) => c.id === chatId);
+    const me = i >= 0 ? chats[i] : null;
+    $("agChatsLabel").textContent = me ? chatLabel(me, i) : "New chat";
+    btn.title = chats.length > 1 ? chats.length + " conversations in this project" : "Conversations";
+  }
+
+  function closeChatPop() { chatPop.classList.remove("open"); }
+
+  function openChatPop() {
+    chatPop.innerHTML = '<div class="ttl">Conversations in this project</div>'
+      + chats.map((c, i) =>
+        '<button type="button" class="' + (c.id === chatId ? "on" : "") + '" data-chat="' + esc(c.id) + '">'
+        + IC_CHAT + '<span class="tx">' + esc(chatLabel(c, i)) + '</span>'
+        + '<span class="n">' + c.turns + '</span></button>').join("")
+      + '<div class="sep"></div>'
+      + '<button type="button" class="fresh" data-chat-new="1">' + IC_PLUS + 'New chat</button>';
+    chatPop.classList.add("open");
+
+    const r = $("agChats").getBoundingClientRect();
+    const w = chatPop.offsetWidth, h = chatPop.offsetHeight;
+    chatPop.style.left = Math.max(8, Math.min(r.left, innerWidth - w - 8)) + "px";
+    chatPop.style.top = (r.bottom + 6 + h > innerHeight ? Math.max(8, r.top - h - 6) : r.bottom + 6) + "px";
+  }
+
+  function goToChat(id) {
+    // "" is the original thread and gets the bare URL it has always had.
+    location.href = "/agent/" + encodeURIComponent(projectSlug) + (id ? "?chat=" + encodeURIComponent(id) : "");
+  }
+
+  document.addEventListener("click", (e) => {
+    if (e.target.closest("#agChats")) {
+      chatPop.classList.contains("open") ? closeChatPop() : openChatPop();
+      return;
+    }
+    const item = e.target.closest(".ag-chatpop button");
+    if (item) {
+      closeChatPop();
+      if (item.dataset.chatNew) {
+        // A local id: the chat does not exist server-side until its first
+        // turn is written, and until then it is simply an empty transcript
+        // pointed at the same project.
+        goToChat("c" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6));
+      } else if (item.dataset.chat !== chatId) {
+        goToChat(item.dataset.chat);
+      }
+      return;
+    }
+    if (!e.target.closest(".ag-chatpop")) closeChatPop();
+  });
+  addEventListener("keydown", (e) => { if (e.key === "Escape") closeChatPop(); });
+  addEventListener("resize", closeChatPop);
+
   /* ---------- account sidebar: Home / Favorites / Domains / Stats / Settings ---------- */
   const STAR = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01z"/></svg>';
   const TYPE_COLOR = { website: "#1aa6df", webapp: "#7c5cff", game: "#f43f5e", dashboard: "#f59e0b", portfolio: "#ec4899", mobile: "#10b981" };
@@ -5031,10 +5157,13 @@
     if (!m) return;
     const slug = m[1];
     try {
-      const res = await fetch("/api/codeagent/" + encodeURIComponent(slug), { credentials: "same-origin" });
+      const res = await fetch("/api/codeagent/" + encodeURIComponent(slug)
+        + (chatId ? "?chat=" + encodeURIComponent(chatId) : ""), { credentials: "same-origin" });
       if (!res.ok) throw new Error("gone");
       const data = await res.json();
       projectId = data.project.id; projectSlug = data.project.slug;
+      chats = data.chats || [];
+      renderChatsControl();
       refreshPublishState();   // opening an existing project: it may already be live
       $("agNewExtras").hidden = true;
       $("agRecent").hidden = true;

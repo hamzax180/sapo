@@ -3114,6 +3114,10 @@ app.post("/api/codeagent/build-feedback", express.json({ limit: "1mb" }), (req, 
  * turn rather than from memory of the first message.
  */
 app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
+  /* Which conversation in the project this message belongs to. "" is the
+     original thread and the default, so a client that never sends one keeps
+     working exactly as before. */
+  const chatId = String((req.body && req.body.chatId) || "").slice(0, 40);
   if (!wantsStream(req)) return res.status(400).json({ error: "this endpoint only supports SSE (Accept: text/event-stream)" });
   const prompt = String((req.body && req.body.prompt) || "").trim();
 
@@ -3192,8 +3196,14 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
       sseFrame(res, "done", {});
       return res.end();
     }
-    priorTurns = await projects.listTurns(project.id);
-    const editsUsed = Math.max(0, priorTurns.filter((t) => t.role === "user").length - 1);
+    /* Scoped to the conversation, not the project. A project can hold
+       several: they share the app and differ only in what has been said,
+       which is the point of starting a new one. The edit COUNT stays
+       project-wide though - that is a billing limit on the app, and
+       resetting it by opening a new chat would be a way around it. */
+    priorTurns = await projects.listTurns(project.id, chatId);
+    const allTurns = chatId ? await projects.listTurns(project.id) : priorTurns;
+    const editsUsed = Math.max(0, allTurns.filter((t) => t.role === "user").length - 1);
     if (editsUsed >= CODEAGENT_FREE_EDITS && !isAdminEmail(sessionUser.email)) {
       const masterDbForPlan = getMasterDb();
       let plan = "free";
@@ -3528,7 +3538,7 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
       const newTitle = planTitle.slice(0, 60) || projects.titleFromPrompt(prompt);
       project = await projects.create({ title: newTitle, prompt, meta: { kind: "code", buildType: createdBuildType }, owner });
     }
-    await projects.addTurn(project.id, { role: "user", kind: "text", body: prompt });
+    await projects.addTurn(project.id, { role: "user", kind: "text", body: prompt, chatId: chatId });
     const revision = await projects.addRevision(
       project.id,
       { files: fileContents },
@@ -3542,7 +3552,7 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
     await projects.addTurn(project.id, {
       role: "agent", kind: "result",
       body: result.note ? result.note + "\n\n" + buildSummary : buildSummary,
-      revisionId: revision.id
+      revisionId: revision.id, chatId: chatId
     });
     try { await projects.ensureIndexes(); } catch(e) {}
     try { await codeAgentUsage.ensureIndexes(); } catch(e) {}
@@ -3577,7 +3587,14 @@ app.get("/api/codeagent/:key", async (req, res, next) => {
     if (!project) return res.status(404).json({ error: "project not found" });
     if (!projects.owns(project, owner)) return res.status(403).json({ error: "not your project" });
 
-    const [turns, revision] = await Promise.all([projects.listTurns(project.id), projects.head(project.id)]);
+    /* ?chat=<id> selects one conversation; without it you get the original
+       thread, which is what every link to a project has always opened. */
+    const wantChat = req.query.chat === undefined ? projects.MAIN_CHAT : String(req.query.chat).slice(0, 40);
+    const [turns, chats, revision] = await Promise.all([
+      projects.listTurns(project.id, wantChat),
+      projects.listChats(project.id),
+      projects.head(project.id)
+    ]);
     const live = await codeAgentLive(project);
     let sandboxAlive = false;
     if (live) {
@@ -3592,6 +3609,8 @@ app.get("/api/codeagent/:key", async (req, res, next) => {
     res.json({
       project: { id: project.id, slug: project.slug, title: project.title, prompt: project.prompt, createdAt: project.createdAt, updatedAt: project.updatedAt },
       turns: turns,
+      chats: chats,
+      chatId: wantChat,
       // The whole tree, not the last diff — otherwise reopening a project
       // after a follow-up edit renders only the files that edit touched.
       files: Object.keys(reopenSrc.files).filter((f) => f.startsWith("src/")),
