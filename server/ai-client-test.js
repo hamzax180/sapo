@@ -56,8 +56,29 @@ const FULL_ROUTES = {
     assert.strictEqual(called, false, "fetch was called despite AI_ENABLED being off");
   });
 
-  await check("enabled, but a route has no key -> that route disabled, not a crash", async () => {
+  await check("a route with no key is served by the one that has a key", async () => {
+    // prose and json are a cost preference, not a capability split. This used
+    // to return {disabled:true}, and in production AI_PROSE_KEY was empty:
+    // assessPrompt failed open to "build" on every turn, so the agent could
+    // never hold a conversation and every plan came from fallbackPlan(). One
+    // unset key, no error anywhere.
     client.init({ enabled: true, fetchImpl: okFetch(), routes: { prose: FULL_ROUTES.prose, json: { baseUrl: "", model: "", key: "" } } });
+    const res = await client.chat({ route: "json", messages: [{ role: "user", content: "hi" }] });
+    assert.strictEqual(res.ok, true);
+    assert.strictEqual(res.servedFallback, true);
+    assert.strictEqual(res.route, "prose");        // billed to whoever did the work
+  });
+
+  await check("a configured route is never diverted", async () => {
+    client.init({ enabled: true, fetchImpl: okFetch(), routes: FULL_ROUTES });
+    const res = await client.chat({ route: "json", messages: [{ role: "user", content: "hi" }] });
+    assert.strictEqual(res.route, "json");
+    assert.strictEqual(res.servedFallback, false);
+  });
+
+  await check("no route configured at all -> disabled, not a crash", async () => {
+    const none = { baseUrl: "", model: "", key: "" };
+    client.init({ enabled: true, fetchImpl: okFetch(), routes: { prose: none, json: none } });
     const res = await client.chat({ route: "json", messages: [{ role: "user", content: "hi" }] });
     assert.strictEqual(res.ok, false);
     assert.strictEqual(res.disabled, true);

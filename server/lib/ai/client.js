@@ -94,6 +94,30 @@ function ensureInit() {
   if (!CONFIG) init(); // reads real env on first use — same as any other lazily-configured module here
 }
 
+function configured(r) { return !!(r && r.key && r.baseUrl && r.model); }
+
+/**
+ * Which route actually SERVES a request for `route`.
+ *
+ * prose and json are a cost-and-quality preference, not a capability split:
+ * both are OpenAI-shaped chat endpoints and either model can do either job.
+ * When only one was configured the other role just returned {disabled:true},
+ * and every caller of it fell back — assessPrompt failed open to "build", so
+ * the agent could only ever build and never hold a conversation, and every
+ * plan card came from fallbackPlan(). One unset key turned the conversational
+ * half of the product off with nothing logged and no error to notice.
+ *
+ * Answering from whichever route IS configured is strictly better than not
+ * answering. The breaker, the budget and the spend all follow the route that
+ * did the work, not the one that was asked for, so the accounting stays
+ * honest about which provider was actually billed.
+ */
+function resolveRoute(route) {
+  if (configured(CONFIG.routes[route])) return route;
+  const alt = route === "prose" ? "json" : "prose";
+  return configured(CONFIG.routes[alt]) ? alt : route;
+}
+
 function recordFailure(route) {
   const b = breakers[route];
   b.failCount += 1;
@@ -173,14 +197,16 @@ async function chat(req) {
     return chatByok(req);
   }
 
-  const route = req.route;
-  if (!CONFIG.routes[route]) throw new Error("ai/client: unknown route \"" + route + "\" (expected \"prose\" or \"json\")");
+  if (!CONFIG.routes[req.route]) throw new Error("ai/client: unknown route \"" + req.route + "\" (expected \"prose\" or \"json\")");
 
   if (!CONFIG.enabled) return { ok: false, disabled: true, reason: "AI_ENABLED is not set" };
 
+  // Everything below bills, trips and counts against the route that serves
+  // the call, which is not always the one that was asked for.
+  const route = resolveRoute(req.route);
   const r = CONFIG.routes[route];
-  if (!r.key || !r.baseUrl || !r.model) {
-    return { ok: false, disabled: true, reason: "route \"" + route + "\" has no key/baseUrl/model configured" };
+  if (!configured(r)) {
+    return { ok: false, disabled: true, reason: "no route configured with a key/baseUrl/model (asked for \"" + req.route + "\")" };
   }
   if (breakerOpen(route)) {
     return { ok: false, breakerOpen: true, reason: "circuit breaker open for \"" + route + "\" until " + new Date(breakers[route].openUntil).toISOString() };
@@ -224,6 +250,10 @@ async function chat(req) {
     const choice = json.choices && json.choices[0];
     return {
       ok: true,
+      // Which route ran, so a caller (and the demo scripts) can tell that a
+      // prose request was served by the json provider.
+      route: route,
+      servedFallback: route !== req.route,
       message: choice ? choice.message : null,
       finishReason: choice ? choice.finish_reason : null,
       usage: usage,
