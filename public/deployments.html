@@ -18,6 +18,26 @@
   *,*::before,*::after{box-sizing:border-box}
   *[hidden], [hidden]{display:none !important;pointer-events:none !important;visibility:hidden !important}
   :root{
+    /* Interactive hover, per theme.
+
+       --line-hover is the border that lights up on a button, chip, pill or
+       tile. It was the literal pale blue #c6dbe7 in fifteen rules: a colour
+       tuned for a white page, which on a dark surface reads as a bright
+       outline drawn AROUND the control rather than a highlight OF it.
+
+       --wash-rgb is the ink of a hover FILL and of the scrollbar thumb, as a
+       bare RGB triple so every surface keeps the alpha it was tuned with -
+       there are ten distinct ones, and collapsing them into two tokens would
+       restyle a lot of surfaces to fix a bug about their colour. Hardcoded
+       near-black, a hover darkened on light (right) and darkened on dark
+       (invisible). Only the colour flips; no alpha changes.
+
+       Deliberately NOT applied to the shadows, or to the chrome on .pline /
+       .art-stack / the [data-theme="light"] card rules: those sit on an
+       explicitly white background or are shadows, and ink is the correct
+       colour for both in either theme. */
+    --line-hover:#c6dbe7;
+    --wash-rgb:18,32,46;
     --paper:#faf7f2; --paper-2:#f3eee6; --card:#ffffff;
     --ink:#12202e; --ink-2:#5d6f80; --mut:#8b98a5;
     --accent:#1aa6df; --accent-2:#0f8ec4;
@@ -58,6 +78,8 @@
   --scrim-blur: blur(5px) saturate(105%);
   }
   :root[data-theme="dark"]{
+    --line-hover:rgba(255,255,255,.22);
+    --wash-rgb:255,255,255;
     --paper:#1c1917; --paper-2:#24211e; --card:#2a2622;
     --ink:#f0eadc; --ink-2:#a49e92; --mut:#7e766a;
     --tint:#3d3428; --tint-2:#2d2420;
@@ -476,7 +498,7 @@
   .ag-history.on ~ .ag-main .nav{padding-left:clamp(18px,4vw,40px)}
   .nav .sp{margin-left:auto}
   .btn-g{padding:9px 15px;border:1px solid var(--line);border-radius:10px;font-size:.86rem;font-weight:600;transition:.16s;background:var(--card);color:var(--ink);cursor:pointer}
-  .btn-g:hover{border-color:#c6dbe7}
+  .btn-g:hover{border-color:var(--line-hover)}
   .btn-d{padding:9px 17px;border-radius:10px;background:var(--accent);color:#fff;font-size:.86rem;font-weight:600;transition:.16s;border:0;cursor:pointer}
   .btn-d:hover{background:var(--accent-2)}
   .btn-d:disabled,.btn-g:disabled{opacity:.55;cursor:not-allowed}
@@ -526,7 +548,7 @@
     border:1px solid var(--line);border-radius:5px;padding:1px 5px;background:var(--paper-2)}
   .chips{display:flex;gap:6px;flex-wrap:wrap}
   .fchip{border:1px solid var(--line);background:var(--card);color:var(--ink-2);border-radius:999px;padding:6px 13px;font-size:.82rem;font-weight:500;cursor:pointer;transition:.15s}
-  .fchip:hover{border-color:#c6dbe7;color:var(--ink)}
+  .fchip:hover{border-color:var(--line-hover);color:var(--ink)}
   .fchip.on{background:var(--ink);color:var(--paper);border-color:var(--ink)}
   .toolbar .sp{margin-left:auto}
 

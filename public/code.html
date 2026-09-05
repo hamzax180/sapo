@@ -22,6 +22,26 @@
   *,*::before,*::after{box-sizing:border-box}
   *[hidden], [hidden]{display:none !important;pointer-events:none !important;visibility:hidden !important}
   :root{
+    /* Interactive hover, per theme.
+
+       --line-hover is the border that lights up on a button, chip, pill or
+       tile. It was the literal pale blue #c6dbe7 in fifteen rules: a colour
+       tuned for a white page, which on a dark surface reads as a bright
+       outline drawn AROUND the control rather than a highlight OF it.
+
+       --wash-rgb is the ink of a hover FILL and of the scrollbar thumb, as a
+       bare RGB triple so every surface keeps the alpha it was tuned with -
+       there are ten distinct ones, and collapsing them into two tokens would
+       restyle a lot of surfaces to fix a bug about their colour. Hardcoded
+       near-black, a hover darkened on light (right) and darkened on dark
+       (invisible). Only the colour flips; no alpha changes.
+
+       Deliberately NOT applied to the shadows, or to the chrome on .pline /
+       .art-stack / the [data-theme="light"] card rules: those sit on an
+       explicitly white background or are shadows, and ink is the correct
+       colour for both in either theme. */
+    --line-hover:#c6dbe7;
+    --wash-rgb:18,32,46;
     --paper:#faf7f2; --paper-2:#f3eee6; --card:#ffffff;
     --ink:#12202e; --ink-2:#5d6f80; --mut:#8b98a5;
     --accent:#1aa6df; --accent-2:#0f8ec4; --accent-ink:#04202e;
@@ -32,6 +52,8 @@
     --ease:cubic-bezier(.16,1,.3,1);
   }
   :root[data-theme="dark"]{
+    --line-hover:rgba(255,255,255,.22);
+    --wash-rgb:255,255,255;
     --paper:#1c1917; --paper-2:#24211e; --card:#2a2622;
     --ink:#f0eadc; --ink-2:#a49e92; --mut:#7e766a;
     --tint:#3d3428; --tint-2:#2d2420;
@@ -100,7 +122,7 @@
   .nav-tag{display:inline-flex;align-items:center;background:var(--accent);color:#fff;border-radius:999px;
     padding:0 12px;font-weight:700;font-size:.8rem;height:28px;margin-inline-end:8px}
   .btn-g{padding:9px 15px;border:1px solid var(--line);border-radius:10px;color:var(--ink);font-size:.86rem;font-weight:600;transition:.16s}
-  .btn-g:hover{border-color:#c6dbe7;background:rgba(18,32,46,.05)}
+  .btn-g:hover{border-color:var(--line-hover);background:rgba(var(--wash-rgb),.05)}
   .btn-d{padding:9px 17px;border-radius:10px;background:var(--accent);color:#fff;font-size:.86rem;font-weight:700;transition:.16s}
   .btn-d:hover{background:var(--accent-2);transform:translateY(-1px)}
   .nav { display: none !important; }
@@ -196,7 +218,7 @@
   .ag-head b{font-family:var(--disp);font-weight:600;font-size:1.05rem;letter-spacing:-.02em}
   .ag-head .ag-new{margin-inline-start:auto;border:1px solid var(--line);background:var(--card);border-radius:999px;
     padding:7px 15px;font-size:.84rem;font-weight:500;color:var(--ink-2);cursor:pointer;transition:.16s}
-  .ag-head .ag-new:hover{border-color:#c6dbe7;color:var(--ink)}
+  .ag-head .ag-new:hover{border-color:var(--line-hover);color:var(--ink)}
 
   /* ---- conversations within one project ------------------------------
      "New build" starts a new PROJECT. This starts a new conversation in
@@ -208,7 +230,7 @@
     background:var(--card);border-radius:999px;padding:7px 12px 7px 14px;font:inherit;
     font-size:.84rem;font-weight:500;color:var(--ink-2);cursor:pointer;transition:.16s;
     display:flex;align-items:center;gap:7px;max-width:230px}
-  .ag-head .ag-chats:hover{border-color:#c6dbe7;color:var(--ink)}
+  .ag-head .ag-chats:hover{border-color:var(--line-hover);color:var(--ink)}
   .ag-head .ag-chats .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .ag-head .ag-chats svg{width:13px;height:13px;flex:none;opacity:.7}
   /* When this is showing it owns the auto margin, or both it and New build
@@ -277,8 +299,8 @@
   .ag.is-new{overflow-y:auto!important;overscroll-behavior:contain}
   .ag.is-new .ag-log::-webkit-scrollbar{display:none!important;width:0!important;height:0!important}
   .ag-log::-webkit-scrollbar{width:6px}
-  .ag-log::-webkit-scrollbar-thumb{background:rgba(18,32,46,.14);border-radius:8px}
-  .ag-log::-webkit-scrollbar-thumb:hover{background:rgba(18,32,46,.24)}
+  .ag-log::-webkit-scrollbar-thumb{background:rgba(var(--wash-rgb),.14);border-radius:8px}
+  .ag-log::-webkit-scrollbar-thumb:hover{background:rgba(var(--wash-rgb),.24)}
 
   /* The user's own message gets a distinct entrance from the agent's:
      it comes from the composer, so it rises and settles with a slight
@@ -655,7 +677,7 @@
      old circular .ag-send. */
   .ag-attach{flex:none;width:30px;height:30px;border:1px solid var(--line);background:transparent;color:var(--ink-2);
     border-radius:6px;display:grid;place-items:center;cursor:pointer;transition:.15s}
-  .ag-attach:hover{border-color:#c6dbe7;color:var(--ink)}
+  .ag-attach:hover{border-color:var(--line-hover);color:var(--ink)}
   .ag-attach svg{width:16px;height:16px}
   .ag-attach-chip[hidden]{display:none}
   .ag-attach-chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--paper-2);
@@ -671,7 +693,7 @@
   .ag-model-pill{display:inline-flex;align-items:center;gap:5px;padding:4px 9px;border-radius:8px;
     border:1px solid var(--line);background:var(--card);color:var(--ink);font-size:.8rem;font-weight:600;
     cursor:pointer;transition:.16s;user-select:none}
-  .ag-model-pill:hover{border-color:#c6dbe7;background:var(--paper-2)}
+  .ag-model-pill:hover{border-color:var(--line-hover);background:var(--paper-2)}
   .ag-model-pill svg{width:11px;height:11px;color:var(--mut);transition:transform .16s ease}
   .ag-model-pill.open svg{transform:rotate(180deg)}
   .ag-think-badge{background:rgba(124,58,237,0.18);color:#a78bfa;border:1px solid rgba(124,58,237,0.4);
@@ -745,7 +767,7 @@
   /* Voice Input Microphone button */
   .ag-voice-btn{flex:none;width:30px;height:30px;border:1px solid var(--line);background:transparent;color:var(--ink-2);
     border-radius:6px;display:grid;place-items:center;cursor:pointer;transition:.16s}
-  .ag-voice-btn:hover{border-color:#c6dbe7;color:var(--ink)}
+  .ag-voice-btn:hover{border-color:var(--line-hover);color:var(--ink)}
   .ag-voice-btn svg{width:15px;height:15px}
   .ag-voice-btn.listening{background:rgba(239,68,68,0.18);border-color:#ef4444;color:#ef4444;animation:micPulse 1.2s infinite alternate}
   @keyframes micPulse{
@@ -863,7 +885,7 @@
   .ag-tile .ic{width:56px;height:56px;border-radius:12px;background:var(--paper-2);border:1.5px solid var(--line);
     display:grid;place-items:center;color:var(--ink-2);transition:.2s}
   .ag-tile .ic svg{width:24px;height:24px}
-  .ag-tile:hover .ic{border-color:#c6dbe7;color:var(--ink);transform:translateY(-2px)}
+  .ag-tile:hover .ic{border-color:var(--line-hover);color:var(--ink);transform:translateY(-2px)}
   .ag-tile.on .ic{background:var(--accent);border-color:var(--accent);color:#fff;
     box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 16%,transparent),0 4px 14px -4px color-mix(in srgb,var(--accent) 65%,transparent)}
   .ag-tile.on{color:var(--ink);font-weight:600}
@@ -2309,8 +2331,8 @@
   .ag-hist-view{flex:1 1 auto;min-height:0;overflow-y:auto;display:none}
   .ag-hist-view.on{display:block}
   .ag-hist-view::-webkit-scrollbar{width:8px}
-  .ag-hist-view::-webkit-scrollbar-thumb{background:rgba(18,32,46,.14);border-radius:8px}
-  .ag-hist-view::-webkit-scrollbar-thumb:hover{background:rgba(18,32,46,.24)}
+  .ag-hist-view::-webkit-scrollbar-thumb{background:rgba(var(--wash-rgb),.14);border-radius:8px}
+  .ag-hist-view::-webkit-scrollbar-thumb:hover{background:rgba(var(--wash-rgb),.24)}
 
   .ag-hist-list{padding:6px 10px}
   .ag-hist-item{display:flex;align-items:center;gap:2px;width:100%;text-align:left;border:1px solid transparent;background:none;border-radius:12px;
@@ -2328,7 +2350,7 @@
   .ag-hist-item .w{font-size:.74rem;color:var(--mut);margin-top:1px}
   .ag-hist-star{flex:none;border:0;background:none;cursor:pointer;color:var(--mut);width:30px;height:30px;border-radius:8px;display:grid;place-items:center;margin-inline-end:2px;opacity:.55;transition:.15s}
   .ag-hist-item:hover .ag-hist-star{opacity:1}
-  .ag-hist-star:hover{background:rgba(18,32,46,.08);color:var(--ink)}
+  .ag-hist-star:hover{background:rgba(var(--wash-rgb),.08);color:var(--ink)}
   .ag-hist-star svg{width:15px;height:15px}
   .ag-hist-star.on{color:#e0a11a;opacity:1}
   .ag-hist-star.on svg{fill:currentColor}
