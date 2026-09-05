@@ -1736,6 +1736,26 @@ app.post("/api/projects/:key/restore", async (req, res, next) => {
 });
 
 /** DELETE /api/projects/:key */
+/** PATCH /api/projects/:key - Body: { title }
+    Renames a project. The SLUG is deliberately left alone: it is the URL the
+    project already has, it is in the address bar and in every link anyone has
+    to it, and re-deriving it from a new title would break all of them to fix
+    nothing. Title is what people read; slug is what machines follow. */
+app.patch("/api/projects/:key", async (req, res, next) => {
+  try {
+    const owner = anon.ownerOf(req, res);
+    const project = await resolveProject(req.params.key, owner);
+    if (!project) return res.status(404).json({ error: "project not found" });
+    if (!projects.owns(project, owner)) return res.status(403).json({ error: "not your project" });
+
+    const title = String((req.body && req.body.title) || "").replace(/\s+/g, " ").trim().slice(0, 60);
+    if (!title) return res.status(400).json({ error: "title required" });
+
+    await projects.patch(project.id, { title });
+    res.json({ ok: true, title });
+  } catch (e) { next(e); }
+});
+
 app.delete("/api/projects/:key", async (req, res, next) => {
   try {
     const owner = anon.ownerOf(req, res);

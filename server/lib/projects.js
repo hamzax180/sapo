@@ -72,12 +72,12 @@ async function ensureIndexes() {
    "can you please make me an" is stripped as readily as "build a". A regex
    literal, not new RegExp: the string form needs every backslash doubled and
    it has been silently flattened to `^s*` twice already. */
-const ASK_PREFIX = /^\s*(?:(?:please|pls|plz|hey|hi|hello|yo|ok|okay)[,\s]+)*(?:(?:can|could|would|will)\s+(?:you|u)\s+)?(?:(?:please|pls|plz)\s+)*(?:i\s+(?:want|need|would\s+like)\s+(?:you\s+to\s+)?)?(?:go\s+ahead\s+and\s+)?(?:build|make|create|design|generate|develop|code|write|do)\s+(?:me\s+|us\s+|for\s+me\s+)?(?:an|a|the|my|some)?\s*/i;
+const ASK_PREFIX = /^\s*(?:(?:please|pls|plz|hey|hi|hello|yo|ok|okay)[,\s]+)*(?:(?:can|could|would|will)\s+(?:you|u)\s+)?(?:(?:please|pls|plz)\s+)*(?:i\s+(?:want|need|would\s+like)\s+(?:you\s+to\s+)?)?(?:go\s+ahead\s+and\s+)?(?:build|make|create|design|generate|develop|code|write|do)\s+(?:me\s+|us\s+|for\s+me\s+)?(?:(?:an|a|the|my|some)\s+)?/i;
 
 /* Asking for a thing without a verb: "i want a dashboard", "i need an
    invoice app". ASK_PREFIX is anchored on the verb, so on its own it
    matched none of this and the title kept the whole request. */
-const WISH_PREFIX = /^\s*(?:(?:please|pls|plz|hey|hi|hello|yo)[,\s]+)*(?:i\s+(?:want|need|would\s+like)|(?:can|could)\s+(?:you|u)\s+(?:get|give)\s+me)\s+(?:an|a|the|my|some)?\s*/i;
+const WISH_PREFIX = /^\s*(?:(?:please|pls|plz|hey|hi|hello|yo)[,\s]+)*(?:i\s+(?:want|need|would\s+like)|(?:can|could)\s+(?:you|u)\s+(?:get|give)\s+me)\s+(?:(?:an|a|the|my|some)\s+)?/i;
 
 // Noise people type around a request that is not part of what it is.
 const FILLER = /\b(?:pls|plz|please|asap|quickly|woow+|wow+|omg|cool|nice|thanks|thx)\b/gi;
@@ -107,18 +107,30 @@ function titleFromPrompt(prompt) {
 
   // The first clause that actually says something: "hello. hello. build me a
   // porto for hamza" is named by the third clause, not by "Hello".
-  const clauses = original.split(/[.!?;\n]+/).map((c) => c.trim()).filter(Boolean);
-  let s = clauses.find((c) => !GREETING_ONLY.test(c.replace(/[^\w\s]/g, "").trim()))
+  /* A dot ends a sentence only when whitespace or the end follows it -
+     "@damndrip.com" and "3.5" are not two clauses. */
+  const clauses = original.split(/[.!?;\n]+(?:\s+|$)/).map((c) => c.trim()).filter(Boolean);
+  let s = clauses.find((c) => ASK_PREFIX.test(c) || WISH_PREFIX.test(c))
+    || clauses.find((c) => !GREETING_ONLY.test(c.replace(/[^\w\s]/g, "").trim()))
     || clauses[0] || original;
 
   const stripped = s.replace(ASK_PREFIX, "");
   s = (stripped === s ? s.replace(WISH_PREFIX, "") : stripped)
-    .replace(FILLER, " ").replace(/\s+/g, " ").trim();
+    .replace(FILLER, " ").replace(/\s+/g, " ").trim()
+    // Whatever the prefix left behind. "BUILD ,E A MINECRAFT GAME" is
+    // "me" mistyped, and it survived as ",e a minecraft game" because a
+    // comma is not the letter the prefix was looking for. A stray single
+    // character sitting in front of an article is not part of the name.
+    .replace(/^[\W_]+/, "")
+    .replace(/^\w\s+(?=(?:an|a|the|my|some)\s)/i, "");
   if (!s) return "Untitled app";
 
   const words = s.split(" ").slice(0, 6);
   // A title ending on "a", "for" or "is" reads as a sentence someone cut off.
   while (words.length > 1 && SMALL_WORDS.has(words[words.length - 1].toLowerCase())) words.pop();
+  // ...or on the comma the sentence was going to continue past.
+  words[words.length - 1] = words[words.length - 1].replace(/[,;:\u2013\u2014-]+$/, "");
+  if (!words[words.length - 1] && words.length > 1) words.pop();
 
   let out = words.join(" ");
   if (out.length > 48) out = out.slice(0, 48).replace(/\s+\S*$/, "");

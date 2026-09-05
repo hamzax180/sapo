@@ -599,6 +599,58 @@
   .card .star svg{width:15px;height:15px}
   .card .star.on svg{fill:currentColor}
 
+  /* ---- per-project menu ----------------------------------------------
+     Rename and Delete had no way in from this page at all: the only way to
+     get rid of a project was to leave it, and there was no way to rename one
+     ever. Both endpoints existed (DELETE) or were one route away (PATCH). */
+  .mbtn{border:0;background:transparent;color:var(--mut);flex:none;
+    width:26px;height:26px;border-radius:8px;display:grid;place-items:center;cursor:pointer;
+    transition:background .15s,color .15s}
+  .mbtn:hover,.mbtn.on{background:var(--tint-2);color:var(--ink)}
+  .mbtn svg{width:16px;height:16px}
+
+  /* position:fixed and a child of <body>, for the same reason the rail's
+     flyout is: the card clips, the grid scrolls, and the menu must not. */
+  .pmenu{position:fixed;z-index:130;min-width:190px;background:var(--card);
+    border:1px solid var(--line);border-radius:13px;padding:6px;
+    box-shadow:0 4px 10px -4px rgba(24,20,14,.10),0 22px 48px -20px rgba(24,20,14,.34);
+    opacity:0;visibility:hidden;transform:translateY(-4px);
+    transition:opacity .14s ease,transform .14s var(--ease),visibility .14s}
+  :root[data-theme="dark"] .pmenu{box-shadow:0 4px 10px -4px rgba(0,0,0,.5),0 24px 52px -20px rgba(0,0,0,.85)}
+  .pmenu.open{opacity:1;visibility:visible;transform:none}
+  .pmenu button{display:flex;align-items:center;gap:10px;width:100%;border:0;background:none;
+    color:var(--ink);font:inherit;font-size:.85rem;text-align:left;padding:8px 10px;
+    border-radius:9px;cursor:pointer}
+  .pmenu button:hover{background:var(--paper-2)}
+  .pmenu button svg{width:15px;height:15px;flex:none;color:var(--ink-2)}
+  .pmenu .sep{height:1px;background:var(--line);margin:5px 6px}
+  .pmenu .danger,.pmenu .danger svg{color:var(--danger)}
+  .pmenu .danger:hover{background:rgba(217,45,32,.1)}
+
+  /* ---- rename / delete dialog ---- */
+  .pdlg{position:fixed;inset:0;z-index:140;display:none;align-items:center;justify-content:center;
+    padding:20px;background:var(--scrim);
+    -webkit-backdrop-filter:var(--scrim-blur);backdrop-filter:var(--scrim-blur)}
+  .pdlg.open{display:flex}
+  .pdlg .box{width:min(420px,100%);box-sizing:border-box;background:var(--card);
+    border:1px solid var(--line);border-radius:16px;padding:20px;
+    box-shadow:0 24px 60px -24px rgba(24,20,14,.5)}
+  .pdlg h3{font-family:var(--disp);font-size:1.06rem;margin:0 0 6px;color:var(--ink)}
+  .pdlg p{font-size:.85rem;color:var(--ink-2);margin:0 0 14px;line-height:1.45}
+  .pdlg input{width:100%;box-sizing:border-box;font:inherit;font-size:.92rem;color:var(--ink);
+    background:var(--paper-2);border:1px solid var(--line);border-radius:10px;
+    padding:10px 12px;margin-bottom:14px}
+  .pdlg input:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:transparent}
+  .pdlg .acts{display:flex;gap:8px;justify-content:flex-end}
+  .pdlg .acts button{border:0;border-radius:10px;padding:9px 16px;font:inherit;font-size:.86rem;
+    font-weight:600;cursor:pointer}
+  .pdlg .cancel{background:var(--paper-2);color:var(--ink)}
+  .pdlg .go{background:var(--accent);color:#fff}
+  .pdlg .go:hover{background:var(--accent-2)}
+  .pdlg .go.danger{background:var(--danger)}
+  .pdlg .go[disabled]{opacity:.55;cursor:default}
+
+
   /* ---- status, worded the same on both pages ---- */
   .pill{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:3px 9px 3px 7px;
     font-size:.705rem;font-weight:600;letter-spacing:.012em;flex:none;position:relative;
@@ -781,10 +833,21 @@
      here repeated the one on the card the link leads to and made a list of
      six titles look like a toolbar. */
   .ag-fly .ttl{font-size:.79rem;font-weight:450;color:var(--mut);padding:4px 12px 9px}
+  /* The list scrolls, not the panel: the hover bridge is pinned to the panel
+     and would scroll out from under the pointer along with everything else. */
+  .ag-fly .lst{max-height:min(58vh,392px);overflow-y:auto;overscroll-behavior:contain;
+    scrollbar-width:thin}
   .ag-fly a{display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:10px;
     color:var(--ink);text-decoration:none;font-size:.9rem;line-height:1.3}
   .ag-fly a:hover{background:var(--paper-2)}
+  /* Where you already are. Without it the list gives no clue which of these
+     is the page you are looking at. */
+  .ag-fly a.on{background:var(--paper-2);font-weight:600}
   .ag-fly a .tx{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  /* Only rendered when two rows would otherwise read identically - building
+     the same thing twice gave two rows both saying "build e commerce for
+     electronics" and no way to tell which was which. */
+  .ag-fly a .wh{flex:none;font-size:.76rem;color:var(--mut);font-variant-numeric:tabular-nums}
   /* The one mark left: it says the app is live, which the name cannot. */
   .ag-fly a .dt{width:6px;height:6px;border-radius:50%;background:var(--ok);flex:none}
   .ag-fly .none{padding:6px 12px 8px;font-size:.85rem;color:var(--mut)}
@@ -1175,6 +1238,7 @@
         + '<button type="button" class="star ' + star + '" data-slug="' + esc(p.slug)
         + '" data-fav="' + (p.favorite ? "1" : "0") + '" aria-label="Favorite" '
         + 'onclick="event.preventDefault()">' + STAR + '</button>'
+        + menuBtn(p.slug)
         + '</span></a>';
     }).join("") + '</div>';
   }
@@ -1189,7 +1253,8 @@
         + '<span class="tile">' + esc(title.charAt(0).toUpperCase() || "A") + '</span>'
         + '<span class="t">' + esc(title) + '</span>'
         + '<span class="m">' + meta + ' · ' + esc(timeAgo(p.updatedAt)) + '</span>'
-        + '<button type="button" class="star ' + star + '" data-slug="' + esc(p.slug) + '" data-fav="' + (p.favorite ? "1" : "0") + '" aria-label="Favorite" onclick="event.preventDefault()">' + STAR + '</button></a>';
+        + '<button type="button" class="star ' + star + '" data-slug="' + esc(p.slug) + '" data-fav="' + (p.favorite ? "1" : "0") + '" aria-label="Favorite" onclick="event.preventDefault()">' + STAR + '</button>'
+        + menuBtn(p.slug) + '</a>';
     }).join("") + '</div>';
   }
 
@@ -1338,6 +1403,172 @@
   $("vGrid").addEventListener("click", function () { view = "grid"; $("vGrid").classList.add("on"); $("vList").classList.remove("on"); render(); });
   $("vList").addEventListener("click", function () { view = "list"; $("vList").classList.add("on"); $("vGrid").classList.remove("on"); render(); });
 
+  /* ---- per-project menu ------------------------------------------------
+     Rename, Copy link, Favorite, Delete. One menu element and one dialog for
+     the whole page, moved to whichever card asked for them - a menu per card
+     would be rebuilt and re-bound on every render, and there are up to 200. */
+  var DOTS = '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>';
+  var IC = {
+    rename: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>',
+    link: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg>',
+    star: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8L3.5 9.7l5.9-.9z"/></svg>',
+    trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>'
+  };
+
+  function menuBtn(slug) {
+    return '<button type="button" class="mbtn" data-menu="' + esc(slug) + '"'
+      + ' aria-label="Project options" aria-haspopup="menu"'
+      + ' onclick="event.preventDefault()">' + DOTS + '</button>';
+  }
+
+  var pmenu = document.createElement("div");
+  pmenu.className = "pmenu";
+  pmenu.setAttribute("role", "menu");
+  document.body.appendChild(pmenu);
+
+  var pdlg = document.createElement("div");
+  pdlg.className = "pdlg";
+  document.body.appendChild(pdlg);
+
+  var menuFor = null, menuBtnEl = null;
+
+  function closeMenu() {
+    pmenu.classList.remove("open");
+    if (menuBtnEl) menuBtnEl.classList.remove("on");
+    menuFor = null; menuBtnEl = null;
+  }
+
+  function openMenu(btn, p) {
+    menuFor = p; menuBtnEl = btn;
+    btn.classList.add("on");
+    pmenu.innerHTML =
+      '<button type="button" data-do="rename">' + IC.rename + 'Rename</button>'
+      + '<button type="button" data-do="link">' + IC.link + 'Copy link</button>'
+      + '<button type="button" data-do="fav">' + IC.star
+      + (p.favorite ? "Remove from favorites" : "Add to favorites") + '</button>'
+      + '<div class="sep"></div>'
+      + '<button type="button" class="danger" data-do="del">' + IC.trash + 'Delete</button>';
+    pmenu.classList.add("open");
+
+    // Measured after it is visible, then flipped up or pulled left if the
+    // card it belongs to is near an edge.
+    var r = btn.getBoundingClientRect();
+    var w = pmenu.offsetWidth, h = pmenu.offsetHeight;
+    var left = Math.min(r.right - w, innerWidth - w - 8);
+    var top = r.bottom + 6 + h > innerHeight ? r.top - h - 6 : r.bottom + 6;
+    pmenu.style.left = Math.max(8, left) + "px";
+    pmenu.style.top = Math.max(8, top) + "px";
+  }
+
+  function closeDlg() { pdlg.classList.remove("open"); pdlg.innerHTML = ""; }
+
+  function askRename(p) {
+    pdlg.innerHTML = '<div class="box" role="dialog" aria-modal="true" aria-label="Rename project">'
+      + '<h3>Rename project</h3>'
+      + '<p>This changes the name you see. The link to the project stays the same.</p>'
+      + '<input type="text" maxlength="60" value="' + esc(p.title || "") + '">'
+      + '<div class="acts"><button type="button" class="cancel">Cancel</button>'
+      + '<button type="button" class="go">Save</button></div></div>';
+    pdlg.classList.add("open");
+    var input = pdlg.querySelector("input");
+    var go = pdlg.querySelector(".go");
+    input.focus(); input.select();
+
+    function sync() { go.disabled = !input.value.trim(); }
+    input.addEventListener("input", sync); sync();
+    input.addEventListener("keydown", function (e) { if (e.key === "Enter" && !go.disabled) save(); });
+    pdlg.querySelector(".cancel").addEventListener("click", closeDlg);
+    go.addEventListener("click", save);
+
+    function save() {
+      var title = input.value.replace(/\s+/g, " ").trim().slice(0, 60);
+      if (!title || title === p.title) return closeDlg();
+      var before = p.title;
+      p.title = title;                       // optimistic; the list is the source
+      render(); renderRail();
+      closeDlg();
+      fetch("/api/projects/" + encodeURIComponent(p.slug), {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: title })
+      }).then(function (r) {
+        if (!r.ok) throw new Error("rename failed");
+      }).catch(function () {
+        p.title = before; render(); renderRail();
+      });
+    }
+  }
+
+  function askDelete(p) {
+    pdlg.innerHTML = '<div class="box" role="dialog" aria-modal="true" aria-label="Delete project">'
+      + '<h3>Delete this project?</h3>'
+      + '<p><b>' + esc(p.title || "Untitled app") + '</b> and everything it has built '
+      + 'will be removed. This cannot be undone.</p>'
+      + '<div class="acts"><button type="button" class="cancel">Keep it</button>'
+      + '<button type="button" class="go danger">Delete</button></div></div>';
+    pdlg.classList.add("open");
+    pdlg.querySelector(".cancel").focus();
+    pdlg.querySelector(".cancel").addEventListener("click", closeDlg);
+    pdlg.querySelector(".go").addEventListener("click", function () {
+      var at = all.indexOf(p);
+      // Removed from the list first so the grid reacts immediately, and put
+      // back at the same index if the server says no.
+      if (at >= 0) all.splice(at, 1);
+      render(); renderRail(); renderPlan();
+      closeDlg();
+      fetch("/api/projects/" + encodeURIComponent(p.slug), { method: "DELETE" })
+        .then(function (r) { if (!r.ok) throw new Error("delete failed"); })
+        .catch(function () {
+          if (at >= 0) all.splice(at, 0, p);
+          render(); renderRail(); renderPlan();
+        });
+    });
+  }
+
+  document.addEventListener("click", function (e) {
+    var btn = e.target.closest(".mbtn");
+    if (btn) {
+      e.preventDefault(); e.stopPropagation();
+      var p = all.find(function (x) { return x.slug === btn.dataset.menu; });
+      if (!p) return;
+      // The same button again closes it, rather than reopening in place.
+      if (menuBtnEl === btn) return closeMenu();
+      closeMenu();
+      openMenu(btn, p);
+      return;
+    }
+    var item = e.target.closest(".pmenu button");
+    if (item && menuFor) {
+      e.preventDefault();
+      var p2 = menuFor, act = item.dataset.do;
+      closeMenu();
+      if (act === "rename") askRename(p2);
+      else if (act === "del") askDelete(p2);
+      else if (act === "link") {
+        var url = location.origin + "/agent/" + p2.slug;
+        if (navigator.clipboard) navigator.clipboard.writeText(url).catch(function () {});
+      } else if (act === "fav") {
+        p2.favorite = !p2.favorite;
+        render();
+        fetch("/api/codeagent/" + encodeURIComponent(p2.slug) + "/favorite", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ favorite: p2.favorite })
+        }).catch(function () {});
+      }
+      return;
+    }
+    if (!e.target.closest(".pmenu")) closeMenu();
+    // The scrim is the element itself; the dialog is .box inside it.
+    if (e.target === pdlg) closeDlg();
+  });
+
+  addEventListener("keydown", function (e) {
+    if (e.key !== "Escape") return;
+    if (pdlg.classList.contains("open")) closeDlg(); else closeMenu();
+  });
+  // Anchored to a card that moves when the page does.
+  addEventListener("scroll", closeMenu, { passive: true });
+  addEventListener("resize", closeMenu);
+
   document.addEventListener("click", function (e) {
     var star = e.target.closest(".star"); if (!star) return;
     var next = star.dataset.fav !== "1";
@@ -1429,17 +1660,59 @@
     fly.className = "ag-fly";
     fly.setAttribute("role", "menu");
     fly.innerHTML = '<div class="ttl">Recent projects</div><div class="none">Loading\u2026</div>';
-    document.body.appendChild(fly);
 
-    var loaded = 0, hideAt = null;
+    /* Inside the sidebar, not on <body>.
+
+       The rail expands on :hover and collapses the moment the pointer leaves
+       it - so reaching for this panel closed the thing you were reaching out
+       of. As a DESCENDANT the pointer never leaves .ag-history at all: :hover
+       stays true, mouseleave does not fire, and the rail holds open on its
+       own with no class to set and nothing to race the toggle button's own
+       hover-open handling. Leaving both still collapses it, because leaving
+       both is the only thing that ends :hover.
+
+       It stays position:fixed and none of its ancestors carry a transform,
+       filter or containment, so it is still positioned against the viewport
+       and the rail's overflow:hidden does not clip it. */
+    (document.querySelector(".ag-history") || document.body).appendChild(fly);
+
+    var loaded = 0, hideAt = null, rail = fly.parentElement, track = null, at = "";
 
     function place() {
       var r = tab.getBoundingClientRect();
-      fly.style.left = Math.round(r.right + 10) + "px";
-      // Anchored to the tab, then pulled back inside the viewport if the rail
-      // sits low enough that the panel would run off the bottom.
-      var top = Math.round(r.top - 6);
-      fly.style.top = Math.max(8, Math.min(top, innerHeight - fly.offsetHeight - 8)) + "px";
+      // Anchored to the RAIL's right edge, not the tab's. Hovering the tab
+      // expands the rail from 44px to 238px, and a panel placed against the
+      // collapsed edge ends up underneath the sidebar that just grew over it.
+      var edge = rail && rail.classList.contains("ag-history")
+        ? rail.getBoundingClientRect().right : r.right;
+      var top = Math.max(8, Math.min(Math.round(r.top - 6), innerHeight - fly.offsetHeight - 8));
+      var key = Math.round(edge) + ":" + top;
+      if (key === at) return;
+      at = key;
+      fly.style.left = Math.round(edge + 8) + "px";
+      fly.style.top = top + "px";
+    }
+
+    /* The rail's width is a CSS transition, so its right edge moves for a few
+       hundred ms after the panel opens - and again if it is pinned or
+       unpinned while open. Following it per frame is cheaper than guessing
+       the end state, and place() returns immediately when nothing moved. */
+    function follow() {
+      if (!fly.classList.contains("open")) { track = null; return; }
+      place();
+      track = requestAnimationFrame(follow);
+    }
+
+    // Self-contained rather than borrowing each page's timeAgo(): this block
+    // is generated into three files and only one of them is guaranteed to
+    // have one in scope.
+    function ago(d) {
+      var s = (Date.now() - new Date(d).getTime()) / 1000;
+      if (!(s >= 0)) return "";
+      if (s < 3600) return Math.max(1, Math.round(s / 60)) + "m";
+      if (s < 86400) return Math.round(s / 3600) + "h";
+      if (s < 2592000) return Math.round(s / 86400) + "d";
+      return Math.round(s / 2592000) + "mo";
     }
 
     function render(list) {
@@ -1449,15 +1722,30 @@
           + '<a class="start" href="/agent">Start one</a>';
         return;
       }
+      // Two projects built from the same prompt carry the same name, and two
+      // identical rows are not a list. Count first, then stamp a time on the
+      // ones that need it - so a list of distinct names stays clean.
+      var seen = {};
+      list.forEach(function (p) {
+        var k = (p.title || "").trim().toLowerCase();
+        seen[k] = (seen[k] || 0) + 1;
+      });
+      var here = location.pathname.indexOf("/agent/") === 0
+        ? decodeURIComponent(location.pathname.slice(7)) : "";
+
       // No "see all" row: the tab this hangs off IS the link to /projects,
       // and a second one under the list only repeats it.
-      fly.innerHTML = '<div class="ttl">Recent projects</div>' + list.map(function (p) {
-        var t = p.title || "Untitled app";
-        return '<a href="/agent/' + safe(p.slug) + '" title="' + safe(t) + '">'
-          + '<span class="tx">' + safe(t) + '</span>'
-          + (p.deployed ? '<span class="dt" title="Live"></span>' : "")
-          + '</a>';
-      }).join("");
+      fly.innerHTML = '<div class="ttl">Recent projects</div><div class="lst">'
+        + list.map(function (p) {
+          var t = p.title || "Untitled app";
+          var when = seen[t.trim().toLowerCase()] > 1 ? ago(p.updatedAt) : "";
+          return '<a class="' + (p.slug === here ? "on" : "") + '"'
+            + ' href="/agent/' + safe(p.slug) + '" title="' + safe(t) + '">'
+            + '<span class="tx">' + safe(t) + '</span>'
+            + (when ? '<span class="wh">' + safe(when) + '</span>' : "")
+            + (p.deployed ? '<span class="dt" title="Live"></span>' : "")
+            + '</a>';
+        }).join("") + '</div>';
     }
 
     function load() {
@@ -1475,11 +1763,16 @@
       clearTimeout(hideAt);
       load();
       fly.classList.add("open");
+      at = "";
       place();
+      if (!track) track = requestAnimationFrame(follow);
     }
     // A short grace period, not an immediate close: the pointer has to leave
     // the tab to reach the panel, and without this it never arrives.
-    function close() { clearTimeout(hideAt); hideAt = setTimeout(function () { fly.classList.remove("open"); }, 180); }
+    function close() {
+      clearTimeout(hideAt);
+      hideAt = setTimeout(function () { fly.classList.remove("open"); }, 180);
+    }
 
     tab.addEventListener("pointerenter", open);
     tab.addEventListener("pointerleave", close);
@@ -1487,8 +1780,10 @@
     fly.addEventListener("pointerenter", function () { clearTimeout(hideAt); });
     fly.addEventListener("pointerleave", close);
     addEventListener("keydown", function (e) { if (e.key === "Escape") { clearTimeout(hideAt); fly.classList.remove("open"); } });
-    addEventListener("scroll", function () { if (fly.classList.contains("open")) place(); }, { passive: true });
-    addEventListener("resize", function () { if (fly.classList.contains("open")) place(); });
+    // follow() already tracks movement; these only reset the change guard so
+    // the next frame recomputes instead of comparing against a stale key.
+    addEventListener("scroll", function () { at = ""; }, { passive: true });
+    addEventListener("resize", function () { at = ""; });
   })();
 </script>
 <!-- No site-footer.js here on purpose. This is an app shell — sidebar

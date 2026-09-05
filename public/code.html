@@ -2421,10 +2421,21 @@
      here repeated the one on the card the link leads to and made a list of
      six titles look like a toolbar. */
   .ag-fly .ttl{font-size:.79rem;font-weight:450;color:var(--mut);padding:4px 12px 9px}
+  /* The list scrolls, not the panel: the hover bridge is pinned to the panel
+     and would scroll out from under the pointer along with everything else. */
+  .ag-fly .lst{max-height:min(58vh,392px);overflow-y:auto;overscroll-behavior:contain;
+    scrollbar-width:thin}
   .ag-fly a{display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:10px;
     color:var(--ink);text-decoration:none;font-size:.9rem;line-height:1.3}
   .ag-fly a:hover{background:var(--paper-2)}
+  /* Where you already are. Without it the list gives no clue which of these
+     is the page you are looking at. */
+  .ag-fly a.on{background:var(--paper-2);font-weight:600}
   .ag-fly a .tx{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  /* Only rendered when two rows would otherwise read identically - building
+     the same thing twice gave two rows both saying "build e commerce for
+     electronics" and no way to tell which was which. */
+  .ag-fly a .wh{flex:none;font-size:.76rem;color:var(--mut);font-variant-numeric:tabular-nums}
   /* The one mark left: it says the app is live, which the name cannot. */
   .ag-fly a .dt{width:6px;height:6px;border-radius:50%;background:var(--ok);flex:none}
   .ag-fly .none{padding:6px 12px 8px;font-size:.85rem;color:var(--mut)}
@@ -5096,17 +5107,59 @@
     fly.className = "ag-fly";
     fly.setAttribute("role", "menu");
     fly.innerHTML = '<div class="ttl">Recent projects</div><div class="none">Loading\u2026</div>';
-    document.body.appendChild(fly);
 
-    var loaded = 0, hideAt = null;
+    /* Inside the sidebar, not on <body>.
+
+       The rail expands on :hover and collapses the moment the pointer leaves
+       it - so reaching for this panel closed the thing you were reaching out
+       of. As a DESCENDANT the pointer never leaves .ag-history at all: :hover
+       stays true, mouseleave does not fire, and the rail holds open on its
+       own with no class to set and nothing to race the toggle button's own
+       hover-open handling. Leaving both still collapses it, because leaving
+       both is the only thing that ends :hover.
+
+       It stays position:fixed and none of its ancestors carry a transform,
+       filter or containment, so it is still positioned against the viewport
+       and the rail's overflow:hidden does not clip it. */
+    (document.querySelector(".ag-history") || document.body).appendChild(fly);
+
+    var loaded = 0, hideAt = null, rail = fly.parentElement, track = null, at = "";
 
     function place() {
       var r = tab.getBoundingClientRect();
-      fly.style.left = Math.round(r.right + 10) + "px";
-      // Anchored to the tab, then pulled back inside the viewport if the rail
-      // sits low enough that the panel would run off the bottom.
-      var top = Math.round(r.top - 6);
-      fly.style.top = Math.max(8, Math.min(top, innerHeight - fly.offsetHeight - 8)) + "px";
+      // Anchored to the RAIL's right edge, not the tab's. Hovering the tab
+      // expands the rail from 44px to 238px, and a panel placed against the
+      // collapsed edge ends up underneath the sidebar that just grew over it.
+      var edge = rail && rail.classList.contains("ag-history")
+        ? rail.getBoundingClientRect().right : r.right;
+      var top = Math.max(8, Math.min(Math.round(r.top - 6), innerHeight - fly.offsetHeight - 8));
+      var key = Math.round(edge) + ":" + top;
+      if (key === at) return;
+      at = key;
+      fly.style.left = Math.round(edge + 8) + "px";
+      fly.style.top = top + "px";
+    }
+
+    /* The rail's width is a CSS transition, so its right edge moves for a few
+       hundred ms after the panel opens - and again if it is pinned or
+       unpinned while open. Following it per frame is cheaper than guessing
+       the end state, and place() returns immediately when nothing moved. */
+    function follow() {
+      if (!fly.classList.contains("open")) { track = null; return; }
+      place();
+      track = requestAnimationFrame(follow);
+    }
+
+    // Self-contained rather than borrowing each page's timeAgo(): this block
+    // is generated into three files and only one of them is guaranteed to
+    // have one in scope.
+    function ago(d) {
+      var s = (Date.now() - new Date(d).getTime()) / 1000;
+      if (!(s >= 0)) return "";
+      if (s < 3600) return Math.max(1, Math.round(s / 60)) + "m";
+      if (s < 86400) return Math.round(s / 3600) + "h";
+      if (s < 2592000) return Math.round(s / 86400) + "d";
+      return Math.round(s / 2592000) + "mo";
     }
 
     function render(list) {
@@ -5116,15 +5169,30 @@
           + '<a class="start" href="/agent">Start one</a>';
         return;
       }
+      // Two projects built from the same prompt carry the same name, and two
+      // identical rows are not a list. Count first, then stamp a time on the
+      // ones that need it - so a list of distinct names stays clean.
+      var seen = {};
+      list.forEach(function (p) {
+        var k = (p.title || "").trim().toLowerCase();
+        seen[k] = (seen[k] || 0) + 1;
+      });
+      var here = location.pathname.indexOf("/agent/") === 0
+        ? decodeURIComponent(location.pathname.slice(7)) : "";
+
       // No "see all" row: the tab this hangs off IS the link to /projects,
       // and a second one under the list only repeats it.
-      fly.innerHTML = '<div class="ttl">Recent projects</div>' + list.map(function (p) {
-        var t = p.title || "Untitled app";
-        return '<a href="/agent/' + safe(p.slug) + '" title="' + safe(t) + '">'
-          + '<span class="tx">' + safe(t) + '</span>'
-          + (p.deployed ? '<span class="dt" title="Live"></span>' : "")
-          + '</a>';
-      }).join("");
+      fly.innerHTML = '<div class="ttl">Recent projects</div><div class="lst">'
+        + list.map(function (p) {
+          var t = p.title || "Untitled app";
+          var when = seen[t.trim().toLowerCase()] > 1 ? ago(p.updatedAt) : "";
+          return '<a class="' + (p.slug === here ? "on" : "") + '"'
+            + ' href="/agent/' + safe(p.slug) + '" title="' + safe(t) + '">'
+            + '<span class="tx">' + safe(t) + '</span>'
+            + (when ? '<span class="wh">' + safe(when) + '</span>' : "")
+            + (p.deployed ? '<span class="dt" title="Live"></span>' : "")
+            + '</a>';
+        }).join("") + '</div>';
     }
 
     function load() {
@@ -5142,11 +5210,16 @@
       clearTimeout(hideAt);
       load();
       fly.classList.add("open");
+      at = "";
       place();
+      if (!track) track = requestAnimationFrame(follow);
     }
     // A short grace period, not an immediate close: the pointer has to leave
     // the tab to reach the panel, and without this it never arrives.
-    function close() { clearTimeout(hideAt); hideAt = setTimeout(function () { fly.classList.remove("open"); }, 180); }
+    function close() {
+      clearTimeout(hideAt);
+      hideAt = setTimeout(function () { fly.classList.remove("open"); }, 180);
+    }
 
     tab.addEventListener("pointerenter", open);
     tab.addEventListener("pointerleave", close);
@@ -5154,8 +5227,10 @@
     fly.addEventListener("pointerenter", function () { clearTimeout(hideAt); });
     fly.addEventListener("pointerleave", close);
     addEventListener("keydown", function (e) { if (e.key === "Escape") { clearTimeout(hideAt); fly.classList.remove("open"); } });
-    addEventListener("scroll", function () { if (fly.classList.contains("open")) place(); }, { passive: true });
-    addEventListener("resize", function () { if (fly.classList.contains("open")) place(); });
+    // follow() already tracks movement; these only reset the change guard so
+    // the next frame recomputes instead of comparing against a stale key.
+    addEventListener("scroll", function () { at = ""; }, { passive: true });
+    addEventListener("resize", function () { at = ""; });
   })();
 </script>
 
