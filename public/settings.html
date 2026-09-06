@@ -573,6 +573,15 @@
         <h3>Available to your apps</h3>
         <p>What Souqi Code can wire into an app it builds for you.</p>
         <div class="int-grid">
+          <!-- This said "Not built yet" and had done for a long time. It is
+               built: the deploy plane provisions a Postgres database per
+               project (deploy/src/dbproviders/builtin.js creates the role
+               with a connection limit, the database it owns, and scoped
+               grants), dbMode defaults to "builtin" on every deployment,
+               and Deployments already has the whole UI for it — built-in
+               vs your own, the credentials, the size, and a data browser.
+               A card claiming a shipped feature does not exist costs more
+               than a missing card: nobody goes looking for it. -->
           <div class="int-card">
             <div class="int-head"><span class="int-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 0 1 0 18a15 15 0 0 1 0-18z"/></svg></span><b>Custom domains</b><span class="int-dot on" title="Available"></span></div>
             <p class="int-d">Point your own domain at a published app.</p>
@@ -604,9 +613,9 @@
             <button type="button" class="int-act" id="ghBtn" disabled>Checking…</button>
           </div>
           <div class="int-card">
-            <div class="int-head"><span class="int-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v12c0 1.7 3.6 3 8 3s8-1.3 8-3V6"/><path d="M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg></span><b>Hosted database</b><span class="int-dot" title="Not built yet"></span></div>
-            <p class="int-d">Persistent storage an app can read and write.</p>
-            <button type="button" class="int-act" disabled>Not built yet</button>
+            <div class="int-head"><span class="int-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v12c0 1.7 3.6 3 8 3s8-1.3 8-3V6"/><path d="M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg></span><b>Hosted database</b><span class="int-dot on" title="Available"></span></div>
+            <p class="int-d">Every deployed app gets its own Postgres database, reachable only by that app. Read it as SOUQI_DATABASE_URL, or point it at your own instead.</p>
+            <a class="int-act" href="/deployments">Manage databases<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
           </div>
         </div>
       </div>
