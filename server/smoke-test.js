@@ -28,19 +28,40 @@ const { spawnSync, spawn } = require("child_process");
     GEMINI_API_KEY: "",
   });
 
+  /* Declared before cleanup can name it. `srv` is assigned further down with
+     const, so every early exit — a failed seed above all — hit
+     "Cannot access 'srv' before initialization" inside the handler instead of
+     reporting the failure. The throw left the child running, so the process
+     never exited at all: a broken seed showed up as a hung test rather than a
+     red one, which is the worst of both. */
+  let srv = null;
+
   const cleanup = async (code = 0) => {
-    srv && srv.kill();
-    if (mongod) await mongod.stop();
+    if (srv) srv.kill();
+    /* Bounded, and never allowed to throw. A memory server that will not
+       stop must not turn a FAILING test into a HANGING one: the seed failure
+       below was reported correctly and the process then sat here until the
+       job timeout, which in CI means burning the whole run to learn one
+       line. Five seconds is generous for a local process. */
+    if (mongod) {
+      await Promise.race([
+        Promise.resolve(mongod.stop()).catch(() => {}),
+        new Promise((r) => setTimeout(r, 5000))
+      ]);
+    }
     process.exit(code);
   };
 
   // 1) seed
   const seed = spawnSync("node", ["seed.js", "--force"], { cwd: __dirname, env, encoding: "utf8" });
   process.stdout.write(seed.stdout || "");
-  if (seed.status !== 0) { console.error("SEED FAILED", seed.stderr); await cleanup(1); }
+  if (seed.status !== 0) {
+    console.error("SEED FAILED", JSON.stringify({ status: seed.status, signal: seed.signal, error: seed.error && seed.error.message }), seed.stderr || "(no stderr)");
+    await cleanup(1);
+  }
 
   // 2) boot the real server
-  const srv = spawn("node", ["index.js"], { cwd: __dirname, env });
+  srv = spawn("node", ["index.js"], { cwd: __dirname, env });
   let booted = false;
   srv.stdout.on("data", (d) => { process.stdout.write(d); if (/listening/.test(d)) booted = true; });
   srv.stderr.on("data", (d) => process.stderr.write(d));
