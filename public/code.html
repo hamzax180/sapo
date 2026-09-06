@@ -1984,17 +1984,23 @@
 
   /* Recent deployments take the flexible middle, the way chat history does
      in the builder, so the account row stays pinned to the bottom. */
-  /* The Recent list is what people open the sidebar FOR, so it must not be
-     the thing that disappears. It was flex:1 1 auto with min-height:0
-     against a footer pinned at flex:0 0 auto, so every pixel the plan card
-     wanted came out of the history — and once the card grew (an alert, three
-     meters, an upgrade button) that took it to zero: the "Recent" heading
-     with nothing under it at all, which is what this looked like.
+  /* The list and the plan card kept taking turns being the casualty.
 
-     A floor in vh rather than px so it scales with the window, and the list
-     inside already scrolls, so more chats than fit is a scroll rather than a
-     squeeze. */
-  .ag-hist-chats{flex:1 1 auto;min-height:clamp(96px,20vh,280px);
+     First it was the list: flex:1 1 auto against a foot that would not
+     shrink, so every pixel the plan card wanted came out of the history,
+     and once the card grew (an alert, three meters, an upgrade button)
+     that took it to zero — the "Recent" heading with nothing under it.
+     Giving the list a min-height floor only moved the damage: the foot
+     became the loser instead, and because it was also overflow:hidden it
+     lost SILENTLY — clipped mid-meter, Upgrade button below the cut, no
+     scrollbar to admit anything was missing.
+
+     Neither is clipped now. The foot is always whole; the list takes what
+     is left and scrolls inside itself; and the list's floor is applied
+     only at window heights where that floor can actually be honoured (the
+     vertical budget below). An unmeetable min-height is precisely what
+     pushed the plan card off the bottom of the rail. */
+  .ag-hist-chats{flex:1 1 auto;min-height:0;
     display:flex;flex-direction:column;padding:2px 0 4px}
   .ag-chats-ttl{font-size:.655rem;font-weight:450;color:var(--mut);padding:10px 10px 4px;flex:0 0 auto}
   .ag-chats-list{flex:1 1 auto;min-height:0;overflow-y:auto;padding:0 var(--sb-pad) 4px;scrollbar-width:thin;scrollbar-color:var(--line) transparent;display:flex;flex-direction:column;gap:2px}
@@ -2002,6 +2008,15 @@
   .ag-chats-list::-webkit-scrollbar-track{background:transparent}
   .ag-chats-list::-webkit-scrollbar-thumb{background:var(--line);border-radius:99px}
   .ag-chats-list::-webkit-scrollbar-thumb:hover{background:var(--mut)}
+  /* Rows keep their own height. A flex column shrinks its children before
+     it overflows, and these had overflow:hidden so their min-content height
+     was zero — 20 projects did not make the list scroll, they made every
+     row 14px instead of 30 and squeezed the text inside it. The list looked
+     merely "dense"; nothing announced that the layout had run out of room.
+     Scrolling is the correct answer to too many rows, and it only happens
+     once the rows refuse to shrink. Applies to the empty and loading
+     states too, which were being flattened the same way. */
+  .ag-chats-list > *{flex:0 0 auto}
   .ag-chat-item{display:flex;align-items:center;gap:10px;width:100%;box-sizing:border-box;
     padding:7px 6px;border-radius:8px;color:var(--ink-2);text-decoration:none;font-size:.75rem;
     white-space:nowrap;overflow:hidden;transition:background .14s,color .14s;border:0;background:none;cursor:pointer;text-align:left;font-family:inherit}
@@ -2024,10 +2039,11 @@
      against the monthly budget, and — since this is the deployments
      page — host capacity as the cloud meter, which is the thing that
      actually decides whether the next deploy is accepted. */
-  /* Yields first now. This is a plan summary; the history above it is the
-     navigation, and when only one of them can have the space it should not
-     be this one. */
-  .ag-hist-foot{flex:0 1 auto;min-height:0;overflow:hidden;
+  /* Never the casualty. A plan card cut in half is worse than a short
+     history: it hides the alert's consequence and the button that answers
+     it. On a short window it sheds optional rows on purpose — see the
+     vertical budget below — and is otherwise always drawn in full. */
+  .ag-hist-foot{flex:0 0 auto;
     padding:8px 10px 8px;border-top:1px solid var(--line);background:var(--paper);
     width:100%;box-sizing:border-box}
   .ag-hist-foot .ttl{font-size:.84rem;font-weight:600;padding:0 2px;margin-bottom:4px;color:var(--ink)}
@@ -2051,6 +2067,31 @@
   .ag-hist-install a:hover{color:var(--ink)}
   .ag-hist-links{display:flex;gap:8px;justify-content:center;margin-top:5px;font-size:.71rem;color:var(--mut);width:100%;box-sizing:border-box}
   .ag-hist-links a:hover{color:var(--ink)}
+
+  /* ---- vertical budget -------------------------------------------------
+     Header, workspace pill, nav and account row cost ~300px before either
+     the history or the plan card gets a single pixel, and the card itself
+     is ~200px once the usage alert is up. Under roughly 600px of window
+     the two cannot both be whole, so the rail gives something up
+     deliberately here rather than leaving it to whichever flex rule
+     happened to win.
+
+     Room for both      → the history gets a real floor.
+     Getting tight      → the card drops its footer links and puts each
+                          meter's number back on the label's own line.
+     Shorter than that  → no floor at all: the history shrinks toward its
+                          scrollbar and the card stays whole, because a
+                          half-drawn meter reads as breakage while a short
+                          list reads as a short list. */
+  @media (min-height:660px){ .ag-hist-chats{min-height:clamp(96px,18vh,260px)} }
+  @media (min-height:560px) and (max-height:659px){ .ag-hist-chats{min-height:76px} }
+  @media (max-height:700px){ .ag-hist-install,.ag-hist-links{display:none} }
+  @media (max-height:620px){
+    .ag-meter-row .lab i{display:inline;margin-left:6px}
+    .ag-meter-row{padding:1px 0}
+    .ag-upgrade{margin-top:6px;padding:7px 12px}
+    .ag-hist-foot{padding-top:6px;padding-bottom:6px}
+  }
 
   /* Account row pinned to the very bottom: avatar, name, settings gear. */
   .ag-hist-user{flex:0 0 auto;display:flex;align-items:center;gap:2px;padding:5px var(--sb-pad) 8px;
@@ -2535,7 +2576,7 @@
     .ag-history.on .ag-hist-tabs{gap:0;padding-top:0;padding-bottom:2px}
     .ag-history.on .ag-hist-tab{padding-top:5px;padding-bottom:5px}
     .ag-history.on .ag-hist-chats{flex:1 1 0;min-height:0}
-    .ag-history.on .ag-chats-list{min-height:0;overflow:hidden}
+    .ag-history.on .ag-chats-list{min-height:0;overflow-y:auto}
     .ag-history.on .ag-chat-item{padding-top:4px;padding-bottom:4px}
     .ag-history.on .ag-hist-foot{padding:4px 8px}
     .ag-history.on .ag-hist-foot .ttl{font-size:.74rem;margin-bottom:2px}
@@ -2610,6 +2651,31 @@
      because there is no cursor to hover with: the panel would open on the
      tap that navigates and then sit over the page it opened. */
   @media (hover:none){ .ag-fly{display:none !important} }
+
+  /* ---- last resort, and it has to be last -----------------------------
+     Below this the rail is shorter than its own contents even with the
+     history at nothing, and everything still in it is load-bearing. So it
+     scrolls rather than trimming further: on a landscape phone the account
+     row was being pushed past the bottom edge with no way to reach it —
+     the same silent loss as the clipped plan card, one level up. The
+     account row stays pinned while the rest of it moves.
+
+     Position matters. The max-width:900px block above also sets overflow
+     on .ag-history.on with !important and the same specificity, so this
+     only wins by coming after it; written up beside the other height rules
+     it lost, and lost the way CSS does — the rail simply stayed unscrollable
+     with no error anywhere. Selectors are prefixed .ag-history.on for the
+     same reason: the mobile block reaches these children that way too.
+
+     The hover flyout is switched off here: it has to paint outside the rail
+     and overflow-y:auto would clip it, and a list of recent projects was
+     never going to fit in 560px of window. */
+  @media (max-height:559px){
+    .ag-history.on{overflow-y:auto !important;overflow-x:hidden !important}
+    .ag-history.on .ag-hist-chats{min-height:96px}
+    .ag-history.on .ag-hist-user{position:sticky;bottom:0;z-index:2}
+    .ag-fly{display:none !important}
+  }
 </style>
 <link rel="stylesheet" href="/css/upgrade-modal.css">
 </head>
