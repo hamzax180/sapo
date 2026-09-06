@@ -5308,17 +5308,43 @@
       // not the placeholder GET /api/projects/:key/preview endpoint (see
       // loadProjectPreview()'s comment for why that never showed anything
       // real). Done async so it doesn't block the chat replay above.
+      /* The render, on its own. Nothing may sit in front of it: the source
+         is already here and drawing it needs no container at all. */
       (async () => {
-        const wc = window.__wc;
-        if (wc && data.fileContents) {
-          try { await wc.writeFiles(data.fileContents); await wc.build(); } catch (e) {}
-        }
         const iframe = $("agPvIframe");
         if (iframe) iframe.hidden = false;
         await renderAppPreview(data.fileContents, true);
         const bootEl = $("agPvBoot");
         if (bootEl) bootEl.classList.add("hidden");
       })();
+
+      /* Warming the container is a SEPARATE job, not a step before the
+         render. It used to be the first thing inside the block above, and
+         awaited: build() waits on prepare(), which is a cold WebContainer
+         boot plus npm install, so the preview could not paint until that
+         finished — and when it did not finish, the preview never appeared.
+         That is the blank preview on a reopened project.
+
+         loadProjectPreview() carries a second copy of this same block and
+         was fixed first; this one was missed, which is why the bug kept
+         reproducing in production while a warm local container hid it.
+         build() serializes on the runtime, so an edit arriving mid-warm-up
+         queues behind this rather than racing it over the same dist/. */
+      const wc = window.__wc;
+      if (wc && data.fileContents) {
+        (async () => {
+          try {
+            await wc.writeFiles(data.fileContents);
+            const r = await wc.build();
+            if (!r || !r.ok) {
+              console.warn("[warm] reopen build failed: " +
+                (((r && (r.stderr || r.stdout)) || "no output").slice(-300)));
+            }
+          } catch (e) {
+            console.warn("[warm] reopen build threw:", (e && e.message) || e);
+          }
+        })();
+      }
 
       say('<span class="muted">Tell me what to change and I\'ll update it.</span>');
     } catch (e) {
