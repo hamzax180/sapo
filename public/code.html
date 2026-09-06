@@ -2748,6 +2748,38 @@
   .ag-count.show{opacity:1}
   .ag-count.over{color:var(--danger);font-weight:600}
 
+  /* ---- usage, the way Claude reports it ---------------------------------
+     Two limits, both shown, because both can stop a build and they stop it
+     for different lengths of time. The session bar is the one that matters
+     minute to minute — it refills — so it is first and it carries the
+     countdown. The month sits under it, quieter, because "wait three weeks"
+     is not a thing anyone can act on in the moment.
+
+     A percentage AND a bar: the bar is read at a glance, the number is what
+     you check when the bar looks close. Colour alone never carries it —
+     amber and red are reinforced by the number moving toward 100%. */
+  .ag-usage{display:flex;flex-direction:column;gap:9px;padding:10px 11px;border-radius:12px;
+    border:1px solid var(--line);background:var(--card);box-shadow:var(--sh-subtle)}
+  .ag-usage .u-top{display:flex;align-items:center;justify-content:space-between;gap:8px}
+  .ag-usage .u-plan{font-size:.78rem;font-weight:600;color:var(--ink);text-transform:capitalize}
+  .ag-usage .u-up{font-size:.72rem;font-weight:600;color:var(--accent);text-decoration:none;
+    display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
+  .ag-usage .u-up:hover{text-decoration:underline}
+  .ag-usage .u-up svg{width:12px;height:12px}
+  .u-row{display:flex;flex-direction:column;gap:4px}
+  .u-lab{display:flex;align-items:baseline;justify-content:space-between;gap:8px;
+    font-size:.71rem;color:var(--ink-2)}
+  .u-lab b{font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums}
+  .u-bar{height:5px;border-radius:99px;background:color-mix(in srgb,currentColor 12%,transparent);
+    overflow:hidden;color:var(--ink-2)}
+  .u-bar i{display:block;height:100%;border-radius:99px;background:var(--accent);
+    width:0;transition:width var(--dur-chill,.3s) var(--ease-snappy,ease-out)}
+  .u-bar i.warn{background:var(--warn)}
+  .u-bar i.hot{background:var(--danger)}
+  .u-when{font-size:.67rem;color:var(--mut);font-variant-numeric:tabular-nums}
+  .u-row.quiet .u-lab,.u-row.quiet .u-when{color:var(--mut)}
+  @media (prefers-reduced-motion:reduce){ .u-bar i{transition:none} }
+
 </style>
 <link rel="stylesheet" href="/css/upgrade-modal.css">
 </head>
@@ -2827,23 +2859,26 @@
   </div>
 
   <div class="ag-hist-foot">
-    <div class="ttl" id="agPlanTtl">Your Free Plan</div>
     <div class="ag-plan-alert" id="agPlanAlert" hidden>You've reached your usage limit</div>
     <!-- The one deliberate difference from /projects and /deployments:
          where they carry three credit meters and an Upgrade button, the
          builder carries a single card with one allowance meter. Everything
          dropped is still reachable (plans from the card and the workspace
          menu), and the space it frees is what chat history needs. -->
-    <div class="ag-upsell">
-      <a class="up-head" href="/pricing" onclick="openUpgradeModal(event)">
-        <span class="up-txt"><b>Upgrade your plan</b><small>Unlock more credits</small></span>
-        <span class="up-spark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/></svg></span>
-      </a>
-      <div class="up-meter">
-        <span class="up-lab">Free allowance</span>
-        <span class="up-pct" id="agAllowPct">—</span>
+    <div class="ag-usage" id="agUsage">
+      <div class="u-top">
+        <span class="u-plan" id="agUsagePlan">Free plan</span>
+        <a class="u-up" href="/pricing" onclick="openUpgradeModal(event)" id="agUsageUp"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/></svg>Upgrade</a>
       </div>
-      <span class="up-bar"><i id="agAllowBar" style="width:0%"></i></span>
+      <div class="u-row">
+        <span class="u-lab">Session usage<b id="agWinPct">—</b></span>
+        <span class="u-bar"><i id="agWinBar"></i></span>
+        <span class="u-when" id="agWinReset"></span>
+      </div>
+      <div class="u-row quiet">
+        <span class="u-lab">This month<b id="agAllowPct">—</b></span>
+        <span class="u-bar"><i id="agAllowBar"></i></span>
+      </div>
     </div>
     <div class="ag-hist-install">
       <span>Install Souqi on</span>
@@ -3221,6 +3256,9 @@
      2000, which is worse than having no counter at all. */
   fetch("/api/codeagent/usage").then((r) => r.json()).then((d) => {
     signedIn = !!d.signedIn;
+    // A signed-out visitor has a real allowance and can really run out of
+    // it, so the card is drawn for them too rather than left on dashes.
+    if (!d.signedIn) renderUsage(d);
     if (d && Number(d.promptChars) > 0) {
       promptCap = Number(d.promptChars);
       promptCapMax = Number(d.promptCharsMax) || promptCap;
@@ -5585,6 +5623,55 @@
   });
   if (agUserGear) agUserGear.addEventListener("click", (e) => { e.stopPropagation(); openSettings(); });
 
+  /* One place that draws the usage card, from whichever endpoint supplied
+     the numbers — /api/account/me for a signed-in rail, /api/codeagent/usage
+     for a signed-out one. Both now return the same field names precisely so
+     this does not need to know which it got. */
+  function usageBar(barId, pctId, used, cap) {
+    const bar = $(barId), lab = $(pctId);
+    if (!bar || !lab) return 0;
+    const pct = cap > 0 ? Math.min(100, (used / cap) * 100) : 0;
+    bar.style.width = pct + "%";
+    bar.classList.toggle("warn", pct >= 70 && pct < 90);
+    bar.classList.toggle("hot", pct >= 90);
+    // The number says "used" so the bar cannot be misread as remaining.
+    lab.textContent = cap > 0 ? Math.round(pct) + "% used" : "$" + used.toFixed(2);
+    return pct;
+  }
+
+  /* "in 2h 40m", not a wall-clock time. A timestamp makes the reader do
+     arithmetic against their own clock and gets it wrong across timezones
+     and DST; a duration is true wherever they are. */
+  function untilWords(iso) {
+    if (!iso) return "";
+    const ms = new Date(iso).getTime() - Date.now();
+    if (!(ms > 0)) return "Refills now";
+    const mins = Math.round(ms / 60000);
+    if (mins < 60) return "Refills in " + mins + "m";
+    const h = Math.floor(mins / 60), m = mins % 60;
+    return "Refills in " + h + "h" + (m ? " " + m + "m" : "");
+  }
+
+  function renderUsage(d) {
+    if (!d) return;
+    const plan = String(d.plan || "free");
+    const planEl = $("agUsagePlan"), upEl = $("agUsageUp");
+    if (planEl) planEl.textContent = plan === "free" ? "Free plan" : plan + " plan";
+    // Nothing to upsell someone already on the top plan.
+    if (upEl) upEl.hidden = (plan === "max");
+
+    usageBar("agWinBar", "agWinPct", Number(d.windowUsd || 0), Number(d.windowBudgetUsd || 0));
+    usageBar("agAllowBar", "agAllowPct", Number(d.spentUsd || 0), Number(d.budgetUsd || 0));
+
+    const when = $("agWinReset");
+    if (when) {
+      // Only once something has been spent — "Refills in 5h" on an untouched
+      // allowance is a countdown to nothing.
+      const words = Number(d.windowUsd || 0) > 0 ? untilWords(d.windowResetAt) : "";
+      when.textContent = words || ((d.windowHours || 5) + "-hour window");
+    }
+  }
+
   fetch("/api/account/me").then((r) => r.json()).then((d) => {
     if (d.signedIn) {
       const who = d.name || (d.email || "").split("@")[0] || "You";
@@ -5612,14 +5699,7 @@
       // identity the page does not have.
       if (agUserMain) agUserMain.dataset.signedOut = "1";
     }
-    // One allowance meter in the upgrade card, replacing the three separate
-    // credit rows the footer used to carry.
-    const spent = Number(d.spentUsd || 0), budget = Number(d.budgetUsd || 0);
-    const pct = budget > 0 ? Math.min(100, spent / budget * 100) : 0;
-    $("agAllowBar").style.width = pct + "%";
-    $("agAllowPct").textContent = budget > 0
-      ? Math.round(pct) + "% used"
-      : "$" + spent.toFixed(2) + " used";
+    renderUsage(d);
   }).catch(() => { /* the rail still works without it */ });
 
   document.addEventListener("keydown", (e) => {

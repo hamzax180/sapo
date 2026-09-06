@@ -2609,7 +2609,16 @@ app.get("/api/account/me", async (req, res, next) => {
 
     const owner = anon.ownerOf(req, res);
     const spentUsd = await codeAgentUsage.monthSpend(owner);
+    // The window belongs here too. The rail reads this endpoint once and
+    // draws the whole usage card from it; making it fetch a second URL for
+    // the half of the limit that resets soonest is how the two numbers end
+    // up disagreeing on screen.
+    const win = await codeAgentUsage.windowSpend(owner, CODEAGENT_WINDOW_HOURS);
     res.json({
+      windowUsd: win.usd,
+      windowBudgetUsd: CODEAGENT_PLAN_WINDOW_USD[plan] || CODEAGENT_PLAN_WINDOW_USD.free,
+      windowHours: CODEAGENT_WINDOW_HOURS,
+      windowResetAt: win.resetAt,
       signedIn: true, email: sessionUser.email, name: sessionUser.name,
       wsId: sessionUser.wsId, accountId: sessionUser.id, company: company,
       plan: plan, spentUsd: spentUsd,
