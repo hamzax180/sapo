@@ -205,8 +205,14 @@
   /* Label + description on the left, control hard right — Replit's row */
   .srow{display:flex;align-items:center;gap:20px;padding:12px 0}
   .srow .txt{flex:1;min-width:0}
-  .srow .t{font-size:.98rem;font-weight:500}
-  .srow .d{font-size:.88rem;color:var(--ink-2);margin-top:2px;line-height:1.45}
+  /* Both are <span>, so without this they lay out inline and every row in
+     Settings reads "Custom domainsPoint your own domain at a published
+     app." — the label welded to its own description. The margin-top below
+     was doing nothing for the same reason: it cannot apply to an inline
+     box. This is not specific to Integrations; it was every row on the
+     page. */
+  .srow .t{display:block;font-size:.98rem;font-weight:500}
+  .srow .d{display:block;font-size:.88rem;color:var(--ink-2);margin-top:2px;line-height:1.45}
   .srow .val{font-size:.95rem;font-weight:500;white-space:nowrap}
   /* Toggle switch */
   .tgl{position:relative;width:44px;height:24px;flex:none;cursor:pointer}
@@ -373,6 +379,34 @@
     body.panels-ready .panel:not([hidden]),.ag-hist-foot{animation-duration:1ms;--fade-up-shift:0px}
   }
 
+  /* ---- integrations, as cards ------------------------------------------
+     A stack of text rows with a pill floated right made every integration
+     look like a settings toggle. These are things you go and DO something
+     with, so they get the shape that says so: an icon, a name, what it is
+     for, and the action, in a card you can scan a grid of.
+
+     What this deliberately is NOT is a wall of logos. The rest of the page
+     already says so and it still holds — every card here is something this
+     server can actually do, or is honestly marked as not built. There is
+     no Slack, no Drive, no HubSpot tile implying an integrations platform
+     that does not exist, and no count of "400+" anything. Five real cards
+     beat fifty fictional ones. */
+  .int-grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(232px,1fr));margin-top:4px}
+  .int-card{display:flex;flex-direction:column;gap:8px;padding:14px;border-radius:14px;
+    border:1px solid var(--line);background:var(--card);box-shadow:var(--sh-subtle);
+    transition:border-color var(--dur-snappy,.12s) ease,box-shadow var(--dur-snappy,.12s) ease,
+               transform var(--dur-snappy,.12s) ease}
+  .int-card:hover{border-color:var(--line-hover);box-shadow:var(--sh-raised);transform:translateY(-1px)}
+  .int-head{display:flex;align-items:center;gap:9px;min-width:0}
+  .int-ic{width:30px;height:30px;border-radius:9px;flex:none;display:grid;place-items:center;
+    background:var(--paper-2);border:1px solid var(--line);color:var(--ink)}
+  .int-ic svg{width:17px;height:17px}
+  .int-head b{font-size:.92rem;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .int-d{font-size:.82rem;color:var(--ink-2);line-height:1.5;margin:0;flex:1}
+  .int-foot{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:2px}
+  .int-foot .btn{padding:7px 13px;font-size:.83rem}
+  @media (prefers-reduced-motion:reduce){ .int-card{transition:none} }
+
 </style>
 </head>
 <body>
@@ -510,43 +544,48 @@
       <div class="sec">
         <h3>Available to your apps</h3>
         <p>What Souqi Code can wire into an app it builds for you.</p>
-        <div class="srow">
-          <span class="txt"><span class="t">Custom domains</span><span class="d">Point your own domain at a published app.</span></span>
-          <span class="pill live">Available</span>
-        </div>
-        <div class="srow">
-          <span class="txt"><span class="t">Installable app (PWA)</span><span class="d">Every build ships a manifest and service worker, so it installs to a home screen.</span></span>
-          <span class="pill live">Available</span>
-        </div>
+        <div class="int-grid">
+          <div class="int-card">
+            <div class="int-head"><span class="int-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 0 1 0 18a15 15 0 0 1 0-18z"/></svg></span><b>Custom domains</b></div>
+            <p class="int-d">Point your own domain at a published app.</p>
+            <div class="int-foot"><span class="pill live">Available</span></div>
+          </div>
+          <div class="int-card">
+            <div class="int-head"><span class="int-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><rect x="7" y="2" width="10" height="20" rx="2"/><line x1="11" y1="18" x2="13" y2="18"/></svg></span><b>Installable app</b></div>
+            <p class="int-d">Every build ships a manifest and service worker, so it installs to a home screen.</p>
+            <div class="int-foot"><span class="pill live">Available</span></div>
+          </div>
         <!-- Stripe Connect. The account belongs to the OWNER, not to Souqi:
              they authorize once, charges are created on their account, and
              the money lands in their balance. Souqi stores an account id and
              never a secret key, which is why there is no key field here. -->
-        <div class="srow" id="stripeRow">
-          <span class="txt">
-            <span class="t">Stripe payments</span>
-            <span class="d" id="stripeDesc">Take real payments inside a generated app. Money goes straight to your own Stripe account.</span>
-          </span>
-          <span class="pill" id="stripePill">Checking…</span>
-          <button type="button" class="btn" id="stripeBtn" hidden></button>
-        </div>
+          <div class="int-card" id="stripeRow">
+            <div class="int-head"><span class="int-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg></span><b>Stripe payments</b></div>
+            <p class="int-d" id="stripeDesc">Take real payments inside a generated app. Money goes straight to your own Stripe account.</p>
+            <div class="int-foot">
+              <span class="pill" id="stripePill">Checking…</span>
+              <button type="button" class="btn" id="stripeBtn" hidden></button>
+            </div>
+          </div>
         <!-- GitHub. Same shape as Stripe above, and for the same reason:
              the account at the other end is the OWNER's. Souqi creates a
              repository in their name and writes a commit to it. Disconnecting
              revokes the token and leaves every repository exactly where it
              is — by then the code is theirs, and deleting someone's repo to
              tidy up our own state would be indefensible. -->
-        <div class="srow" id="ghRow">
-          <span class="txt">
-            <span class="t">GitHub</span>
-            <span class="d" id="ghDesc">Push an app Souqi built to a repository on your own GitHub account.</span>
-          </span>
-          <span class="pill" id="ghPill">Checking…</span>
-          <button type="button" class="btn" id="ghBtn" hidden></button>
-        </div>
-        <div class="srow">
-          <span class="txt"><span class="t">Hosted database</span><span class="d">Persistent storage an app can read and write.</span></span>
-          <span class="pill">Not built yet</span>
+          <div class="int-card" id="ghRow">
+            <div class="int-head"><span class="int-ic"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 0 0-3.16 19.49c.5.09.68-.22.68-.48v-1.7c-2.78.6-3.37-1.34-3.37-1.34-.45-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.9 1.53 2.36 1.09 2.94.83.09-.65.35-1.09.63-1.34-2.22-.25-4.56-1.11-4.56-4.94 0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.65 0 0 .84-.27 2.75 1.02a9.6 9.6 0 0 1 5 0c1.91-1.29 2.75-1.02 2.75-1.02.55 1.38.2 2.4.1 2.65.64.7 1.03 1.59 1.03 2.68 0 3.84-2.34 4.69-4.57 4.94.36.31.68.92.68 1.85v2.74c0 .26.18.58.69.48A10 10 0 0 0 12 2z"/></svg></span><b>GitHub</b></div>
+            <p class="int-d" id="ghDesc">Push an app Souqi built to a repository on your own GitHub account.</p>
+            <div class="int-foot">
+              <span class="pill" id="ghPill">Checking…</span>
+              <button type="button" class="btn" id="ghBtn" hidden></button>
+            </div>
+          </div>
+          <div class="int-card">
+            <div class="int-head"><span class="int-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v12c0 1.7 3.6 3 8 3s8-1.3 8-3V6"/><path d="M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg></span><b>Hosted database</b></div>
+            <p class="int-d">Persistent storage an app can read and write.</p>
+            <div class="int-foot"><span class="pill">Not built yet</span></div>
+          </div>
         </div>
       </div>
 
@@ -1204,7 +1243,10 @@
     function render(s) {
       if (!s) { pill.className = "pill"; pill.textContent = "Unavailable"; btn.hidden = true; return; }
       if (s.needsSignIn) {
-        pill.className = "pill"; pill.textContent = "Sign in";
+        // The pill says the STATE, the button says the ACTION. Both read
+        // "Sign in" before, which as a row was merely redundant and as a
+        // card looked like two buttons where one is dead.
+        pill.className = "pill"; pill.textContent = "Not connected";
         desc.textContent = "Sign in to connect a GitHub account and push the apps you build to your own repositories.";
         btn.hidden = false; btn.textContent = "Sign in";
         btn.onclick = function () { location.href = "/login?next=" + encodeURIComponent("/settings#integrations"); };

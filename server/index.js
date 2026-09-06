@@ -269,7 +269,15 @@ app.get("/public/login", (req, res) => res.sendFile(path.join(__dirname, "..", "
    The old header-trust helpers were removed to keep that invariant. */
 
 /* ---- health probe ---- */
-app.get("/health", (req, res) => res.json({ ok: true, service: "souqi-api", time: new Date().toISOString() }));
+/* Two paths, one handler. /health is what a probe conventionally asks for
+   and is what works locally — but on Vercel the ONLY rewrite into this
+   function is /api/:path*, so /health never reaches Express there and
+   answers 404 as a missing static file. A health endpoint that is down in
+   production and up in dev is worse than not having one, because the first
+   thing anyone points an uptime monitor at is the one that lies. */
+const healthHandler = (req, res) => res.json({ ok: true, service: "souqi-api", time: new Date().toISOString() });
+app.get("/health", healthHandler);
+app.get("/api/health", healthHandler);
 
 /* ---- metrics (gated by METRICS_TOKEN; disabled if unset) ---- */
 app.get("/metrics", (req, res, next) => {
