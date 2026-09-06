@@ -2804,18 +2804,20 @@
 
           <span class="ag-brow-sp"></span>
           <div class="ag-model-wrap" id="agModelWrap">
-            <button type="button" class="ag-model-pill" id="agModelPill" title="Select Model &amp; Thinking Mode">
-              <span id="agModelPillLabel">Eco Souqi</span>
-              <span class="ag-think-badge" id="agThinkBadge" hidden>Thinking</span>
+            <button type="button" class="ag-model-pill" id="agModelPill" title="Mode and model provider">
+              <span id="agModelPillLabel">Auto</span>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg>
             </button>
             <div class="ag-model-popover" id="agModelPopover">
-              <div class="pop-section-ttl">Agent Mode</div>
-              <button type="button" class="pop-option on" data-mode="economy" id="popModeEconomy">
-                <span class="pop-text"><b>Eco Souqi</b><small>Fast generation &amp; lightweight builds</small></span>
+              <div class="pop-section-ttl">Mode</div>
+              <button type="button" class="pop-option on" data-mode="auto" id="popModeAuto">
+                <span class="pop-text"><b>Auto</b><small>Answers, asks or builds — whichever the message calls for</small></span>
+              </button>
+              <button type="button" class="pop-option" data-mode="plan" id="popModePlan">
+                <span class="pop-text"><b>Plan</b><small>Always shows the plan first, edits included</small></span>
               </button>
               <button type="button" class="pop-option" data-mode="power" id="popModePower">
-                <span class="pop-text"><b>Powered Souqi</b><small>Deep reasoning, MCP tools &amp; complex builds</small></span>
+                <span class="pop-text"><b>Power</b><small>Deep reasoning, MCP tools, more repair passes</small></span>
               </button>
               <div class="pop-divider"></div>
               <div class="pop-section-ttl">Model Provider</div>
@@ -2826,14 +2828,6 @@
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
                 </span>
               </button>
-              <div class="pop-divider"></div>
-              <div class="pop-switch-row" id="popThinkRow">
-                <span class="pop-text"><b>Extended Thinking</b><small>Deep reasoning pass before writing code</small></span>
-                <label class="ag-switch">
-                  <input type="checkbox" id="popThinkCheck">
-                  <span class="ag-slider"></span>
-                </label>
-              </div>
             </div>
           </div>
 
@@ -3786,7 +3780,7 @@
           conversation: convo,
           // Intent only — the API key for `provider` lives server-side on the
           // account and is never sent from here.
-          mode: agentMode, provider: agentProvider, thinking: thinkingEnabled,
+          mode: agentMode, provider: agentProvider, thinking: thinkingForMode(),
           // Set by the plan card's "Build it" button; the server only asks
           // for confirmation when this is absent.
           confirmed: !!(opts && opts.confirmed),
@@ -4571,10 +4565,9 @@
   // Claude & Replit Model Popover
   const agModelPill = $("agModelPill");
   const agModelPopover = $("agModelPopover");
-  const popModeEconomy = $("popModeEconomy");
+  const popModeAuto = $("popModeAuto");
+  const popModePlan = $("popModePlan");
   const popModePower = $("popModePower");
-  const popThinkCheck = $("popThinkCheck");
-  const agThinkBadge = $("agThinkBadge");
   const agModelPillIcon = $("agModelPillIcon");
   const agModelPillLabel = $("agModelPillLabel");
 
@@ -4623,41 +4616,47 @@
     });
   }
 
-  let agentMode = "economy";
+  /* Three modes, each of which changes what the server actually does — a
+     mode that only relabels the pill is a lie told in a dropdown.
+
+       auto   the agent decides: answer, ask, or build. Fresh builds still
+              show a plan to confirm; edits go straight through.
+       plan   the plan is shown and approved EVERY time, edits included.
+       power  deep reasoning, MCP tools, and an extra repair round.
+
+     Extended Thinking was a separate switch that only made sense with the
+     deep-reasoning mode anyway, so it is what `power` means now rather than
+     a second control someone has to know to pair with it. */
+  const MODES = {
+    auto:  { label: "Auto",  thinking: false, box: false },
+    plan:  { label: "Plan",  thinking: false, box: false },
+    power: { label: "Power", thinking: true,  box: true }
+  };
+  let agentMode = "auto";
   const agBoxElement = document.querySelector(".ag-box");
 
-  if (popModeEconomy && popModePower) {
-    popModeEconomy.addEventListener("click", (e) => {
-      if (e) e.stopPropagation();
-      agentMode = "economy";
-      popModeEconomy.classList.add("on");
-      popModePower.classList.remove("on");
-      if (agModelPillLabel) agModelPillLabel.textContent = "Eco Souqi";
-      if (agBoxElement) agBoxElement.classList.remove("power-mode");
-      document.body.classList.remove("power-mode");
+  function setMode(mode, opts) {
+    if (!MODES[mode]) mode = "auto";
+    agentMode = mode;
+    const m = MODES[mode];
+    [["auto", popModeAuto], ["plan", popModePlan], ["power", popModePower]]
+      .forEach(([name, btn]) => { if (btn) btn.classList.toggle("on", name === mode); });
+    if (agModelPillLabel) agModelPillLabel.textContent = m.label;
+    if (agBoxElement) agBoxElement.classList.toggle("power-mode", m.box);
+    document.body.classList.toggle("power-mode", m.box);
+    if (!(opts && opts.keepOpen)) {
       if (agModelPopover) agModelPopover.classList.remove("open");
       if (agModelPill) agModelPill.classList.remove("open");
-    });
-    popModePower.addEventListener("click", (e) => {
-      if (e) e.stopPropagation();
-      agentMode = "power";
-      popModePower.classList.add("on");
-      popModeEconomy.classList.remove("on");
-      if (agModelPillLabel) agModelPillLabel.textContent = "Powered Souqi";
-      if (agBoxElement) agBoxElement.classList.add("power-mode");
-      document.body.classList.add("power-mode");
-      if (agModelPopover) agModelPopover.classList.remove("open");
-      if (agModelPill) agModelPill.classList.remove("open");
-    });
+    }
   }
 
-  let thinkingEnabled = false;
-  if (popThinkCheck && agThinkBadge) {
-    popThinkCheck.addEventListener("change", () => {
-      thinkingEnabled = popThinkCheck.checked;
-      agThinkBadge.hidden = !thinkingEnabled;
-    });
-  }
+  [["auto", popModeAuto], ["plan", popModePlan], ["power", popModePower]].forEach(([name, btn]) => {
+    if (!btn) return;
+    btn.addEventListener("click", (e) => { if (e) e.stopPropagation(); setMode(name); });
+  });
+
+  // Derived, not stored: one source of truth for what the mode means.
+  function thinkingForMode() { return !!(MODES[agentMode] && MODES[agentMode].thinking); }
 
   /* ---------- model provider ----------
      Key entry lives in Settings, not here. This picker only lists what can
@@ -5397,14 +5396,14 @@
         if (data.mode && typeof selectedType !== "undefined") {
           selectedType = data.mode.toLowerCase();
         }
-        // Carry the agent mode across the hand-off, and make the picker
-        // reflect it — someone who chose Powered Souqi on the home page
-        // should not land here silently switched back to Eco.
-        if (data.agentMode === "power" && popModePower) popModePower.click();
-        if (data.thinking && popThinkCheck && !popThinkCheck.checked) {
-          popThinkCheck.checked = true;
-          popThinkCheck.dispatchEvent(new Event("change"));
-        }
+        /* Carry the mode across the hand-off — someone who chose Power on
+           the home page should not land here silently back on Auto. The old
+           "power" and "economy" names still arrive from anything not yet
+           updated, so they are mapped rather than dropped; a stale
+           thinking:true means Power, which is where that setting went. */
+        const handedMode = (data.agentMode === "power" || data.thinking) ? "power"
+          : (data.agentMode === "plan" ? "plan" : "auto");
+        if (handedMode !== "auto") setMode(handedMode);
         const doRun = () => {
           const inp = document.getElementById("agInput");
           if (inp) {

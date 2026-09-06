@@ -3118,6 +3118,23 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
      original thread and the default, so a client that never sends one keeps
      working exactly as before. */
   const chatId = String((req.body && req.body.chatId) || "").slice(0, 40);
+
+  /* The three modes the composer offers, normalised here so every read of
+     them agrees.
+
+       auto   decide per message: answer, ask, or build. A fresh build still
+              shows its plan to confirm; an edit goes straight through.
+       plan   show the plan and wait for approval EVERY time, edits included.
+       power  deep reasoning, MCP tools, an extra repair round.
+
+     "economy" and "power" were the old names and still arrive from anything
+     not yet updated — a saved hand-off, an older tab left open — so they are
+     mapped rather than rejected. thinking:true on its own also means power,
+     because that is the switch it replaced. */
+  const rawMode = String((req.body && req.body.mode) || "").toLowerCase();
+  const buildMode = rawMode === "plan" ? "plan"
+    : (rawMode === "power" || (req.body && req.body.thinking)) ? "power"
+    : "auto";
   if (!wantsStream(req)) return res.status(400).json({ error: "this endpoint only supports SSE (Accept: text/event-stream)" });
   const prompt = String((req.body && req.body.prompt) || "").trim();
 
@@ -3286,7 +3303,7 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
   // Set by the assessment below when the conversation produced more detail
   // than the last message carries on its own.
   let conversationBrief = null;
-  if (!isFollowUp) {
+  if (!isFollowUp || buildMode === "plan") {
     /* The conversation so far, as the client has it.
 
        A fresh chat has no project yet, so there is nothing on the server to
@@ -3294,30 +3311,37 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
        every answer the moment it asked for one. The client keeps the thread
        and sends it; without this, assessPrompt sees a single orphaned line
        and either asks the same question again or builds without the answer. */
-    const convo = Array.isArray(req.body && req.body.conversation)
-      ? req.body.conversation.slice(-12)
-      : [];
-    // How many questions this conversation has already spent.
-    const asked = convo.filter(function (m) {
-      return m && m.role === "agent" && m.kind === "ask";
-    }).length;
+    /* The assessment is for FRESH prompts only. Given "make the button
+       green" with no project context it has nothing to judge against and
+       answers instead of building — which is what plan mode did to every
+       edit when it ran this block too. Plan mode wants the CONFIRM step
+       below, not a re-reading of what the person meant. */
+    if (!isFollowUp) {
+      const convo = Array.isArray(req.body && req.body.conversation)
+        ? req.body.conversation.slice(-12)
+        : [];
+      // How many questions this conversation has already spent.
+      const asked = convo.filter(function (m) {
+        return m && m.role === "agent" && m.kind === "ask";
+      }).length;
 
-    const assessment = await assessPrompt(prompt, { history: convo, asked: asked });
-    if (!assessment.clear) {
-      /* "ask" and "chat" mean the same thing to the client - show this and
-         wait - but not to the person reading it, and the client counts the
-         asks to know when the budget is spent. */
-      sseFrame(res, "needsAnswer", {
-        reply: assessment.reply,
-        action: assessment.action || "chat"
-      });
-      sseFrame(res, "done", {});
-      return res.end();
+      const assessment = await assessPrompt(prompt, { history: convo, asked: asked });
+      if (!assessment.clear) {
+        /* "ask" and "chat" mean the same thing to the client - show this and
+           wait - but not to the person reading it, and the client counts the
+           asks to know when the budget is spent. */
+        sseFrame(res, "needsAnswer", {
+          reply: assessment.reply,
+          action: assessment.action || "chat"
+        });
+        sseFrame(res, "done", {});
+        return res.end();
+      }
+      /* What they said ACROSS the conversation, not just the line that tipped
+         it into buildable. Without this, the answers given to the agent's own
+         questions never reach the thing doing the building. */
+      if (assessment.brief) conversationBrief = assessment.brief;
     }
-    /* What they said ACROSS the conversation, not just the line that tipped
-       it into buildable. Without this, the answers given to the agent's own
-       questions never reach the thing doing the building. */
-    if (assessment.brief) conversationBrief = assessment.brief;
 
     /* Confirm before building.
        A build takes a minute, spends credits and produces a whole app, and
@@ -3330,6 +3354,8 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
        on screen, so asking "shall I?" for every tweak would be a tax rather
        than a check. The client re-POSTs the same prompt with confirmed:true,
        which lands here with the gate already passed. */
+    /* Plan mode reaches here on follow-ups too: it is someone asking for
+       the confirm step on every change, which is the one thing it turns on. */
     if (!(req.body && req.body.confirmed)) {
       const planType = String((req.body && req.body.buildType) || "website");
       let plan = null;
@@ -3430,13 +3456,16 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
     // sandbox or build step needed). The files are returned directly and the
     // client stores + previews them via the project's published URL.
     const canBuild = req.body && req.body.canBuild !== false; // default true if omitted (desktop)
-    const agentMode = String((req.body && req.body.mode) || "economy").toLowerCase();
-    const thinking = !!(req.body && req.body.thinking);
+    // Derived from buildMode so "power" has exactly one definition.
+    const agentMode = buildMode === "power" ? "power" : "economy";
+    const thinking = buildMode === "power";
     /* Reported here and not with the other opening steps: both of these are
        declared on this line, and reading them earlier is a dead-zone throw
        that takes the whole build down with it. */
     sseFrame(res, "stage", { id: "model", state: "done",
-      detail: (agentMode === "power" ? "Powered Souqi" : "Eco Souqi") + (thinking ? ", thinking" : "") });
+      detail: buildMode === "power" ? "Power \u2014 deep reasoning"
+        : buildMode === "plan" ? "Plan \u2014 approval before every change"
+        : "Auto" });
     const byok = await resolveByok(req, req.body && req.body.provider);
 
     // MCP is a Powered Souqi capability, and connecting costs a process
