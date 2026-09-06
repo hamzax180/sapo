@@ -348,9 +348,72 @@ const ROUTES = { prose: { baseUrl: "https://x.invalid/prose", model: "gemini-3.8
 
   console.log("\n── the tool schema itself ───────────────────────────");
 
-  await check("exactly one tool is offered: write_file — not run, not npm install", () => {
-    assert.strictEqual(TOOLS_SCHEMA.length, 1);
-    assert.strictEqual(TOOLS_SCHEMA[0].function.name, "write_file");
+  /* This used to assert TOOLS_SCHEMA.length === 1, which was a proxy for
+     the thing actually worth protecting: the model is never handed a tool
+     that can EXECUTE anything. Adding the inert suggest_next broke the
+     proxy without touching the invariant, so the invariant is written out
+     directly here instead — an allow-list plus an explicit refusal of the
+     dangerous names, which is a stronger guarantee than a count and does
+     not have to be revisited every time a harmless tool is added. */
+  await check("only inert tools are offered — nothing that can execute", () => {
+    const names = TOOLS_SCHEMA.map((s) => s.function.name).sort();
+    assert.deepStrictEqual(names, ["suggest_next", "write_file"]);
+    for (const forbidden of ["run", "exec", "shell", "bash", "npm_install", "install", "fetch", "http"]) {
+      assert.ok(!names.includes(forbidden), "a tool named " + forbidden + " is offered to the model");
+    }
+  });
+
+  await check("suggest_next rides along with the writes and comes back as suggestions", async () => {
+    const msg = {
+      role: "assistant",
+      tool_calls: [
+        { id: "c0", type: "function", function: { name: "write_file", arguments: JSON.stringify({ path: "src/App.tsx", content: "x" }) } },
+        { id: "c1", type: "function", function: { name: "suggest_next", arguments: JSON.stringify({ suggestions: ["Add a dark mode toggle", "Filter by category"] }) } }
+      ]
+    };
+    client.init({ enabled: true, routes: ROUTES, fetchImpl: await fetchReturning([msg]) });
+    const out = await proposeChanges("a budget tracker " + Math.random());
+    assert.strictEqual(out.ok, true);
+    assert.strictEqual(out.calls.length, 1, "suggest_next was counted as a file write");
+    assert.deepStrictEqual(out.suggestions, ["Add a dark mode toggle", "Filter by category"]);
+  });
+
+  await check("a malformed suggest_next is dropped, never fails the build it came with", async () => {
+    const msg = {
+      role: "assistant",
+      tool_calls: [
+        { id: "c0", type: "function", function: { name: "write_file", arguments: JSON.stringify({ path: "src/App.tsx", content: "y" }) } },
+        { id: "c1", type: "function", function: { name: "suggest_next", arguments: "{not json" } }
+      ]
+    };
+    client.init({ enabled: true, routes: ROUTES, fetchImpl: await fetchReturning([msg]) });
+    const out = await proposeChanges("a todo app " + Math.random());
+    assert.strictEqual(out.ok, true, "malformed suggestions failed the whole turn");
+    assert.deepStrictEqual(out.suggestions, []);
+  });
+
+  await check("suggestions are capped at 3 and trimmed — a chip is not a paragraph", async () => {
+    const long = "x".repeat(200);
+    const msg = {
+      role: "assistant",
+      tool_calls: [
+        { id: "c0", type: "function", function: { name: "write_file", arguments: JSON.stringify({ path: "src/App.tsx", content: "z" }) } },
+        { id: "c1", type: "function", function: { name: "suggest_next", arguments: JSON.stringify({ suggestions: ["  a  b  ", long, "three", "four", "five"] }) } }
+      ]
+    };
+    client.init({ enabled: true, routes: ROUTES, fetchImpl: await fetchReturning([msg]) });
+    const out = await proposeChanges("a shop " + Math.random());
+    assert.strictEqual(out.suggestions.length, 3);
+    assert.strictEqual(out.suggestions[0], "a b", "inner whitespace was not collapsed");
+    assert.ok(out.suggestions[1].length <= 80, "a suggestion came back longer than a chip can hold");
+  });
+
+  await check("suggest_next cannot write, run or reach anything — it only carries strings", () => {
+    const s = TOOLS_SCHEMA.find((x) => x.function.name === "suggest_next");
+    const props = s.function.parameters.properties;
+    assert.deepStrictEqual(Object.keys(props), ["suggestions"]);
+    assert.strictEqual(props.suggestions.type, "array");
+    assert.strictEqual(props.suggestions.items.type, "string");
   });
 
   console.log("\n── response cache (docs/AI-PROVIDER-PLAN.md §4.1) ──");

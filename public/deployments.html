@@ -38,6 +38,14 @@
   }
   function sqRenderUsage(d) {
     if (!d) return;
+    /* A payload with no budget fields at all is not "zero budget", it is
+       "this endpoint did not answer that question" — /api/account/me
+       returns a bare {signedIn:false} when signed out. Both that and
+       /api/codeagent/usage call this, whichever resolves last wins, and
+       without this guard the bare one clobbered good numbers with $0.00.
+       Which is exactly what shipped: the card read $0.00 on production
+       while the API was correctly returning a $1 budget. */
+    if (d.budgetUsd == null && d.windowBudgetUsd == null) return;
     var plan = String(d.plan || "free");
     var planEl = document.getElementById("agUsagePlan"), upEl = document.getElementById("agUsageUp");
     if (planEl) planEl.textContent = plan === "free" ? "Free plan" : plan + " plan";

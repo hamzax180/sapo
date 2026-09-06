@@ -2780,6 +2780,98 @@
   .u-row.quiet .u-lab,.u-row.quiet .u-when{color:var(--mut)}
   @media (prefers-reduced-motion:reduce){ .u-bar i{transition:none} }
 
+  /* ---- what to do next --------------------------------------------------
+     Offered as buttons rather than described in the reply, because the
+     answer to "shall I add a dark mode toggle?" is one tap, and making
+     someone retype the idea to accept it is a strange thing to ask.
+
+     Each chip IS the yes. There is no separate Yes button per row, because
+     a Yes that needs its own target doubles the number of things to aim at
+     for no gain — tapping the idea you want is the least ambiguous accept
+     there is. The single Dismiss is the no, and it is quiet: declining is
+     the common case and should not look like the important one. */
+  .ag-next{display:flex;flex-direction:column;gap:7px;margin:10px 0 2px;
+    animation:sqFadeUp var(--dur-chill,.3s) var(--ease-snappy,ease-out) both}
+  .ag-next .n-ttl{font-size:.73rem;color:var(--mut);font-weight:500}
+  .ag-next .n-row{display:flex;flex-wrap:wrap;gap:7px;align-items:center}
+  .ag-next button.n-yes{display:inline-flex;align-items:center;gap:7px;
+    border:1px solid var(--line);background:var(--card);color:var(--ink);
+    border-radius:999px;padding:7px 13px 7px 11px;font:inherit;font-size:.79rem;font-weight:500;
+    cursor:pointer;text-align:left;box-shadow:var(--sh-subtle);
+    transition:border-color var(--dur-snappy,.12s) ease,background var(--dur-snappy,.12s) ease,
+               transform var(--dur-snappy,.12s) ease}
+  .ag-next button.n-yes:hover{border-color:var(--line-hover);background:var(--paper-2);transform:translateY(-1px)}
+  .ag-next button.n-yes:active{transform:none}
+  .ag-next button.n-yes svg{width:13px;height:13px;flex:none;color:var(--accent)}
+  .ag-next button.n-no{border:0;background:none;color:var(--mut);font:inherit;font-size:.75rem;
+    cursor:pointer;padding:7px 4px;text-decoration:underline;text-underline-offset:2px}
+  .ag-next button.n-no:hover{color:var(--ink-2)}
+  .ag-next.busy{opacity:.5;pointer-events:none}
+  @media (prefers-reduced-motion:reduce){ .ag-next{animation-duration:1ms} }
+
+  /* ---- once there is a conversation, the new-chat screen is gone --------
+     agNewExtras (the build-type picker and example prompts) and agRecent
+     were hidden by JS, but only on the branch that runs after a FIRST
+     build. Reopening an existing project takes a different path, so on
+     /agent/<slug> they were never hidden at all — 489px of new-chat
+     furniture still sitting below the composer.
+
+     On a phone that is the whole bug people see: .ag is a flex column, so
+     that furniture takes its space first and the log is left with what
+     remains, which measured 20 pixels. The composer ends up near the top
+     of the screen with a field of nothing under it, and the chat it
+     belongs to is a 20px slot above it.
+
+     Stated in CSS keyed on .is-new rather than fixed in the one JS branch,
+     because the state is already on the element and a rule cannot be
+     reached down a code path nobody remembered. */
+  .ag:not(.is-new) #agNewExtras,
+  .ag:not(.is-new) #agRecent{display:none !important}
+
+  /* The log takes the room that frees up, and scrolls inside itself, so
+     the composer sits on the bottom edge where it belongs. */
+  .ag:not(.is-new) #agLog{flex:1 1 auto;min-height:0;overflow-y:auto}
+
+  @media (max-width:900px){
+    /* Two things were still drawing inside the 44px closed rail: the
+       search box, which is 30px wide but overflowed to 55 and poked out
+       past the rail's edge, and the "Recent" heading, which rendered as a
+       clipped "Rece". A heading with no list under it is noise at any
+       width; at 44px it is just a broken word. Desktop already hides the
+       search in its collapsed rail — this is the same rule for the phone,
+       which uses a different selector and so never inherited it. */
+    .ag-history:not(.on) .ag-hist-search{display:none !important}
+    .ag-history:not(.on) .ag-chats-ttl{display:none !important}
+  }
+
+  /* Laid out the way Claude's own usage popover does it: the limit's name
+     on the left, and its reset time and percentage together on the right
+     of the SAME line, with the bar under both. Reading "how full" and
+     "when does it clear" as one line is the whole point — they are the
+     two halves of one question, and splitting the reset onto its own row
+     below the bar (which is what this did before) made it read as a
+     footnote to the bar rather than as half the answer. */
+  .u-lab{display:flex;align-items:baseline;justify-content:space-between;gap:10px;
+    font-size:.72rem;color:var(--ink-2);width:100%}
+  .u-name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .u-meta{display:flex;align-items:baseline;gap:8px;flex:none}
+  .u-reset{color:var(--mut);font-size:.68rem;white-space:nowrap}
+  .u-lab b{font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums}
+
+  @media (max-width:900px){
+    /* .ag-split is height:calc(100vh - 56px) — 56px held back for the top
+       bar. That bar (.ag-head) is display:none at this width, so the 56px
+       was reserved for nothing and showed up as exactly 56px of dead space
+       under the composer: measured 552 tall in a 608 viewport, which is
+       the gap in the report.
+
+       dvh rather than vh on purpose. On a phone, vh is the LARGEST the
+       viewport gets — the value with the browser's own chrome retracted —
+       so a composer pinned to 100vh sits under the address bar until you
+       scroll. dvh tracks the viewport that is actually on screen. */
+    .ag-split{height:100dvh !important}
+  }
+
 </style>
 <link rel="stylesheet" href="/css/upgrade-modal.css">
 </head>
@@ -2871,12 +2963,11 @@
         <a class="u-up" href="/pricing" onclick="openUpgradeModal(event)" id="agUsageUp"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/></svg>Upgrade</a>
       </div>
       <div class="u-row">
-        <span class="u-lab">Session usage<b id="agWinPct">—</b></span>
+        <span class="u-lab"><span class="u-name">5-hour limit</span><span class="u-meta"><span class="u-reset" id="agWinReset"></span><b id="agWinPct">—</b></span></span>
         <span class="u-bar"><i id="agWinBar"></i></span>
-        <span class="u-when" id="agWinReset"></span>
       </div>
-      <div class="u-row quiet">
-        <span class="u-lab">This month<b id="agAllowPct">—</b></span>
+      <div class="u-row">
+        <span class="u-lab"><span class="u-name">Monthly</span><span class="u-meta"><span class="u-reset" id="agMonthReset"></span><b id="agAllowPct">—</b></span></span>
         <span class="u-bar"><i id="agAllowBar"></i></span>
       </div>
     </div>
@@ -4125,6 +4216,9 @@
       worked(Math.max(1, Math.round((Date.now() - startedAt) / 1000)));
 
       showPreview(result.previewUrl, result.fileContents);
+      // After the preview, so the suggestions sit under a build the person
+      // can already see rather than above a blank frame.
+      showSuggestions(result.suggestions);
     } catch (err) {
       if (err.name === "AbortError") {
         if (thinkPanel) thinkPanel.done();
@@ -4512,6 +4606,41 @@
       agPvDevices.style.display = "";
     }
     applyDeviceFrame();
+  }
+
+  /* Renders the model's "what next" as one-tap accepts.
+   *
+   * Only after a build that actually wrote something: offering to improve
+   * an app that failed to build is offering to decorate a hole. The caller
+   * passes [] in that case and this draws nothing.
+   */
+  function showSuggestions(list) {
+    if (!Array.isArray(list) || !list.length) return;
+    const wrap = document.createElement("div");
+    wrap.className = "ag-next";
+    const tick = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>';
+    wrap.innerHTML = '<span class="n-ttl">Want me to keep going?</span><div class="n-row">'
+      + list.slice(0, 3).map((s) =>
+          '<button type="button" class="n-yes">' + tick + '<span></span></button>').join("")
+      + '<button type="button" class="n-no">No thanks</button></div>';
+    // Text set as textContent, never interpolated into the HTML above: this
+    // string came from a model, and a model that emits an <img onerror> is
+    // a model that has just run script in someone's session.
+    wrap.querySelectorAll("button.n-yes span").forEach((el, i) => { el.textContent = list[i]; });
+
+    wrap.querySelector("button.n-no").addEventListener("click", () => wrap.remove());
+    wrap.querySelectorAll("button.n-yes").forEach((b, i) => {
+      b.addEventListener("click", () => {
+        // Greyed rather than removed, so the accepted idea stays readable
+        // while the build it started is running.
+        wrap.classList.add("busy");
+        agInput.value = list[i];
+        updateComposerSendButton();
+        agForm.requestSubmit();
+      });
+    });
+    agLog.appendChild(wrap);
+    agLog.scrollTop = agLog.scrollHeight;
   }
 
   function showPreview(url, fileContents) {
@@ -5635,7 +5764,9 @@
     bar.classList.toggle("warn", pct >= 70 && pct < 90);
     bar.classList.toggle("hot", pct >= 90);
     // The number says "used" so the bar cannot be misread as remaining.
-    lab.textContent = cap > 0 ? Math.round(pct) + "% used" : "$" + used.toFixed(2);
+    // Bare "68%", the way the reference reads. The word "used" was doing
+    // no work next to a bar that already fills from the left.
+    lab.textContent = cap > 0 ? Math.round(pct) + "%" : "$" + used.toFixed(2);
     return pct;
   }
 
@@ -5645,15 +5776,23 @@
   function untilWords(iso) {
     if (!iso) return "";
     const ms = new Date(iso).getTime() - Date.now();
-    if (!(ms > 0)) return "Refills now";
+    if (!(ms > 0)) return "now";
     const mins = Math.round(ms / 60000);
-    if (mins < 60) return "Refills in " + mins + "m";
+    if (mins < 60) return mins + "m";
     const h = Math.floor(mins / 60), m = mins % 60;
-    return "Refills in " + h + "h" + (m ? " " + m + "m" : "");
+    return h + "h" + (m ? " " + m + "m" : "");
   }
 
   function renderUsage(d) {
     if (!d) return;
+    /* A payload with no budget fields at all is not "zero budget", it is
+       "this endpoint did not answer that question" — /api/account/me
+       returns a bare {signedIn:false} when signed out. Both that and
+       /api/codeagent/usage call this, whichever resolves last wins, and
+       without this guard the bare one clobbered good numbers with $0.00.
+       Which is exactly what shipped: the card read $0.00 on production
+       while the API was correctly returning a $1 budget. */
+    if (d.budgetUsd == null && d.windowBudgetUsd == null) return;
     const plan = String(d.plan || "free");
     const planEl = $("agUsagePlan"), upEl = $("agUsageUp");
     if (planEl) planEl.textContent = plan === "free" ? "Free plan" : plan + " plan";
@@ -5665,10 +5804,21 @@
 
     const when = $("agWinReset");
     if (when) {
-      // Only once something has been spent — "Refills in 5h" on an untouched
+      // Only once something has been spent — a countdown on an untouched
       // allowance is a countdown to nothing.
-      const words = Number(d.windowUsd || 0) > 0 ? untilWords(d.windowResetAt) : "";
-      when.textContent = words || ((d.windowHours || 5) + "-hour window");
+      const w = Number(d.windowUsd || 0) > 0 ? untilWords(d.windowResetAt) : "";
+      when.textContent = w;
+      when.title = w ? "Resets in " + w : "";
+    }
+    // The month always has a known reset: the 1st, in UTC, which is the
+    // boundary monthSpend() actually buckets on.
+    const mres = $("agMonthReset");
+    if (mres) {
+      const now = new Date();
+      const next = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1));
+      const days = Math.max(1, Math.round((next - Date.now()) / 86400000));
+      mres.textContent = days + "d";
+      mres.title = "Resets in " + days + (days === 1 ? " day" : " days");
     }
   }
 

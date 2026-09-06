@@ -545,6 +545,31 @@ const TOOLS_SCHEMA = [
         required: ["path", "content"]
       }
     }
+  },
+  /* Offered as a TOOL rather than asked for in the reply text, because a
+     suggestion has to survive being turned into a button. Parsed out of
+     prose it would arrive as whatever phrasing the model felt like that
+     turn — sometimes a sentence, sometimes a bulleted list, sometimes
+     folded into a paragraph — and a chip built from that is a chip that
+     is occasionally a paragraph. A tool call has a shape. */
+  {
+    type: "function",
+    function: {
+      name: "suggest_next",
+      description: "AFTER writing files, optionally propose 2-3 short next improvements the person might want. Each must be a concrete change to THIS app that you could carry out immediately if they said yes — not generic advice, not something already done.",
+      parameters: {
+        type: "object",
+        properties: {
+          suggestions: {
+            type: "array",
+            maxItems: 3,
+            description: "2-3 suggestions, each a short imperative phrase of at most 60 characters, e.g. \"Add a dark mode toggle\".",
+            items: { type: "string" }
+          }
+        },
+        required: ["suggestions"]
+      }
+    }
   }
 ];
 
@@ -567,6 +592,7 @@ You are not choosing the stack — it is fixed and already installed:
 
 Rules:
 - Call write_file for every file you create or change. One call per file. Always write at least one file unless you are asking a clarifying question.
+- After your writes, call suggest_next with 2-3 short ideas for what to improve next — things you could do immediately if they said yes. Make them specific to THIS app ("Add a filter by category", not "Improve the UI"), and never suggest something you just did. Skip the call entirely if you asked a clarifying question, or if nothing worthwhile is left.
 - src/App.tsx must have a default export and must compile under TypeScript strict mode.
 - DO NOT import 'lucide-react', 'heroicons', or any uninstalled packages. ONLY import from 'react' or 'react-dom'. Use inline SVG elements, emoji, or Tailwind styled elements for icons.
 - Do not write index.html, package.json, vite.config.ts, tailwind.config.js, or tsconfig.json — those are fixed and already correct.
@@ -736,9 +762,25 @@ function parseToolCalls(message, mcp) {
 
   const writes = [];
   const mcpCalls = [];
+  const suggestions = [];
   for (const c of calls) {
     const name = c.function && c.function.name;
     if (!name) return { ok: false, reason: "tool call had no function name" };
+
+    /* Never fatal. A suggestion is a nicety on top of a build that has
+       already succeeded, so a malformed one is dropped rather than
+       allowed to fail the writes it came with — the opposite of the rule
+       for write_file, and for the opposite reason. */
+    if (name === "suggest_next") {
+      try {
+        const args = JSON.parse((c.function && c.function.arguments) || "{}");
+        for (const s of (args.suggestions || [])) {
+          const clean = String(s || "").replace(/\s+/g, " ").trim().slice(0, 80);
+          if (clean && suggestions.length < 3) suggestions.push(clean);
+        }
+      } catch (e) { /* a suggestion is never worth failing a build over */ }
+      continue;
+    }
 
     if (mcp && mcp.isMcpTool(name)) {
       let args = {};
@@ -760,9 +802,9 @@ function parseToolCalls(message, mcp) {
 
   // A turn that ONLY called MCP tools is valid and expected — the model is
   // gathering facts before it writes. The caller loops rather than failing.
-  if (!writes.length && mcpCalls.length) return { ok: true, calls: [], mcpCalls: mcpCalls, toolsOnly: true };
+  if (!writes.length && mcpCalls.length) return { ok: true, calls: [], mcpCalls: mcpCalls, toolsOnly: true, suggestions: suggestions };
   if (!writes.length) return { ok: false, reason: "model returned no write_file calls" };
-  return { ok: true, calls: writes, mcpCalls: mcpCalls };
+  return { ok: true, calls: writes, mcpCalls: mcpCalls, suggestions: suggestions };
 }
 
 // 8000, not an initial 3000: found live, not by estimate — a real
@@ -1094,7 +1136,7 @@ async function attemptOnce(messages, opts) {
   // never say anything and every build landed as a silent wall of files.
   if (parsed.ok && parsed.calls.length) {
     return {
-      ok: true, calls: parsed.calls, note: modelNote(res.message), message: res.message,
+      ok: true, calls: parsed.calls, suggestions: parsed.suggestions || [], note: modelNote(res.message), message: res.message,
       // `messages` is the conversation the model actually wrote against,
       // MCP tool exchanges included. The repair loop continues from here.
       messages: convo, retried: false, usage: res.usage,
@@ -1130,7 +1172,7 @@ async function attemptOnce(messages, opts) {
     return { ok: false, reason: reason };
   }
   return {
-    ok: true, calls: retryParsed.calls, note: modelNote(retryRes.message), message: retryRes.message,
+    ok: true, calls: retryParsed.calls, suggestions: retryParsed.suggestions || [], note: modelNote(retryRes.message), message: retryRes.message,
     messages: retryMessages, retried: true,
     usage: retryRes.usage, costUsd: (res.costUsd || 0) + (retryRes.costUsd || 0) + mcpCost
   };
@@ -1190,7 +1232,7 @@ async function proposeChanges(userPrompt, opts) {
     };
   }
 
-  const result = { ok: true, calls: attempt.calls, note: attempt.note, retried: attempt.retried, cached: false, usage: attempt.usage, costUsd: attempt.costUsd };
+  const result = { ok: true, calls: attempt.calls, suggestions: attempt.suggestions || [], note: attempt.note, retried: attempt.retried, cached: false, usage: attempt.usage, costUsd: attempt.costUsd };
   cacheSet(key, result, attempt.costUsd || 0);
   return result;
 }
@@ -1273,7 +1315,7 @@ async function proposeWithRepair({ userPrompt, tools, maxRounds, onRound, mode, 
     if (onRound) onRound({ round, ok: build.ok, calls: allCalls, errors: build.ok ? undefined : build.errors });
 
     if (build.ok) {
-      return { ok: true, calls: allCalls, note: attempt.note, round, rounds: round + 1, repaired: round > 0, costUsd: totalCost, jsonRetries };
+      return { ok: true, calls: allCalls, suggestions: attempt.suggestions || [], note: attempt.note, round, rounds: round + 1, repaired: round > 0, costUsd: totalCost, jsonRetries };
     }
     if (round === cap) {
       return { ok: false, reason: "build still failing after " + (cap + 1) + " attempt(s)", round, rounds: round + 1, lastErrors: build.errors, costUsd: totalCost };
@@ -1464,7 +1506,7 @@ async function proposeWithClientBuild({ userPrompt, maxRounds, onFiles, onRound,
     if (onRound) onRound({ round, ok: build.ok, calls: allCalls, errors: build.ok ? undefined : build.errors });
 
     if (build.ok) {
-      return { ok: true, calls: allCalls, note: attempt.note, round, rounds: round + 1, repaired: round > 0, costUsd: totalCost, jsonRetries };
+      return { ok: true, calls: allCalls, suggestions: attempt.suggestions || [], note: attempt.note, round, rounds: round + 1, repaired: round > 0, costUsd: totalCost, jsonRetries };
     }
     if (round >= cap + entryRounds) {
       // Final Fallback if repair attempts failed: return guaranteed compiling fallback App.tsx

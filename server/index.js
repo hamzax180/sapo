@@ -4234,6 +4234,10 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
       projectId: project.id, slug: project.slug, files: srcFiles, fileContents: fileContents,
       previewUrl: "__webcontainer__", // signal to client: use local WebContainer preview or mobile srcdoc
       note: result.note || "", // the model's own explanation, shown in the chat
+      // What it thinks is worth doing next. Sent even when empty so the
+      // client can tell "nothing to suggest" from "an older server that
+      // does not send this field" and render accordingly.
+      suggestions: Array.isArray(result.suggestions) ? result.suggestions.slice(0, 3) : [],
       repaired: !!result.repaired, rounds: result.rounds, costUsd: result.costUsd || 0
     });
     sseFrame(res, "done", {});
