@@ -27,6 +27,48 @@
       --sidebar:#0e1117; --sidebar2:#161b22;
       --shadow:0 1px 2px rgba(0,0,0,.2),0 8px 24px rgba(0,0,0,.3);
     }
+      /* ---------- apps & containers ----------------------------------
+         Status is the whole point of this view, so it is a colour AND a
+         word: a red dot alone tells a colour-blind operator nothing, and
+         "3 failed" is what you actually want to read at a glance. */
+    .st-pill{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:3px 10px 3px 8px;
+        font-size:.72rem;font-weight:600;white-space:nowrap;
+        box-shadow:inset 0 0 0 1px color-mix(in srgb,currentColor 26%,transparent)}
+    .st-pill .dot{width:6px;height:6px;border-radius:50%;background:currentColor;flex:none}
+    .st-running{color:#187a4b;background:rgba(34,165,101,.14)}
+    .st-stopped{color:var(--mut);background:rgba(139,152,165,.16)}
+    .st-building,.st-starting,.st-queued{color:#a9760a;background:rgba(224,161,26,.16)}
+    .st-failed{color:#d92d20;background:rgba(217,45,32,.14)}
+    .st-unknown{color:var(--mut);background:rgba(139,152,165,.12)}
+    :root[data-theme="dark"] .st-running{color:#3ecb84}
+    :root[data-theme="dark"] .st-failed{color:#f87171}
+    :root[data-theme="dark"] .st-building,:root[data-theme="dark"] .st-starting{color:#e0a11a}
+    @keyframes stBreathe{0%,100%{box-shadow:0 0 0 0 rgba(34,165,101,.5)}70%{box-shadow:0 0 0 5px rgba(34,165,101,0)}}
+    .st-running .dot{animation:stBreathe 2.4s ease-in-out infinite}
+    @media (prefers-reduced-motion:reduce){ .st-pill .dot{animation:none} }
+
+    /* A host banner that is green when nothing is wrong is noise; this one
+         only raises its voice when the plane is unreachable or full. */
+    .host{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:13px 16px;border-radius:14px;
+        border:1px solid var(--line);background:var(--panel);margin-bottom:18px;box-shadow:var(--shadow)}
+    .host.bad{border-color:rgba(217,45,32,.45);background:rgba(217,45,32,.06)}
+    .host .h-ttl{font-weight:700;font-size:.9rem;display:flex;align-items:center;gap:8px}
+    .host .h-sp{flex:1}
+    .host .h-m{display:flex;align-items:center;gap:7px;font-size:.82rem;color:var(--ink2)}
+    .host .h-m b{color:var(--ink);font-variant-numeric:tabular-nums}
+    .meter{width:120px;height:6px;border-radius:99px;background:var(--line);overflow:hidden;flex:none}
+    .meter i{display:block;height:100%;border-radius:99px;background:var(--accent)}
+    .meter i.warn{background:var(--amber)} .meter i.bad{background:#d92d20}
+
+    .app-cell{display:flex;align-items:center;gap:11px;min-width:0}
+    .app-tile{width:32px;height:32px;border-radius:9px;flex:none;display:grid;place-items:center;
+        font-family:'Jost';font-weight:700;font-size:.85rem;color:#fff;
+        background-image:linear-gradient(152deg,rgba(255,255,255,.3),rgba(255,255,255,0) 46%,rgba(0,0,0,.2))}
+    .app-cell b{display:block;font-size:.9rem;line-height:1.25;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:230px}
+    .app-cell small{display:block;color:var(--mut);font-size:.74rem}
+    .app-url{color:var(--accent);font-size:.8rem;text-decoration:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:230px;display:inline-block;vertical-align:bottom}
+    .app-url:hover{text-decoration:underline}
+
     body{font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased}
     .admin{display:grid;grid-template-columns:248px 1fr;min-height:100vh}
 
@@ -48,7 +90,12 @@
     .topbar h1{font-family:'Jost';font-size:1.4rem;font-weight:700;letter-spacing:-.02em}
     .topbar .sub{font-size:.84rem;color:var(--ink2);margin-top:2px}
     .top-actions{display:flex;align-items:center;gap:12px}
-    .btn{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line);background:#fff;color:var(--ink);border-radius:10px;padding:9px 14px;font:inherit;font-weight:600;font-size:.86rem;cursor:pointer;transition:.15s}
+    /* These four were hardcoded #fff. --panel is #ffffff in light and
+       #1c2128 in dark, so this changes nothing in light mode and stops
+       buttons, filter chips and the sign-in card rendering as white
+       slabs on a dark page. The logo backdrop and the amber demo banner
+       keep their literal colours: those are not theme surfaces. */
+    .btn{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:10px;padding:9px 14px;font:inherit;font-weight:600;font-size:.86rem;cursor:pointer;transition:.15s}
     .btn:hover{border-color:#c5d4e4;background:#f7fafd}
     .btn-primary{background:var(--accent);border-color:var(--accent);color:#04121d}
     .btn-primary:hover{background:#3bb8ea}
@@ -81,7 +128,7 @@
     .card-h .hint{font-size:.76rem;color:var(--mut)}
     .seg{display:inline-flex;background:#f1f5f9;border-radius:9px;padding:3px}
     .seg button{border:0;background:transparent;font:inherit;font-size:.78rem;font-weight:600;color:var(--ink2);padding:5px 11px;border-radius:7px;cursor:pointer}
-    .seg button.on{background:#fff;color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.06)}
+    .seg button.on{background:var(--panel);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.06)}
 
     /* ---------- charts ---------- */
     .chart{width:100%;overflow:hidden}
@@ -110,15 +157,15 @@
     .inp{border:1px solid var(--line);border-radius:10px;padding:9px 12px;font:inherit;font-size:.88rem;outline:none}
     .inp:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(26,166,223,.16)}
     .filters{display:flex;flex-wrap:wrap;gap:8px}
-    .fchip{border:1px solid var(--line);background:#fff;border-radius:999px;padding:6px 13px;font:inherit;font-size:.8rem;font-weight:600;color:var(--ink2);cursor:pointer;text-transform:capitalize}
+    .fchip{border:1px solid var(--line);background:var(--panel);border-radius:999px;padding:6px 13px;font:inherit;font-size:.8rem;font-weight:600;color:var(--ink2);cursor:pointer;text-transform:capitalize}
     .fchip.on{background:var(--ink);color:#fff;border-color:var(--ink)}
-    .plan-sel{border:1px solid var(--line);border-radius:8px;padding:6px 8px;font:inherit;font-size:.82rem;font-weight:600;text-transform:capitalize;cursor:pointer;background:#fff}
+    .plan-sel{border:1px solid var(--line);border-radius:8px;padding:6px 8px;font:inherit;font-size:.82rem;font-weight:600;text-transform:capitalize;cursor:pointer;background:var(--panel);color:var(--ink)}
     .plan-sel:hover{border-color:var(--accent)}
 
     /* ---------- gate ---------- */
     .gate{position:fixed;inset:0;background:rgba(11,22,38,.55);backdrop-filter:blur(4px);display:none;align-items:center;justify-content:center;z-index:50;padding:20px}
     .gate.show{display:flex}
-    .gate-card{background:#fff;border-radius:18px;max-width:420px;width:100%;padding:30px;text-align:center;box-shadow:0 30px 80px rgba(0,0,0,.35)}
+    .gate-card{background:var(--panel);border-radius:18px;max-width:420px;width:100%;padding:30px;text-align:center;box-shadow:0 30px 80px rgba(0,0,0,.35)}
     .gate-card .g-ic{width:56px;height:56px;border-radius:16px;background:#fdecef;color:var(--pink);display:grid;place-items:center;margin:0 auto 16px}
     .gate-card h2{font-family:'Jost';font-size:1.3rem;margin-bottom:8px}
     .gate-card p{color:var(--ink2);font-size:.9rem;line-height:1.55;margin-bottom:20px}
@@ -140,6 +187,7 @@
       <a class="nav-item" data-view="accounts"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg> Accounts</a>
       <a class="nav-item" data-view="subscribers"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l2.4 7.4H22l-6 4.6 2.3 7.4-6.3-4.6L5.7 21 8 14 2 9.4h7.6z"/></svg> Subscribers</a>
       <a class="nav-item" data-view="stores"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg> Stores</a>
+      <a class="nav-item" data-view="apps"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="m3.3 7 8.7 5 8.7-5M12 22V12"/></svg> Apps &amp; containers</a>
       <a class="nav-item" data-view="traffic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg> Traffic</a>
       <div class="side-foot">Platform analytics · <span id="genAt">—</span></div>
     </aside>
@@ -193,6 +241,7 @@
        <div id="view-accounts" hidden></div>
        <div id="view-subscribers" hidden></div>
        <div id="view-stores" hidden></div>
+       <div id="view-apps" hidden></div>
        <div id="view-traffic" hidden></div>
       </div>
     </div>
@@ -224,6 +273,15 @@
     var fmt = function(n){ return (n||0).toLocaleString("en-US"); };
     var money = function(n){ n=Number(n)||0; return "$"+(n>=1000? (n/1000).toFixed(n>=100000?0:1)+"k" : n.toFixed(0)); };
     var moneyFull = function(n){ return "$"+(Number(n)||0).toLocaleString("en-US",{maximumFractionDigits:0}); };
+    /* AI spend is measured in fractions of a cent, and rounding it to whole
+       dollars showed $0 for real usage — "nothing spent" rather than "not
+       much spent". Small amounts keep their decimals; large ones do not
+       need them. */
+    var moneyCents = function(n){
+      var v = Number(n) || 0;
+      if (v > 0 && v < 1) return "$" + v.toFixed(v < 0.01 ? 4 : 2);
+      return "$" + v.toLocaleString("en-US", { maximumFractionDigits: v < 100 ? 2 : 0 });
+    };
     var esc = function(s){ return String(s==null?"":s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];}); };
     var initials = function(s){ s=String(s||"?").trim(); return (s[0]||"?").toUpperCase(); };
     var byId = function(id){ return document.getElementById(id); };
@@ -320,7 +378,7 @@
     });
     /* ---------------- state + view routing ---------------- */
     var state = { view:"overview", overview:null, accounts:null, acctFilter:"all", acctQ:"" };
-    var TITLES = { overview:"Platform Overview", accounts:"Accounts", subscribers:"Subscribers", stores:"Stores", traffic:"Traffic" };
+    var TITLES = { overview:"Platform Overview", accounts:"Accounts", subscribers:"Subscribers", stores:"Stores", apps:"Apps & containers", traffic:"Traffic" };
     // The panel keeps NO token in JS storage (httpOnly cookie only) — purge any legacy token.
     try{ localStorage.removeItem("sap_token"); localStorage.removeItem("sap_session"); }catch(e){}
 
@@ -329,12 +387,13 @@
 
     function showView(v){
       state.view=v;
-      ["overview","accounts","subscribers","stores","traffic"].forEach(function(x){ byId("view-"+x).hidden = (x!==v); });
+      ["overview","accounts","subscribers","stores","apps","traffic"].forEach(function(x){ byId("view-"+x).hidden = (x!==v); });
       document.querySelectorAll(".nav-item").forEach(function(n){ n.classList.toggle("active", n.dataset.view===v); });
       byId("pageTitle").textContent = TITLES[v]||"Platform";
       if(v==="accounts") loadAccounts();
       else if(v==="subscribers") renderSubscribers();
       else if(v==="stores") renderStores();
+      else if(v==="apps") loadApps();
       else if(v==="traffic") renderTraffic();
     }
     document.querySelector(".side").addEventListener("click", function(e){
@@ -425,6 +484,110 @@
           });
         }).catch(function(){ toast("Couldn't update plan"); });
     }
+
+      /* ---------------- Apps & containers ----------------------------
+         The rest of this panel is the storefront business: accounts, plans,
+         MRR. None of it says whether the machine running everyone's apps is
+         up, so the dashboard could look healthy while every container was
+         down. This view is that half. */
+    var APP_TILE = ["#1aa6df","#7c5cff","#f59e0b","#ec4899","#10b981","#6b6ff0"];
+    function appHue(s){ var n=0,i; s=String(s||""); for(i=0;i<s.length;i++) n=(n*31+s.charCodeAt(i))>>>0; return APP_TILE[n%APP_TILE.length]; }
+    function statusPill(st){
+        var k=String(st||"UNKNOWN").toUpperCase();
+        var cls={RUNNING:"st-running",STOPPED:"st-stopped",BUILDING:"st-building",STARTING:"st-starting",
+                 QUEUED:"st-queued",FAILED:"st-failed"}[k]||"st-unknown";
+        var label={RUNNING:"Live",STOPPED:"Stopped",BUILDING:"Building",STARTING:"Starting",
+                   QUEUED:"Queued",FAILED:"Failed"}[k]||"Unknown";
+        return '<span class="st-pill '+cls+'"><span class="dot"></span>'+label+'</span>';
+    }
+    function meter(pct){
+        var v=Math.max(0,Math.min(100,Math.round(pct||0)));
+        var cls=v>=90?"bad":v>=70?"warn":"";
+        return '<span class="meter"><i class="'+cls+'" style="width:'+v+'%"></i></span>';
+    }
+
+    function loadApps(){
+        var host=byId("view-apps");
+        if(!state.apps) host.innerHTML='<div class="card"><div class="card-h"><h3>Apps &amp; containers</h3></div><p style="color:var(--ink2);font-size:.9rem">Loading…</p></div>';
+        apiGet("/api/admin/apps").then(function(r){ if(!r.ok) throw "http"; return r.json(); })
+          .then(function(d){ state.apps=d; renderApps(); })
+          .catch(function(){
+            host.innerHTML='<div class="card"><div class="card-h"><h3>Apps &amp; containers</h3></div>'
+              +'<p style="color:var(--ink2);font-size:.9rem">Couldn\u2019t load this. The API answered with an error \u2014 the deploy plane may be unreachable.</p></div>';
+          });
+    }
+
+    function renderApps(){
+        var d=state.apps||{}; var T=d.totals||{}; var apps=d.apps||[];
+
+        /* Host health is the one thing the plane answers without a user
+           session, and the one that matters most: is the box everyone's
+           containers run on alive, and when did its worker last check in. */
+        var h=d.health||{}; var w=h.worker||{};
+        var planeBad = d.planeConfigured && h.ok===false;
+        var hostBits='';
+        if(!d.planeConfigured){
+          hostBits='<span class="h-m">No deploy plane configured</span>';
+        } else if(planeBad){
+          hostBits='<span class="h-m">Unreachable — containers cannot be managed right now</span>';
+        } else {
+          hostBits='<span class="h-m">Healthy</span>';
+          if(h.host) hostBits+='<span class="h-m">host <b>'+esc(h.host)+'</b></span>';
+          if(w.docker) hostBits+='<span class="h-m">docker <b>'+esc(w.docker)+'</b></span>';
+          hostBits+='<span class="h-m">caddy <b>'+(h.caddy?"up":"down")+'</b></span>';
+          if(w.staleSeconds!=null) hostBits+='<span class="h-m">worker seen <b>'+fmt(w.staleSeconds)+'s</b> ago</span>';
+        }
+
+        var kpis=[
+          ["Apps built", fmt(T.projects||0), fmt(T.built7d||0)+" in the last 7 days"],
+          ["Deployed", fmt(T.deployed||0), fmt(T.builtToday||0)+" built today"],
+          ["Signed-in owners", fmt(T.claimed||0), fmt(T.anon||0)+" still anonymous"],
+          ["AI spend this month", moneyCents((d.spend||{}).costUsd||0), fmt((d.spend||{}).builds||0)+" builds"]
+        ].map(function(k){ return kpiCard(k[0], k[1], k[2]); }).join("");
+
+        var types=Object.keys(d.byType||{}).sort(function(a,b){ return d.byType[b]-d.byType[a]; })
+          .map(function(k){ return '<span class="fchip" style="cursor:default">'+esc(k)+' <b>'+fmt(d.byType[k])+'</b></span>'; }).join("")
+          || '<span class="hint">nothing built yet</span>';
+
+        var rows=apps.map(function(a){
+          return '<tr>'
+            +'<td><div class="app-cell"><span class="app-tile" style="background-color:'+appHue(a.slug||a.id)+'">'
+              +esc(String(a.title||"A").charAt(0).toUpperCase())+'</span>'
+              +'<span><b title="'+esc(a.title)+'">'+esc(a.title)+'</b>'
+              +'<small>'+esc(a.buildType||"website")+' · '+(a.owner==="user"?"account":"anonymous")+'</small></span></div></td>'
+            +'<td>'+(a.url?'<a class="app-url" href="'+esc(a.url)+'" target="_blank" rel="noopener">'+esc(String(a.url).replace(/^https?:\/\//,""))+'</a>':'<span class="hint">generated on deploy</span>')+'</td>'
+            +'<td>'+(a.dbMode?'<span class="fchip" style="cursor:default">'+esc(a.dbMode)+'</span>':'<span class="hint">—</span>')+'</td>'
+            +'<td style="text-align:right;color:var(--ink2)">'+timeAgo(a.updatedAt)+'</td></tr>';
+        }).join("") || emptyRow(4);
+
+        /* Said plainly rather than shown as "Unknown" in a status column: the
+           plane authenticates deployment routes with the OWNER's session, so
+           an admin genuinely cannot read another person's container state.
+           A dash with an explanation beats a red pill that means nothing. */
+        var note = d.liveStatusAvailable===false
+          ? '<p style="margin:10px 0 0;font-size:.8rem;color:var(--mut);line-height:1.5">'
+            +'Per-container status (running, CPU, memory) is only readable with the owner’s own session — '
+            +'the deploy plane authenticates those routes as the person, not as the platform. '
+            +'Open an app from its owner’s Deployments page to see live state.</p>'
+          : '';
+
+        byId("view-apps").innerHTML=
+          '<div class="host'+(planeBad?" bad":"")+'">'
+            +'<span class="h-ttl">'+(planeBad?"⚠ ":"")+'Deploy host</span>'+hostBits
+            +'<span class="h-sp"></span>'
+            +'<button class="btn" id="appsRefresh">Refresh</button></div>'
+          +'<div class="kpis">'+kpis+'</div>'
+          +'<div class="card"><div class="card-h"><h3>What people are building</h3><span class="hint">by type</span></div>'
+            +'<div class="filters">'+types+'</div></div>'
+          +'<div class="card"><div class="card-h"><h3>Deployed apps</h3>'
+            +'<span class="hint">'+fmt(apps.length)+' with a container</span></div>'
+            +'<div style="overflow-x:auto"><table><thead><tr><th>App</th><th>Address</th><th>Database</th>'
+            +'<th style="text-align:right">Updated</th></tr></thead><tbody>'+rows+'</tbody></table></div>'
+            +note+'</div>';
+    }
+    byId("view-apps").addEventListener("click", function(e){
+        if(e.target.closest("#appsRefresh")){ state.apps=null; loadApps(); }
+    });
 
     function renderStores(){
       ensureAccounts(function(list){

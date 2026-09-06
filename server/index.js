@@ -381,6 +381,114 @@ app.get("/api/admin/overview", adminGuard, async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
+/**
+ * GET /api/admin/apps — the Code side of the product.
+ *
+ * The overview above is entirely storefront: accounts, plans, MRR, orders,
+ * visits. None of it says how many apps exist, how many are deployed, or
+ * whether the machine running them is healthy — so the panel could look
+ * fine while every container on the host was down.
+ *
+ * Status comes from the deploy plane one deployment at a time because that
+ * is the only thing it offers; the work is capped and done in parallel so a
+ * slow host degrades this to "unknown" rather than hanging the page.
+ */
+app.get("/api/admin/apps", adminGuard, async (req, res, next) => {
+  try {
+    const masterDb = getMasterDb();
+    if (!masterDb) return res.json({ empty: true });
+    const cookie = cookieOf(req);
+
+    const rows = await masterDb.collection("projects")
+      .find({}, { projection: { id: 1, slug: 1, title: 1, meta: 1, updatedAt: 1, createdAt: 1,
+                                deploymentId: 1, ownerUserId: 1, ownerAnonId: 1, published: 1,
+                                deployConfig: 1 } })
+      .sort({ updatedAt: -1 }).limit(400).toArray();
+
+    const byType = {};
+    let claimed = 0, anon = 0, deployedCount = 0;
+    for (const r of rows) {
+      const kind = (r.meta || {}).buildType || "website";
+      byType[kind] = (byType[kind] || 0) + 1;
+      if (r.ownerUserId) claimed++; else anon++;
+      if (r.deploymentId) deployedCount++;
+    }
+
+    // Built in the last N days, from the same rows.
+    const since = (n) => new Date(Date.now() - n * 86400000).toISOString();
+    const d1 = since(1), d7 = since(7), d30 = since(30);
+    const createdAfter = (iso) => rows.filter((r) => String(r.createdAt || "") >= iso).length;
+
+    /* No per-app container status here, deliberately.
+
+       The deploy plane authenticates every deployment route with the OWNER's
+       session, not the platform token — its own comment is explicit that the
+       two answer different questions and that the token is "not a substitute
+       for requireUser". An admin forwarding their own cookie is not the owner
+       of anyone else's app, so /deployments/:id and /capacity both answer 401
+       "sign in to continue". Calling them anyway produced a column of
+       "Unknown" for every row, which reads like an outage rather than like a
+       boundary being respected.
+
+       So this reports what THIS database actually knows: which projects have
+       been deployed, to what address, by whom, and when they last changed.
+       The address is derived from deployConfig rather than asked for, because
+       that is where it was chosen. */
+    const appDomain = process.env.DEPLOY_APP_DOMAIN || "souqi.site";
+    const apps = rows.filter((r) => r.deploymentId).slice(0, 80).map((r) => {
+      const cfg = r.deployConfig || {};
+      return {
+        id: r.id, slug: r.slug, title: r.title || "Untitled app",
+        buildType: (r.meta || {}).buildType || null,
+        owner: r.ownerUserId ? "user" : "anon",
+        updatedAt: r.updatedAt, createdAt: r.createdAt,
+        deploymentId: r.deploymentId,
+        url: cfg.subdomain ? "https://" + cfg.subdomain + "." + appDomain : null,
+        dbMode: cfg.dbMode || null,
+        published: !!r.published
+      };
+    });
+
+    /* Health is the one plane call that answers without a user session, and
+       it is the one that matters most: it says whether the box running
+       everyone's containers is alive, which docker it is on, and how long
+       ago the worker checked in. */
+    let health = null;
+    if (deployplane.isConfigured()) {
+      try { const h = await deployplane.health(cookie); health = h.ok ? (h.body || { ok: true }) : { ok: false }; }
+      catch (e) { health = { ok: false }; }
+    }
+
+    // AI spend this month, across everyone.
+    let spend = { costUsd: 0, builds: 0 };
+    try {
+      const usageRows = await masterDb.collection("codeagent_usage")
+        .find({ month: codeAgentUsage.monthKey() }).toArray();
+      spend = usageRows.reduce((a, r) => ({
+        costUsd: a.costUsd + (Number(r.costUsd) || 0),
+        builds: a.builds + (Number(r.builds) || 0)
+      }), { costUsd: 0, builds: 0 });
+      spend.costUsd = Math.round(spend.costUsd * 10000) / 10000;
+    } catch (e) { /* usage is observability, never a reason to fail the page */ }
+
+    res.json({
+      generatedAt: new Date().toISOString(),
+      planeConfigured: deployplane.isConfigured(),
+      health: health,
+      // Said out loud so the UI can explain the gap instead of implying one.
+      liveStatusAvailable: false,
+      totals: {
+        projects: rows.length, deployed: deployedCount,
+        claimed: claimed, anon: anon,
+        builtToday: createdAfter(d1), built7d: createdAfter(d7), built30d: createdAfter(d30)
+      },
+      byType: byType,
+      spend: spend,
+      apps: apps.sort((a, b) => String(b.updatedAt || "").localeCompare(String(a.updatedAt || "")))
+    });
+  } catch (e) { next(e); }
+});
+
 // Full account list (every workspace with plan + revenue) for the drill-down.
 app.get("/api/admin/accounts", adminGuard, async (req, res, next) => {
   try {
