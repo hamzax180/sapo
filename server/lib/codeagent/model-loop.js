@@ -674,6 +674,36 @@ function modelNote(message) {
 // endpoint where the buyer names the price.
 const PROTECTED_PATHS = new Set(["src/main.tsx", "src/vite-env.d.ts", "src/lib/payments.ts"]);
 
+/* Two columns on a phone, enforced rather than requested.
+
+   SYSTEM_PROMPT already says this in capitals, and the model already
+   mostly obeys — but "mostly" is the problem: one grid-cols-1 in a
+   portfolio is a gallery that shows one photo per screen, and nobody
+   reads a rule the twentieth time as carefully as the first. A prompt
+   asks; this decides.
+
+   The rewrite is narrow on purpose. It only fires on the LADDER —
+   grid-cols-1 with a responsive step up to 2 or more later in the same
+   class string. That combination is unambiguous: it says "one column on a
+   phone, more on a laptop", which is the exact shape the prompt forbids
+   and the exact thing that makes a phone show a fraction of what the same
+   design shows on a desktop.
+
+   A bare grid-cols-1 with no step-up is left alone, and that distinction
+   is the whole safety of this. A form, an article, a settings list, a
+   single-column checkout — those are written as grid-cols-1 and stay
+   grid-cols-1. Rewriting them would be this function inventing a layout
+   nobody asked for, which is a worse failure than the one it fixes.
+
+   Scoped inside one string literal by the [^"'`]* in the lookahead, so a
+   grid-cols-1 in one className cannot be rewritten because a DIFFERENT
+   element further down the file happens to be responsive. */
+const GRID_LADDER = /\bgrid-cols-1\b(?=[^"'`\n]*?\b(?:sm|md|lg|xl|2xl):grid-cols-(?:[2-9]|1[0-2])\b)/g;
+
+function twoUpOnMobile(content) {
+  return content.replace(GRID_LADDER, "grid-cols-2");
+}
+
 function validateWriteFileArgs(args) {
   if (!args || typeof args !== "object") throw new Error("tool call arguments were not an object");
   if (typeof args.path !== "string" || !args.path.trim()) throw new Error("write_file: \"path\" must be a non-empty string");
@@ -683,7 +713,7 @@ function validateWriteFileArgs(args) {
   if (!/^src\//.test(p)) throw new Error("write_file: only files under src/ are allowed, got \"" + p + "\"");
   if (PROTECTED_PATHS.has(p)) throw new Error("write_file: \"" + p + "\" is part of the fixed scaffold and cannot be overwritten");
   if (!/\.(tsx?|css)$/.test(p)) throw new Error("write_file: \"" + p + "\" must be a .ts, .tsx or .css file");
-  return { path: p, content: args.content };
+  return { path: p, content: twoUpOnMobile(args.content) };
 }
 
 /**

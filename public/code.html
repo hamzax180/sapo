@@ -4337,6 +4337,24 @@
         console.warn("[preview] " + inlineWarnings.length + " issue(s) flattening the app:\n  " + inlineWarnings.join("\n  "));
       }
 
+      /* A srcdoc document has no URL of its own, so it inherits this
+         page's — souqi.site/agent/<slug>. Every relative href in the
+         generated app therefore resolved against SOUQI, and clicking one
+         navigated the preview to the builder: the phone filled up with
+         Souqi's own sidebar and chat, the app gone, nothing to explain it
+         and no way back except rebuilding. It looked like the preview had
+         crashed into the product.
+
+         The guard below stops it before the browser acts on it. In-page
+         anchors are explicitly kept, because "View my work" jumping to
+         #work is the app working, not the app escaping.
+
+         A <base target="_blank"> was here as a second line of defence and
+         has been removed: it applies to EVERY link including fragments, so
+         it turned #work into a link that opens a new tab instead of
+         scrolling — measured, the effective target became _blank. It also
+         guarded nothing the capture-phase listener does not already cancel
+         before the browser acts. */
       const html = '<!DOCTYPE html><html><head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />' +
         '<script src="https://cdn.tailwindcss.com"><' + '/script>' +
         '<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"><' + '/script>' +
@@ -4353,6 +4371,21 @@
         '<style>*{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,sans-serif;overflow-x:hidden;width:100%;max-width:100vw}img,video,canvas,svg{max-width:100%;height:auto}' +
         'html,body,*{scrollbar-width:none;-ms-overflow-style:none}html::-webkit-scrollbar,body::-webkit-scrollbar,*::-webkit-scrollbar{display:none;width:0;height:0}</style>' +
         '</head><body><div id="root"></div>' +
+        /* Capture phase, so it runs before any handler the app installed
+           on the link itself. A preview is one document — there is no
+           second page to reach — so anything that is not an in-page
+           anchor has nowhere legitimate to go, and letting it try is
+           exactly how the frame ended up showing souqi.site. */
+        '<script>(function(){' +
+        'function inPage(h){return h.charAt(0)==="#";}' +
+        'document.addEventListener("click",function(e){' +
+        'var a=e.target&&e.target.closest?e.target.closest("a[href]"):null;' +
+        'if(!a)return; var h=a.getAttribute("href")||"";' +
+        'if(inPage(h)||h==="")return;' +
+        'e.preventDefault();e.stopPropagation();' +
+        '},true);' +
+        'document.addEventListener("submit",function(e){e.preventDefault();},true);' +
+        '})();<' + '/script>' +
         // Babel.transform() called by hand, not the auto-run <script
         // type="text/babel"> loader — that loader has no way to pass
         // preset options, and the typescript preset's defaults
