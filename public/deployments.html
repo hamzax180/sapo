@@ -1816,9 +1816,18 @@
         renderDetail._sig = null;
         renderDetail();
       })
-      .catch(function () {
+      .catch(function (e) {
         if (openKey !== key) return;
-        cfgInfo = { unavailable: true };
+        /* Keep WHY. This used to throw the error away and set a bare
+           `unavailable` flag, and cfgPanel rendered "" for it — so a failed
+           load left the "Choose an address below, then deploy" line pointing
+           at a panel that was never drawn, with nothing anywhere saying the
+           request had failed. */
+        cfgInfo = {
+          unavailable: true,
+          reason: (e && e.message) || "the request failed",
+          status: (e && e.status) || 0
+        };
         renderDetail._sig = null;
         renderDetail();
       });
@@ -1850,7 +1859,15 @@
   function cfgPanel(st) {
     var g = cfgInfo;
     if (g === null) return '<div class="panel"><div class="sk" style="height:120px"></div></div>';
-    if (g.unavailable) return "";
+    if (g.unavailable) {
+      // Visible, and it names the status: an address panel that silently is
+      // not there is indistinguishable from one that has not loaded yet.
+      return '<div class="panel"><div class="panel-h"><b>Configure</b></div>' +
+        '<div class="cfg-block"><b>Couldn\u2019t load the address settings</b>' +
+        "<p>" + esc(g.reason || "the request failed") +
+        (g.status ? " (HTTP " + esc(g.status) + ")" : "") +
+        ". Reload the page to try again.</p></div></div>";
+    }
 
     var appDomain = g.appDomain || "souqi.site";
     var out = '<div class="panel"><div class="panel-h"><b>Configure</b></div>';
@@ -2031,7 +2048,11 @@
     if (!st) {
       // Deploy moves into the Configure panel below, so the button sits
       // after the decisions it commits rather than before them.
-      out += '<span class="cfg-nudge">Choose an address below, then deploy.</span>';
+      // Only when there is actually something below to choose in.
+      out += '<span class="cfg-nudge">' +
+        (cfgInfo && cfgInfo.unavailable
+          ? "Address settings could not be loaded."
+          : "Choose an address below, then deploy.") + "</span>";
     } else {
       out += '<button type="button" class="btn-d" data-act="redeploy"' + (busy ? " disabled" : "") + ">Redeploy</button>";
       if (st === "RUNNING") out += '<button type="button" class="btn-g" data-act="stop">Stop</button>';
