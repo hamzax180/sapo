@@ -61,9 +61,13 @@ const MAX_PROMPT_CHARS = 16000;
 /* Long enough to say what is wrong AND what to do about it. "prompt is
    too long" tells someone nothing they can act on; the number they wrote
    and the number allowed tells them exactly how much to cut. */
-function tooLongMessage(kind, len) {
+function tooLongMessage(kind, len, cap) {
+  const limit = cap || MAX_PROMPT_CHARS;
+  const upsell = limit < MAX_PROMPT_CHARS
+    ? " Subscribers can write up to " + MAX_PROMPT_CHARS.toLocaleString() + "."
+    : "";
   return kind + " is too long \u2014 " + len.toLocaleString() + " characters, and the limit is "
-    + MAX_PROMPT_CHARS.toLocaleString() + ". Trim it a little and send it again.";
+    + limit.toLocaleString() + ". Trim it a little and send it again." + upsell;
 }
 
 const githubLib = require("./lib/github");
@@ -1303,7 +1307,8 @@ app.post("/api/agent/build", agentLimiter, async (req, res, next) => {
   try {
     const prompt = String((req.body && req.body.prompt) || "").trim();
     if (prompt.length < 3) return res.status(400).json({ error: "prompt is required" });
-    if (prompt.length > MAX_PROMPT_CHARS) return res.status(400).json({ error: tooLongMessage("That brief", prompt.length) });
+    const promptCap = await promptLimitFor(req);
+    if (prompt.length > promptCap) return res.status(400).json({ error: tooLongMessage("That brief", prompt.length, promptCap) });
 
     const mode = String((req.body && req.body.mode) || "").slice(0, 30);
     // set when the visitor answered a "which is closest?" question
@@ -1548,7 +1553,8 @@ async function finishCreate(built, prompt, owner) {
 app.post("/api/projects", projectLimiter, async (req, res, next) => {
   const prompt = String((req.body && req.body.prompt) || "").trim();
   if (prompt.length < 3) return res.status(400).json({ error: "prompt is required" });
-  if (prompt.length > MAX_PROMPT_CHARS) return res.status(400).json({ error: tooLongMessage("That brief", prompt.length) });
+  const promptCap = await promptLimitFor(req);
+  if (prompt.length > promptCap) return res.status(400).json({ error: tooLongMessage("That brief", prompt.length, promptCap) });
   const owner = anon.ownerOf(req, res);
   const opts = { mode: req.body.mode, industry: req.body.industry };
 
@@ -1637,8 +1643,24 @@ app.post("/api/codeagent/:key/favorite", async (req, res, next) => {
 app.get("/api/codeagent/usage", async (req, res, next) => {
   try {
     const owner = appOwnerOf(req, res);
+    const plan = await planOfRequest(req);
     const spentUsd = await codeAgentUsage.monthSpend(owner);
-    res.json({ spentUsd, budgetUsd: CODEAGENT_OWNER_MONTHLY_BUDGET_USD, freeEdits: CODEAGENT_FREE_EDITS, signedIn: !!codeAgentSessionUser(req) });
+    // The same numbers the gate enforces, so the meter in the rail cannot
+    // disagree with the wall people actually hit. Reading a different
+    // figure from the one being enforced is how a credit system stops
+    // being believed.
+    const win = await codeAgentUsage.windowSpend(owner, CODEAGENT_WINDOW_HOURS);
+    res.json({
+      spentUsd, plan: plan,
+      budgetUsd: CODEAGENT_PLAN_BUDGET_USD[plan] || CODEAGENT_PLAN_BUDGET_USD.free,
+      windowUsd: win.usd,
+      windowBudgetUsd: CODEAGENT_PLAN_WINDOW_USD[plan] || CODEAGENT_PLAN_WINDOW_USD.free,
+      windowHours: CODEAGENT_WINDOW_HOURS,
+      windowResetAt: win.resetAt,
+      promptChars: CODEAGENT_PLAN_PROMPT_CHARS[plan] || CODEAGENT_PLAN_PROMPT_CHARS.free,
+      promptCharsMax: MAX_PROMPT_CHARS,
+      freeEdits: CODEAGENT_FREE_EDITS, signedIn: !!codeAgentSessionUser(req)
+    });
   } catch (e) { next(e); }
 });
 
@@ -1756,7 +1778,8 @@ app.post("/api/projects/:key/turns", projectLimiter, async (req, res, next) => {
 
     const message = String((req.body && req.body.message) || "").trim();
     if (!message) return res.status(400).json({ error: "message is required" });
-    if (message.length > MAX_PROMPT_CHARS) return res.status(400).json({ error: tooLongMessage("That message", message.length) });
+    const messageCap = await promptLimitFor(req);
+    if (message.length > messageCap) return res.status(400).json({ error: tooLongMessage("That message", message.length, messageCap) });
 
     await projects.addTurn(project.id, { role: "user", kind: "text", body: message });
     const combined = (project.prompt ? project.prompt + ". " : "") + message;
@@ -2245,6 +2268,119 @@ const pendingBuildResults = new Map(); // buildId -> { resolve, timer }
 // local dev, matching AI_MONTHLY_BUDGET_USD's own "0 = off" convention).
 const CODEAGENT_OWNER_MONTHLY_BUDGET_USD = Number(process.env.CODEAGENT_OWNER_MONTHLY_BUDGET_USD || 1);
 
+/* What a plan is actually allowed to spend, per month.
+ *
+ * The single budget above applied to EVERYONE, paying or not. So a Pro
+ * subscriber at $18/month hit a $1 AI wall and was told to wait until next
+ * month — they had paid, and the product stopped. That is the bug in the
+ * credit system, not the presence of a cap.
+ *
+ * Free stays where it was. Paid gets four dollars of model spend, which
+ * against DeepSeek's pricing is a great many builds and still leaves the
+ * subscription comfortably profitable.
+ */
+const CODEAGENT_PLAN_BUDGET_USD = {
+  free: CODEAGENT_OWNER_MONTHLY_BUDGET_USD,
+  pro: Number(process.env.CODEAGENT_PRO_BUDGET_USD || 4),
+  max: Number(process.env.CODEAGENT_MAX_BUDGET_USD || 4)
+};
+
+/* The pacing cap, on the model people already know from Claude.
+ *
+ * A monthly ceiling on its own can be spent in an afternoon, and then the
+ * product is dead for three weeks — which is a worse experience than a
+ * smaller limit that keeps coming back. A rolling five-hour window makes
+ * the monthly number last the month, and it is rolling rather than a fixed
+ * bucket so there is no edge to stand on at the boundary.
+ *
+ * The window sits UNDER the monthly cap, never over it: whichever runs out
+ * first stops the build, and the message says which one and when it lifts.
+ */
+const CODEAGENT_WINDOW_HOURS = Number(process.env.CODEAGENT_WINDOW_HOURS || 5);
+const CODEAGENT_PLAN_WINDOW_USD = {
+  free: Number(process.env.CODEAGENT_FREE_WINDOW_USD || 0.5),
+  pro: Number(process.env.CODEAGENT_PRO_WINDOW_USD || 0.8),
+  max: Number(process.env.CODEAGENT_MAX_WINDOW_USD || 0.8)
+};
+
+/* A long brief is a paid feature. 16000 characters is room to describe a
+   whole product; 2000 is room to describe one page, which is what the
+   limit was before today and is still enough to build something real. */
+const CODEAGENT_PLAN_PROMPT_CHARS = {
+  free: Number(process.env.CODEAGENT_FREE_PROMPT_CHARS || 2000),
+  pro: MAX_PROMPT_CHARS,
+  max: MAX_PROMPT_CHARS
+};
+
+function isPaidPlan(plan) { return plan === "pro" || plan === "max"; }
+
+/* One place that answers "what plan is this request on".
+ *
+ * The same workspace lookup was written inline in two separate gates
+ * already, and every new limit wanted a third copy. Anonymous and
+ * signed-out both resolve to free, which is correct: there is no
+ * subscription without an account to attach it to.
+ */
+async function planOfRequest(req) {
+  const sessionUser = codeAgentSessionUser(req);
+  if (!sessionUser || !sessionUser.wsId) return "free";
+  const db = getMasterDb();
+  if (!db) return "free";
+  try {
+    const ws = await db.collection("workspaces").findOne({ id: sessionUser.wsId }, { projection: { plan: 1 } });
+    return (ws && ws.plan) || "free";
+  } catch (e) { return "free"; }
+}
+
+/** The prompt ceiling for whoever is asking. */
+async function promptLimitFor(req) {
+  const plan = await planOfRequest(req);
+  return CODEAGENT_PLAN_PROMPT_CHARS[plan] || CODEAGENT_PLAN_PROMPT_CHARS.free;
+}
+
+/**
+ * Both spend gates for one owner, answered together.
+ *
+ * Returns { ok } or { ok:false, scope, message }. Checked in the order the
+ * person experiences them: the window is the one that lifts on its own, so
+ * it is worth reporting even when the month is also close, because "try
+ * again at 6pm" is actionable and "wait for next month" is not.
+ */
+async function spendGate(owner, plan) {
+  const paid = isPaidPlan(plan);
+  const monthCap = CODEAGENT_PLAN_BUDGET_USD[plan] || CODEAGENT_PLAN_BUDGET_USD.free;
+  const windowCap = CODEAGENT_PLAN_WINDOW_USD[plan] || CODEAGENT_PLAN_WINDOW_USD.free;
+
+  if (windowCap > 0) {
+    const w = await codeAgentUsage.windowSpend(owner, CODEAGENT_WINDOW_HOURS);
+    if (w.usd >= windowCap) {
+      const when = w.resetAt ? new Date(w.resetAt) : null;
+      const mins = when ? Math.max(1, Math.round((when.getTime() - Date.now()) / 60000)) : null;
+      const inWords = mins === null ? "shortly"
+        : mins < 60 ? ("in " + mins + " minute" + (mins === 1 ? "" : "s"))
+        : ("in about " + Math.round(mins / 60) + " hour" + (Math.round(mins / 60) === 1 ? "" : "s"));
+      return {
+        ok: false, scope: "window", resetAt: w.resetAt,
+        message: "You've used this " + CODEAGENT_WINDOW_HOURS + "-hour window's build allowance. It refills "
+          + inWords + "." + (paid ? "" : " Subscribing raises it.")
+      };
+    }
+  }
+
+  if (monthCap > 0) {
+    const spent = await codeAgentUsage.monthSpend(owner);
+    if (spent >= monthCap) {
+      return {
+        ok: false, scope: "month",
+        message: paid
+          ? "You've used this month's $" + monthCap.toFixed(2) + " of build credit. It resets next month."
+          : "You've used this month's free build budget ($" + monthCap.toFixed(2) + "). Subscribe for more, or it resets next month."
+      };
+    }
+  }
+  return { ok: true };
+}
+
 // First build is always free and anonymous (matches the rest of the funnel
 // — no signup wall before someone has seen anything real). Editing it is
 // where the product asks for something: sign in for the first few free
@@ -2476,7 +2612,9 @@ app.get("/api/account/me", async (req, res, next) => {
     res.json({
       signedIn: true, email: sessionUser.email, name: sessionUser.name,
       wsId: sessionUser.wsId, accountId: sessionUser.id, company: company,
-      plan: plan, spentUsd: spentUsd, budgetUsd: CODEAGENT_OWNER_MONTHLY_BUDGET_USD,
+      plan: plan, spentUsd: spentUsd,
+      budgetUsd: CODEAGENT_PLAN_BUDGET_USD[plan] || CODEAGENT_PLAN_BUDGET_USD.free,
+      promptChars: CODEAGENT_PLAN_PROMPT_CHARS[plan] || CODEAGENT_PLAN_PROMPT_CHARS.free,
       freeEdits: CODEAGENT_FREE_EDITS
     });
   } catch (e) { next(e); }
@@ -3605,8 +3743,9 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
   const owner = appOwnerOf(req, res);
 
   sseOpen(res);
-  if (prompt.length > MAX_PROMPT_CHARS) {
-    sseFrame(res, "error", { error: tooLongMessage("That brief", prompt.length) });
+  const promptCap = await promptLimitFor(req);
+  if (prompt.length > promptCap) {
+    sseFrame(res, "error", { error: tooLongMessage("That brief", prompt.length, promptCap) });
     return res.end();
   }
   if (promptTooVague(prompt)) {
@@ -3678,13 +3817,8 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
     const allTurns = chatId ? await projects.listTurns(project.id) : priorTurns;
     const editsUsed = Math.max(0, allTurns.filter((t) => t.role === "user").length - 1);
     if (editsUsed >= CODEAGENT_FREE_EDITS && !isAdminEmail(sessionUser.email)) {
-      const masterDbForPlan = getMasterDb();
-      let plan = "free";
-      if (sessionUser && sessionUser.wsId && masterDbForPlan) {
-        const ws = await masterDbForPlan.collection("workspaces").findOne({ id: sessionUser.wsId }, { projection: { plan: 1 } });
-        plan = (ws && ws.plan) || "free";
-      }
-      if (plan === "free") {
+      const plan = await planOfRequest(req);
+      if (!isPaidPlan(plan)) {
         sseFrame(res, "subscribeRequired", {
           message: "You've used your " + CODEAGENT_FREE_EDITS + " free edits. Subscribe to keep editing this build.",
           pricingUrl: "/pricing"
@@ -3702,12 +3836,21 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
   // independent of AI_MONTHLY_BUDGET_USD's own check inside lib/ai/client.js:
   // that one protects the whole platform's shared pool from running away in
   // aggregate; this one stops a single owner from being the reason it does.
-  if (CODEAGENT_OWNER_MONTHLY_BUDGET_USD > 0) {
+  {
     const sessionUserForSpend = codeAgentSessionUser(req);
     if (!sessionUserForSpend || !isAdminEmail(sessionUserForSpend.email)) {
-      const spent = await codeAgentUsage.monthSpend(owner);
-      if (spent >= CODEAGENT_OWNER_MONTHLY_BUDGET_USD) {
-        sseFrame(res, "error", { error: "You've used this month's free build budget ($" + CODEAGENT_OWNER_MONTHLY_BUDGET_USD.toFixed(2) + "). It resets next month." });
+      // Both ceilings, by plan: the rolling window and the month. See
+      // spendGate — the window is reported first because it lifts by
+      // itself and can be waited out, which the month cannot.
+      const planForSpend = await planOfRequest(req);
+      const gate = await spendGate(owner, planForSpend);
+      if (!gate.ok) {
+        sseFrame(res, "limit", {
+          scope: gate.scope, message: gate.message,
+          resetAt: gate.resetAt || null,
+          pricingUrl: isPaidPlan(planForSpend) ? null : "/pricing"
+        });
+        sseFrame(res, "error", { error: gate.message });
         sseFrame(res, "done", {});
         return res.end();
       }
@@ -3721,10 +3864,8 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
   if (!isFollowUp) {
     const sessionUserForLimit = codeAgentSessionUser(req);
     if (sessionUserForLimit && sessionUserForLimit.wsId && !isAdminEmail(sessionUserForLimit.email)) {
-      const masterDbForLimit = getMasterDb();
-      if (masterDbForLimit) {
-        const wsForLimit = await masterDbForLimit.collection("workspaces").findOne({ id: sessionUserForLimit.wsId }, { projection: { plan: 1 } });
-        const planForLimit = (wsForLimit && wsForLimit.plan) || "free";
+      {
+        const planForLimit = await planOfRequest(req);
         const appLimit = CODEAGENT_PLAN_APP_LIMITS[planForLimit];
         if (appLimit) {
           const existing = (await projects.list(owner, 200)).filter((p) => (p.meta || {}).kind === "code");

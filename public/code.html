@@ -3168,6 +3168,11 @@
   "use strict";
   const $ = (id) => document.getElementById(id);
   const agLog = $("agLog"), agForm = $("agForm"), agInput = $("agInput"), agSend = $("agSend");
+  /* The plan's prompt ceiling, and the best one on offer. Starts at the
+     free value: guessing high and being refused is worse than guessing
+     low and being told there is more available. Replaced by the server's
+     answer as soon as /api/codeagent/usage returns. */
+  let promptCap = 2000, promptCapMax = 16000;
   const agPvFrame = $("agPvFrame"), agPvIframe = $("agPvIframe"), agPvEmpty = $("agPvEmpty"), agPvDevices = $("agPvDevices");
   const agPvGate = $("agPvGate"), agPvGateForm = $("agPvGateForm"), agPvGateEmail = $("agPvGateEmail"),
     agPvGatePass = $("agPvGatePass"), agPvGateSubmit = $("agPvGateSubmit"), agPvGateErr = $("agPvGateErr"),
@@ -3209,7 +3214,19 @@
   // safe default: never briefly flash an unblurred preview to a visitor
   // who turns out not to be signed in).
   let signedIn = false;
-  fetch("/api/codeagent/usage").then((r) => r.json()).then((d) => { signedIn = !!d.signedIn; }).catch(() => {});
+  /* The composer's ceiling comes from the server, because it is now a
+     PLAN limit rather than one number for everyone. The hardcoded 16000
+     below is only the value used before this reply lands — a free visitor
+     would otherwise be told they had 16000 characters and be refused at
+     2000, which is worse than having no counter at all. */
+  fetch("/api/codeagent/usage").then((r) => r.json()).then((d) => {
+    signedIn = !!d.signedIn;
+    if (d && Number(d.promptChars) > 0) {
+      promptCap = Number(d.promptChars);
+      promptCapMax = Number(d.promptCharsMax) || promptCap;
+      updateComposerCount();
+    }
+  }).catch(() => {});
 
   // Only ever changes what gets ASKED FOR, never what gets built — every
   // option still produces the same one stack (React/Vite), just steered
@@ -5003,19 +5020,22 @@
      fetched: this is a hint, and a hint that needs a round trip to appear
      is worse than one that is occasionally a version behind. The server
      stays the authority — it rejects with the real numbers either way. */
-  const MAX_PROMPT_CHARS = 16000;
   const agCount = $("agCount");
 
   function updateComposerCount() {
     if (!agCount) return;
     const n = agInput.value.length;
-    const near = n > MAX_PROMPT_CHARS * 0.8;
+    const near = n > promptCap * 0.8;
     agCount.classList.toggle("show", near);
-    agCount.classList.toggle("over", n > MAX_PROMPT_CHARS);
+    agCount.classList.toggle("over", n > promptCap);
     if (near) {
-      agCount.textContent = n > MAX_PROMPT_CHARS
-        ? (n - MAX_PROMPT_CHARS).toLocaleString() + " over the limit"
-        : n.toLocaleString() + " / " + MAX_PROMPT_CHARS.toLocaleString();
+      // Over the limit AND on a plan with a bigger one available: say so
+      // here, where the person is still holding the text, rather than
+      // only in the rejection after they press send.
+      agCount.textContent = n > promptCap
+        ? (n - promptCap).toLocaleString() + " over"
+          + (promptCapMax > promptCap ? " · subscribers get " + promptCapMax.toLocaleString() : "")
+        : n.toLocaleString() + " / " + promptCap.toLocaleString();
     }
   }
 
