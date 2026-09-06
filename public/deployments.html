@@ -1237,6 +1237,18 @@
   .u-row.quiet .u-lab,.u-row.quiet .u-when{color:var(--mut)}
   @media (prefers-reduced-motion:reduce){ .u-bar i{transition:none} }
 
+  /* The rail does NOT animate in.
+
+     The plan card had the same fade-up as the page's cards, and on a rail
+     that is present before you look at it — every load, every refresh —
+     an entrance is not an arrival, it is a flicker. Chrome that announces
+     itself on a page you were already on reads as cheap precisely because
+     nothing arrived: the sidebar was always going to be there.
+
+     Kept for content that genuinely appears (the card grid on /projects,
+     a settings panel you switched to); removed for furniture. */
+  .ag-hist-foot,.ag-usage{animation:none !important}
+
 </style>
 <link rel="stylesheet" href="/css/upgrade-modal.css">
 </head>
@@ -1299,34 +1311,25 @@
   </div>
 
   <div class="ag-hist-foot">
-    <div class="ttl" id="agPlanTtl">Your Free Plan</div>
     <div class="ag-plan-alert" id="agPlanAlert" hidden>You've reached your usage limit</div>
-    <div class="ag-meter-row">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m16 18 6-6-6-6M8 6l-6 6 6 6"/></svg>
-      <span class="lab">Free Apps<i id="agEditsUsed">—</i></span>
-      <span class="ag-meter"><i id="agEditsBar" style="width:0%"></i></span>
-    </div>
       <div class="ag-usage" id="agUsage">
         <div class="u-top">
           <span class="u-plan" id="agUsagePlan">Free plan</span>
           <a class="u-up" href="/pricing" id="agUsageUp"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/></svg>Upgrade</a>
         </div>
         <div class="u-row">
-          <span class="u-lab">Session usage<b id="agWinPct">—</b></span>
+          <span class="u-lab"><span class="u-name">5-hour limit</span><span class="u-meta"><span class="u-reset" id="agWinReset"></span><b id="agWinPct">—</b></span></span>
           <span class="u-bar"><i id="agWinBar"></i></span>
-          <span class="u-when" id="agWinReset"></span>
         </div>
-        <div class="u-row quiet">
-          <span class="u-lab">This month<b id="agAllowPct">—</b></span>
+        <div class="u-row">
+          <span class="u-lab"><span class="u-name">Monthly</span><span class="u-meta"><span class="u-reset" id="agMonthReset"></span><b id="agAllowPct">—</b></span></span>
           <span class="u-bar"><i id="agAllowBar"></i></span>
         </div>
+        <div class="u-row">
+          <span class="u-lab"><span class="u-name">Apps</span><span class="u-meta"><b id="agEditsUsed">—</b></span></span>
+          <span class="u-bar"><i id="agEditsBar"></i></span>
+        </div>
       </div>
-    <div class="ag-meter-row">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 10a4 4 0 0 0-7.8-1.2A3.5 3.5 0 1 0 7 16h10.5a3.5 3.5 0 0 0 .5-6z"/></svg>
-      <span class="lab">Cloud credits<i id="agSpendUsed">—</i></span>
-      <span class="ag-meter"><i id="agSpendBar" style="width:0%"></i></span>
-    </div>
-    <a class="ag-upgrade" href="/pricing">✦ Upgrade</a>
     <div class="ag-hist-install">
       <span>Install Souqi on</span>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2" width="10" height="20" rx="2"/><line x1="11" y1="18" x2="13" y2="18"/></svg>

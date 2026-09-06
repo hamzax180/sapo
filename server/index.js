@@ -2615,7 +2615,19 @@ app.get("/api/account/me", async (req, res, next) => {
       if (ws) { plan = ws.plan || "free"; company = ws.company || ""; }
     }
 
-    const owner = anon.ownerOf(req, res);
+    /* appOwnerOf, not anon.ownerOf — and the difference is the whole bug.
+       A build RECORDS its spend under appOwnerOf, which fills in userId
+       from the session cookie. anon.ownerOf is deliberately
+       Authorization-header-only (project-test.js depends on a stray
+       session cookie not counting as ownership proof), so for a
+       cookie-signed-in person it returned the anon id instead.
+
+       Spend was therefore written under u:<userId> and read back under
+       a:<anonId>, and the two never met: the usage card read 0% for
+       everyone signed in, no matter how much they had built. This is a
+       read of your own usage with your own session, not an ownership
+       decision, so the cookie-aware identity is the correct one here. */
+    const owner = appOwnerOf(req, res);
     const spentUsd = await codeAgentUsage.monthSpend(owner);
     // The window belongs here too. The rail reads this endpoint once and
     // draws the whole usage card from it; making it fetch a second URL for
@@ -4135,6 +4147,16 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
         userPrompt: effectivePrompt,
         maxRounds: agentMode === "power" ? 3 : 2,
         onFiles: async (calls) => {
+          /* The one phase with nothing to say for itself. The files have
+             been written and reported, the round result has not happened
+             yet, and in between the browser is installing and compiling —
+             which on a cold container is the longest single stretch of the
+             whole turn. It read as the log stalling right after the last
+             file appeared. */
+          sseFrame(res, "stage", {
+            id: "build-" + calls.length + "-" + Date.now(), state: "start",
+            detail: "Compiling " + calls.length + " file" + (calls.length === 1 ? "" : "s") + " to check it runs"
+          });
           // Send proposed files to the client for WebContainer build
           const filesObj = {};
           for (const c of calls) filesObj[c.path] = c.content;
