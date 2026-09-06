@@ -1152,9 +1152,32 @@
      touch — only the scrollbar chrome is hidden, same trick as the srcdoc
      fallback and the WebContainer best-effort injection use for content
      this page CAN reach. */
+  /* THE PREVIEW IS A DEVICE, NOT A LEFTOVER STRIP.
+     ------------------------------------------------------------------
+     This used to be width:100%;height:100% — the app was handed whatever
+     space the pane happened to have. On a 767px browser window the chat
+     column takes 420px (see .ag-split.has-preview rules), so the "phone"
+     was about 223px wide: narrower than any phone ever made. Even the
+     roomy case was wrong — 9/19.5 of a 580px-tall frame is ~250px, where
+     a real iPhone is 390.
+
+     That is not a cosmetic difference. Tailwind's sm: breakpoint is
+     640px and the app's own media queries key off the viewport, so at
+     250px the preview showed a layout no actual device would render. An
+     app could be perfectly responsive and still look broken here, which
+     is exactly the wrong signal to give someone about their own build.
+
+     So the iframe is laid out at TRUE logical device pixels and scaled
+     down visually with a transform. transform does not change layout, so
+     the document inside still measures 390px (or 834, or 1280) and picks
+     the breakpoints a real device would. --pv-w/--pv-h/--pv-scale are
+     written by syncDeviceViewport() from the screen's measured size. */
   .ip-screen iframe, .ag-pv-frame iframe{
-    position:absolute;inset:0;
-    width:100%;height:100%;
+    position:absolute;top:0;left:0;
+    width:var(--pv-w, 100%);
+    height:var(--pv-h, 100%);
+    transform:scale(var(--pv-scale, 1));
+    transform-origin:top left;
     border:0;display:block;
     scrollbar-width:none;-ms-overflow-style:none;
   }
@@ -1258,8 +1281,9 @@
         rgba(255,255,255,0.02) 50%, transparent 80%);
   }
   .ag-pv-frame.desktop iframe {
-    border-radius: 0; position: absolute; inset: 0;
-    width: 100%; height: 100%; border: 0; display: block;
+    border-radius: 0; position: absolute; top: 0; left: 0;
+    width: var(--pv-w, 100%); height: var(--pv-h, 100%);
+    border: 0; display: block;
   }
   .ag-pv-frame.desktop > .ib { display: none; }
   .ag-pv-frame.desktop .macbook-body,
@@ -1444,12 +1468,24 @@
     width:120px; height:4px; background:rgba(255,255,255,0.3); border-radius:4px;
     z-index:30; pointer-events:none;
   }
-  .ag-pv-frame.mobile iframe, .ag-pv-frame.mobile .ag-pv-boot, .ag-pv-frame.mobile .ag-pv-empty {
+  /* The boot screen and the empty state are chrome: they belong to the
+     frame and fill it. The iframe is the DEVICE and must not — it is laid
+     out at --pv-w/--pv-h and scaled. Splitting them matters because this
+     rule is more specific than the base one and was quietly putting the
+     app back to width:100%, i.e. back to the leftover-strip viewport. */
+  .ag-pv-frame.mobile .ag-pv-boot, .ag-pv-frame.mobile .ag-pv-empty {
     border-radius: 34px;
     position: absolute;
     inset: 0;
     width: 100%;
     height: 100%;
+  }
+  .ag-pv-frame.mobile iframe {
+    border-radius: 34px;
+    position: absolute;
+    top: 0; left: 0;
+    width: var(--pv-w, 100%);
+    height: var(--pv-h, 100%);
   }
   .ag-pv-frame.mobile::before,.ag-pv-frame.mobile::after{display:none}
 
@@ -3933,6 +3969,46 @@
     split.classList.add("pv-" + (size || "mobile"));
   }
 
+  /* The logical size each frame stands for, in CSS pixels — the numbers a
+     real device reports to a page. iPhone 15 / iPad Air / a 1280 laptop.
+     Not the size of the box on screen: that is whatever fits, and the two
+     are reconciled by scaling. */
+  const DEVICE_VIEWPORT = {
+    mobile:  { w: 390,  h: 844 },
+    tablet:  { w: 834,  h: 1112 },
+    desktop: { w: 1280, h: 800 }
+  };
+
+  /**
+   * Lay the preview iframe out at device pixels and scale it to the frame.
+   *
+   * Called after any change to the frame's own size, because the scale is
+   * a ratio between the two and either can move: picking a device, opening
+   * or closing the pane, or just resizing the window.
+   */
+  function syncDeviceViewport(size) {
+    const screen = agPvFrame && agPvFrame.querySelector(".ip-screen");
+    const host = screen || agPvFrame;
+    if (!host) return;
+    const dev = DEVICE_VIEWPORT[size] || DEVICE_VIEWPORT.mobile;
+    /* offsetWidth/Height, NOT getBoundingClientRect(): the frame carries an
+       entrance animation, and a rect includes transforms. Measured that way
+       the desktop frame reported 1563x26 while its actual layout box was
+       836x726, and the app was scaled to 0.03 — a few pixels tall. These
+       two properties are layout metrics and ignore the transform. */
+    const bw = host.offsetWidth, bh = host.offsetHeight;
+    // Before the pane is laid out there is nothing to scale against, and a
+    // scale of 0 would blank the preview. Leave the CSS fallbacks in place
+    // and let the next call (resize, or the settle timer) do it.
+    if (bw < 2 || bh < 2) return;
+    // Fit, never fill: the smaller ratio keeps the whole device visible
+    // instead of cropping its right edge or its footer.
+    const scale = Math.min(bw / dev.w, bh / dev.h);
+    host.style.setProperty("--pv-w", dev.w + "px");
+    host.style.setProperty("--pv-h", dev.h + "px");
+    host.style.setProperty("--pv-scale", String(scale));
+  }
+
   function applyDeviceFrame() {
     if (!agPvDevices || !agPvFrame) return;
     if (window.innerWidth < 650 || !window.__wcSupported) {
@@ -3952,7 +4028,22 @@
     );
     void agPvFrame.offsetWidth;
     agPvFrame.classList.add("entering");
+
+    const size = agPvFrame.classList.contains("desktop") ? "desktop"
+      : agPvFrame.classList.contains("tablet") ? "tablet" : "mobile";
+    // Now, and again once the frame's own size transition has finished —
+    // measuring mid-animation scales to a box that is still moving.
+    syncDeviceViewport(size);
+    clearTimeout(applyDeviceFrame._settle);
+    applyDeviceFrame._settle = setTimeout(() => syncDeviceViewport(size), 340);
   }
+
+  /* The scale is a ratio to the frame, and the frame follows the window. */
+  addEventListener("resize", () => {
+    if (!agPvFrame) return;
+    syncDeviceViewport(agPvFrame.classList.contains("desktop") ? "desktop"
+      : agPvFrame.classList.contains("tablet") ? "tablet" : "mobile");
+  });
 
   // Renders fileContents into the mockup's iframe — via the live
   // WebContainer dev server when one's booted, or the CDN-srcdoc fallback
@@ -4265,6 +4356,14 @@
           syncPreviewPaneSize(targetSize);
           void agPvFrame.offsetWidth;
           agPvFrame.classList.add("entering");
+          /* This handler does its own class work rather than going through
+             applyDeviceFrame(), so it has to publish the device geometry
+             itself. Without this the vars kept whatever the PREVIOUS size
+             had set: picking Tablet laid the app out at 390x844 and Desktop
+             at 834x1112 — every choice one step behind the button. */
+          syncDeviceViewport(targetSize);
+          clearTimeout(btn._settle);
+          btn._settle = setTimeout(function () { syncDeviceViewport(targetSize); }, 340);
         }
       });
     });
