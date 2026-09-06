@@ -1485,7 +1485,7 @@ app.get("/api/projects", async (req, res, next) => {
 /** POST /api/codeagent/:key/favorite — Body: { favorite: true|false } */
 app.post("/api/codeagent/:key/favorite", async (req, res, next) => {
   try {
-    const owner = anon.ownerOf(req, res);
+    const owner = appOwnerOf(req, res);
     const project = await resolveProject(req.params.key, owner);
     if (!project) return res.status(404).json({ error: "project not found" });
     if (!projects.owns(project, owner)) return res.status(403).json({ error: "not your project" });
@@ -1501,7 +1501,7 @@ app.post("/api/codeagent/:key/favorite", async (req, res, next) => {
     actually enforced). */
 app.get("/api/codeagent/usage", async (req, res, next) => {
   try {
-    const owner = anon.ownerOf(req, res);
+    const owner = appOwnerOf(req, res);
     const spentUsd = await codeAgentUsage.monthSpend(owner);
     res.json({ spentUsd, budgetUsd: CODEAGENT_OWNER_MONTHLY_BUDGET_USD, freeEdits: CODEAGENT_FREE_EDITS, signedIn: !!codeAgentSessionUser(req) });
   } catch (e) { next(e); }
@@ -1511,7 +1511,7 @@ app.get("/api/codeagent/usage", async (req, res, next) => {
     has built, broken down by the type they picked at build time. */
 app.get("/api/codeagent/stats", async (req, res, next) => {
   try {
-    const owner = anon.ownerOf(req, res);
+    const owner = appOwnerOf(req, res);
     const rows = (await projects.list(owner, 200)).filter((p) => (p.meta || {}).kind === "code");
     const byType = {};
     let published = 0;
@@ -2422,7 +2422,7 @@ app.delete("/api/codeagent/history", async (req, res, next) => {
   try {
     const sessionUser = await codeAgentSessionUserVerified(req);
     if (!sessionUser) return res.status(401).json({ error: "not signed in" });
-    const owner = anon.ownerOf(req, res);
+    const owner = appOwnerOf(req, res);
     const mine = (await projects.list(owner, 500)).filter((p) => (p.meta || {}).kind === "code");
     for (const p of mine) await projects.remove(p.id);
     res.json({ ok: true, deleted: mine.length });
@@ -2444,7 +2444,7 @@ app.get("/api/codeagent/export", async (req, res, next) => {
   try {
     const sessionUser = await codeAgentSessionUserVerified(req);
     if (!sessionUser) return res.status(401).json({ error: "not signed in" });
-    const owner = anon.ownerOf(req, res);
+    const owner = appOwnerOf(req, res);
     const mine = (await projects.list(owner, 500)).filter((p) => (p.meta || {}).kind === "code");
     if (!mine.length) return res.status(404).json({ error: "nothing built yet" });
 
@@ -3129,7 +3129,7 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
   // which crashed the entire Node process, not just this one request, on
   // literally the first anonymous visitor. Same ordering the working
   // POST /api/projects above already uses.
-  const owner = anon.ownerOf(req, res);
+  const owner = appOwnerOf(req, res);
 
   sseOpen(res);
   if (prompt.length > 2000) {
@@ -3619,7 +3619,7 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
  */
 app.get("/api/codeagent/:key", async (req, res, next) => {
   try {
-    const owner = anon.ownerOf(req, res);
+    const owner = appOwnerOf(req, res);
     const project = await resolveProject(req.params.key, owner);
     if (!project) return res.status(404).json({ error: "project not found" });
     if (!projects.owns(project, owner)) return res.status(403).json({ error: "not your project" });
@@ -3782,7 +3782,7 @@ const PUBLISH_MAX_BYTES = 12 * 1024 * 1024;
  */
 app.post("/api/codeagent/:key/publish", codeAgentLimiter, express.json({ limit: "12mb" }), async (req, res, next) => {
   try {
-    const owner = anon.ownerOf(req, res);
+    const owner = appOwnerOf(req, res);
     const project = await resolveProject(req.params.key, owner);
     if (!project) return res.status(404).json({ error: "project not found" });
     if (!projects.owns(project, owner)) return res.status(403).json({ error: "not your project" });
@@ -3858,14 +3858,52 @@ const deployLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 20, key: (req) 
  * server signed, so a caller can never gain anything but their own. It is
  * also the same token the deploy plane verifies for itself downstream.
  */
-function deployOwnerOf(req, res) {
+/**
+ * Who is asking, on Code's own routes.
+ *
+ * anon.ownerOf() identifies a signed-in user from the Authorization header
+ * ONLY — deliberately (see anon.userOf). A browser does not send that
+ * header; it sends cookies. So on any route using anon.ownerOf() directly,
+ * a signed-in person arrives as userId:null.
+ *
+ * That was harmless while their projects were anon-owned, because
+ * ownerAnonId still matched. It stopped being harmless the moment those
+ * projects were claimed: claimAnon() sets ownerUserId and KEEPS
+ * ownerAnonId, while owns() ignores the anon id once a user id exists —
+ *
+ *     if (project.ownerUserId) return !!owner.userId && ...
+ *
+ * — so a claimed project is still FOUND (the list and resolveProject match
+ * on either id) and then refused. GET /api/codeagent/:key answered 403
+ * "not your project" to the owner, and the builder rendered that as
+ * "That project isn't here — it may have expired".
+ *
+ * Reading sq_session here is not a weaker proof than the header: it is the
+ * same token, signed with the same secret, rejected the same way if it
+ * carries a scope. It is a different transport for it, and the transport
+ * is the whole problem — /auth/login sets that cookie httpOnly ON PURPOSE
+ * ("so browser clients never keep the token in JS-readable storage"), so
+ * the alternative fix, having the page hold the token and send the header,
+ * is the thing that comment exists to prevent.
+ *
+ * Scope is deliberately narrow. The /api/projects/* routes keep
+ * anon.ownerOf(), because microclaim-test.js holds a real property there:
+ * after a claim, a cookie-only read of /api/projects/:key is refused. This
+ * only covers the routes Code itself calls.
+ */
+function appOwnerOf(req, res) {
   const owner = anon.ownerOf(req, res);
   if (!owner.userId) {
     const s = codeAgentSessionUser(req);
-    if (s && s.id) { owner.userId = s.id; owner.email = s.email || owner.email; }
+    // A scope-carrying token is an edit/anon grant, not a session — the
+    // same check anon.userOf() makes on the header.
+    if (s && s.id && !s.scope) { owner.userId = s.id; owner.email = s.email || owner.email; }
   }
   return owner;
 }
+
+// The deploy routes' original name for exactly this.
+const deployOwnerOf = appOwnerOf;
 
 async function ownedProjectOr404(req, res) {
   const owner = deployOwnerOf(req, res);
@@ -4391,7 +4429,7 @@ app.delete("/api/deploy/:key/database", async (req, res, next) => {
  */
 app.post("/api/codeagent/:key/export-android", codeAgentLimiter, async (req, res, next) => {
   try {
-    const owner = anon.ownerOf(req, res);
+    const owner = appOwnerOf(req, res);
     const project = await resolveProject(req.params.key, owner);
     if (!project) return res.status(404).json({ error: "project not found" });
     if (!projects.owns(project, owner)) return res.status(403).json({ error: "not your project" });
@@ -4523,7 +4561,7 @@ Generated by [Souqi Code](https://souqi.site)
  */
 app.post("/api/codeagent/:key/domain", codeAgentLimiter, async (req, res, next) => {
   try {
-    const owner = anon.ownerOf(req, res);
+    const owner = appOwnerOf(req, res);
     const project = await resolveProject(req.params.key, owner);
     if (!project) return res.status(404).json({ error: "project not found" });
     if (!projects.owns(project, owner)) return res.status(403).json({ error: "not your project" });
@@ -4553,7 +4591,7 @@ app.post("/api/codeagent/:key/domain", codeAgentLimiter, async (req, res, next) 
     "waiting for DNS" vs "live" state instead of a static instructions page. */
 app.get("/api/codeagent/:key/domain/status", async (req, res, next) => {
   try {
-    const owner = anon.ownerOf(req, res);
+    const owner = appOwnerOf(req, res);
     const project = await resolveProject(req.params.key, owner);
     if (!project) return res.status(404).json({ error: "project not found" });
     if (!projects.owns(project, owner)) return res.status(403).json({ error: "not your project" });
