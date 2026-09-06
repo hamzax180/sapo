@@ -1982,7 +1982,18 @@
 
   /* Recent deployments take the flexible middle, the way chat history does
      in the builder, so the account row stays pinned to the bottom. */
-  .ag-hist-chats{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;padding:2px 0 4px}
+  /* The Recent list is what people open the sidebar FOR, so it must not be
+     the thing that disappears. It was flex:1 1 auto with min-height:0
+     against a footer pinned at flex:0 0 auto, so every pixel the plan card
+     wanted came out of the history — and once the card grew (an alert, three
+     meters, an upgrade button) that took it to zero: the "Recent" heading
+     with nothing under it at all, which is what this looked like.
+
+     A floor in vh rather than px so it scales with the window, and the list
+     inside already scrolls, so more chats than fit is a scroll rather than a
+     squeeze. */
+  .ag-hist-chats{flex:1 1 auto;min-height:clamp(96px,20vh,280px);
+    display:flex;flex-direction:column;padding:2px 0 4px}
   .ag-chats-ttl{font-size:.655rem;font-weight:450;color:var(--mut);padding:10px 10px 4px;flex:0 0 auto}
   .ag-chats-list{flex:1 1 auto;min-height:0;overflow-y:auto;padding:0 var(--sb-pad) 4px;scrollbar-width:thin;scrollbar-color:var(--line) transparent;display:flex;flex-direction:column;gap:2px}
   .ag-chats-list::-webkit-scrollbar{width:6px;height:6px}
@@ -2011,7 +2022,12 @@
      against the monthly budget, and — since this is the deployments
      page — host capacity as the cloud meter, which is the thing that
      actually decides whether the next deploy is accepted. */
-  .ag-hist-foot{flex:0 0 auto;padding:8px 10px 8px;border-top:1px solid var(--line);background:var(--paper);width:100%;box-sizing:border-box}
+  /* Yields first now. This is a plan summary; the history above it is the
+     navigation, and when only one of them can have the space it should not
+     be this one. */
+  .ag-hist-foot{flex:0 1 auto;min-height:0;overflow:hidden;
+    padding:8px 10px 8px;border-top:1px solid var(--line);background:var(--paper);
+    width:100%;box-sizing:border-box}
   .ag-hist-foot .ttl{font-size:.84rem;font-weight:600;padding:0 2px;margin-bottom:4px;color:var(--ink)}
   .ag-plan-alert{background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.25);color:#f87171;font-size:.76rem;
     font-weight:500;padding:4px 8px;border-radius:6px;margin-bottom:6px;text-align:center;width:100%;box-sizing:border-box}
@@ -3997,10 +4013,23 @@
        836x726, and the app was scaled to 0.03 — a few pixels tall. These
        two properties are layout metrics and ignore the transform. */
     const bw = host.offsetWidth, bh = host.offsetHeight;
-    // Before the pane is laid out there is nothing to scale against, and a
-    // scale of 0 would blank the preview. Leave the CSS fallbacks in place
-    // and let the next call (resize, or the settle timer) do it.
-    if (bw < 2 || bh < 2) return;
+    /* Nothing to scale against. Returning early used to LEAVE the previous
+       size's numbers in place, which is worse than not setting them: after
+       switching Tablet -> Desktop the app kept 834x1112 while the frame was
+       telling you it was a 1280 desktop. Clearing them puts the iframe back
+       on the CSS fallback (fill whatever box exists), which is honest about
+       not knowing rather than confidently wrong. The next call — the settle
+       timer or a resize — sets them properly once there is a box.
+
+       On souqi.site the desktop frame genuinely measures 0x0 right now: its
+       preview COLUMN collapses to zero width, which is a separate layout bug
+       this function only reveals. */
+    if (bw < 2 || bh < 2) {
+      host.style.removeProperty("--pv-w");
+      host.style.removeProperty("--pv-h");
+      host.style.removeProperty("--pv-scale");
+      return;
+    }
     // Fit, never fill: the smaller ratio keeps the whole device visible
     // instead of cropping its right edge or its footer.
     const scale = Math.min(bw / dev.w, bh / dev.h);
