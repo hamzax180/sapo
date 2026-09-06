@@ -1182,6 +1182,45 @@
      a settings panel you switched to); removed for furniture. */
   .ag-hist-foot,.ag-usage{animation:none !important}
 
+  @media (max-width:900px){
+    /* The account avatar sat 4px left of the workspace one above it.
+       Same cause the .ag-ws rule already documents: .nm is still a flex
+       item at max-width:0, so the 8px gap beside it is real and the pair
+       gets centred as 30px of content rather than 22px of avatar. gap:0
+       removes the phantom half.
+
+       Sized to match the pill above too — two circles of different sizes
+       stacked in a 44px column read as a mistake even when both are
+       centred. */
+    .ag-history:not(.on) .ag-user-main{gap:0 !important;justify-content:center}
+    .ag-history:not(.on) .ag-user-main .av{width:26px;height:26px;font-size:.82rem}
+  }
+
+  /* ---- the rail's own skeleton -----------------------------------------
+     The card grids on /projects and /deployments already shimmer a
+     placeholder the shape of what is coming. The rail said the word
+     "Loading…" instead, which is the one thing a skeleton exists to avoid:
+     a line of text is not the shape of the list, so the panel jumps when
+     the real rows land.
+
+     Same sweep, same timing, at row scale — a dot for the status mark and
+     a bar for the name, because that is what a chat row is. Widths vary a
+     little per row so it reads as a list of different titles rather than
+     a stack of identical bars. */
+  .sk-row{display:flex;align-items:center;gap:10px;padding:7px 6px;border-radius:8px;
+    position:relative;overflow:hidden}
+  .sk-row::after{content:"";position:absolute;inset:0;transform:translateX(-100%);
+    background:linear-gradient(90deg,transparent,rgba(139,152,165,.13),transparent);
+    animation:sweep 1.4s var(--ease) infinite}
+  .sk-row i{width:6px;height:6px;border-radius:50%;flex:none;background:var(--line)}
+  .sk-row b{height:8px;border-radius:99px;background:var(--line);display:block}
+  .sk-row:nth-child(1) b{width:74%}
+  .sk-row:nth-child(2) b{width:58%}
+  .sk-row:nth-child(3) b{width:66%}
+  .sk-row:nth-child(4) b{width:47%}
+  .sk-row:nth-child(5) b{width:62%}
+  @media (prefers-reduced-motion:reduce){ .sk-row::after{animation:none} }
+
 </style>
 <link rel="stylesheet" href="/css/upgrade-modal.css">
 </head>
@@ -1240,7 +1279,7 @@
        running without opening anything. -->
   <div class="ag-hist-chats">
     <div class="ag-chats-ttl">Recent</div>
-    <div class="ag-chats-list" id="agProjList"><div class="ag-hist-loading ag-chats-empty">Loading…</div></div>
+    <div class="ag-chats-list" id="agProjList"><div class="sk-row"><i></i><b></b></div><div class="sk-row"><i></i><b></b></div><div class="sk-row"><i></i><b></b></div><div class="sk-row"><i></i><b></b></div></div>
   </div>
 
   <div class="ag-hist-foot">
@@ -1303,7 +1342,7 @@
   <header class="nav">
     <span class="sp"></span>
     <a class="btn-g" href="/agent">Back to builder</a>
-    <a class="btn-d" href="/pricing">See plans</a>
+    <a class="btn-d" href="/pricing" data-nav>See plans</a>
   </header>
 
   <div class="wrap">
@@ -1394,6 +1433,13 @@
     }
     var a = e.target.closest('a[href^="/settings"], a[href^="/pricing"], .ag-upgrade');
     if (!a || e.metaKey || e.ctrlKey || e.shiftKey || a.target === "_blank") return;
+    /* A link can opt out of being intercepted. "See plans" in the header
+       looks and reads like navigation to the pricing PAGE, and turning it
+       into a modal means the one control on screen that promises to take
+       you somewhere does not. The rail's Upgrade button still opens the
+       modal, which is the right shape for it: a quick decision without
+       leaving what you were doing. */
+    if (a.hasAttribute("data-nav")) return;
     e.preventDefault();
     // Plans open the builder's own upgrade modal; settings opens the panel.
     var href = a.getAttribute("href") || "";
