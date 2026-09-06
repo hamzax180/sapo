@@ -2735,6 +2735,19 @@
     .ag-hist-foot{animation-duration:1ms;--fade-up-shift:0px}
   }
 
+  /* How much room is left in the brief.
+
+     Hidden until it matters. A counter sitting at "12 / 16,000" from the
+     first keystroke is nagging about a limit nobody is near; this appears
+     at 80% and turns red at the edge, so the only person who ever sees it
+     is the person it is about to affect. Which is the whole point — the
+     old behaviour let you write a long, careful brief and told you it was
+     too long only after you pressed send. */
+  .ag-count{position:absolute;right:12px;bottom:-18px;font-size:.7rem;color:var(--mut);
+    font-variant-numeric:tabular-nums;opacity:0;transition:opacity var(--dur-snappy,.12s) ease;pointer-events:none}
+  .ag-count.show{opacity:1}
+  .ag-count.over{color:var(--danger);font-weight:600}
+
 </style>
 <link rel="stylesheet" href="/css/upgrade-modal.css">
 </head>
@@ -2916,6 +2929,7 @@
     <form class="ag-composer" id="agForm" autocomplete="off">
       <div class="ag-box">
         <textarea id="agInput" rows="1" aria-label="Message the agent" placeholder="Make a"></textarea>
+        <span class="ag-count" id="agCount" aria-live="polite"></span>
         <div class="ag-brow">
           <button type="button" class="ag-attach" id="agAttach" aria-label="Attach a logo or image" title="Attach a logo or image">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
@@ -4985,8 +4999,29 @@
       alert("Voice input is not supported in this browser. Please try Google Chrome or MS Edge.");
     });
   }
+  /* Mirrors MAX_PROMPT_CHARS in server/index.js. Duplicated rather than
+     fetched: this is a hint, and a hint that needs a round trip to appear
+     is worse than one that is occasionally a version behind. The server
+     stays the authority — it rejects with the real numbers either way. */
+  const MAX_PROMPT_CHARS = 16000;
+  const agCount = $("agCount");
+
+  function updateComposerCount() {
+    if (!agCount) return;
+    const n = agInput.value.length;
+    const near = n > MAX_PROMPT_CHARS * 0.8;
+    agCount.classList.toggle("show", near);
+    agCount.classList.toggle("over", n > MAX_PROMPT_CHARS);
+    if (near) {
+      agCount.textContent = n > MAX_PROMPT_CHARS
+        ? (n - MAX_PROMPT_CHARS).toLocaleString() + " over the limit"
+        : n.toLocaleString() + " / " + MAX_PROMPT_CHARS.toLocaleString();
+    }
+  }
+
   agInput.addEventListener("input", () => {
     updateComposerSendButton();
+    updateComposerCount();
   });
   agInput.addEventListener("keydown", (e) => {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); agForm.requestSubmit(); }

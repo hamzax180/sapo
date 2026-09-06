@@ -40,6 +40,32 @@ const aiProviders = require("./lib/ai/providers");
 const scaffoldFiles = require("./lib/codeagent/scaffold-files");
 const secretscan = require("./lib/secretscan");
 const stripeLib = require("./lib/stripe");
+
+/* How long a brief is allowed to be.
+
+   This was 2000 characters, in four separate hardcoded copies, and it was
+   far too tight for what people actually type. A brief describing a real
+   app — the features, the levels, the tabs, what happens at each one —
+   runs past 2000 without trying, and the only feedback was "prompt is too
+   long" after they had written the whole thing. Someone who has just
+   described their idea in detail is exactly the person you least want to
+   throw away.
+
+   16000 characters is roughly 2500 words, or about 4000 tokens against a
+   64k context, so it costs a fraction of a build and nothing is at risk
+   of being truncated downstream. It is still a bound rather than no bound
+   — a limit exists so a single request cannot be made arbitrarily
+   expensive, and the per-route rate limiters do the rest. */
+const MAX_PROMPT_CHARS = 16000;
+
+/* Long enough to say what is wrong AND what to do about it. "prompt is
+   too long" tells someone nothing they can act on; the number they wrote
+   and the number allowed tells them exactly how much to cut. */
+function tooLongMessage(kind, len) {
+  return kind + " is too long \u2014 " + len.toLocaleString() + " characters, and the limit is "
+    + MAX_PROMPT_CHARS.toLocaleString() + ". Trim it a little and send it again.";
+}
+
 const githubLib = require("./lib/github");
 const mcpClient = require("./lib/codeagent/mcp");
 const requestLog = require("./middleware/requestLog");
@@ -1277,7 +1303,7 @@ app.post("/api/agent/build", agentLimiter, async (req, res, next) => {
   try {
     const prompt = String((req.body && req.body.prompt) || "").trim();
     if (prompt.length < 3) return res.status(400).json({ error: "prompt is required" });
-    if (prompt.length > 2000) return res.status(400).json({ error: "prompt is too long" });
+    if (prompt.length > MAX_PROMPT_CHARS) return res.status(400).json({ error: tooLongMessage("That brief", prompt.length) });
 
     const mode = String((req.body && req.body.mode) || "").slice(0, 30);
     // set when the visitor answered a "which is closest?" question
@@ -1522,7 +1548,7 @@ async function finishCreate(built, prompt, owner) {
 app.post("/api/projects", projectLimiter, async (req, res, next) => {
   const prompt = String((req.body && req.body.prompt) || "").trim();
   if (prompt.length < 3) return res.status(400).json({ error: "prompt is required" });
-  if (prompt.length > 2000) return res.status(400).json({ error: "prompt is too long" });
+  if (prompt.length > MAX_PROMPT_CHARS) return res.status(400).json({ error: tooLongMessage("That brief", prompt.length) });
   const owner = anon.ownerOf(req, res);
   const opts = { mode: req.body.mode, industry: req.body.industry };
 
@@ -1730,7 +1756,7 @@ app.post("/api/projects/:key/turns", projectLimiter, async (req, res, next) => {
 
     const message = String((req.body && req.body.message) || "").trim();
     if (!message) return res.status(400).json({ error: "message is required" });
-    if (message.length > 2000) return res.status(400).json({ error: "message is too long" });
+    if (message.length > MAX_PROMPT_CHARS) return res.status(400).json({ error: tooLongMessage("That message", message.length) });
 
     await projects.addTurn(project.id, { role: "user", kind: "text", body: message });
     const combined = (project.prompt ? project.prompt + ". " : "") + message;
@@ -3579,8 +3605,8 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
   const owner = appOwnerOf(req, res);
 
   sseOpen(res);
-  if (prompt.length > 2000) {
-    sseFrame(res, "error", { error: "prompt is too long" });
+  if (prompt.length > MAX_PROMPT_CHARS) {
+    sseFrame(res, "error", { error: tooLongMessage("That brief", prompt.length) });
     return res.end();
   }
   if (promptTooVague(prompt)) {
