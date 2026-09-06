@@ -5426,7 +5426,13 @@
   checkHandoffPrompt();
 
   (async function boot() {
-    const m = /^\/agent\/([a-z0-9-]{1,60})$/i.exec(location.pathname);
+    /* Decoded, and Unicode-aware, because slugify() is: it keeps any letter
+       (\p{L}), so a project the model titled in Turkish becomes
+       /agent/emlak-danismani-portfoyu with real Turkish characters, which
+       arrive here percent-encoded. Matching [a-z0-9-] against that fails, so
+       boot() returned early and the project simply never loaded — a blank
+       new-chat screen for a project that exists and is listed in the rail. */
+    const m = /^\/agent\/([\p{L}\p{N}-]{1,60})$/u.exec(decodeURIComponent(location.pathname));
     if (!m) return;
     const slug = m[1];
     try {
