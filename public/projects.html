@@ -841,7 +841,14 @@
      with its own stacking and overflow rules on three pages, and an
      absolutely-positioned panel inside it was going to be clipped by one of
      them. Fixed to the viewport sidesteps all of it. */
-  .ag-fly{position:fixed;z-index:120;min-width:252px;max-width:302px;
+  /* --fly-room is the space left of the viewport edge, written by place()
+     each frame; the fallback keeps this sane before the first one. Without
+     it a 302px panel beside an expanded 238px rail needs 548px, and in a
+     narrow window it simply ran off the screen. */
+  .ag-fly{position:fixed;z-index:120;
+    width:max-content;
+    min-width:min(252px, var(--fly-room, 252px));
+    max-width:min(302px, var(--fly-room, 302px));
     background:var(--card);border:1px solid var(--line);border-radius:15px;
     box-shadow:0 4px 10px -4px rgba(24,20,14,.10),0 22px 48px -20px rgba(24,20,14,.34);
     padding:9px 8px 11px;opacity:0;visibility:hidden;transform:translateX(-6px);pointer-events:none;
@@ -876,7 +883,15 @@
   .ag-fly .start{color:var(--accent)}
   /* Touch has no hover: the panel would open on the tap that navigates and
      then sit there over the page it opened. */
-  @media (hover:none),(max-width:900px){ .ag-fly{display:none !important} }
+  /* Touch only. The width half of this used to be `,(max-width:900px)`,
+     matching the breakpoint where the rail becomes a drawer — defensible,
+     but it meant a 767px desktop window never showed the panel at all, and
+     that is a real window someone works in. Below that breakpoint the rail
+     is a drawer you open, and while it is open the tab is there to hover
+     like any other, so there is nothing to hide from. Touch stays excluded
+     because there is no cursor to hover with: the panel would open on the
+     tap that navigates and then sit over the page it opened. */
+  @media (hover:none){ .ag-fly{display:none !important} }
 </style>
 <link rel="stylesheet" href="/css/upgrade-modal.css">
 </head>
@@ -1707,11 +1722,25 @@
       // collapsed edge ends up underneath the sidebar that just grew over it.
       var edge = rail && rail.classList.contains("ag-history")
         ? rail.getBoundingClientRect().right : r.right;
+      // How much room is actually left beside the rail. The CSS caps the
+      // panel at this, so a narrow window makes it narrower instead of
+      // pushing it off the right edge.
+      var room = Math.max(180, innerWidth - edge - 16);
       var top = Math.max(8, Math.min(Math.round(r.top - 6), innerHeight - fly.offsetHeight - 8));
-      var key = Math.round(edge) + ":" + top;
+      var key = Math.round(edge) + ":" + top + ":" + Math.round(room);
       if (key === at) return;
       at = key;
-      fly.style.left = Math.round(edge + 8) + "px";
+      fly.style.setProperty("--fly-room", room + "px");
+      /* Width read AFTER the cap is applied, which is why the property is
+         set first: the panel is width:max-content, so until --fly-room
+         bounds it offsetWidth is whatever the longest project name wants —
+         746px on one measurement — and clamping against that shoved the
+         panel left over the rail for no reason. Reading the property back
+         forces the reflow that makes this the capped width. */
+      var w = fly.offsetWidth;
+      // Clamped, not merely offset: room has a floor, so on a genuinely tiny
+      // window the panel overlaps the rail rather than leaving the screen.
+      fly.style.left = Math.round(Math.min(edge + 8, innerWidth - w - 8)) + "px";
       fly.style.top = top + "px";
     }
 
