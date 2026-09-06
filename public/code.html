@@ -4058,21 +4058,42 @@
     void agPvFrame.offsetWidth;
     agPvFrame.classList.add("entering");
 
-    const size = agPvFrame.classList.contains("desktop") ? "desktop"
-      : agPvFrame.classList.contains("tablet") ? "tablet" : "mobile";
-    // Now, and again once the frame's own size transition has finished —
-    // measuring mid-animation scales to a box that is still moving.
-    syncDeviceViewport(size);
-    clearTimeout(applyDeviceFrame._settle);
-    applyDeviceFrame._settle = setTimeout(() => syncDeviceViewport(size), 340);
+    syncDeviceViewport(currentDeviceSize());
   }
 
-  /* The scale is a ratio to the frame, and the frame follows the window. */
-  addEventListener("resize", () => {
-    if (!agPvFrame) return;
-    syncDeviceViewport(agPvFrame.classList.contains("desktop") ? "desktop"
-      : agPvFrame.classList.contains("tablet") ? "tablet" : "mobile");
-  });
+  function currentDeviceSize() {
+    if (!agPvFrame) return "mobile";
+    return agPvFrame.classList.contains("desktop") ? "desktop"
+      : agPvFrame.classList.contains("tablet") ? "tablet" : "mobile";
+  }
+
+  /* Watch the screen instead of guessing when it stops moving.
+
+     This was a pair of setTimeout(…, 340) calls, which is a bet on how long
+     the layout takes to settle — and the bet was wrong. The chat column
+     animates its flex-basis over 400ms, so 340ms measured a frame that was
+     still growing and scaled the app to it: picking Desktop produced a
+     753x415 viewport instead of 1280x800.
+
+     A ResizeObserver has no timing to get wrong. It also covers the case no
+     timer can: a tab rendered without animation frames — opened in the
+     background, or restored — leaves the flex-basis transition PENDING, and
+     a pending transition's value overrides everything, even !important. The
+     column sits at its pre-animation width until the tab is looked at, and
+     the observer fires the moment it finally resizes. */
+  const pvScreenRO = typeof ResizeObserver === "function"
+    ? new ResizeObserver(() => syncDeviceViewport(currentDeviceSize()))
+    : null;
+  function watchPreviewScreen() {
+    if (!pvScreenRO || !agPvFrame) return;
+    const screen = agPvFrame.querySelector(".ip-screen") || agPvFrame;
+    pvScreenRO.disconnect();
+    pvScreenRO.observe(screen);
+  }
+  watchPreviewScreen();
+
+  // Kept for engines without ResizeObserver; harmless where the observer runs.
+  addEventListener("resize", () => syncDeviceViewport(currentDeviceSize()));
 
   // Renders fileContents into the mockup's iframe — via the live
   // WebContainer dev server when one's booted, or the CDN-srcdoc fallback
@@ -4390,9 +4411,8 @@
              itself. Without this the vars kept whatever the PREVIOUS size
              had set: picking Tablet laid the app out at 390x844 and Desktop
              at 834x1112 — every choice one step behind the button. */
+          // One call; the ResizeObserver handles the frame still animating.
           syncDeviceViewport(targetSize);
-          clearTimeout(btn._settle);
-          btn._settle = setTimeout(function () { syncDeviceViewport(targetSize); }, 340);
         }
       });
     });
