@@ -672,6 +672,11 @@
   .sk::after{content:"";position:absolute;inset:0;transform:translateX(-100%);
     background:linear-gradient(90deg,transparent,rgba(139,152,165,.13),transparent);animation:sweep 1.4s var(--ease) infinite}
   .sk .bar{height:10px;border-radius:6px;background:var(--paper-2);margin-bottom:9px}
+  /* A skeleton INSIDE a panel must not repeat the panel's own chrome: same
+     border, same background, same radius meant the loading state rendered as
+     a card inside an identical card, which reads as an empty box rather than
+     as something on its way. Strip the chrome and leave the bars. */
+  .panel > .sk{border:0;background:none;border-radius:0;height:auto;padding:14px 16px}
 
   /* ---- detail ---- */
   .back{display:inline-flex;align-items:center;gap:7px;color:var(--ink-2);font-size:.86rem;font-weight:500;cursor:pointer;border:0;background:none;padding:0;margin-bottom:16px}
@@ -1858,7 +1863,12 @@
      screen is a title and one button — exactly when there is most to decide. */
   function cfgPanel(st) {
     var g = cfgInfo;
-    if (g === null) return '<div class="panel"><div class="sk" style="height:120px"></div></div>';
+    // Named while it loads, so the panel that is coming is identifiable.
+    if (g === null) {
+      return '<div class="panel"><div class="panel-h"><b>Configure</b></div>' +
+        '<div class="sk"><div class="bar" style="width:58%"></div>' +
+        '<div class="bar" style="width:34%"></div></div></div>';
+    }
     if (g.unavailable) {
       // Visible, and it names the status: an address panel that silently is
       // not there is indistinguishable from one that has not loaded yet.
