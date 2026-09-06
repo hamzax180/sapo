@@ -712,6 +712,10 @@
     opacity:0;visibility:hidden;transform:translateY(-6px);
     transition:opacity .16s ease,transform .16s ease,visibility .16s ease;z-index:100}
   .ag-model-popover.open{opacity:1;visibility:visible;transform:none}
+  /* Anchored to the pill's TOP edge instead of its bottom. The entrance
+     slide flips with it so the panel still moves toward the pill. */
+  .ag-model-popover.drop-up{top:auto;bottom:calc(100% + 8px);transform:translateY(6px)}
+  .ag-model-popover.drop-up.open{transform:none}
   /* Flipped when there is no room below — the composer sits at the bottom
      of the screen once a conversation starts, and a downward panel there
      is simply cut off by the viewport. Direction is chosen at open time
@@ -3981,10 +3985,13 @@
      real device reports to a page. iPhone 15 / iPad Air / a 1280 laptop.
      Not the size of the box on screen: that is whatever fits, and the two
      are reconciled by scaling. */
+  /* Only the width is used. Height comes from the frame (see
+     syncDeviceViewport) so the device always fills its mockup; these are the
+     real devices the widths are taken from, kept for the reader. */
   const DEVICE_VIEWPORT = {
-    mobile:  { w: 390,  h: 844 },
-    tablet:  { w: 834,  h: 1112 },
-    desktop: { w: 1280, h: 800 }
+    mobile:  { w: 390 },   // iPhone 15
+    tablet:  { w: 834 },   // iPad Air
+    desktop: { w: 1280 }   // a 13-inch laptop
   };
 
   /**
@@ -4022,11 +4029,22 @@
       host.style.removeProperty("--pv-scale");
       return;
     }
-    // Fit, never fill: the smaller ratio keeps the whole device visible
-    // instead of cropping its right edge or its footer.
-    const scale = Math.min(bw / dev.w, bh / dev.h);
+    /* WIDTH is the device; HEIGHT is the frame.
+
+       The width is what a page actually responds to — it decides every
+       breakpoint — so it stays exactly 390 / 834 / 1280. The height is then
+       whatever fills the frame at that scale, rather than a second fixed
+       number that has to agree with the mockup's aspect-ratio.
+
+       Fitting both with Math.min() is what left the black band: the desktop
+       frame is 16/9 (1.778) and 1280x800 is 16/10 (1.600), so fitting by
+       height stopped the app short of the right edge by about an eighth of
+       the screen. Deriving the height means the device fills its frame on
+       any of the three, and a change to a mockup's shape cannot reintroduce
+       this — there is no longer a second number to keep in sync. */
+    const scale = bw / dev.w;
     host.style.setProperty("--pv-w", dev.w + "px");
-    host.style.setProperty("--pv-h", dev.h + "px");
+    host.style.setProperty("--pv-h", Math.round(bh / scale) + "px");
     host.style.setProperty("--pv-scale", String(scale));
   }
 
@@ -4578,11 +4596,29 @@
       const isOpen = agModelPopover.classList.toggle("open");
       agModelPill.classList.toggle("open", isOpen);
       if (isOpen) {
-        // Always open downward and keep the options inside the space below
-        // the pill when the viewport is short.
+        /* Open toward whichever side has the room.
+
+           This always dropped DOWN, clamped to the space below the pill —
+           and in the builder the composer sits at the bottom of the screen
+           the moment a conversation starts, so "the space below" was a
+           couple of dozen pixels. The panel collapsed to its 96px floor and
+           showed one clipped row: the modes were there, just not on screen.
+           Measured per open, because CSS cannot see this and the composer
+           moves as the chat grows.
+
+           Both directions are clamped, so on a short window the panel
+           scrolls inside itself rather than running off either edge. */
         const r = agModelPill.getBoundingClientRect();
-        const below = Math.max(96, window.innerHeight - r.bottom - 16);
-        agModelPopover.style.maxHeight = below + "px";
+        const GAP = 16;
+        const below = window.innerHeight - r.bottom - GAP;
+        const above = r.top - GAP;
+        // Natural height, measured with the cap lifted — otherwise the
+        // previous open's clamp decides which way this one goes.
+        agModelPopover.style.maxHeight = "";
+        const wanted = agModelPopover.offsetHeight;
+        const up = below < wanted && above > below;
+        agModelPopover.classList.toggle("drop-up", up);
+        agModelPopover.style.maxHeight = Math.max(96, up ? above : below) + "px";
 
         // Horizontal clamp, same reasoning as the flip above: CSS cannot see
         // the available space. The panel is right-anchored to the pill and
