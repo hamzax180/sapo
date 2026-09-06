@@ -590,7 +590,14 @@
        both want the head's 44px, and side by side they overflow it —
        which pushed the Souqi mark off the left edge entirely. */
     .ag-history:not(.on) .ag-hist-search,
-    .ag-history:not(.on) .ag-ws-menu,
+    /* These are HIDDEN. The declaration block that said so went missing at
+       some point and the selector list simply ran on into the next rule, so
+       instead of display:none the chevron, search box, "Recent" heading and
+       upsell were all handed a border-top and margins meant for
+       .ag-hist-chats. The visible symptom is a clipped "Rece" in a 44px
+       rail. Same fix as code.html; these two files never got it. */
+    .ag-history:not(.on) .ag-ws-menu{display:none !important}
+
     .ag-history:not(.on) .ag-hist-chats{border-top:1px solid var(--line);margin:5px 6px 0;padding-top:6px}
     .ag-history:not(.on) .ag-hist-chats.is-empty{border-top:0;margin:0;padding-top:0}
     .ag-history:not(.on) .ag-chats-list{padding:0;overflow:hidden}
@@ -2870,7 +2877,15 @@
   function renderPlan() {
     if (!account) return;
     var plan = String(account.plan || "free");
-    $("agPlanTtl").textContent = "Your " + plan.charAt(0).toUpperCase() + plan.slice(1) + " Plan";
+    /* The rail's plan heading was folded into the usage card, and this line
+       still wrote to the element that used to hold it. $() returns null for
+       a missing id, so this threw "Cannot set properties of null" — inside
+       renderPlan(), which runs during the page's load path, so the whole
+       page fell back to "Couldn't load your deployments" over a sidebar
+       label. Writes to optional chrome are guarded now; the card names the
+       plan itself either way. */
+    var planTtl = $("agPlanTtl");
+    if (planTtl) planTtl.textContent = "Your " + plan.charAt(0).toUpperCase() + plan.slice(1) + " Plan";
 
     var cap = Number(account.freeEdits || 0);
     var used = all.length;
@@ -2889,7 +2904,8 @@
       mem === null ? "no host data" : mem + "% memory");
 
     // Only claim a limit has been hit when one actually has been.
-    $("agPlanAlert").hidden = !(cap && used >= cap) && !(budget && spent >= budget);
+    var planAlert = $("agPlanAlert");
+    if (planAlert) planAlert.hidden = !(cap && used >= cap) && !(budget && spent >= budget);
   }
 
   /* ---------------- boot ----------------
