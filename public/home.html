@@ -915,27 +915,21 @@
 
           <span class="ag-brow-sp"></span>
           <div class="ag-model-wrap" id="bhModelWrap">
-            <button type="button" class="ag-model-pill" id="bhModelPill" title="Select Model & Thinking Mode">
-              <span id="bhModelPillLabel">Eco Souqi</span>
-              <span class="ag-think-badge" id="bhThinkBadge" hidden>Thinking</span>
+            <button type="button" class="ag-model-pill" id="bhModelPill" title="Mode and model provider">
+              <span id="bhModelPillLabel">Auto</span>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg>
             </button>
             <div class="ag-model-popover" id="bhModelPopover">
-              <div class="pop-section-ttl">Agent Mode</div>
-              <button type="button" class="pop-option on" data-mode="economy" id="bhPopModeEconomy">
-                <span class="pop-text"><b>Eco Souqi</b><small>Fast generation &amp; lightweight builds</small></span>
+              <div class="pop-section-ttl">Mode</div>
+              <button type="button" class="pop-option on" data-mode="auto" id="bhPopModeAuto">
+                <span class="pop-text"><b>Auto</b><small>Answers, asks or builds — whichever the message calls for</small></span>
+              </button>
+              <button type="button" class="pop-option" data-mode="plan" id="bhPopModePlan">
+                <span class="pop-text"><b>Plan</b><small>Always shows the plan first, edits included</small></span>
               </button>
               <button type="button" class="pop-option" data-mode="power" id="bhPopModePower">
-                <span class="pop-text"><b>Powered Souqi</b><small>Deep reasoning, MCP tools &amp; complex builds</small></span>
+                <span class="pop-text"><b>Power</b><small>Deep reasoning, MCP tools, more repair passes</small></span>
               </button>
-              <div class="pop-divider"></div>
-              <div class="pop-switch-row" id="bhPopThinkRow">
-                <span class="pop-text"><b>Extended Thinking</b><small>Claude-style deep reasoning pass</small></span>
-                <label class="ag-switch">
-                  <input type="checkbox" id="bhPopThinkCheck">
-                  <span class="ag-slider"></span>
-                </label>
-              </div>
             </div>
           </div>
 
@@ -1282,14 +1276,22 @@
      selectedType — handing the agent page a build type that does not exist.
      They are separate now and both travel through the hand-off. */
   let mode = "";              // build type, from the rail
-  let agentMode = "economy";  // eco | power
-  let thinkingEnabled = false;
+  /* Same three modes the builder offers, and the same meanings — this page
+     hands its choice straight to /agent, so a second vocabulary here would
+     just be a mistranslation waiting to happen. */
+  const BH_MODES = {
+    auto:  { label: "Auto",  thinking: false, box: false },
+    plan:  { label: "Plan",  thinking: false, box: false },
+    power: { label: "Power", thinking: true,  box: true }
+  };
+  let agentMode = "auto";      // auto | plan | power
+  let thinkingEnabled = false; // derived from the mode, kept for the hand-off
   const ta = $("bhPrompt"), send = $("bhSend");
   /* Model Pill & Popover Menu */
   const bhModelPill = $("bhModelPill"), bhModelPopover = $("bhModelPopover");
   const bhModelPillLabel = $("bhModelPillLabel"), bhBox = $("bhBox");
-  const bhPopModeEconomy = $("bhPopModeEconomy"), bhPopModePower = $("bhPopModePower");
-  const bhPopThinkCheck = $("bhPopThinkCheck"), bhThinkBadge = $("bhThinkBadge");
+  const bhPopModeAuto = $("bhPopModeAuto"), bhPopModePlan = $("bhPopModePlan"),
+    bhPopModePower = $("bhPopModePower");
 
   if (bhModelPill && bhModelPopover) {
     bhModelPill.addEventListener("click", (e) => {
@@ -1315,39 +1317,25 @@
     });
   }
 
-  if (bhPopModeEconomy && bhPopModePower) {
-    bhPopModeEconomy.addEventListener("click", (e) => {
-      if (e) e.stopPropagation();
-      agentMode = "economy";
-      bhPopModeEconomy.classList.add("on");
-      bhPopModePower.classList.remove("on");
-      if (bhModelPillLabel) bhModelPillLabel.textContent = "Eco Souqi";
-      if (bhBox) bhBox.classList.remove("power-mode");
-      if ($("bhForm")) $("bhForm").classList.remove("power-mode");
-      document.body.classList.remove("power-mode");
-      if (bhModelPill) bhModelPill.classList.remove("power-mode", "open");
-      if (bhModelPopover) bhModelPopover.classList.remove("open");
-    });
-    bhPopModePower.addEventListener("click", (e) => {
-      if (e) e.stopPropagation();
-      agentMode = "power";
-      bhPopModePower.classList.add("on");
-      bhPopModeEconomy.classList.remove("on");
-      if (bhModelPillLabel) bhModelPillLabel.textContent = "Powered Souqi";
-      if (bhBox) bhBox.classList.add("power-mode");
-      if ($("bhForm")) $("bhForm").classList.add("power-mode");
-      document.body.classList.add("power-mode");
-      if (bhModelPill) { bhModelPill.classList.add("power-mode"); bhModelPill.classList.remove("open"); }
-      if (bhModelPopover) bhModelPopover.classList.remove("open");
-    });
+  function bhSetMode(mode) {
+    if (!BH_MODES[mode]) mode = "auto";
+    agentMode = mode;
+    const m = BH_MODES[mode];
+    thinkingEnabled = m.thinking;
+    [["auto", bhPopModeAuto], ["plan", bhPopModePlan], ["power", bhPopModePower]]
+      .forEach(([name, btn]) => { if (btn) btn.classList.toggle("on", name === mode); });
+    if (bhModelPillLabel) bhModelPillLabel.textContent = m.label;
+    if (bhBox) bhBox.classList.toggle("power-mode", m.box);
+    if ($("bhForm")) $("bhForm").classList.toggle("power-mode", m.box);
+    document.body.classList.toggle("power-mode", m.box);
+    if (bhModelPill) { bhModelPill.classList.toggle("power-mode", m.box); bhModelPill.classList.remove("open"); }
+    if (bhModelPopover) bhModelPopover.classList.remove("open");
   }
 
-  if (bhPopThinkCheck && bhThinkBadge) {
-    bhPopThinkCheck.addEventListener("change", () => {
-      thinkingEnabled = bhPopThinkCheck.checked;
-      bhThinkBadge.hidden = !thinkingEnabled;
-    });
-  }
+  [["auto", bhPopModeAuto], ["plan", bhPopModePlan], ["power", bhPopModePower]].forEach(([name, btn]) => {
+    if (!btn) return;
+    btn.addEventListener("click", (e) => { if (e) e.stopPropagation(); bhSetMode(name); });
+  });
 
   /* Voice Input Speech Recognition */
   const bhVoiceBtn = $("bhVoiceBtn");
