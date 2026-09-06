@@ -4934,9 +4934,37 @@
       // real. WebContainer needs a fresh build of these exact files before
       // wc.startPreview() has anything current to serve — writeFiles alone
       // just updates the in-memory source for continued editing.
+      /* Warm the container for the NEXT edit — deliberately NOT awaited.
+
+         The preview below renders from the stored source with
+         forceFallback:true, so it never needed this build. All it buys is a
+         warm node_modules and a dist, so the first follow-up edit is fast.
+
+         Awaited, it sat in front of everything that matters. build() waits
+         on prepare(), which is a cold WebContainer boot plus npm install;
+         if that never settles — or vite never exits — then the preview
+         render, the boot-screen teardown and the "tell me what to change"
+         line after it never run either. The symptom is a permanently blank
+         preview with no error anywhere, because the failure was also being
+         swallowed by an empty catch.
+
+         Nothing here can be a race any more: build() serializes on the
+         runtime, so an edit that arrives mid-warm-up queues behind it
+         rather than spawning a second vite over the same dist/. */
       const wc = window.__wc;
       if (wc && data.fileContents) {
-        try { await wc.writeFiles(data.fileContents); await wc.build(); } catch (e) {}
+        (async () => {
+          try {
+            await wc.writeFiles(data.fileContents);
+            const r = await wc.build();
+            if (!r || !r.ok) {
+              console.warn("[warm] reopen build failed: " +
+                (((r && (r.stderr || r.stdout)) || "no output").slice(-300)));
+            }
+          } catch (e) {
+            console.warn("[warm] reopen build threw:", (e && e.message) || e);
+          }
+        })();
       }
       if (iframe) iframe.hidden = false;
       applyDeviceFrame();

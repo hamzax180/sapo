@@ -241,7 +241,27 @@ class WCRuntime {
     }
   }
 
+  /**
+   * One build at a time.
+   *
+   * Two concurrent builds share one container: both spawn `npm run build`,
+   * both write dist/, and the one that finishes second decides what the
+   * preview serves regardless of which had the newer files. That became
+   * reachable when reopening a project started warming the container in the
+   * background — an edit can now land on top of a warm-up that is still
+   * running. Waiting is right rather than skipping: the second caller has
+   * newer files and still needs them built.
+   */
   async build(onLog) {
+    while (this._buildInFlight) {
+      try { await this._buildInFlight; } catch (e) { /* its caller owns that failure */ }
+    }
+    this._buildInFlight = this._build(onLog);
+    try { return await this._buildInFlight; }
+    finally { this._buildInFlight = null; }
+  }
+
+  async _build(onLog) {
     // Both build and preview need node_modules, and three separate callers
     // invoked this without waiting for the install — two of them inside a
     // catch that swallowed the result. Ensuring it here fixes all of them
