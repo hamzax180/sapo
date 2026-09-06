@@ -361,10 +361,16 @@
   /* Settings panels arrive on every switch, not only on first open — the
      switch is the moment worth animating, and re-triggering it is why the
      JS below removes and re-adds the class with a reflow between. */
-  .panel:not([hidden]){animation:sqFadeUp var(--dur-chill) var(--ease-snappy) both}
+  /* Scoped to .panels-ready, which is added one frame after load.
+     Without it the first panel animated at the same moment the iframe
+     around it was animating — two entrances for one event, and the
+     heading visibly lagging the box it lives in. The container carries
+     the opening; this carries the SWITCH between panels, which is a
+     different event and does deserve its own movement. */
+  body.panels-ready .panel:not([hidden]){animation:sqFadeUp var(--dur-chill) var(--ease-snappy) both}
   .ag-hist-foot{animation:sqFadeUp var(--dur-chill) var(--ease-snappy) both}
   @media (prefers-reduced-motion:reduce){
-    .panel:not([hidden]),.ag-hist-foot{animation-duration:1ms;--fade-up-shift:0px}
+    body.panels-ready .panel:not([hidden]),.ag-hist-foot{animation-duration:1ms;--fade-up-shift:0px}
   }
 
 </style>
@@ -1389,5 +1395,14 @@
 })();
 </script>
 <script src="js/nav-loading.js?v=1"></script>
+<script>
+  /* One frame after load, so the opening animation belongs to the container
+     and every panel change after it belongs to the panel. setTimeout rather
+     than requestAnimationFrame on purpose: this document lives in an iframe
+     that is display:none until the overlay opens, and rAF does not fire in
+     a hidden frame — the flag would never be set and panel switches would
+     never animate at all. */
+  setTimeout(function () { document.body.classList.add("panels-ready"); }, 0);
+</script>
 </body>
 </html>

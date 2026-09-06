@@ -2332,6 +2332,17 @@
     .ag-history:not(.on) .ag-hist-brand-text,
     .ag-history:not(.on) .ag-user-main .nm,
     .ag-history:not(.on) .ag-ws .nm{max-width:0 !important;opacity:0 !important;overflow:hidden !important}
+    /* These are the things with no 44px form, and they are HIDDEN.
+       They used to be — the declaration block that said so went missing at
+       some point, and the selector list simply ran on into the next rule.
+       So instead of display:none, the chevron, the search box, the
+       "Recent" title, the upsell and the workspace menu were all being
+       given a border-top and margins meant for .ag-hist-chats.
+
+       The visible symptom was the account avatar hanging off the left edge
+       of the rail: the pill is 32px wide, and with the chevron still in it
+       the avatar had nowhere to sit but outside. The clipped "Rece" and the
+       overflowing search box were the same bug wearing different clothes. */
     .ag-history:not(.on) .ag-ws .chev,
     .ag-history:not(.on) .ag-hist-view,
     .ag-history:not(.on) .ag-chats-ttl,
@@ -2340,7 +2351,8 @@
        both want the head's 44px, and side by side they overflow it —
        which pushed the Souqi mark off the left edge entirely. */
     .ag-history:not(.on) .ag-hist-search,
-    .ag-history:not(.on) .ag-ws-menu,
+    .ag-history:not(.on) .ag-ws-menu{display:none !important}
+
     .ag-history:not(.on) .ag-hist-chats{border-top:1px solid var(--line);margin:5px 6px 0;padding-top:6px}
     .ag-history:not(.on) .ag-hist-chats.is-empty{border-top:0;margin:0;padding-top:0}
     .ag-history:not(.on) .ag-chats-list{padding:0;overflow:hidden}
@@ -2588,8 +2600,21 @@
     display:flex;align-items:center;justify-content:center;padding:clamp(8px,3.5vh,40px);
     -webkit-backdrop-filter:var(--scrim-blur);backdrop-filter:var(--scrim-blur)}
   .ag-set-overlay[hidden]{display:none !important;pointer-events:none !important;visibility:hidden !important}
+  /* The settings panel is an iframe, and an iframe appears the instant it
+     is displayed — so the box snapped into place and only THEN did the
+     headings inside it slide up. The container is what should arrive; the
+     text is inside it and comes along.
+
+     The animation restarts on every open by itself: the overlay is
+     toggled with [hidden], and going from display:none back to display
+     re-runs a CSS animation. */
   .ag-set-overlay iframe{width:min(1393px,92vw);height:min(700px,80vh);border:0;border-radius:13px;
-    background:var(--card);box-shadow:0 30px 90px -28px rgba(0,0,0,.55)}
+    background:var(--card);box-shadow:0 30px 90px -28px rgba(0,0,0,.55);
+    animation:sqSettingsIn var(--dur-chill,.3s) var(--ease-snappy,ease-out) both}
+  @keyframes sqSettingsIn{from{opacity:0;transform:translateY(10px) scale(.985)}to{opacity:1;transform:none}}
+  @media (prefers-reduced-motion:reduce){
+    .ag-set-overlay iframe{animation-duration:1ms;animation-name:none;opacity:1}
+  }
   @media (max-width:900px){
     .ag-set-overlay{padding:0}
     .ag-set-overlay iframe{width:100%;height:100%;border-radius:0}
@@ -2825,24 +2850,33 @@
      Stated in CSS keyed on .is-new rather than fixed in the one JS branch,
      because the state is already on the element and a rule cannot be
      reached down a code path nobody remembered. */
+  /* Keyed on "there is a conversation", not on "is-new was cleared".
+
+     .is-new is supposed to come off when a turn starts, and mostly it
+     does — but a page that still carried it WITH restored history put the
+     composer 619px below the bottom of a 608px phone, measured. Relying
+     on a flag being cleared by the right code path is how that happens;
+     the log's own contents cannot be out of date.
+
+     :not(.ag-empty) is what makes it precise. A fresh log is not empty —
+     it holds exactly one child, the greeting — so :empty and :has(> *)
+     both answer wrong. Any child that is not the greeting is a real turn. */
   .ag:not(.is-new) #agNewExtras,
-  .ag:not(.is-new) #agRecent{display:none !important}
+  .ag:not(.is-new) #agRecent,
+  .ag:has(#agLog > *:not(.ag-empty)) #agNewExtras,
+  .ag:has(#agLog > *:not(.ag-empty)) #agRecent{display:none !important}
+
+  /* The hero is a padded flex COLUMN on the new-chat screen, which is what
+     lets a long log push the composer off the bottom. Back to
+     display:contents once there is a conversation, so the composer is a
+     direct flex child of .ag again and stays pinned. */
+  .ag.is-new:has(#agLog > *:not(.ag-empty)) .ag-hero{display:contents}
 
   /* The log takes the room that frees up, and scrolls inside itself, so
      the composer sits on the bottom edge where it belongs. */
-  .ag:not(.is-new) #agLog{flex:1 1 auto;min-height:0;overflow-y:auto}
+  .ag:not(.is-new) #agLog,
+  .ag:has(#agLog > *:not(.ag-empty)) #agLog{flex:1 1 auto;min-height:0;overflow-y:auto}
 
-  @media (max-width:900px){
-    /* Two things were still drawing inside the 44px closed rail: the
-       search box, which is 30px wide but overflowed to 55 and poked out
-       past the rail's edge, and the "Recent" heading, which rendered as a
-       clipped "Rece". A heading with no list under it is noise at any
-       width; at 44px it is just a broken word. Desktop already hides the
-       search in its collapsed rail — this is the same rule for the phone,
-       which uses a different selector and so never inherited it. */
-    .ag-history:not(.on) .ag-hist-search{display:none !important}
-    .ag-history:not(.on) .ag-chats-ttl{display:none !important}
-  }
 
   /* Laid out the way Claude's own usage popover does it: the limit's name
      on the left, and its reset time and percentage together on the right

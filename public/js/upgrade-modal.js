@@ -74,7 +74,23 @@
     if (e && e.preventDefault) e.preventDefault();
     // The nav progress bar may have started if this came from a link.
     if (window.SouqiLoading) window.SouqiLoading.hide();
-    mount().classList.add("open");
+
+    /* mount() BUILDS the modal the first time it is called, and adding
+       .open in the same statement meant the element was inserted already
+       open. A CSS transition needs its start state to have been through a
+       style recalc at least once; inserted at its end state there is
+       nothing to transition FROM, so the card was simply painted at
+       opacity 1 on the first frame. It looked like the container appeared
+       instantly while the text inside it animated — because that is
+       exactly what happened.
+
+       Reading offsetWidth forces the flush that gives the start state a
+       frame of its own. Only on the very first open does it matter; on
+       later opens the element already exists in its closed state, and the
+       read costs nothing worth measuring. */
+    var modal = mount();
+    void modal.offsetWidth;
+    modal.classList.add("open");
   };
 
   window.closeUpgradeModal = function () {

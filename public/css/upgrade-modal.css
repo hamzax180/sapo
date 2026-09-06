@@ -23,7 +23,11 @@
   backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
   z-index: 100000000 !important; display: flex; align-items: center; justify-content: center;
   padding: 20px; opacity: 0; visibility: hidden;
-  transition: opacity 0.1s var(--ease), visibility 0.1s;
+  /* Was 0.1s while the card underneath took 0.22s, so the scrim finished
+     before the card had started and you watched the page darken around a
+     box that was already fully drawn. Both run on the same clock now. */
+  transition: opacity var(--dur-chill, .3s) var(--ease-snappy, ease-out),
+              visibility var(--dur-chill, .3s);
 }
 .ag-modal-backdrop.open { opacity: 1; visibility: visible; }
 .ag-modal-card {
@@ -31,10 +35,28 @@
   width: 100%; max-width: 1020px; max-height: 94vh; overflow-y: auto;
   padding: 22px 24px 20px; position: relative;
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.4);
-  transform: scale(0.95); transition: transform 0.22s var(--ease);
+  /* The card only ever SCALED. Its opacity was 1 from the first frame, so
+     the whole panel — heading, prices, every card — was already painted
+     and simply grew slightly. That reads as "this was always here", not
+     as something arriving, which is why the text looked like it animated
+     on its own while the container did not.
+
+     Fading and rising it with the same numbers as everything else means
+     the box and its contents arrive as one object. Nothing inside needs
+     its own entrance, and nothing inside should get one — a container
+     that fades in while its heading separately slides up is two
+     animations for one event. */
+  opacity: 0;
+  transform: translateY(10px) scale(0.98);
+  transition: opacity var(--dur-chill, .3s) var(--ease-snappy, ease-out),
+              transform var(--dur-chill, .3s) var(--ease-snappy, ease-out);
   box-sizing: border-box;
 }
-.ag-modal-backdrop.open .ag-modal-card { transform: scale(1); }
+.ag-modal-backdrop.open .ag-modal-card { opacity: 1; transform: none; }
+@media (prefers-reduced-motion: reduce) {
+  .ag-modal-backdrop, .ag-modal-card { transition-duration: 1ms; }
+  .ag-modal-card { transform: none; }
+}
 .ag-modal-close {
   position: absolute; top: 14px; right: 18px; border: 0; background: none;
   font-size: 1.2rem; color: var(--mut); cursor: pointer; width: 30px; height: 30px;
