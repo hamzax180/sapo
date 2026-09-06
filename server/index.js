@@ -359,7 +359,7 @@ app.get("/api/admin/overview", adminGuard, async (req, res, next) => {
       .map((w) => ({ wsId: w.id, company: w.company, ownerEmail: w.ownerEmail, plan: PLANS.includes(w.plan) ? w.plan : "free", industry: w.industry, country: w.country, createdAt: w.createdAt }));
 
     // Visit split by surface (marketing vs storefront).
-    let byType = { marketing: 0, portal: 0 };
+    const byType = { marketing: 0, portal: 0 };
     try {
       const typeRows = await visitsColl.aggregate([{ $group: { _id: "$type", n: { $sum: 1 } } }]).toArray();
       typeRows.forEach((r) => { if (r._id === "portal") byType.portal = r.n; else byType.marketing += r.n; });

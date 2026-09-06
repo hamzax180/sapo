@@ -1347,7 +1347,7 @@ async function proposeWithClientBuild({ userPrompt, maxRounds, onFiles, onRound,
   const MAX_ENTRY_ROUNDS = 2;
 
   for (let round = 0; round <= cap + entryRounds; round++) {
-    let attempt = await attemptOnce(messages, opts);
+    const attempt = await attemptOnce(messages, opts);
     if (!attempt.ok) {
       // A BYOK failure is the USER's key, model or credit — never Souqi's
       // outage — so it must surface as the real reason rather than being
