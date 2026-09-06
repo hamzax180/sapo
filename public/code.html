@@ -2958,6 +2958,17 @@
   .sk-row:nth-child(5) b{width:62%}
   @media (prefers-reduced-motion:reduce){ .sk-row::after{animation:none} }
 
+  /* Phone sizing for the mode panel, matching the home page's copy. The
+     builder already clamps this panel horizontally (see the pill handler);
+     it was simply still 250px wide, which is most of a 351px screen. */
+  @media (max-width:480px){
+    .ag-model-popover{width:min(216px,calc(100vw - 24px));padding:6px;border-radius:12px}
+    .pop-section-ttl{padding:3px 6px 4px;font-size:.66rem}
+    .pop-option{padding:7px 6px;gap:8px}
+    .pop-option .pop-text b{font-size:.8rem}
+    .pop-option .pop-text small{font-size:.7rem}
+  }
+
 </style>
 <link rel="stylesheet" href="/css/upgrade-modal.css">
 </head>

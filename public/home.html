@@ -883,6 +883,17 @@
   }
   /* keyboard-safe composer on iOS: dvh, never vh */
   @supports (height:100dvh){.bh-hero{min-height:auto}}
+  /* Smaller on a phone. 250px of panel plus two paddings is most of a
+     351px screen, and the descriptions do not need that much room to be
+     readable at this size. */
+  @media (max-width:480px){
+    .ag-model-popover{width:min(216px,calc(100vw - 24px));padding:6px;border-radius:12px}
+    .pop-section-ttl{padding:3px 6px 4px;font-size:.66rem}
+    .pop-option{padding:7px 6px;gap:8px}
+    .pop-option .pop-text b{font-size:.8rem}
+    .pop-option .pop-text small{font-size:.7rem}
+  }
+
 </style>
 </head>
 <body>
@@ -1356,6 +1367,20 @@
         const below = window.innerHeight - r.bottom - 16;
         const above = r.top - 16;
         bhModelPopover.classList.toggle("drop-up", below < h && above > below);
+
+        /* And the same argument horizontally, which was missing. The panel
+           is anchored right:0 to the pill, so on a narrow screen it hangs
+           off the LEFT edge — measured at 351px wide it started at -23 and
+           the mode names were cut in half. CSS cannot fix this either: the
+           width that fits depends on where the pill happens to sit, not on
+           the viewport.
+
+           Reset first, because the shift from a previous open is still on
+           the element and would compound. */
+        bhModelPopover.style.right = "";
+        const pr = bhModelPopover.getBoundingClientRect();
+        const GAP = 10;
+        if (pr.left < GAP) bhModelPopover.style.right = (pr.left - GAP) + "px";
       }
     });
     document.addEventListener("click", (e) => {
