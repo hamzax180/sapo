@@ -16,17 +16,68 @@
   <style>
     *, *::before, *::after { box-sizing: border-box; }
     :root {
-      --paper: #faf7f2; --paper-2: #f3eee6; --card: #ffffff;
-      --ink: #12202e; --ink-2: #5d6f80; --mut: #7e766a;
-      --accent: #0070f3; --accent-2: #0051a8; --line: #e7e1d7; --stone: #dedad2;
+    /* ---- motion and elevation, sampled from replit.com -----------------
+       Read out of their live stylesheet rather than guessed from a
+       screenshot, because what reads as "fancy" there is not one effect.
+       It is the SAME fade level and the SAME two speeds applied to
+       everything; picking a plausible shadow per surface is exactly what
+       makes an interface look assembled rather than designed.
+
+       Two durations carry all of it: .12s for anything answering a press,
+       .3s for anything arriving or leaving. Four shadows, one near-black
+       at rising alpha, which is why their cards read as lifted instead of
+       outlined. And the fade levels are a share of the CURRENT text
+       colour, not a fixed grey — one token that is correct on any surface
+       and in either theme. */
+    --dur-snappy:.12s; --dur-chill:.3s;
+    --ease-snappy:ease-out; --ease-chill:ease-in-out;
+    --sh-subtle:0px 1px 2px #00000008,0px 4px 8px -2px #0000000a;
+    --sh-raised:0px 2px 4px #0000000a,0px 8px 16px -4px #0000000f;
+    --sh-floating:0px 4px 6px -2px #0000000d,0px 12px 24px -6px #00000012;
+    --sh-overlay:0px 8px 16px -4px #00000014,0px 24px 48px -12px #0000001a;
+    --fade-subtle:color-mix(in srgb,currentColor 10%,transparent);
+    --fade-regular:color-mix(in srgb,currentColor 20%,transparent);
+    --fade-strong:color-mix(in srgb,currentColor 30%,transparent);
+    --fade-up-shift:10px; --fade-up-gap:50ms;
+
+      --paper: #f6f5f4; --paper-2: #ebeced; --card: #fcfcfc;
+      --ink: #1b252b; --ink-2: #5c6062; --mut: #8a8f91;
+      --accent: #0070f3; --accent-2: #0051a8; --line: #cfc9c3; --stone: #dcd8d4;
       --disp: 'Jost', system-ui, sans-serif;
       --body: 'Inter', system-ui, -apple-system, sans-serif;
     }
     :root[data-theme="dark"] {
-      --paper: #18181b; --paper-2: #242220; --card: #1c1917;
-      --ink: #f4f4f5; --ink-2: #a1a1aa; --mut: #71717a;
-      --accent: #0070f3; --accent-2: #0051a8; --line: #3f3f46; --stone: #27272a;
+      --paper: #18191b; --paper-2: #212225; --card: #26282b;
+      --ink: #f5f9fc; --ink-2: #9ea3a6; --mut: #7a7f82;
+      --accent: #0070f3; --accent-2: #0051a8; --line: #33363a; --stone: #2a2c2f;
     }
+
+  /* ---- the arrival ------------------------------------------------------
+     Their fade-up, to their numbers: .3s ease-out, 10px of travel, and a
+     50ms gap between siblings so a column of cards resolves in sequence
+     rather than all at once. `both` matters — without it the element is
+     painted at its final position for one frame before the animation
+     starts, which is the flash this is meant to avoid.
+
+     Reduced-motion gets the opacity and none of the travel. Removing the
+     animation outright would leave `both` holding the from-state, i.e. an
+     invisible card, so the override sets a finished state rather than
+     `animation:none`. */
+  @keyframes sqFadeUp{from{opacity:0;transform:translateY(var(--fade-up-shift))}to{opacity:1;transform:none}}
+  .fade-up{animation:sqFadeUp var(--dur-chill) var(--ease-snappy) both}
+  .fade-in{animation:sqFadeUp var(--dur-chill) var(--ease-snappy) both;--fade-up-shift:0px}
+  .stagger > *{animation:sqFadeUp var(--dur-chill) var(--ease-snappy) both}
+  .stagger > :nth-child(1){animation-delay:0ms}
+  .stagger > :nth-child(2){animation-delay:50ms}
+  .stagger > :nth-child(3){animation-delay:100ms}
+  .stagger > :nth-child(4){animation-delay:150ms}
+  .stagger > :nth-child(5){animation-delay:200ms}
+  .stagger > :nth-child(6){animation-delay:250ms}
+  .stagger > :nth-child(n+7){animation-delay:300ms}
+  @media (prefers-reduced-motion:reduce){
+    .fade-up,.fade-in,.stagger > *{animation-duration:1ms;animation-delay:0ms;--fade-up-shift:0px}
+  }
+
     html, body {
       margin: 0; padding: 0; background: var(--paper); color: var(--ink);
       font-family: var(--body); -webkit-font-smoothing: antialiased; min-height: 100vh;
@@ -65,18 +116,43 @@
     }
 
     /* Billing Toggle Rectangle */
+    /* The selected half used to be a background on the button itself, so
+       switching was a cut: one white box vanished and another appeared.
+       The thumb moves now — a single thumb behind both labels that slides to
+       whichever is active, which is the whole of why theirs feels smooth.
+
+       It has to be measured rather than assumed at 50%: "Yearly" carries a
+       discount pill and is visibly wider than "Monthly", so a half-width
+       thumb would sit wrong on one side and overhang on the other. JS
+       writes --thumb-x/--thumb-w; CSS animates them. */
     .billing-toggle {
+      position: relative;
       display: inline-flex; align-items: center; gap: 4px; background: var(--paper-2);
       border: 1px solid var(--line); padding: 4px; border-radius: 10px !important;
     }
+    .billing-toggle::before {
+      content: ""; position: absolute; top: 4px; left: 0; z-index: 0;
+      height: calc(100% - 8px); width: var(--thumb-w, 0px);
+      transform: translateX(var(--thumb-x, 4px));
+      background: var(--card); border-radius: 8px; box-shadow: var(--sh-subtle);
+      pointer-events: none;
+    }
+    /* Only once a real measurement exists. Animating from the 0px default
+       would slide the thumb in from the left edge on first paint. */
+    .billing-toggle.ready::before {
+      transition: transform var(--dur-chill) var(--ease-snappy),
+                  width var(--dur-chill) var(--ease-snappy);
+    }
     .billing-toggle button {
+      position: relative; z-index: 1;
       border: 0; background: none; font-family: var(--body) !important; font-size: 0.88rem;
       font-weight: 600; color: var(--mut); padding: 8px 18px; border-radius: 8px !important;
-      cursor: pointer; transition: all 0.18s; display: inline-flex; align-items: center; gap: 6px;
+      cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
+      transition: color var(--dur-chill) var(--ease-snappy);
     }
-    .billing-toggle button.active {
-      background: var(--card); color: var(--ink);
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    .billing-toggle button.active { background: none; box-shadow: none; color: var(--ink); }
+    @media (prefers-reduced-motion: reduce) {
+      .billing-toggle.ready::before { transition-duration: 1ms; }
     }
     .billing-toggle .discount-pill {
       background: rgba(0, 112, 243, 0.15); color: var(--accent);
@@ -279,6 +355,42 @@
 
   <script>
     (function() {
+      /* Keep the sliding thumb under whichever half is active.
+         Re-measured on resize and after fonts load, because both change
+         the width of "Yearly" and a thumb that was correct at first paint
+         is not correct afterwards.
+
+         Deliberately no requestAnimationFrame anywhere in here. rAF does
+         not run in a background tab, so a page opened in one — a
+         middle-click, a restored session, anything not frontmost — would
+         load with the thumb parked at its 0px default and stay that way,
+         and the first click would not move it either. Measuring is
+         synchronous and correct whether or not a frame is ever painted;
+         the one thing rAF was buying, "do not animate the first
+         placement", is bought instead by committing that placement with a
+         forced reflow before the transition is switched on. */
+      var toggleEl = document.querySelector(".billing-toggle");
+      function moveThumb() {
+        if (!toggleEl) return;
+        var on = toggleEl.querySelector("button.active");
+        if (!on) return;
+        toggleEl.style.setProperty("--thumb-w", on.offsetWidth + "px");
+        toggleEl.style.setProperty("--thumb-x", on.offsetLeft + "px");
+      }
+      /* Delegated on the container rather than added to each button, so it
+         does not matter what those handlers do internally — a listener on
+         the parent runs on the way back up, after .active has moved. */
+      if (toggleEl) {
+        moveThumb();
+        void toggleEl.offsetWidth;          // commit it, then allow the slide
+        toggleEl.classList.add("ready");
+        toggleEl.addEventListener("click", moveThumb);
+        window.addEventListener("resize", moveThumb);
+        if (document.fonts && document.fonts.ready) {
+          document.fonts.ready.then(function () { moveThumb(); });
+        }
+      }
+
       var isYearly = false;
       var btnMonthly = document.getElementById("btnMonthly");
       var btnYearly = document.getElementById("btnYearly");

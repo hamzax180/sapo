@@ -20,20 +20,47 @@
        (#1c1917) — neither is neutral zinc, which is what made this page
        feel like a different product. */
     :root, :root[data-theme="light"]{
-      --paper:#faf7f2; --paper-2:#f3eee6; --card:#ffffff; --surface:#ffffff;
-      --ink:#12202e; --ink-2:#5d6f80; --mut:#8b98a5;
-      --line:#e7e1d7; --line-2:#efe9e0;
+      --paper:#f6f5f4; --paper-2:#ebeced; --card:#fcfcfc; --surface:#ffffff;
+      --ink:#1b252b; --ink-2:#5c6062; --mut:#8a8f91;
+      --line:#cfc9c3; --line-2:#efe9e0;
       --accent:#1aa6df; --accent-2:#0f8ec4;
       --shadow:rgba(18,32,46,.10);
     }
     :root[data-theme="dark"]{
-      --paper:#1c1917; --paper-2:#24211e; --card:#2a2622; --surface:#211e1b;
-      --ink:#f0eadc; --ink-2:#a49e92; --mut:#7e766a;
-      --line:#3a352e; --line-2:#332e28;
+      --paper:#18191b; --paper-2:#212225; --card:#26282b; --surface:#211e1b;
+      --ink:#f5f9fc; --ink-2:#9ea3a6; --mut:#7a7f82;
+      --line:#33363a; --line-2:#332e28;
       --accent:#1aa6df; --accent-2:#63d0ff;
       --shadow:rgba(0,0,0,.55);
     }
     *, *::before, *::after { box-sizing: border-box; }
+
+  /* ---- the arrival ------------------------------------------------------
+     Their fade-up, to their numbers: .3s ease-out, 10px of travel, and a
+     50ms gap between siblings so a column of cards resolves in sequence
+     rather than all at once. `both` matters — without it the element is
+     painted at its final position for one frame before the animation
+     starts, which is the flash this is meant to avoid.
+
+     Reduced-motion gets the opacity and none of the travel. Removing the
+     animation outright would leave `both` holding the from-state, i.e. an
+     invisible card, so the override sets a finished state rather than
+     `animation:none`. */
+  @keyframes sqFadeUp{from{opacity:0;transform:translateY(var(--fade-up-shift))}to{opacity:1;transform:none}}
+  .fade-up{animation:sqFadeUp var(--dur-chill) var(--ease-snappy) both}
+  .fade-in{animation:sqFadeUp var(--dur-chill) var(--ease-snappy) both;--fade-up-shift:0px}
+  .stagger > *{animation:sqFadeUp var(--dur-chill) var(--ease-snappy) both}
+  .stagger > :nth-child(1){animation-delay:0ms}
+  .stagger > :nth-child(2){animation-delay:50ms}
+  .stagger > :nth-child(3){animation-delay:100ms}
+  .stagger > :nth-child(4){animation-delay:150ms}
+  .stagger > :nth-child(5){animation-delay:200ms}
+  .stagger > :nth-child(6){animation-delay:250ms}
+  .stagger > :nth-child(n+7){animation-delay:300ms}
+  @media (prefers-reduced-motion:reduce){
+    .fade-up,.fade-in,.stagger > *{animation-duration:1ms;animation-delay:0ms;--fade-up-shift:0px}
+  }
+
     html, body {
       margin: 0; padding: 0; min-height: 100vh;
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;

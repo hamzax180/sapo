@@ -16,15 +16,42 @@
 <style>
   *,*::before,*::after{box-sizing:border-box}
   :root, :root[data-theme="dark"]{
-    --paper:#1c1917; --paper-2:#24211e; --card:#2a2622;
-    --ink:#f0eadc; --ink-2:#a49e92; --mut:#7e766a;
+    --paper:#18191b; --paper-2:#212225; --card:#26282b;
+    --ink:#f5f9fc; --ink-2:#9ea3a6; --mut:#7a7f82;
     --tint:#3d3428; --tint-2:#2d2420;
-    --stone:#2e2a26; --dark:#0a0908; --line:#3a352e; --navy-800:#f0eadc;
+    --stone:#2a2c2f; --dark:#0a0908; --line:#33363a; --navy-800:#f0eadc;
     --accent:#1aa6df; --accent-2:#118cc0; --accent-ink:#e6edf3;
     --disp:'Jost','Century Gothic',system-ui,sans-serif;
     --body:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
   }
   html{background:var(--paper)}
+
+  /* ---- the arrival ------------------------------------------------------
+     Their fade-up, to their numbers: .3s ease-out, 10px of travel, and a
+     50ms gap between siblings so a column of cards resolves in sequence
+     rather than all at once. `both` matters — without it the element is
+     painted at its final position for one frame before the animation
+     starts, which is the flash this is meant to avoid.
+
+     Reduced-motion gets the opacity and none of the travel. Removing the
+     animation outright would leave `both` holding the from-state, i.e. an
+     invisible card, so the override sets a finished state rather than
+     `animation:none`. */
+  @keyframes sqFadeUp{from{opacity:0;transform:translateY(var(--fade-up-shift))}to{opacity:1;transform:none}}
+  .fade-up{animation:sqFadeUp var(--dur-chill) var(--ease-snappy) both}
+  .fade-in{animation:sqFadeUp var(--dur-chill) var(--ease-snappy) both;--fade-up-shift:0px}
+  .stagger > *{animation:sqFadeUp var(--dur-chill) var(--ease-snappy) both}
+  .stagger > :nth-child(1){animation-delay:0ms}
+  .stagger > :nth-child(2){animation-delay:50ms}
+  .stagger > :nth-child(3){animation-delay:100ms}
+  .stagger > :nth-child(4){animation-delay:150ms}
+  .stagger > :nth-child(5){animation-delay:200ms}
+  .stagger > :nth-child(6){animation-delay:250ms}
+  .stagger > :nth-child(n+7){animation-delay:300ms}
+  @media (prefers-reduced-motion:reduce){
+    .fade-up,.fade-in,.stagger > *{animation-duration:1ms;animation-delay:0ms;--fade-up-shift:0px}
+  }
+
   body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--body);-webkit-font-smoothing:antialiased;
     padding:0 env(safe-area-inset-right) 0 env(safe-area-inset-left)}
   a{color:inherit}

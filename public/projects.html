@@ -18,6 +18,30 @@
   *,*::before,*::after{box-sizing:border-box}
   *[hidden], [hidden]{display:none !important;pointer-events:none !important;visibility:hidden !important}
   :root{
+    /* ---- motion and elevation, sampled from replit.com -----------------
+       Read out of their live stylesheet rather than guessed from a
+       screenshot, because what reads as "fancy" there is not one effect.
+       It is the SAME fade level and the SAME two speeds applied to
+       everything; picking a plausible shadow per surface is exactly what
+       makes an interface look assembled rather than designed.
+
+       Two durations carry all of it: .12s for anything answering a press,
+       .3s for anything arriving or leaving. Four shadows, one near-black
+       at rising alpha, which is why their cards read as lifted instead of
+       outlined. And the fade levels are a share of the CURRENT text
+       colour, not a fixed grey — one token that is correct on any surface
+       and in either theme. */
+    --dur-snappy:.12s; --dur-chill:.3s;
+    --ease-snappy:ease-out; --ease-chill:ease-in-out;
+    --sh-subtle:0px 1px 2px #00000008,0px 4px 8px -2px #0000000a;
+    --sh-raised:0px 2px 4px #0000000a,0px 8px 16px -4px #0000000f;
+    --sh-floating:0px 4px 6px -2px #0000000d,0px 12px 24px -6px #00000012;
+    --sh-overlay:0px 8px 16px -4px #00000014,0px 24px 48px -12px #0000001a;
+    --fade-subtle:color-mix(in srgb,currentColor 10%,transparent);
+    --fade-regular:color-mix(in srgb,currentColor 20%,transparent);
+    --fade-strong:color-mix(in srgb,currentColor 30%,transparent);
+    --fade-up-shift:10px; --fade-up-gap:50ms;
+
     /* Interactive hover, per theme.
 
        --line-hover is the border that lights up on a button, chip, pill or
@@ -36,12 +60,12 @@
        .art-stack / the [data-theme="light"] card rules: those sit on an
        explicitly white background or are shadows, and ink is the correct
        colour for both in either theme. */
-    --line-hover:#c6dbe7;
+    --line-hover:#bdb7b1;
     --wash-rgb:18,32,46;
-    --paper:#faf7f2; --paper-2:#f3eee6; --card:#ffffff;
-    --ink:#12202e; --ink-2:#5d6f80; --mut:#8b98a5;
+    --paper:#f6f5f4; --paper-2:#ebeced; --card:#fcfcfc;
+    --ink:#1b252b; --ink-2:#5c6062; --mut:#8a8f91;
     --accent:#1aa6df; --accent-2:#0f8ec4;
-    --tint-2:#e7f5fd; --line:#e7e1d7;
+    --tint-2:#e7f5fd; --line:#cfc9c3;
     --ok:#22a565; --warn:#e0a11a; --danger:#d92d20;
     --disp:'Jost','Century Gothic',system-ui,sans-serif;
     --body:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
@@ -52,13 +76,13 @@
        gradient, a lit top edge, a hairline and a tray ground read as a card.
        Tokens because they were hardcoded at the hover rule before, where dark
        mode got a pale blue border and a shadow it could not cast. */
-    --card-surface:linear-gradient(180deg,#ffffff,#fdfbf8);
+    --card-surface:linear-gradient(180deg,#ffffff,#fbfbfa);
     --card-sheen:#ffffff;
-    --hair:#efeae1;
-    --card-tray:rgba(250,247,242,.72);
-    --card-rest-shadow:0 1px 2px rgba(24,20,14,.05),0 1px 1px rgba(24,20,14,.03);
-    --card-hover-border:#dcd4c6;
-    --card-hover-shadow:0 2px 4px rgba(24,20,14,.04),0 14px 30px -14px rgba(24,20,14,.3);
+    --hair:#eceae8;
+    --card-tray:rgba(246,245,244,.72);
+    --card-rest-shadow:0px 1px 2px #00000008,0px 4px 8px -2px #0000000a;
+    --card-hover-border:#bdb7b1;
+    --card-hover-shadow:0px 2px 4px #0000000a,0px 8px 16px -4px #0000000f;
     /* Sidebar geometry, shared with the builder and the deployments page
        so the rail is the same object on all three. */
     --rail:44px; --sb-w:238px; --sb-pad:6px; --ease-sb:cubic-bezier(.32,.72,0,1);
@@ -78,19 +102,46 @@
   :root[data-theme="dark"]{
     --line-hover:rgba(255,255,255,.22);
     --wash-rgb:255,255,255;
-    --paper:#1c1917; --paper-2:#24211e; --card:#2a2622;
-    --card-surface:linear-gradient(180deg,#302b26,#282420);
+    --paper:#18191b; --paper-2:#212225; --card:#26282b;
+    --card-surface:linear-gradient(180deg,#2b2d31,#232528);
     --card-sheen:rgba(255,255,255,.055);
     --hair:rgba(255,255,255,.06);
     --card-tray:rgba(0,0,0,.16);
     --card-rest-shadow:0 1px 2px rgba(0,0,0,.45);
     --card-hover-border:rgba(255,255,255,.15);
     --card-hover-shadow:0 2px 6px rgba(0,0,0,.35),0 16px 34px -16px rgba(0,0,0,.8);
-    --ink:#f0eadc; --ink-2:#a49e92; --mut:#7e766a;
+    --ink:#f5f9fc; --ink-2:#9ea3a6; --mut:#7a7f82;
     --tint:#3d3428; --tint-2:#2d2420;
-    --stone:#2e2a26; --dark:#0a0908; --line:#3a352e; --navy-800:#0d0b0a;
+    --stone:#2a2c2f; --dark:#0a0908; --line:#33363a; --navy-800:#0d0b0a;
     --accent:#1aa6df; --accent-2:#118cc0; --accent-ink:#e6edf3;
   }
+
+  /* ---- the arrival ------------------------------------------------------
+     Their fade-up, to their numbers: .3s ease-out, 10px of travel, and a
+     50ms gap between siblings so a column of cards resolves in sequence
+     rather than all at once. `both` matters — without it the element is
+     painted at its final position for one frame before the animation
+     starts, which is the flash this is meant to avoid.
+
+     Reduced-motion gets the opacity and none of the travel. Removing the
+     animation outright would leave `both` holding the from-state, i.e. an
+     invisible card, so the override sets a finished state rather than
+     `animation:none`. */
+  @keyframes sqFadeUp{from{opacity:0;transform:translateY(var(--fade-up-shift))}to{opacity:1;transform:none}}
+  .fade-up{animation:sqFadeUp var(--dur-chill) var(--ease-snappy) both}
+  .fade-in{animation:sqFadeUp var(--dur-chill) var(--ease-snappy) both;--fade-up-shift:0px}
+  .stagger > *{animation:sqFadeUp var(--dur-chill) var(--ease-snappy) both}
+  .stagger > :nth-child(1){animation-delay:0ms}
+  .stagger > :nth-child(2){animation-delay:50ms}
+  .stagger > :nth-child(3){animation-delay:100ms}
+  .stagger > :nth-child(4){animation-delay:150ms}
+  .stagger > :nth-child(5){animation-delay:200ms}
+  .stagger > :nth-child(6){animation-delay:250ms}
+  .stagger > :nth-child(n+7){animation-delay:300ms}
+  @media (prefers-reduced-motion:reduce){
+    .fade-up,.fade-in,.stagger > *{animation-duration:1ms;animation-delay:0ms;--fade-up-shift:0px}
+  }
+
   html, body {
     background: var(--paper);
     overscroll-behavior-x: none;
@@ -721,6 +772,45 @@
     padding:10px 12px;margin-bottom:14px}
   .pdlg input:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:transparent}
   .pdlg .acts{display:flex;gap:8px;justify-content:flex-end}
+
+  /* ---- project details ---------------------------------------------------
+     The card can say four things. This is where the rest of it lives: what
+     the app is made of, how much of it there is, and where its source has
+     been pushed. Read-only apart from the one button, because everything
+     else about a project is already editable in the builder. */
+  .pdlg .box.wide{width:min(580px,100%);max-height:86vh;overflow-y:auto}
+  .dt-head{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+  .dt-tile{width:42px;height:42px;border-radius:12px;flex:none;display:grid;place-items:center;
+    font-family:var(--disp);font-weight:700;font-size:1.02rem;color:#fff;
+    background-image:linear-gradient(152deg,rgba(255,255,255,.3),rgba(255,255,255,0) 46%,rgba(0,0,0,.2))}
+  .dt-head .nm{min-width:0}
+  .dt-head h3{margin:0 0 2px;font-size:1.05rem;overflow:hidden;text-overflow:ellipsis}
+  .dt-head .sub{font-size:.78rem;color:var(--mut)}
+  .dt-chips{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 4px}
+  .dt-chip{font-size:.735rem;font-weight:500;padding:4px 9px;border-radius:999px;
+    background:var(--paper-2);color:var(--ink-2);border:1px solid var(--line);white-space:nowrap}
+  .dt-chip.live{background:rgba(34,165,101,.13);border-color:transparent;color:#187a4b}
+  :root[data-theme="dark"] .dt-chip.live{color:#3ecb84}
+  .dt-sec{border-top:1px solid var(--line);margin-top:14px;padding-top:12px}
+  .dt-sec h4{margin:0 0 8px;font-size:.76rem;font-weight:600;letter-spacing:.02em;
+    text-transform:uppercase;color:var(--mut)}
+  .dt-kv{display:flex;align-items:baseline;justify-content:space-between;gap:12px;
+    font-size:.84rem;padding:3px 0;color:var(--ink-2)}
+  .dt-kv b{color:var(--ink);font-weight:600;font-variant-numeric:tabular-nums}
+  .dt-note{font-size:.79rem;color:var(--mut);line-height:1.5;margin:6px 0 0}
+  .dt-files{margin-top:8px;max-height:168px;overflow-y:auto;border:1px solid var(--line);
+    border-radius:10px;background:var(--paper-2);padding:6px}
+  .dt-file{display:flex;justify-content:space-between;gap:10px;font-size:.76rem;
+    padding:3px 6px;border-radius:6px;color:var(--ink-2)}
+  .dt-file span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+  .dt-file i{font-style:normal;color:var(--mut);flex:none;font-variant-numeric:tabular-nums}
+  .dt-git{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .dt-git .grow{flex:1;min-width:0}
+  .dt-repo{font-size:.85rem;color:var(--accent);text-decoration:none;word-break:break-all}
+  .dt-repo:hover{text-decoration:underline}
+  .dt-err{color:var(--danger);font-size:.79rem;margin:8px 0 0}
+  .dt-ok{color:#187a4b;font-size:.79rem;margin:8px 0 0}
+  :root[data-theme="dark"] .dt-ok{color:#3ecb84}
   .pdlg .acts button{border:0;border-radius:10px;padding:9px 16px;font:inherit;font-size:.86rem;
     font-weight:600;cursor:pointer}
   .pdlg .cancel{background:var(--paper-2);color:var(--ink)}
@@ -974,6 +1064,30 @@
     .ag-history.on .ag-hist-user{position:sticky;bottom:0;z-index:2}
     .ag-fly{display:none !important}
   }
+
+  /* ---- what arrives, and in what order ----------------------------------
+     Written as rules on the real selectors rather than a class in the
+     markup: a class has to be remembered on every new card, and the one
+     that gets forgotten is the one people notice.
+
+     The grid staggers because a column of cards landing together reads as
+     a page that was slow, while the same cards landing 50ms apart reads
+     as a page that is assembling itself. Six steps and then a shared
+     delay — past six the eye has stopped counting, and a 40-card grid
+     with a true per-item delay would still be arriving two seconds in. */
+  .ag-hist-foot{animation:sqFadeUp var(--dur-chill) var(--ease-snappy) both}
+  .grid > *{animation:sqFadeUp var(--dur-chill) var(--ease-snappy) both}
+  .grid > :nth-child(1){animation-delay:0ms}
+  .grid > :nth-child(2){animation-delay:50ms}
+  .grid > :nth-child(3){animation-delay:100ms}
+  .grid > :nth-child(4){animation-delay:150ms}
+  .grid > :nth-child(5){animation-delay:200ms}
+  .grid > :nth-child(6){animation-delay:250ms}
+  .grid > :nth-child(n+7){animation-delay:300ms}
+  @media (prefers-reduced-motion:reduce){
+    .ag-hist-foot,.grid > *{animation-duration:1ms;animation-delay:0ms;--fade-up-shift:0px}
+  }
+
 </style>
 <link rel="stylesheet" href="/css/upgrade-modal.css">
 </head>
@@ -1531,7 +1645,9 @@
     rename: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>',
     link: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg>',
     star: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8L3.5 9.7l5.9-.9z"/></svg>',
-    trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>'
+    trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>',
+    info: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg>',
+    git: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 0 0-3.16 19.49c.5.09.68-.22.68-.48v-1.7c-2.78.6-3.37-1.34-3.37-1.34-.45-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.9 1.53 2.36 1.09 2.94.83.09-.65.35-1.09.63-1.34-2.22-.25-4.56-1.11-4.56-4.94 0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.65 0 0 .84-.27 2.75 1.02a9.6 9.6 0 0 1 5 0c1.91-1.29 2.75-1.02 2.75-1.02.55 1.38.2 2.4.1 2.65.64.7 1.03 1.59 1.03 2.68 0 3.84-2.34 4.69-4.57 4.94.36.31.68.92.68 1.85v2.74c0 .26.18.58.69.48A10 10 0 0 0 12 2z"/></svg>'
   };
 
   function menuBtn(slug) {
@@ -1561,7 +1677,8 @@
     menuFor = p; menuBtnEl = btn;
     btn.classList.add("on");
     pmenu.innerHTML =
-      '<button type="button" data-do="rename">' + IC.rename + 'Rename</button>'
+      '<button type="button" data-do="details">' + IC.info + 'Details</button>'
+      + '<button type="button" data-do="rename">' + IC.rename + 'Rename</button>'
       + '<button type="button" data-do="link">' + IC.link + 'Copy link</button>'
       + '<button type="button" data-do="fav">' + IC.star
       + (p.favorite ? "Remove from favorites" : "Add to favorites") + '</button>'
@@ -1580,6 +1697,134 @@
   }
 
   function closeDlg() { pdlg.classList.remove("open"); pdlg.innerHTML = ""; }
+
+  /* ---- details, and pushing the source somewhere it survives us --------
+     Reached from the card menu rather than from the card itself: tapping a
+     project opens the builder, which is what people are almost always
+     there to do, and taking that over to show a read-only panel would cost
+     one click on every visit to save one on a rare one.
+
+     Two requests, in parallel. The project details are per-project; the
+     GitHub connection is per-account and identical for every card, but
+     asking for both together keeps the panel a single render with no
+     second state where half of it is filled in. */
+  function dtBytes(n) {
+    if (n < 1024) return n + " B";
+    if (n < 1024 * 1024) return (n / 1024).toFixed(n < 10240 ? 1 : 0) + " KB";
+    return (n / 1048576).toFixed(1) + " MB";
+  }
+  function dtWhen(iso) {
+    if (!iso) return "\u2014";
+    var d = new Date(iso);
+    if (isNaN(d)) return "\u2014";
+    return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+  }
+
+  function showDetails(p) {
+    pdlg.innerHTML = '<div class="box wide" role="dialog" aria-modal="true" aria-label="Project details">'
+      + '<div class="dt-head"><span class="dt-tile" style="background-color:' + tileColor(p.slug) + '">'
+      + esc(String(p.title || "A").charAt(0).toUpperCase()) + '</span>'
+      + '<span class="nm"><h3>' + esc(p.title || "Untitled") + '</h3>'
+      + '<span class="sub">Loading\u2026</span></span></div></div>';
+    pdlg.classList.add("open");
+
+    Promise.all([
+      fetch("/api/projects/" + encodeURIComponent(p.slug) + "/details", { credentials: "same-origin" })
+        .then(function (r) { if (!r.ok) throw new Error("details"); return r.json(); }),
+      fetch("/api/integrations/github", { credentials: "same-origin" })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .catch(function () { return null; })
+    ]).then(function (out) { renderDetails(p, out[0], out[1]); })
+      .catch(function () {
+        pdlg.innerHTML = '<div class="box" role="dialog" aria-modal="true">'
+          + '<h3>Details</h3><p>Could not load this project\u2019s details.</p>'
+          + '<div class="acts"><button type="button" class="btn-g cancel">Close</button></div></div>';
+        pdlg.querySelector(".cancel").addEventListener("click", closeDlg);
+      });
+  }
+
+  function renderDetails(p, d, gh) {
+    var chips = [];
+    chips.push('<span class="dt-chip' + (d.deployed ? " live" : "") + '">'
+      + (d.deployed ? "Live" : d.published ? "Published" : "Not deployed") + '</span>');
+    if (d.buildType) chips.push('<span class="dt-chip">' + esc(d.buildType) + '</span>');
+    (d.tech || []).forEach(function (tk) {
+      chips.push('<span class="dt-chip">' + esc(tk.name) + (tk.version ? " " + esc(String(tk.version).replace(/^[\^~]/, "")) : "") + '</span>');
+    });
+    if (!(d.tech || []).length) chips.push('<span class="dt-chip">No dependencies detected</span>');
+
+    var files = (d.files || []).slice(0, 200).map(function (f) {
+      return '<div class="dt-file"><span>' + esc(f.path) + '</span><i>' + dtBytes(f.bytes) + '</i></div>';
+    }).join("") || '<div class="dt-file"><span>No files yet</span></div>';
+
+    /* Every state says what to do next rather than only what is wrong.
+       "Not connected" with no route to connecting is the kind of dead end
+       that makes a feature look broken when it is merely unconfigured. */
+    var git;
+    if (!gh || !gh.configured) {
+      git = '<p class="dt-note">Git is not set up on this server yet, so there is nowhere to push. '
+          + 'An operator registers a GitHub app to enable it.</p>';
+    } else if (!gh.connected) {
+      git = '<p class="dt-note">Connect your GitHub account and Souqi can create a repository for this '
+          + 'project and commit its source to it \u2014 the repo is yours, on your account.</p>'
+          + '<div class="dt-git"><a class="btn" href="/settings#integrations">Connect GitHub</a></div>';
+    } else if (d.github && d.github.fullName) {
+      git = '<div class="dt-git"><span class="grow"><a class="dt-repo" target="_blank" rel="noopener" href="'
+          + esc(d.github.htmlUrl || "#") + '">' + esc(d.github.fullName) + '</a>'
+          + (d.github.private ? ' <span class="dt-chip">private</span>' : "") + '</span>'
+          + '<button type="button" class="btn" id="dtPush">Push again</button></div>'
+          + '<div class="dt-kv"><span>Last push</span><b>' + dtWhen(d.github.lastPushedAt) + '</b></div>';
+    } else {
+      git = '<p class="dt-note">Signed in as ' + esc(gh.login || "your account")
+          + '. This creates a new private repository and commits every file in the project to it.</p>'
+          + '<div class="dt-git"><button type="button" class="btn" id="dtPush">Push to GitHub</button></div>';
+    }
+
+    pdlg.innerHTML = '<div class="box wide" role="dialog" aria-modal="true" aria-label="Project details">'
+      + '<div class="dt-head"><span class="dt-tile" style="background-color:' + tileColor(d.slug) + '">'
+      + esc(String(d.title || "A").charAt(0).toUpperCase()) + '</span>'
+      + '<span class="nm"><h3>' + esc(d.title || "Untitled") + '</h3>'
+      + '<span class="sub">/' + esc(d.slug) + '</span></span></div>'
+      + '<div class="dt-chips">' + chips.join("") + '</div>'
+      + (d.prompt ? '<p class="dt-note">\u201c' + esc(String(d.prompt).slice(0, 220)) + '\u201d</p>' : "")
+      + '<div class="dt-sec"><h4>Source</h4>'
+        + '<div class="dt-kv"><span>Files</span><b>' + d.fileCount + '</b></div>'
+        + '<div class="dt-kv"><span>Total size</span><b>' + dtBytes(d.totalBytes) + '</b></div>'
+        + '<div class="dt-kv"><span>Revisions</span><b>' + d.revisions + '</b></div>'
+        + '<div class="dt-kv"><span>Created</span><b>' + dtWhen(d.createdAt) + '</b></div>'
+        + '<div class="dt-kv"><span>Last edited</span><b>' + dtWhen(d.updatedAt) + '</b></div>'
+        // Said plainly. A pruned chain means the list below is a partial
+        // tree, and a push from it would be a partial push.
+        + (d.historyComplete ? "" : '<p class="dt-note">Part of this project\u2019s edit history has been pruned, so the file list may be incomplete.</p>')
+        + '<div class="dt-files">' + files + '</div></div>'
+      + '<div class="dt-sec"><h4>Git</h4>' + git + '<div id="dtMsg"></div></div>'
+      + '<div class="acts" style="margin-top:16px">'
+        + '<button type="button" class="btn-g cancel">Close</button>'
+        + '<a class="btn-d" href="/agent/' + esc(d.slug) + '">Open in builder</a></div></div>';
+
+    pdlg.querySelector(".cancel").addEventListener("click", closeDlg);
+
+    var push = document.getElementById("dtPush");
+    if (push) push.addEventListener("click", function () {
+      var msg = document.getElementById("dtMsg");
+      push.disabled = true; push.textContent = "Pushing\u2026"; msg.innerHTML = "";
+      fetch("/api/projects/" + encodeURIComponent(d.slug) + "/github", {
+        method: "POST", credentials: "same-origin",
+        headers: { "Content-Type": "application/json" }, body: JSON.stringify({})
+      }).then(function (r) { return r.json().then(function (b) { return { ok: r.ok, b: b }; }); })
+        .then(function (res) {
+          if (!res.ok) throw new Error(res.b && res.b.error ? res.b.error : "Push failed");
+          msg.innerHTML = '<p class="dt-ok">Pushed ' + res.b.push.files + " files to "
+            + esc(res.b.repo.fullName) + '. <a class="dt-repo" target="_blank" rel="noopener" href="'
+            + esc(res.b.push.commitUrl) + '">View the commit</a></p>';
+          push.textContent = "Push again"; push.disabled = false;
+        })
+        .catch(function (err) {
+          msg.innerHTML = '<p class="dt-err">' + esc(err.message || "Push failed") + "</p>";
+          push.textContent = "Try again"; push.disabled = false;
+        });
+    });
+  }
 
   function askRename(p) {
     pdlg.innerHTML = '<div class="box" role="dialog" aria-modal="true" aria-label="Rename project">'
@@ -1660,7 +1905,8 @@
       e.preventDefault();
       var p2 = menuFor, act = item.dataset.do;
       closeMenu();
-      if (act === "rename") askRename(p2);
+      if (act === "details") showDetails(p2);
+      else if (act === "rename") askRename(p2);
       else if (act === "del") askDelete(p2);
       else if (act === "link") {
         var url = location.origin + "/agent/" + p2.slug;

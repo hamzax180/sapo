@@ -21,10 +21,34 @@
      and flat cards, Souqi's cyan as the accent rather than their blue. */
   *,*::before,*::after{box-sizing:border-box}
   :root{
-    --paper:#faf7f2; --paper-2:#f1ece3; --card:#fffdf9; --sidebg:#f7f2ea;
+    /* ---- motion and elevation, sampled from replit.com -----------------
+       Read out of their live stylesheet rather than guessed from a
+       screenshot, because what reads as "fancy" there is not one effect.
+       It is the SAME fade level and the SAME two speeds applied to
+       everything; picking a plausible shadow per surface is exactly what
+       makes an interface look assembled rather than designed.
+
+       Two durations carry all of it: .12s for anything answering a press,
+       .3s for anything arriving or leaving. Four shadows, one near-black
+       at rising alpha, which is why their cards read as lifted instead of
+       outlined. And the fade levels are a share of the CURRENT text
+       colour, not a fixed grey — one token that is correct on any surface
+       and in either theme. */
+    --dur-snappy:.12s; --dur-chill:.3s;
+    --ease-snappy:ease-out; --ease-chill:ease-in-out;
+    --sh-subtle:0px 1px 2px #00000008,0px 4px 8px -2px #0000000a;
+    --sh-raised:0px 2px 4px #0000000a,0px 8px 16px -4px #0000000f;
+    --sh-floating:0px 4px 6px -2px #0000000d,0px 12px 24px -6px #00000012;
+    --sh-overlay:0px 8px 16px -4px #00000014,0px 24px 48px -12px #0000001a;
+    --fade-subtle:color-mix(in srgb,currentColor 10%,transparent);
+    --fade-regular:color-mix(in srgb,currentColor 20%,transparent);
+    --fade-strong:color-mix(in srgb,currentColor 30%,transparent);
+    --fade-up-shift:10px; --fade-up-gap:50ms;
+
+    --paper:#f6f5f4; --paper-2:#ebeced; --card:#fcfcfc; --sidebg:#f2f1f0;
     --ink:#241f1a; --ink-2:#6b6258; --mut:#9c948a;
     --accent:#0079f2; --accent-2:#0068d0;      /* Replit blue */
-    --tint-2:#e8f2fe; --line:#e7e1d7; --dark:#241f1a; --navy-800:#0d0d0d;
+    --tint-2:#e8f2fe; --line:#cfc9c3; --dark:#241f1a; --navy-800:#0d0d0d;
     --danger:#d92d20; --danger-bg:#fef3f2; --danger-line:#fda29b;
     /* Replit sets UI type in its own sans, not a display face — using Jost
        for headings here is what made this read as "inspired by" rather
@@ -37,12 +61,39 @@
      against variables precisely so this stays a ~15-line override rather
      than a second stylesheet that drifts from the first. */
   :root[data-theme="dark"]{
-    --paper:#1c1917; --paper-2:#24211e; --card:#2a2622; --sidebg:#241f1c;
-    --ink:#f0eadc; --ink-2:#a49e92; --mut:#7e766a;
-    --tint-2:#2d2420; --line:#3a352e; --dark:#0a0908; --navy-800:#0d0b0a;
+    --paper:#18191b; --paper-2:#212225; --card:#26282b; --sidebg:#1e2022;
+    --ink:#f5f9fc; --ink-2:#9ea3a6; --mut:#7a7f82;
+    --tint-2:#2d2420; --line:#33363a; --dark:#0a0908; --navy-800:#0d0b0a;
     --danger:#f97066; --danger-bg:#2a1614; --danger-line:#4a2320;
   }
   html{background:var(--paper)}
+
+  /* ---- the arrival ------------------------------------------------------
+     Their fade-up, to their numbers: .3s ease-out, 10px of travel, and a
+     50ms gap between siblings so a column of cards resolves in sequence
+     rather than all at once. `both` matters — without it the element is
+     painted at its final position for one frame before the animation
+     starts, which is the flash this is meant to avoid.
+
+     Reduced-motion gets the opacity and none of the travel. Removing the
+     animation outright would leave `both` holding the from-state, i.e. an
+     invisible card, so the override sets a finished state rather than
+     `animation:none`. */
+  @keyframes sqFadeUp{from{opacity:0;transform:translateY(var(--fade-up-shift))}to{opacity:1;transform:none}}
+  .fade-up{animation:sqFadeUp var(--dur-chill) var(--ease-snappy) both}
+  .fade-in{animation:sqFadeUp var(--dur-chill) var(--ease-snappy) both;--fade-up-shift:0px}
+  .stagger > *{animation:sqFadeUp var(--dur-chill) var(--ease-snappy) both}
+  .stagger > :nth-child(1){animation-delay:0ms}
+  .stagger > :nth-child(2){animation-delay:50ms}
+  .stagger > :nth-child(3){animation-delay:100ms}
+  .stagger > :nth-child(4){animation-delay:150ms}
+  .stagger > :nth-child(5){animation-delay:200ms}
+  .stagger > :nth-child(6){animation-delay:250ms}
+  .stagger > :nth-child(n+7){animation-delay:300ms}
+  @media (prefers-reduced-motion:reduce){
+    .fade-up,.fade-in,.stagger > *{animation-duration:1ms;animation-delay:0ms;--fade-up-shift:0px}
+  }
+
   body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--body);-webkit-font-smoothing:antialiased;
     transition:background .2s,color .2s}
   a{color:inherit;text-decoration:none}
@@ -306,6 +357,16 @@
     .snav button{white-space:nowrap}
     .content{max-height:none}
   }
+
+  /* Settings panels arrive on every switch, not only on first open — the
+     switch is the moment worth animating, and re-triggering it is why the
+     JS below removes and re-adds the class with a reflow between. */
+  .panel:not([hidden]){animation:sqFadeUp var(--dur-chill) var(--ease-snappy) both}
+  .ag-hist-foot{animation:sqFadeUp var(--dur-chill) var(--ease-snappy) both}
+  @media (prefers-reduced-motion:reduce){
+    .panel:not([hidden]),.ag-hist-foot{animation-duration:1ms;--fade-up-shift:0px}
+  }
+
 </style>
 </head>
 <body>
@@ -462,6 +523,20 @@
           </span>
           <span class="pill" id="stripePill">Checking…</span>
           <button type="button" class="btn" id="stripeBtn" hidden></button>
+        </div>
+        <!-- GitHub. Same shape as Stripe above, and for the same reason:
+             the account at the other end is the OWNER's. Souqi creates a
+             repository in their name and writes a commit to it. Disconnecting
+             revokes the token and leaves every repository exactly where it
+             is — by then the code is theirs, and deleting someone's repo to
+             tidy up our own state would be indefensible. -->
+        <div class="srow" id="ghRow">
+          <span class="txt">
+            <span class="t">GitHub</span>
+            <span class="d" id="ghDesc">Push an app Souqi built to a repository on your own GitHub account.</span>
+          </span>
+          <span class="pill" id="ghPill">Checking…</span>
+          <button type="button" class="btn" id="ghBtn" hidden></button>
         </div>
         <div class="srow">
           <span class="txt"><span class="t">Hosted database</span><span class="d">Persistent storage an app can read and write.</span></span>
@@ -1108,6 +1183,76 @@
     // The OAuth callback bounces back to #integrations?stripe=… — surface the
     // outcome rather than leaving the row to silently refresh.
     var m = /[?&]stripe=([^&]+)/.exec(location.hash + location.search);
+    if (m) {
+      var v = decodeURIComponent(m[1]);
+      if (v !== "connected") { pill.className = "pill"; pill.textContent = "Failed"; desc.textContent = v; }
+    }
+    load();
+  })();
+
+  /* ---------- GitHub ---------- */
+  (function github() {
+    var pill = $("ghPill"), desc = $("ghDesc"), btn = $("ghBtn");
+    if (!pill || !btn) return;
+
+    function render(s) {
+      if (!s) { pill.className = "pill"; pill.textContent = "Unavailable"; btn.hidden = true; return; }
+      if (s.needsSignIn) {
+        pill.className = "pill"; pill.textContent = "Sign in";
+        desc.textContent = "Sign in to connect a GitHub account and push the apps you build to your own repositories.";
+        btn.hidden = false; btn.textContent = "Sign in";
+        btn.onclick = function () { location.href = "/login?next=" + encodeURIComponent("/settings#integrations"); };
+        return;
+      }
+      if (!s.configured) {
+        pill.className = "pill"; pill.textContent = "Not set up";
+        desc.textContent = "This server has no GitHub app registered yet, so there is nothing to connect to. An operator sets GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET.";
+        btn.hidden = true;
+        return;
+      }
+      if (s.connected) {
+        pill.className = "pill live"; pill.textContent = "Connected";
+        desc.textContent = "Signed in as " + (s.login || "your account") +
+          ". Open any project and choose Push to GitHub to create a repository and commit to it.";
+        btn.hidden = false; btn.textContent = "Disconnect";
+        btn.onclick = disconnect;
+        return;
+      }
+      pill.className = "pill"; pill.textContent = "Not connected";
+      // Said before the click, not after. GitHub's own consent screen says
+      // "full control of private repositories", which is alarming to read
+      // for the first time on GitHub's domain with no explanation of why.
+      desc.textContent = "Connect GitHub and Souqi can push an app it built into a repository you own. It asks for repository access so it can create PRIVATE repos — it only ever writes to repositories it created for you.";
+      btn.hidden = false; btn.textContent = "Connect GitHub";
+      // A full navigation rather than fetch: an OAuth handshake has to
+      // happen in the address bar so the person can see they are on
+      // github.com before authorizing anything.
+      btn.onclick = function () { location.href = "/api/integrations/github/connect"; };
+    }
+
+    function disconnect() {
+      if (!confirm("Disconnect GitHub? Repositories already pushed are not affected \u2014 they stay in your account.")) return;
+      btn.disabled = true; btn.textContent = "Disconnecting\u2026";
+      fetch("/api/integrations/github", { method: "DELETE", credentials: "same-origin" })
+        .then(function (r) { return r.json(); })
+        .then(function () { btn.disabled = false; load(); })
+        .catch(function () { btn.disabled = false; btn.textContent = "Disconnect"; });
+    }
+
+    function load() {
+      fetch("/api/integrations/github", { credentials: "same-origin" })
+        // 401 is not a failure, it is the signed-out state, and it is the
+        // most common way to arrive here. Folding it into the generic null
+        // branch made the row read "Unavailable", which describes an outage
+        // rather than the one thing the person needs to do.
+        .then(function (r) { return r.ok ? r.json() : { needsSignIn: r.status === 401 }; })
+        .then(render)
+        .catch(function () { render(null); });
+    }
+
+    // The callback bounces back to #integrations?github=… — surface the
+    // outcome rather than leaving the row to silently refresh.
+    var m = /[?&]github=([^&]+)/.exec(location.hash + location.search);
     if (m) {
       var v = decodeURIComponent(m[1]);
       if (v !== "connected") { pill.className = "pill"; pill.textContent = "Failed"; desc.textContent = v; }

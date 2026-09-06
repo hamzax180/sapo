@@ -16,6 +16,30 @@
 <style>
   *,*::before,*::after{box-sizing:border-box}
   :root{
+    /* ---- motion and elevation, sampled from replit.com -----------------
+       Read out of their live stylesheet rather than guessed from a
+       screenshot, because what reads as "fancy" there is not one effect.
+       It is the SAME fade level and the SAME two speeds applied to
+       everything; picking a plausible shadow per surface is exactly what
+       makes an interface look assembled rather than designed.
+
+       Two durations carry all of it: .12s for anything answering a press,
+       .3s for anything arriving or leaving. Four shadows, one near-black
+       at rising alpha, which is why their cards read as lifted instead of
+       outlined. And the fade levels are a share of the CURRENT text
+       colour, not a fixed grey — one token that is correct on any surface
+       and in either theme. */
+    --dur-snappy:.12s; --dur-chill:.3s;
+    --ease-snappy:ease-out; --ease-chill:ease-in-out;
+    --sh-subtle:0px 1px 2px #00000008,0px 4px 8px -2px #0000000a;
+    --sh-raised:0px 2px 4px #0000000a,0px 8px 16px -4px #0000000f;
+    --sh-floating:0px 4px 6px -2px #0000000d,0px 12px 24px -6px #00000012;
+    --sh-overlay:0px 8px 16px -4px #00000014,0px 24px 48px -12px #0000001a;
+    --fade-subtle:color-mix(in srgb,currentColor 10%,transparent);
+    --fade-regular:color-mix(in srgb,currentColor 20%,transparent);
+    --fade-strong:color-mix(in srgb,currentColor 30%,transparent);
+    --fade-up-shift:10px; --fade-up-gap:50ms;
+
     --navy-900:#081522; --navy-800:#0b1e33; --navy-700:#102a45; --navy-600:#163655;
     --accent:#1aa6df; --accent-2:#63d0ff; --accent-ink:#0d5f86; --accent-wash:#e7f5fc;
     --green:#5cb12f; --gold:#c89a3c;
@@ -24,7 +48,7 @@
        for one). It only existed in the dark block, so anything reaching for
        it in light mode got nothing and had to hardcode #fff — which is how
        the dropdowns ended up white in dark mode with light text on them. */
-    --paper:#ffffff; --paper2:#f5f9fc; --card:#ffffff; --cool:#eef4f9; --line:#e4ecf4;
+    --paper:#ffffff; --paper2:#f5f9fc; --card:#fcfcfc; --cool:#eef4f9; --line:#e4ecf4;
     --disp:'Jost','Century Gothic','Futura',system-ui,sans-serif;
     --body:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
     --ease:cubic-bezier(.16,1,.3,1); --ease2:cubic-bezier(.22,.61,.36,1);
@@ -33,10 +57,10 @@
     /* This page spells it --paper2; the shared dark palette spells it
        --paper-2. Both are set so a rule written either way still resolves
        instead of silently falling back to transparent. */
-    --paper:#1c1917; --paper-2:#24211e; --paper2:#24211e; --card:#2a2622;
-    --ink:#f0eadc; --ink-2:#a49e92; --mut:#7e766a;
+    --paper:#18191b; --paper-2:#212225; --paper2:#24211e; --card:#26282b;
+    --ink:#f5f9fc; --ink-2:#9ea3a6; --mut:#7a7f82;
     --tint:#3d3428; --tint-2:#2d2420;
-    --stone:#2e2a26; --dark:#0a0908; --line:#3a352e; --navy-800:#0d0b0a;
+    --stone:#2a2c2f; --dark:#0a0908; --line:#33363a; --navy-800:#0d0b0a;
     --accent:#1aa6df; --accent-2:#118cc0; --accent-ink:#e6edf3;
   }
   /* Prevent the white gutter that shows up on iOS "rubber-band" overscroll
@@ -44,6 +68,33 @@
      explicit background on <html> itself, and overscroll-behavior-x so the
      page can't bounce sideways at all. */
   html{overflow-x:clip;overflow-x:hidden;background:var(--paper);overscroll-behavior-x:none;width:100%;max-width:100vw}
+
+  /* ---- the arrival ------------------------------------------------------
+     Their fade-up, to their numbers: .3s ease-out, 10px of travel, and a
+     50ms gap between siblings so a column of cards resolves in sequence
+     rather than all at once. `both` matters — without it the element is
+     painted at its final position for one frame before the animation
+     starts, which is the flash this is meant to avoid.
+
+     Reduced-motion gets the opacity and none of the travel. Removing the
+     animation outright would leave `both` holding the from-state, i.e. an
+     invisible card, so the override sets a finished state rather than
+     `animation:none`. */
+  @keyframes sqFadeUp{from{opacity:0;transform:translateY(var(--fade-up-shift))}to{opacity:1;transform:none}}
+  .fade-up{animation:sqFadeUp var(--dur-chill) var(--ease-snappy) both}
+  .fade-in{animation:sqFadeUp var(--dur-chill) var(--ease-snappy) both;--fade-up-shift:0px}
+  .stagger > *{animation:sqFadeUp var(--dur-chill) var(--ease-snappy) both}
+  .stagger > :nth-child(1){animation-delay:0ms}
+  .stagger > :nth-child(2){animation-delay:50ms}
+  .stagger > :nth-child(3){animation-delay:100ms}
+  .stagger > :nth-child(4){animation-delay:150ms}
+  .stagger > :nth-child(5){animation-delay:200ms}
+  .stagger > :nth-child(6){animation-delay:250ms}
+  .stagger > :nth-child(n+7){animation-delay:300ms}
+  @media (prefers-reduced-motion:reduce){
+    .fade-up,.fade-in,.stagger > *{animation-duration:1ms;animation-delay:0ms;--fade-up-shift:0px}
+  }
+
   body{margin:0;padding:0 env(safe-area-inset-right) 0 env(safe-area-inset-left);background:var(--paper);color:var(--ink);font-family:var(--body);-webkit-font-smoothing:antialiased;overflow-x:hidden;overscroll-behavior-x:none;width:100%;max-width:100vw}
   * { -webkit-tap-highlight-color: transparent; }
   h1,h2,h3,h4{font-family:var(--disp);letter-spacing:-.025em;line-height:1.06;margin:0;font-weight:800}

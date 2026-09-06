@@ -40,6 +40,7 @@ const aiProviders = require("./lib/ai/providers");
 const scaffoldFiles = require("./lib/codeagent/scaffold-files");
 const secretscan = require("./lib/secretscan");
 const stripeLib = require("./lib/stripe");
+const githubLib = require("./lib/github");
 const mcpClient = require("./lib/codeagent/mcp");
 const requestLog = require("./middleware/requestLog");
 const metrics = require("./lib/metrics");
@@ -2865,6 +2866,327 @@ app.delete("/api/integrations/stripe", async (req, res, next) => {
       }
     } catch (e) { /* ignore */ }
 
+    res.json({ ok: true });
+  } catch (e) { next(e); }
+});
+
+/* =====================================================================
+   GITHUB — the generated app, in a repository the person actually owns.
+
+   Same split of surfaces as Stripe above, and the same principle: the
+   account belongs to the OWNER. Souqi holds a token, creates a repo in
+   their name, and writes a commit. Disconnecting forgets the token and
+   revokes the grant; it never touches a repository, because by then the
+   code is theirs and deleting someone's repo to tidy up our own state
+   would be indefensible.
+
+   The token is a live third-party credential, so it follows the rule
+   /api/account/ai-keys already set: encrypted at rest or refused, never
+   stored in the clear because an operator forgot to configure a key.
+   ===================================================================== */
+
+/* Bound to the provider as well as to the user. The Stripe pair above
+   does the same job for Stripe and is deliberately not shared: a state
+   minted for one provider must not validate for the other. They are
+   different endpoints exchanging different codes, and a CSRF guard that
+   cannot tell them apart is a guard with a hole in it. */
+function signGithubState(userId) {
+  const nonce = crypto.randomBytes(12).toString("hex");
+  const exp = Date.now() + 10 * 60 * 1000;
+  const payload = "github." + userId + "." + nonce + "." + exp;
+  const sig = crypto.createHmac("sha256", JWT_SECRET).update(payload).digest("hex").slice(0, 32);
+  return Buffer.from(payload + "." + sig, "utf8").toString("base64url");
+}
+function verifyGithubState(state, userId) {
+  try {
+    const raw = Buffer.from(String(state || ""), "base64url").toString("utf8");
+    const parts = raw.split(".");
+    if (parts.length !== 5) return false;
+    const [tag, uid, nonce, exp, sig] = parts;
+    if (tag !== "github" || uid !== userId) return false;
+    if (!(Number(exp) > Date.now())) return false;
+    const expected = crypto.createHmac("sha256", JWT_SECRET)
+      .update(tag + "." + uid + "." + nonce + "." + exp).digest("hex").slice(0, 32);
+    const a = Buffer.from(sig, "utf8"), b = Buffer.from(expected, "utf8");
+    return a.length === b.length && crypto.timingSafeEqual(a, b);
+  } catch (e) { return false; }
+}
+
+function githubRedirectUri(req) {
+  const base = (process.env.PUBLIC_BASE_URL || "").replace(/\/$/, "")
+    || (req.protocol + "://" + req.get("host"));
+  return base + "/api/integrations/github/callback";
+}
+
+/** The stored token, decrypted, plus the account it belongs to. */
+async function githubCredsFor(sessionUser) {
+  const ws = await resolveWsContext(sessionUser.wsId);
+  const user = await dbAdapter.findOne(ws, "users", { id: sessionUser.id });
+  const g = (user && user.githubAccount) || null;
+  if (!g || !g.token) return null;
+  let token = null;
+  try { token = decryptSecret(g.token); } catch (e) { token = null; }
+  return token ? { token: token, account: g, ws: ws } : null;
+}
+
+/** Is this account connected, and to whom. Never returns the token. */
+app.get("/api/integrations/github", async (req, res, next) => {
+  try {
+    const sessionUser = await codeAgentSessionUserVerified(req);
+    if (!sessionUser) return res.status(401).json({ error: "not signed in" });
+    if (!githubLib.isConfigured()) {
+      return res.json({ configured: false, connected: false, reason: "GitHub is not configured on this server" });
+    }
+    const ws = await resolveWsContext(sessionUser.wsId);
+    const user = await dbAdapter.findOne(ws, "users", { id: sessionUser.id });
+    const g = (user && user.githubAccount) || null;
+    res.json({
+      configured: true,
+      connected: !!(g && g.token),
+      login: g ? g.login : null,
+      name: g ? g.name : null,
+      avatarUrl: g ? g.avatarUrl : null,
+      scope: g ? g.scope : null,
+      connectedAt: g ? g.connectedAt : null
+    });
+  } catch (e) { next(e); }
+});
+
+/** Start the handshake. A full navigation, so the person sees github.com. */
+app.get("/api/integrations/github/connect", async (req, res, next) => {
+  try {
+    const sessionUser = await codeAgentSessionUserVerified(req);
+    if (!sessionUser) return res.status(401).json({ error: "not signed in" });
+    if (!githubLib.isConfigured()) {
+      return res.status(503).json({ error: "GitHub is not configured on this server (GITHUB_CLIENT_ID / GITHUB_CLIENT_SECRET)" });
+    }
+    // Refuse BEFORE the redirect rather than after. Sending someone to
+    // GitHub to authorize a scope this server then cannot store is a way
+    // of collecting a credential we promised to encrypt and could not.
+    if (!process.env.DB_ENCRYPTION_KEY) {
+      return res.status(503).json({ error: "This server cannot store a GitHub token securely yet (DB_ENCRYPTION_KEY is not configured)." });
+    }
+    res.redirect(githubLib.authorizeUrl(signGithubState(sessionUser.id), githubRedirectUri(req)));
+  } catch (e) { next(e); }
+});
+
+/** Come back with a code, leave with a stored token. */
+app.get("/api/integrations/github/callback", async (req, res, next) => {
+  const back = (msg) => res.redirect("/settings#integrations?github=" + encodeURIComponent(String(msg).slice(0, 140)));
+  try {
+    const sessionUser = await codeAgentSessionUserVerified(req);
+    if (!sessionUser) return res.redirect("/login?next=" + encodeURIComponent("/settings#integrations"));
+    if (req.query.error) return back(req.query.error_description || req.query.error);
+    if (!verifyGithubState(req.query.state, sessionUser.id)) return back("That sign-in link expired or did not match. Try again.");
+    if (!process.env.DB_ENCRYPTION_KEY) return back("This server cannot store a GitHub token securely yet.");
+
+    const { token, scope } = await githubLib.exchangeCode(String(req.query.code || ""), githubRedirectUri(req));
+    const who = await githubLib.viewer(token);
+
+    const ws = await resolveWsContext(sessionUser.wsId);
+    await dbAdapter.updateOne(ws, "users", sessionUser.id, {
+      githubAccount: {
+        token: encryptSecret(token),
+        login: who.login, name: who.name, avatarUrl: who.avatarUrl,
+        scope: scope, connectedAt: new Date().toISOString()
+      }
+    });
+
+    try {
+      const masterDbForAudit = getMasterDb();
+      if (masterDbForAudit) {
+        await writeMasterAudit(masterDbForAudit, {
+          requestId: req.id, actor: sessionUser.id, action: "account.github.connect",
+          entityId: sessionUser.id, summary: "Connected the GitHub account " + who.login,
+          meta: { login: who.login, scope: scope }
+        });
+      }
+    } catch (e) { /* audit must never fail the write it describes */ }
+
+    back("connected");
+  } catch (e) { back(e && e.message ? e.message : "Could not finish connecting to GitHub."); }
+});
+
+/** Forget the token here and revoke it at GitHub. Repositories are untouched. */
+app.delete("/api/integrations/github", async (req, res, next) => {
+  try {
+    const sessionUser = await codeAgentSessionUserVerified(req);
+    if (!sessionUser) return res.status(401).json({ error: "not signed in" });
+    const creds = await githubCredsFor(sessionUser);
+    const ws = await resolveWsContext(sessionUser.wsId);
+
+    // Revoke if we can, forget regardless. If GitHub is unreachable,
+    // refusing to disconnect would leave the owner stuck connected to an
+    // account they are actively trying to remove.
+    if (creds) { try { await githubLib.revoke(creds.token); } catch (e) { /* best effort */ } }
+    await dbAdapter.updateOne(ws, "users", sessionUser.id, { githubAccount: null });
+
+    try {
+      const masterDbForAudit = getMasterDb();
+      if (masterDbForAudit) {
+        await writeMasterAudit(masterDbForAudit, {
+          requestId: req.id, actor: sessionUser.id, action: "account.github.disconnect",
+          entityId: sessionUser.id, summary: "Disconnected the GitHub account", meta: {}
+        });
+      }
+    } catch (e) { /* ignore */ }
+
+    res.json({ ok: true });
+  } catch (e) { next(e); }
+});
+
+/* What this app is built out of, read off its own package.json rather
+   than assumed from the scaffold. A project is only as React as its
+   dependencies say it is, and the scaffold has been changed before. */
+function techOf(files) {
+  const out = [];
+  let pkg = null;
+  try { pkg = JSON.parse(files["package.json"] || "null"); } catch (e) { pkg = null; }
+  const deps = Object.assign({}, (pkg && pkg.dependencies) || {}, (pkg && pkg.devDependencies) || {});
+  const has = (n) => Object.prototype.hasOwnProperty.call(deps, n);
+  const add = (name, version) => out.push({ name: name, version: version || null });
+  if (has("next")) add("Next.js", deps.next);
+  if (has("react")) add("React", deps.react);
+  if (has("vue")) add("Vue", deps.vue);
+  if (has("svelte")) add("Svelte", deps.svelte);
+  if (has("vite")) add("Vite", deps.vite);
+  if (has("typescript") || Object.keys(files).some((f) => /\.tsx?$/.test(f))) add("TypeScript", deps.typescript);
+  if (has("tailwindcss")) add("Tailwind CSS", deps.tailwindcss);
+  if (has("framer-motion")) add("Framer Motion", deps["framer-motion"]);
+  if (has("react-router-dom")) add("React Router", deps["react-router-dom"]);
+  if (has("express")) add("Express", deps.express);
+  if (has("three")) add("three.js", deps.three);
+  if (!out.length && Object.keys(files).some((f) => /\.html$/.test(f))) add("Static HTML", null);
+  return out;
+}
+
+/**
+ * GET /api/projects/:key/details — everything the project card cannot say.
+ *
+ * The list endpoint returns what a card needs; this returns what a person
+ * asks for once they have clicked: what it is made of, how big it is, how
+ * many times it has been revised, and where its code lives if anywhere.
+ * materialize() replays the revision chain, so `complete:false` means
+ * pruning has eaten part of the history and the file list below is a
+ * partial tree — said out loud rather than presented as the whole thing.
+ */
+app.get("/api/projects/:key/details", async (req, res, next) => {
+  try {
+    const owner = anon.ownerOf(req, res);
+    const project = await resolveProject(req.params.key, owner);
+    if (!project) return res.status(404).json({ error: "project not found" });
+    if (!projects.owns(project, owner)) return res.status(403).json({ error: "not your project" });
+
+    const tree = await projects.materialize(project.id);
+    const paths = Object.keys(tree.files || {}).sort();
+    let bytes = 0;
+    const files = paths.slice(0, 400).map((p) => {
+      const size = Buffer.byteLength(String(tree.files[p] || ""), "utf8");
+      bytes += size;
+      return { path: p, bytes: size };
+    });
+    for (const p of paths.slice(400)) bytes += Buffer.byteLength(String(tree.files[p] || ""), "utf8");
+
+    res.json({
+      id: project.id, slug: project.slug, title: project.title || "Untitled",
+      prompt: project.prompt || null,
+      buildType: (project.meta || {}).buildType || null,
+      kind: (project.meta || {}).kind || null,
+      createdAt: project.createdAt, updatedAt: project.updatedAt,
+      published: !!project.published, deployed: !!project.deploymentId,
+      favorite: !!project.favorite,
+      revisions: tree.revisions, historyComplete: !!tree.complete,
+      fileCount: paths.length, totalBytes: bytes,
+      files: files,
+      tech: techOf(tree.files || {}),
+      github: project.github || null
+    });
+  } catch (e) { next(e); }
+});
+
+/**
+ * POST /api/projects/:key/github — create the repo if there isn't one, then
+ * write every file as a single commit.
+ *
+ * Two different owners are checked here and they are not the same person by
+ * accident: the PROJECT is checked against the anonymous/claimed owner the
+ * way every other project route does it, and the TOKEN belongs to the signed
+ * in user. Pushing someone else's project into your own GitHub account has
+ * to fail on the first of those, not the second.
+ */
+app.post("/api/projects/:key/github", async (req, res, next) => {
+  try {
+    const sessionUser = await codeAgentSessionUserVerified(req);
+    if (!sessionUser) return res.status(401).json({ error: "Sign in to push to GitHub." });
+    if (!githubLib.isConfigured()) {
+      return res.status(503).json({ error: "GitHub is not configured on this server." });
+    }
+
+    const owner = anon.ownerOf(req, res);
+    const project = await resolveProject(req.params.key, owner);
+    if (!project) return res.status(404).json({ error: "project not found" });
+    if (!projects.owns(project, owner)) return res.status(403).json({ error: "not your project" });
+
+    const creds = await githubCredsFor(sessionUser);
+    if (!creds) return res.status(400).json({ error: "Connect your GitHub account in Settings first." });
+
+    const tree = await projects.materialize(project.id);
+    if (!Object.keys(tree.files || {}).length) {
+      return res.status(400).json({ error: "This project has no files yet — build something first." });
+    }
+
+    let link = project.github && project.github.fullName ? project.github : null;
+    let created = false;
+    if (!link) {
+      const repo = await githubLib.createRepo(creds.token, {
+        name: (req.body && req.body.name) || project.slug || project.title,
+        description: (project.title || "Souqi app") + " — built with Souqi",
+        private: !(req.body && req.body.private === false)
+      });
+      link = {
+        fullName: repo.fullName, htmlUrl: repo.htmlUrl, private: repo.private,
+        branch: repo.defaultBranch, owner: repo.owner, linkedAt: new Date().toISOString()
+      };
+      created = true;
+    }
+
+    const message = (req.body && String(req.body.message || "").trim().slice(0, 200))
+      || ("Souqi build — " + (project.title || project.slug));
+    const push = await githubLib.pushFiles(creds.token, link.fullName, tree.files, message);
+
+    link = Object.assign({}, link, {
+      branch: push.branch, lastCommit: push.commitSha,
+      lastCommitUrl: push.commitUrl, lastPushedAt: new Date().toISOString(),
+      lastFiles: push.files
+    });
+    await projects.patch(project.id, { github: link });
+
+    res.json({
+      ok: true, created: created, repo: link, push: push,
+      // A partial history means a partial tree. Better to say so on the
+      // push that shipped it than to let someone find it missing later.
+      historyComplete: !!tree.complete
+    });
+  } catch (e) {
+    if (e && e.status === 401) {
+      return res.status(400).json({ error: "Your GitHub connection is no longer valid. Reconnect it in Settings." });
+    }
+    if (e && e.status === 422) {
+      return res.status(400).json({ error: e.message || "GitHub refused that repository name — it may already exist." });
+    }
+    if (e && e.status) return res.status(502).json({ error: e.message });
+    next(e);
+  }
+});
+
+/** Unlink the repository from the project. The repository itself stays. */
+app.delete("/api/projects/:key/github", async (req, res, next) => {
+  try {
+    const owner = anon.ownerOf(req, res);
+    const project = await resolveProject(req.params.key, owner);
+    if (!project) return res.status(404).json({ error: "project not found" });
+    if (!projects.owns(project, owner)) return res.status(403).json({ error: "not your project" });
+    await projects.patch(project.id, { github: null });
     res.json({ ok: true });
   } catch (e) { next(e); }
 });

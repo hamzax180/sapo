@@ -18,6 +18,30 @@
   *,*::before,*::after{box-sizing:border-box}
   *[hidden], [hidden]{display:none !important;pointer-events:none !important;visibility:hidden !important}
   :root{
+    /* ---- motion and elevation, sampled from replit.com -----------------
+       Read out of their live stylesheet rather than guessed from a
+       screenshot, because what reads as "fancy" there is not one effect.
+       It is the SAME fade level and the SAME two speeds applied to
+       everything; picking a plausible shadow per surface is exactly what
+       makes an interface look assembled rather than designed.
+
+       Two durations carry all of it: .12s for anything answering a press,
+       .3s for anything arriving or leaving. Four shadows, one near-black
+       at rising alpha, which is why their cards read as lifted instead of
+       outlined. And the fade levels are a share of the CURRENT text
+       colour, not a fixed grey — one token that is correct on any surface
+       and in either theme. */
+    --dur-snappy:.12s; --dur-chill:.3s;
+    --ease-snappy:ease-out; --ease-chill:ease-in-out;
+    --sh-subtle:0px 1px 2px #00000008,0px 4px 8px -2px #0000000a;
+    --sh-raised:0px 2px 4px #0000000a,0px 8px 16px -4px #0000000f;
+    --sh-floating:0px 4px 6px -2px #0000000d,0px 12px 24px -6px #00000012;
+    --sh-overlay:0px 8px 16px -4px #00000014,0px 24px 48px -12px #0000001a;
+    --fade-subtle:color-mix(in srgb,currentColor 10%,transparent);
+    --fade-regular:color-mix(in srgb,currentColor 20%,transparent);
+    --fade-strong:color-mix(in srgb,currentColor 30%,transparent);
+    --fade-up-shift:10px; --fade-up-gap:50ms;
+
     /* Interactive hover, per theme.
 
        --line-hover is the border that lights up on a button, chip, pill or
@@ -36,12 +60,12 @@
        .art-stack / the [data-theme="light"] card rules: those sit on an
        explicitly white background or are shadows, and ink is the correct
        colour for both in either theme. */
-    --line-hover:#c6dbe7;
+    --line-hover:#bdb7b1;
     --wash-rgb:18,32,46;
-    --paper:#faf7f2; --paper-2:#f3eee6; --card:#ffffff;
-    --ink:#12202e; --ink-2:#5d6f80; --mut:#8b98a5;
+    --paper:#f6f5f4; --paper-2:#ebeced; --card:#fcfcfc;
+    --ink:#1b252b; --ink-2:#5c6062; --mut:#8a8f91;
     --accent:#1aa6df; --accent-2:#0f8ec4;
-    --tint-2:#e7f5fd; --line:#e7e1d7;
+    --tint-2:#e7f5fd; --line:#cfc9c3;
     --ok:#22a565; --warn:#e0a11a; --danger:#d92d20;
     --disp:'Jost','Century Gothic',system-ui,sans-serif;
     --body:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
@@ -54,13 +78,13 @@
        gradient, a lit top edge, a hairline and a tray ground read as a card.
        Tokens because they were hardcoded at the hover rule before, where dark
        mode got a pale blue border and a shadow it could not cast. */
-    --card-surface:linear-gradient(180deg,#ffffff,#fdfbf8);
+    --card-surface:linear-gradient(180deg,#ffffff,#fbfbfa);
     --card-sheen:#ffffff;
-    --hair:#efeae1;
-    --card-tray:rgba(250,247,242,.72);
-    --card-rest-shadow:0 1px 2px rgba(24,20,14,.05),0 1px 1px rgba(24,20,14,.03);
-    --card-hover-border:#dcd4c6;
-    --card-hover-shadow:0 2px 4px rgba(24,20,14,.04),0 14px 30px -14px rgba(24,20,14,.3);
+    --hair:#eceae8;
+    --card-tray:rgba(246,245,244,.72);
+    --card-rest-shadow:0px 1px 2px #00000008,0px 4px 8px -2px #0000000a;
+    --card-hover-border:#bdb7b1;
+    --card-hover-shadow:0px 2px 4px #0000000a,0px 8px 16px -4px #0000000f;
     /* Sidebar geometry, matching the builder rail so the two pages feel
        like one product rather than two that happen to share colours. */
     --rail:44px; --sb-w:238px; --sb-pad:6px; --ease-sb:cubic-bezier(.32,.72,0,1);
@@ -80,12 +104,12 @@
   :root[data-theme="dark"]{
     --line-hover:rgba(255,255,255,.22);
     --wash-rgb:255,255,255;
-    --paper:#1c1917; --paper-2:#24211e; --card:#2a2622;
-    --ink:#f0eadc; --ink-2:#a49e92; --mut:#7e766a;
+    --paper:#18191b; --paper-2:#212225; --card:#26282b;
+    --ink:#f5f9fc; --ink-2:#9ea3a6; --mut:#7a7f82;
     --tint:#3d3428; --tint-2:#2d2420;
-    --stone:#2e2a26; --dark:#0a0908; --line:#3a352e; --navy-800:#0d0b0a;
+    --stone:#2a2c2f; --dark:#0a0908; --line:#33363a; --navy-800:#0d0b0a;
     --accent:#1aa6df; --accent-2:#118cc0; --accent-ink:#e6edf3;
-    --card-surface:linear-gradient(180deg,#302b26,#282420);
+    --card-surface:linear-gradient(180deg,#2b2d31,#232528);
     --card-sheen:rgba(255,255,255,.055);
     --hair:rgba(255,255,255,.06);
     --card-tray:rgba(0,0,0,.16);
@@ -93,6 +117,33 @@
     --card-hover-border:rgba(255,255,255,.15);
     --card-hover-shadow:0 2px 6px rgba(0,0,0,.35),0 16px 34px -16px rgba(0,0,0,.8);
   }
+
+  /* ---- the arrival ------------------------------------------------------
+     Their fade-up, to their numbers: .3s ease-out, 10px of travel, and a
+     50ms gap between siblings so a column of cards resolves in sequence
+     rather than all at once. `both` matters — without it the element is
+     painted at its final position for one frame before the animation
+     starts, which is the flash this is meant to avoid.
+
+     Reduced-motion gets the opacity and none of the travel. Removing the
+     animation outright would leave `both` holding the from-state, i.e. an
+     invisible card, so the override sets a finished state rather than
+     `animation:none`. */
+  @keyframes sqFadeUp{from{opacity:0;transform:translateY(var(--fade-up-shift))}to{opacity:1;transform:none}}
+  .fade-up{animation:sqFadeUp var(--dur-chill) var(--ease-snappy) both}
+  .fade-in{animation:sqFadeUp var(--dur-chill) var(--ease-snappy) both;--fade-up-shift:0px}
+  .stagger > *{animation:sqFadeUp var(--dur-chill) var(--ease-snappy) both}
+  .stagger > :nth-child(1){animation-delay:0ms}
+  .stagger > :nth-child(2){animation-delay:50ms}
+  .stagger > :nth-child(3){animation-delay:100ms}
+  .stagger > :nth-child(4){animation-delay:150ms}
+  .stagger > :nth-child(5){animation-delay:200ms}
+  .stagger > :nth-child(6){animation-delay:250ms}
+  .stagger > :nth-child(n+7){animation-delay:300ms}
+  @media (prefers-reduced-motion:reduce){
+    .fade-up,.fade-in,.stagger > *{animation-duration:1ms;animation-delay:0ms;--fade-up-shift:0px}
+  }
+
   html, body{background:var(--paper);overscroll-behavior-x:none;overflow-x:hidden}
   .ag-main, .wrap{overflow-x:hidden}
   body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--body);-webkit-font-smoothing:antialiased;display:flex;min-height:100vh}
@@ -1080,6 +1131,30 @@
     .ag-history.on .ag-hist-user{position:sticky;bottom:0;z-index:2}
     .ag-fly{display:none !important}
   }
+
+  /* ---- what arrives, and in what order ----------------------------------
+     Written as rules on the real selectors rather than a class in the
+     markup: a class has to be remembered on every new card, and the one
+     that gets forgotten is the one people notice.
+
+     The grid staggers because a column of cards landing together reads as
+     a page that was slow, while the same cards landing 50ms apart reads
+     as a page that is assembling itself. Six steps and then a shared
+     delay — past six the eye has stopped counting, and a 40-card grid
+     with a true per-item delay would still be arriving two seconds in. */
+  .ag-hist-foot{animation:sqFadeUp var(--dur-chill) var(--ease-snappy) both}
+  .grid > *{animation:sqFadeUp var(--dur-chill) var(--ease-snappy) both}
+  .grid > :nth-child(1){animation-delay:0ms}
+  .grid > :nth-child(2){animation-delay:50ms}
+  .grid > :nth-child(3){animation-delay:100ms}
+  .grid > :nth-child(4){animation-delay:150ms}
+  .grid > :nth-child(5){animation-delay:200ms}
+  .grid > :nth-child(6){animation-delay:250ms}
+  .grid > :nth-child(n+7){animation-delay:300ms}
+  @media (prefers-reduced-motion:reduce){
+    .ag-hist-foot,.grid > *{animation-duration:1ms;animation-delay:0ms;--fade-up-shift:0px}
+  }
+
 </style>
 <link rel="stylesheet" href="/css/upgrade-modal.css">
 </head>
