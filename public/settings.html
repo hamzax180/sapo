@@ -49,6 +49,7 @@
     --ink:#241f1a; --ink-2:#6b6258; --mut:#9c948a;
     --accent:#0079f2; --accent-2:#0068d0;      /* Replit blue */
     --tint-2:#e8f2fe; --line:#cfc9c3; --dark:#241f1a; --navy-800:#0d0d0d;
+    --hero-a:#302a23; --hero-b:#191410;
     --danger:#d92d20; --danger-bg:#fef3f2; --danger-line:#fda29b;
     /* Replit sets UI type in its own sans, not a display face — using Jost
        for headings here is what made this read as "inspired by" rather
@@ -64,6 +65,7 @@
     --paper:#18191b; --paper-2:#212225; --card:#26282b; --sidebg:#1e2022;
     --ink:#f5f9fc; --ink-2:#9ea3a6; --mut:#7a7f82;
     --tint-2:#2d2420; --line:#33363a; --dark:#0a0908; --navy-800:#0d0b0a;
+    --hero-a:#2c2622; --hero-b:#1d1916;
     --danger:#f97066; --danger-bg:#2a1614; --danger-line:#4a2320;
   }
   html{background:var(--paper)}
@@ -307,9 +309,19 @@
   .row-card .d{font-size:.84rem;color:var(--ink-2);margin-top:3px;line-height:1.45}
   .row-card .v{font-size:.95rem;font-weight:700}
 
-  /* Profile hero */
+  /* Profile hero.
+
+     It was --dark to --navy-800, which in dark mode is #0a0908 to #0d0b0a:
+     a slab blacker than the page it sits on, so the one panel meant to read
+     as a header read as a hole punched in the panel. Warm graphite instead,
+     and a shade LIGHTER than the page rather than darker, which is what
+     every other raised surface here does.
+
+     Light mode keeps its dark banner - white text needs it - but warms the
+     far end too: #0d0d0d was the one neutral black in a palette that is
+     warm everywhere else, and it showed. */
   .hero{border:1px solid var(--line);border-radius:16px;padding:30px;text-align:center;
-    background:linear-gradient(135deg,var(--dark),var(--navy-800));color:#fff}
+    background:linear-gradient(135deg,var(--hero-a),var(--hero-b));color:#fff}
   .avatar{width:78px;height:78px;border-radius:50%;margin:0 auto 14px;display:grid;place-items:center;
     background:linear-gradient(135deg,var(--accent),var(--accent-2));font-family:var(--disp);font-weight:700;font-size:2rem;color:#fff}
   .hero .who{font-family:var(--disp);font-size:1.3rem;font-weight:700}

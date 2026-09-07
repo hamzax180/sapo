@@ -1059,9 +1059,9 @@
     transition:opacity .16s ease,transform .16s var(--ease,ease),visibility .16s}
   :root[data-theme="dark"] .ag-fly{box-shadow:0 4px 10px -4px rgba(0,0,0,.5),0 24px 52px -20px rgba(0,0,0,.85)}
   .ag-fly.open{opacity:1;visibility:visible;transform:none;pointer-events:auto}
-  /* The gap between the rail and the panel is dead space the pointer has to
-     cross. This bridges it so the panel does not close mid-reach. */
-  .ag-fly::before{content:"";position:absolute;top:0;bottom:0;right:100%;width:14px}
+  /* No hover bridge: the panel is flush against the rail, so there is no gap
+     for the pointer to cross. The 14px strip that used to span it would now
+     lie ON the rail and swallow clicks meant for the tabs underneath. */
   /* Names, at a size you read rather than scan. The coloured tile that was
      here repeated the one on the card the link leads to and made a list of
      six titles look like a toolbar. */
@@ -1084,6 +1084,12 @@
   /* The one mark left: it says the app is live, which the name cannot. */
   .ag-fly a .dt{width:6px;height:6px;border-radius:50%;background:var(--ok);flex:none}
   .ag-fly .none{padding:6px 12px 8px;font-size:.85rem;color:var(--mut)}
+  /* Loading is the rail's own skeleton at this panel's scale - the same
+     sweep, rows the height of the names about to replace them. One short
+     "Loading" line is a different shape from the list, so the panel jumped
+     to three times its height under the pointer as the names landed. */
+  .ag-fly .sk-row{padding:12px 12px;border-radius:10px}
+  .ag-fly .sk-row b{height:10px}
   .ag-fly .start{color:var(--accent)}
   /* Touch has no hover: the panel would open on the tap that navigates and
      then sit there over the page it opened. */
@@ -1290,25 +1296,34 @@
   </div>
 
   <div class="ag-hist-foot">
+    <div class="ttl" id="agPlanTtl">Your Free Plan</div>
     <div class="ag-plan-alert" id="agPlanAlert" hidden>You've reached your usage limit</div>
+    <div class="ag-meter-row">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m16 18 6-6-6-6M8 6l-6 6 6 6"/></svg>
+      <span class="lab">Free Apps<i id="agEditsUsed">—</i></span>
+      <span class="ag-meter"><i id="agEditsBar" style="width:0%"></i></span>
+    </div>
       <div class="ag-usage" id="agUsage">
         <div class="u-top">
           <span class="u-plan" id="agUsagePlan">Free plan</span>
           <a class="u-up" href="/pricing" id="agUsageUp"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/></svg>Upgrade</a>
         </div>
         <div class="u-row">
-          <span class="u-lab"><span class="u-name">5-hour limit</span><span class="u-meta"><span class="u-reset" id="agWinReset"></span><b id="agWinPct">—</b></span></span>
+          <span class="u-lab">Session usage<b id="agWinPct">—</b></span>
           <span class="u-bar"><i id="agWinBar"></i></span>
+          <span class="u-when" id="agWinReset"></span>
         </div>
-        <div class="u-row">
-          <span class="u-lab"><span class="u-name">Monthly</span><span class="u-meta"><span class="u-reset" id="agMonthReset"></span><b id="agAllowPct">—</b></span></span>
+        <div class="u-row quiet">
+          <span class="u-lab">This month<b id="agAllowPct">—</b></span>
           <span class="u-bar"><i id="agAllowBar"></i></span>
         </div>
-        <div class="u-row">
-          <span class="u-lab"><span class="u-name">Apps</span><span class="u-meta"><b id="agEditsUsed">—</b></span></span>
-          <span class="u-bar"><i id="agEditsBar"></i></span>
-        </div>
       </div>
+    <div class="ag-meter-row">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 10a4 4 0 0 0-7.8-1.2A3.5 3.5 0 1 0 7 16h10.5a3.5 3.5 0 0 0 .5-6z"/></svg>
+      <span class="lab">Cloud credits<i id="agSpendUsed">—</i></span>
+      <span class="ag-meter"><i id="agSpendBar" style="width:0%"></i></span>
+    </div>
+    <a class="ag-upgrade" href="/pricing">✦ Upgrade</a>
     <div class="ag-hist-install">
       <span>Install Souqi on</span>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2" width="10" height="20" rx="2"/><line x1="11" y1="18" x2="13" y2="18"/></svg>
@@ -2180,7 +2195,8 @@
     var fly = document.createElement("div");
     fly.className = "ag-fly";
     fly.setAttribute("role", "menu");
-    fly.innerHTML = '<div class="ttl">Recent projects</div><div class="none">Loading\u2026</div>';
+    fly.innerHTML = '<div class="ttl">Recent projects</div><div class="lst">'
+      + '<div class="sk-row"><b></b></div>'.repeat(5) + '</div>';
 
     /* Inside the sidebar, not on <body>.
 
@@ -2222,9 +2238,13 @@
          panel left over the rail for no reason. Reading the property back
          forces the reflow that makes this the capped width. */
       var w = fly.offsetWidth;
-      // Clamped, not merely offset: room has a floor, so on a genuinely tiny
-      // window the panel overlaps the rail rather than leaving the screen.
-      fly.style.left = Math.round(Math.min(edge + 8, innerWidth - w - 8)) + "px";
+      /* Flush against the rail's right edge, not offset from it: touching
+         the sidebar is what makes the panel read as something the rail put
+         there, rather than a window that happens to be nearby.
+
+         Still clamped - room has a floor, so on a genuinely tiny window the
+         panel overlaps the rail rather than leaving the screen. */
+      fly.style.left = Math.round(Math.min(edge, innerWidth - w - 8)) + "px";
       fly.style.top = top + "px";
     }
 
@@ -2290,7 +2310,11 @@
       loaded = 1;
       fetch("/api/projects?limit=6", { credentials: "same-origin" })
         .then(function (r) { return r.ok ? r.json() : { projects: [] }; })
-        .then(function (d) { render((d && d.projects) || []); place(); })
+        // at = "" first: place() short-circuits when nothing it measures has
+        // moved, and the real list runs a row or two taller than the
+        // skeleton - without this the panel keeps the top it was given while
+        // loading and can hang off the bottom of a short window.
+        .then(function (d) { render((d && d.projects) || []); at = ""; place(); })
         .catch(function () { loaded = 0; fly.innerHTML = '<div class="ttl">Recent projects</div><div class="none">Could not load.</div>'; });
     }
 

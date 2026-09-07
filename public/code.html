@@ -2690,9 +2690,9 @@
     transition:opacity .16s ease,transform .16s var(--ease,ease),visibility .16s}
   :root[data-theme="dark"] .ag-fly{box-shadow:0 4px 10px -4px rgba(0,0,0,.5),0 24px 52px -20px rgba(0,0,0,.85)}
   .ag-fly.open{opacity:1;visibility:visible;transform:none;pointer-events:auto}
-  /* The gap between the rail and the panel is dead space the pointer has to
-     cross. This bridges it so the panel does not close mid-reach. */
-  .ag-fly::before{content:"";position:absolute;top:0;bottom:0;right:100%;width:14px}
+  /* No hover bridge: the panel is flush against the rail, so there is no gap
+     for the pointer to cross. The 14px strip that used to span it would now
+     lie ON the rail and swallow clicks meant for the tabs underneath. */
   /* Names, at a size you read rather than scan. The coloured tile that was
      here repeated the one on the card the link leads to and made a list of
      six titles look like a toolbar. */
@@ -2715,6 +2715,12 @@
   /* The one mark left: it says the app is live, which the name cannot. */
   .ag-fly a .dt{width:6px;height:6px;border-radius:50%;background:var(--ok);flex:none}
   .ag-fly .none{padding:6px 12px 8px;font-size:.85rem;color:var(--mut)}
+  /* Loading is the rail's own skeleton at this panel's scale - the same
+     sweep, rows the height of the names about to replace them. One short
+     "Loading" line is a different shape from the list, so the panel jumped
+     to three times its height under the pointer as the names landed. */
+  .ag-fly .sk-row{padding:12px 12px;border-radius:10px}
+  .ag-fly .sk-row b{height:10px}
   .ag-fly .start{color:var(--accent)}
   /* Touch has no hover: the panel would open on the tap that navigates and
      then sit there over the page it opened. */
@@ -2885,11 +2891,19 @@
      two halves of one question, and splitting the reset onto its own row
      below the bar (which is what this did before) made it read as a
      footnote to the bar rather than as half the answer. */
-  .u-lab{display:flex;align-items:baseline;justify-content:space-between;gap:10px;
+  .u-lab{display:flex;align-items:baseline;justify-content:space-between;gap:7px;
     font-size:.72rem;color:var(--ink-2);width:100%}
-  .u-name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .u-meta{display:flex;align-items:baseline;gap:8px;flex:none}
-  .u-reset{color:var(--mut);font-size:.68rem;white-space:nowrap}
+  .u-name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:none}
+  /* Claude has a 460px popover for this line; the rail has 194px. At the
+     worst case it actually has to render - "5-hour limit / Resets in 2h37m
+     / 100%" - the three parts came to 2px under the width, and the part
+     that gave way was the LABEL, so the row read "5-hour limi...". Wrong
+     one: the label is what the row is about, the countdown is the detail.
+     So the label is flex:none, and the countdown is what truncates. */
+  .u-meta{display:flex;align-items:baseline;gap:7px;flex:0 1 auto;min-width:0}
+  .u-reset{color:var(--mut);font-size:.67rem;white-space:nowrap;
+    overflow:hidden;text-overflow:ellipsis;min-width:0}
+  .u-meta b{flex:none}
   .u-lab b{font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums}
 
   @media (max-width:900px){
@@ -3048,12 +3062,17 @@
   </div>
 
   <div class="ag-hist-foot">
+    <div class="ttl" id="agPlanTtl">Your Free Plan</div>
     <div class="ag-plan-alert" id="agPlanAlert" hidden>You've reached your usage limit</div>
-    <!-- The one deliberate difference from /projects and /deployments:
-         where they carry three credit meters and an Upgrade button, the
-         builder carries a single card with one allowance meter. Everything
-         dropped is still reachable (plans from the card and the workspace
-         menu), and the space it frees is what chat history needs. -->
+    <!-- The same foot as /projects and /deployments: the plan it names, the
+         limits, and an Upgrade button big enough to hit.
+
+         What those two carry and this does not is their pair of small meter
+         rows. "Free Apps" counts every app you own against a cap, and this
+         page only ever loads the last 25, so the count would be wrong here.
+         "Cloud credits" is the deploy host's memory, which the builder has
+         no reason to fetch. A meter showing a number that is not the number
+         is worse than no meter. -->
     <div class="ag-usage" id="agUsage">
       <div class="u-top">
         <span class="u-plan" id="agUsagePlan">Free plan</span>
@@ -3068,6 +3087,7 @@
         <span class="u-bar"><i id="agAllowBar"></i></span>
       </div>
     </div>
+    <a class="ag-upgrade" href="/pricing" onclick="openUpgradeModal(event)">✦ Upgrade</a>
     <div class="ag-hist-install">
       <span>Install Souqi on</span>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2" width="10" height="20" rx="2"/><line x1="11" y1="18" x2="13" y2="18"/></svg>
@@ -5912,7 +5932,11 @@
     const mins = Math.round(ms / 60000);
     if (mins < 60) return mins + "m";
     const h = Math.floor(mins / 60), m = mins % 60;
-    return h + "h" + (m ? " " + m + "m" : "");
+    // "2h37m", not "2h 37m". Claude has room to write "2 hr 37 min"; this
+    // line has 194px to hold a label, a countdown and a percentage, and the
+    // longest countdown is the one that clips. The space is the cheapest
+    // thing in it to give up.
+    return h + "h" + (m ? m + "m" : "");
   }
 
   function renderUsage(d) {
@@ -5928,6 +5952,10 @@
     const plan = String(d.plan || "free");
     const planEl = $("agUsagePlan"), upEl = $("agUsageUp");
     if (planEl) planEl.textContent = plan === "free" ? "Free plan" : plan + " plan";
+    // The heading above the card. Guarded like the rest of the optional
+    // chrome: a rail that omits it must not take renderUsage down with it.
+    const ttl = $("agPlanTtl");
+    if (ttl) ttl.textContent = "Your " + plan.charAt(0).toUpperCase() + plan.slice(1) + " Plan";
     // Nothing to upsell someone already on the top plan.
     if (upEl) upEl.hidden = (plan === "max");
 
@@ -5939,8 +5967,11 @@
       // Only once something has been spent — a countdown on an untouched
       // allowance is a countdown to nothing.
       const w = Number(d.windowUsd || 0) > 0 ? untilWords(d.windowResetAt) : "";
-      when.textContent = w;
-      when.title = w ? "Resets in " + w : "";
+      // "Resets in 2h37m", not a bare "2h37m". The number on its own sits
+      // next to a percentage and reads as part of it; the verb is what says
+      // this one is a countdown and the other is a share.
+      when.textContent = w ? "Resets in " + w : "";
+      when.title = when.textContent;
     }
     // The month always has a known reset: the 1st, in UTC, which is the
     // boundary monthSpend() actually buckets on.
@@ -5949,7 +5980,7 @@
       const now = new Date();
       const next = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1));
       const days = Math.max(1, Math.round((next - Date.now()) / 86400000));
-      mres.textContent = days + "d";
+      mres.textContent = "Resets in " + days + "d";
       mres.title = "Resets in " + days + (days === 1 ? " day" : " days");
     }
   }
@@ -6148,7 +6179,8 @@
     var fly = document.createElement("div");
     fly.className = "ag-fly";
     fly.setAttribute("role", "menu");
-    fly.innerHTML = '<div class="ttl">Recent projects</div><div class="none">Loading\u2026</div>';
+    fly.innerHTML = '<div class="ttl">Recent projects</div><div class="lst">'
+      + '<div class="sk-row"><b></b></div>'.repeat(5) + '</div>';
 
     /* Inside the sidebar, not on <body>.
 
@@ -6190,9 +6222,13 @@
          panel left over the rail for no reason. Reading the property back
          forces the reflow that makes this the capped width. */
       var w = fly.offsetWidth;
-      // Clamped, not merely offset: room has a floor, so on a genuinely tiny
-      // window the panel overlaps the rail rather than leaving the screen.
-      fly.style.left = Math.round(Math.min(edge + 8, innerWidth - w - 8)) + "px";
+      /* Flush against the rail's right edge, not offset from it: touching
+         the sidebar is what makes the panel read as something the rail put
+         there, rather than a window that happens to be nearby.
+
+         Still clamped - room has a floor, so on a genuinely tiny window the
+         panel overlaps the rail rather than leaving the screen. */
+      fly.style.left = Math.round(Math.min(edge, innerWidth - w - 8)) + "px";
       fly.style.top = top + "px";
     }
 
@@ -6258,7 +6294,11 @@
       loaded = 1;
       fetch("/api/projects?limit=6", { credentials: "same-origin" })
         .then(function (r) { return r.ok ? r.json() : { projects: [] }; })
-        .then(function (d) { render((d && d.projects) || []); place(); })
+        // at = "" first: place() short-circuits when nothing it measures has
+        // moved, and the real list runs a row or two taller than the
+        // skeleton - without this the panel keeps the top it was given while
+        // loading and can hang off the bottom of a short window.
+        .then(function (d) { render((d && d.projects) || []); at = ""; place(); })
         .catch(function () { loaded = 0; fly.innerHTML = '<div class="ttl">Recent projects</div><div class="none">Could not load.</div>'; });
     }
 
