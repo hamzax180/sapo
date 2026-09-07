@@ -2796,12 +2796,13 @@
      card, and an inner one lit the card's edges while its middle stayed the
      same grey as everything else in the rail.
 
-     color-mix against --card rather than a literal blue, so the same 7%
+     color-mix against --card rather than a literal blue, so the same 15%
      lands as a pale wash on the light card and a deep one on the dark card
-     without a second rule. */
+     without a second rule. 7% was the first try and it was too polite to
+     read as anything at all next to a rail that is already near-white. */
   .ag-usage{display:flex;flex-direction:column;gap:9px;padding:10px 11px;border-radius:12px;
-    border:1px solid color-mix(in srgb,var(--accent) 16%,var(--line));
-    background:color-mix(in srgb,var(--accent) 7%,var(--card));box-shadow:var(--sh-subtle);
+    border:1px solid color-mix(in srgb,var(--accent) 26%,var(--line));
+    background:color-mix(in srgb,var(--accent) 15%,var(--card));box-shadow:var(--sh-subtle);
     transition:background var(--dur-snappy,.12s) ease,border-color var(--dur-snappy,.12s) ease,
                box-shadow var(--dur-snappy,.12s) ease}
   /* Replit lights a card up rather than merely lifting it: the border warms
@@ -2815,14 +2816,20 @@
      adds one inset layer so the light gathers toward the edges. Nothing
      leaves the card's box: an outer halo in a 238px rail lands on the
      Recent list above it and the install row below. */
-  .ag-usage:hover{border-color:color-mix(in srgb,var(--accent) 34%,var(--line));
-    background:color-mix(in srgb,var(--accent) 13%,var(--card));
+  .ag-usage:hover{border-color:color-mix(in srgb,var(--accent) 40%,var(--line));
+    background:color-mix(in srgb,var(--accent) 21%,var(--card));
     box-shadow:var(--sh-subtle),
       inset 0 0 20px -6px color-mix(in srgb,var(--accent) 34%,transparent)}
   @media (prefers-reduced-motion:reduce){ .ag-usage{transition:none} }
   .ag-usage .u-top{display:flex;align-items:center;justify-content:space-between;gap:8px}
   .ag-usage .u-plan{font-size:.78rem;font-weight:600;color:var(--ink);text-transform:capitalize}
-  .ag-usage .u-up{font-size:.72rem;font-weight:600;color:var(--accent);text-decoration:none;
+  /* Mixed toward --ink rather than the bare --accent. On the tinted card
+     the raw accent came to 4.23:1 in dark and 2.34:1 in light, both under
+     AA for text this size - the light figure was already failing before
+     the tint, the dark one is the tint's doing. Mixing deepens it on the
+     pale card and lifts it on the dark one, from one declaration. */
+  .ag-usage .u-up{font-size:.72rem;font-weight:600;text-decoration:none;
+    color:color-mix(in srgb,var(--accent) 58%,var(--ink));
     display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
   .ag-usage .u-up:hover{text-decoration:underline}
   .ag-usage .u-up svg{width:12px;height:12px}
@@ -2930,7 +2937,11 @@
      one: the label is what the row is about, the countdown is the detail.
      So the label is flex:none, and the countdown is what truncates. */
   .u-meta{display:flex;align-items:baseline;gap:7px;flex:0 1 auto;min-width:0}
-  .u-reset{color:var(--mut);font-size:.67rem;white-space:nowrap;
+  /* --ink-2, not --mut. On the untinted card --mut already only managed
+     3.58:1 against it; the accent wash took that to 2.90, which is under
+     AA for text this size. --ink-2 puts it back to 4.61. The hierarchy
+     still holds - the percentage beside it is --ink and bold. */
+  .u-reset{color:var(--ink-2);font-size:.67rem;white-space:nowrap;
     overflow:hidden;text-overflow:ellipsis;min-width:0}
   .u-meta b{flex:none}
   .u-lab b{font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums}
