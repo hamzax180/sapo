@@ -2111,7 +2111,11 @@
   .ag-upgrade{display:flex;align-items:center;justify-content:center;gap:7px;margin-top:8px;padding:9px 12px;
     border:0;border-radius:9px;background:#0077ff;color:#fff;font-size:.9rem;font-weight:600;
     cursor:pointer;width:100%;box-sizing:border-box;text-decoration:none;transition:.15s}
-  .ag-upgrade:hover{background:#0062cc}
+  /* Inside the button too. The accent glow that works on a pale card is
+     invisible on a solid blue fill, so what lights up here is white: the
+     button reads as lit from within rather than haloed from without.
+     transition:.15s above already covers box-shadow. */
+  .ag-upgrade:hover{background:#0062cc;box-shadow:inset 0 0 20px -3px rgba(255,255,255,.34)}
   .ag-hist-install{display:flex;align-items:center;justify-content:center;gap:5px;margin-top:6px;font-size:.72rem;color:var(--mut);width:100%;box-sizing:border-box}
   .ag-hist-install svg{width:13px;height:13px;color:var(--ink-2);flex:none;transition:color .15s ease,transform .15s ease;cursor:pointer}
   .ag-hist-install svg:hover{color:#0077ff !important;transform:scale(1.15)}
@@ -2790,7 +2794,29 @@
      you check when the bar looks close. Colour alone never carries it —
      amber and red are reinforced by the number moving toward 100%. */
   .ag-usage{display:flex;flex-direction:column;gap:9px;padding:10px 11px;border-radius:12px;
-    border:1px solid var(--line);background:var(--card);box-shadow:var(--sh-subtle)}
+    border:1px solid var(--line);background:var(--card);box-shadow:var(--sh-subtle);
+    transition:border-color var(--dur-snappy,.12s) ease,box-shadow var(--dur-snappy,.12s) ease}
+  /* Replit lights a card up rather than merely lifting it: the border warms
+     toward the accent and the shadow picks up the accent's colour, so the
+     surface reads as live under the pointer instead of just raised. Both
+     halves are color-mix on --accent, which keeps it correct in either
+     theme - a fixed blue glow is invisible on a light card and garish on a
+     dark one. The neutral --sh-subtle stays underneath so the card does not
+     lose its own weight while the glow sits on top of it. */
+  /* The glow is INSIDE the card, not spilling out of it: both accent layers
+     are inset, so the light blooms inward from the edges and the card's
+     footprint never changes. An outer glow on a panel wedged into a 238px
+     rail bleeds onto whatever is above and below it; an inner one stays
+     where it belongs.
+
+     --sh-subtle stays and is deliberately still an outer shadow. That is
+     the card's resting elevation, present whether or not you are pointing
+     at it - dropping it on hover would make the card sink as it lit up. */
+  .ag-usage:hover{border-color:color-mix(in srgb,var(--accent) 42%,var(--line));
+    box-shadow:var(--sh-subtle),
+      inset 0 0 0 1px color-mix(in srgb,var(--accent) 22%,transparent),
+      inset 0 0 22px -6px color-mix(in srgb,var(--accent) 48%,transparent)}
+  @media (prefers-reduced-motion:reduce){ .ag-usage{transition:none} }
   .ag-usage .u-top{display:flex;align-items:center;justify-content:space-between;gap:8px}
   .ag-usage .u-plan{font-size:.78rem;font-weight:600;color:var(--ink);text-transform:capitalize}
   .ag-usage .u-up{font-size:.72rem;font-weight:600;color:var(--accent);text-decoration:none;
