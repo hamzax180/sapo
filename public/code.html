@@ -2789,20 +2789,17 @@
      A percentage AND a bar: the bar is read at a glance, the number is what
      you check when the bar looks close. Colour alone never carries it —
      amber and red are reinforced by the number moving toward 100%. */
-  /* The glow is a TINT, not a shadow. Replit's upgrade block is a panel
-     filled with a wash of the accent - that soft blue is the whole effect,
-     and it is there at rest, not only under the pointer. Two shadow
-     attempts missed this: an outer halo lit up the rows either side of the
-     card, and an inner one lit the card's edges while its middle stayed the
-     same grey as everything else in the rail.
+  /* The glow is a TINT, not a shadow - a panel filled with a wash of the
+     accent, which is what the reference shows. Two shadow attempts missed
+     that: an outer halo lit up the rows either side of the card, and an
+     inner one lit the card's edges while its middle stayed the same grey
+     as the rest of the rail.
 
-     color-mix against --card rather than a literal blue, so the same 15%
-     lands as a pale wash on the light card and a deep one on the dark card
-     without a second rule. 7% was the first try and it was too polite to
-     read as anything at all next to a rail that is already near-white. */
+     At rest the card is plain --card. The wash is the HOVER state and only
+     the hover state; painted on permanently it stops being a response to
+     anything and just makes the rail two-tone. */
   .ag-usage{display:flex;flex-direction:column;gap:9px;padding:10px 11px;border-radius:12px;
-    border:1px solid color-mix(in srgb,var(--accent) 26%,var(--line));
-    background:color-mix(in srgb,var(--accent) 15%,var(--card));box-shadow:var(--sh-subtle);
+    border:1px solid var(--line);background:var(--card);box-shadow:var(--sh-subtle);
     transition:background var(--dur-snappy,.12s) ease,border-color var(--dur-snappy,.12s) ease,
                box-shadow var(--dur-snappy,.12s) ease}
   /* Replit lights a card up rather than merely lifting it: the border warms
@@ -2812,12 +2809,13 @@
      theme - a fixed blue glow is invisible on a light card and garish on a
      dark one. The neutral --sh-subtle stays underneath so the card does not
      lose its own weight while the glow sits on top of it. */
-  /* Hover deepens the same wash rather than introducing a new effect, and
-     adds one inset layer so the light gathers toward the edges. Nothing
-     leaves the card's box: an outer halo in a 238px rail lands on the
-     Recent list above it and the install row below. */
-  .ag-usage:hover{border-color:color-mix(in srgb,var(--accent) 40%,var(--line));
-    background:color-mix(in srgb,var(--accent) 21%,var(--card));
+  /* Hover fills the card with the wash, at the strength that actually
+     reads: #daeff8 on a #f6f5f4 rail in light, #243b46 on #18191b in
+     dark. One inset layer gathers the light toward the edges. Nothing
+     leaves the box - an outer halo in a 238px rail lands on the Recent
+     list above it and the install row below. */
+  .ag-usage:hover{border-color:color-mix(in srgb,var(--accent) 30%,var(--line));
+    background:color-mix(in srgb,var(--accent) 15%,var(--card));
     box-shadow:var(--sh-subtle),
       inset 0 0 20px -6px color-mix(in srgb,var(--accent) 34%,transparent)}
   @media (prefers-reduced-motion:reduce){ .ag-usage{transition:none} }
