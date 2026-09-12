@@ -2514,7 +2514,25 @@ async function codeAgentLive(project) {
   codeBuilds.set(project.id, live);
   return live;
 }
-const codeAgentLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 10, key: (req) => req.ip || "" });
+/* Ten per fifteen minutes PER ADDRESS was too tight for the thing it
+   guards, and the counter it shares is the reason.
+
+   An address is not a person. An office, a university, a café and an
+   entire mobile carrier's customers all arrive from one — and a launch is
+   exactly when several strangers behind one NAT try the product within a
+   few minutes of each other. Ten between all of them, shared with publish,
+   export and domain calls, walls real users in the first hour.
+
+   It was never the real limit anyway. An anonymous visitor gets ONE build
+   and a free account gets three a month, checked per owner, plus a
+   per-owner spend cap above this — so what actually bounds cost is the
+   quota, and this only has to stop a script. Forty does that and does not
+   punish a shared address. (I hit the old ceiling myself, testing the
+   launch path a handful of times from one IP, which is how tight it was.)
+
+   A prefix because the shared counter is namespaced per limiter now, and
+   naming it is better than taking whatever number it is assigned. */
+const codeAgentLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 40, prefix: "rl-codeagent", key: (req) => req.ip || "" });
 
 // WebContainers flow: the SSE handler proposes files and waits for the client
 // to build them in the browser. This map holds pending promises keyed by a
