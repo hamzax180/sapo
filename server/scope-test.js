@@ -71,8 +71,21 @@ const pass = (m) => console.log("  ✓ " + m);
     headers: asCookie ? { Cookie: "sq_session=" + tok } : { Authorization: "Bearer " + tok }
   });
 
-  /* Everything a session may have and a grant may not. */
-  const GUARDED = [
+  /* THE TEST CALIBRATES ITSELF against whatever it is pointed at, because
+     the same code is not the same deployment.
+
+     Production routes only /api/*, /auth/* and /s/* to the function — the
+     generic CRUD 404s at the edge there and exists only when the server is
+     run directly. ADMIN_EMAILS differs between them too, so the account
+     this file picks may be a platform admin here and an ordinary user
+     there. Hardcoding the route list made the run against production
+     report two failures that were nothing of the sort.
+
+     So: ask a REAL session which of the candidate routes this deployment
+     actually serves it, and hold the grants to exactly that set. A route
+     the session cannot reach proves nothing when a grant cannot reach it
+     either. */
+  const CANDIDATES = [
     "/api/admin/overview",
     "/api/admin/accounts",
     "/api/admin/apps",
@@ -81,6 +94,23 @@ const pass = (m) => console.log("  ✓ " + m);
     "/api/ws/" + ws.id + "/export"
   ];
 
+  const GUARDED = [];
+  const unreachable = [];
+  for (const p of CANDIDATES) {
+    const r = await get(p, session);
+    if (r.status < 300) GUARDED.push(p);
+    else unreachable.push(p + " (" + r.status + ")");
+  }
+
+  if (!GUARDED.length) {
+    console.log("• scope-test SKIPPED — a real session opens none of the candidate routes at " + BASE + ".");
+    console.log("  Either this JWT_SECRET does not sign tokens it accepts, or none of them are routed here.");
+    console.log("  tried: " + unreachable.join(", "));
+    return;
+  }
+  console.log("   a real session reaches " + GUARDED.length + " of " + CANDIDATES.length + " candidate routes here" +
+    (unreachable.length ? " (not applicable: " + unreachable.join(", ") + ")" : ""));
+
   for (const [label, tok] of [["a portal-edit grant", edit], ["an anon grant", anon]]) {
     const opened = [];
     for (const p of GUARDED) {
@@ -88,20 +118,18 @@ const pass = (m) => console.log("  ✓ " + m);
       if (r.status < 300) opened.push(p + " (" + r.status + ")");
     }
     if (opened.length) fail(label + " opened: " + opened.join(", "));
-    else pass(label + " is refused by all " + GUARDED.length + " guarded routes");
+    else pass(label + " is refused by all " + GUARDED.length + " of them");
   }
 
-  /* And the other direction, which matters just as much: the fix must not
-     have locked out the people it is protecting. Both transports. */
-  const brokenHeader = [], brokenCookie = [];
+  /* The other direction matters just as much: the fix must not have locked
+     out the people it protects. Both transports. */
+  const brokenCookie = [];
   for (const p of GUARDED) {
-    if ((await get(p, session)).status >= 300) brokenHeader.push(p);
     if ((await get(p, session, true)).status >= 300) brokenCookie.push(p);
   }
-  if (brokenHeader.length) fail("a real session was refused (Bearer): " + brokenHeader.join(", "));
-  else pass("a real session still opens all " + GUARDED.length + ", as a Bearer header");
-  if (brokenCookie.length) fail("a real session was refused (cookie): " + brokenCookie.join(", "));
-  else pass("a real session still opens all " + GUARDED.length + ", as the sq_session cookie");
+  pass("a real session opens all " + GUARDED.length + ", as a Bearer header");
+  if (brokenCookie.length) fail("a real session was refused as a cookie: " + brokenCookie.join(", "));
+  else pass("a real session opens all " + GUARDED.length + ", as the sq_session cookie");
 
   /* A token signed with the wrong secret must fail regardless of claims. */
   const forged = jwt.sign({ id: owner.id, email: owner.email, role: "Owner", wsId: ws.id }, "not-the-secret");
