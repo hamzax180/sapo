@@ -56,7 +56,12 @@ const bcrypt = require("bcryptjs");
     // Master registry: two workspaces on the shared cluster; each gets its
     // own database (webo_<wsId>) because dbUri is empty / dbType local.
     await seedClient.db(process.env.DB_NAME).collection("workspaces").insertMany([
-      { id: "ws_A", company: "Alpha Co", ownerEmail: "a@alpha.com", dbType: "local", dbUri: "" },
+      /* storefrontEnabled matters now: the public /api/portal routes are
+         gated on it, because without that gate a workspace id alone let
+         anyone write orders and quotes into a stranger tenant. Alpha runs
+         a shop in this fixture, which is what the portal tests below are
+         about. Beta does not, and that asymmetry is itself asserted. */
+      { id: "ws_A", company: "Alpha Co", ownerEmail: "a@alpha.com", dbType: "local", dbUri: "", storefrontEnabled: true },
       { id: "ws_B", company: "Beta Co", ownerEmail: "b@beta.com", dbType: "local", dbUri: "" }
     ]);
 
@@ -163,6 +168,35 @@ const bcrypt = require("bcryptjs");
     const orderCount = await seedClient.db("webo_ws_A").collection("orders").countDocuments();
     assert.strictEqual(orderCount, 1, "exactly one order persisted despite two submits");
     pass("idempotency: duplicate submit -> single order");
+
+    /* ---- a workspace that runs no shop has no shop ----
+
+       /api/portal/:wsId/* is public because a shopper has no account,
+       and two of those routes WRITE — orders into the tenant's orders
+       collection, inquiries into its quotes. Nothing checked that the
+       workspace being written to actually runs a storefront, so a
+       workspace id alone was enough to fill a stranger's collections.
+
+       Beta has no storefrontEnabled. Every one of these must be 404 —
+       404 and not 403, because a shop that does not exist and a
+       workspace that does not exist have to look the same, or this
+       becomes a way to ask which ids are real. */
+    for (const [label, path, opts] of [
+      ["config", "/api/portal/ws_B/config", { method: "GET" }],
+      ["products", "/api/portal/ws_B/products", { method: "GET" }],
+      ["orders", "/api/portal/ws_B/orders", { method: "POST", body: { customer: { name: "X", email: "x@y.z" }, items: [{ name: "W", price: 1, qty: 1 }] } }],
+      ["inquiry", "/api/portal/ws_B/inquiry", { method: "POST", body: { name: "X", email: "x@y.z", message: "hello" } }]
+    ]) {
+      res = await req(path, opts);
+      assert.strictEqual(res.status, 404,
+        "the " + label + " endpoint answered " + res.status + " for a workspace with no storefront");
+    }
+    pass("a workspace with no storefront refuses all four public portal routes");
+
+    // And an id that is not a workspace at all looks exactly the same.
+    res = await req("/api/portal/ws_does_not_exist/products", { method: "GET" });
+    assert.strictEqual(res.status, 404);
+    pass("an unknown workspace is indistinguishable from one with no shop");
 
     console.log("\n--- RUNNING PUBLIC PROJECTION TESTS ---");
 

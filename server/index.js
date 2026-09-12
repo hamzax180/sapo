@@ -1196,6 +1196,43 @@ async function resolvePortalWs(wsId) {
  * GET /api/portal/:wsId/config
  * Public workspace config for the portal frontend.
  */
+/* =================================================================
+   THE STOREFRONT'S PUBLIC SURFACE IS GATED ON HAVING A STOREFRONT
+   -----------------------------------------------------------------
+   /api/portal/:wsId/* is the retired storefront product: a shop page
+   for anonymous visitors. Public is the right shape for that — a
+   shopper has no account — and two of the five WRITE: /orders inserts
+   into the workspace's orders collection, /inquiry into its quotes.
+
+   What was missing is any check that the workspace being written to
+   actually runs a shop. storefrontEnabled has existed on the record
+   since the beginning and was never read as a gate. So with a
+   workspace id — and only that — anyone could fill a stranger's
+   collections. The captcha that would have slowed it only engages when
+   CAPTCHA_SECRET is set, and it is not set in production.
+
+   Every account on this deployment is a Souqi Code account, and signup
+   writes storefrontEnabled:false. Not one has it on. So this closes the
+   whole surface today while leaving the product working for a workspace
+   that genuinely turns it on.
+
+   404, not 403: a workspace that runs no shop should be indistinguish-
+   able from one that does not exist, or this becomes a way to ask which
+   ids are real.
+   ================================================================= */
+app.use("/api/portal/:wsId", async (req, res, next) => {
+  try {
+    const masterDb = getMasterDb();
+    if (!masterDb) return res.status(503).json({ error: "Master DB not available" });
+    const ws = await masterDb.collection("workspaces").findOne(
+      { id: String(req.params.wsId || "") }, { projection: { storefrontEnabled: 1 } });
+    if (!ws || ws.storefrontEnabled !== true) {
+      return res.status(404).json({ error: "no storefront here" });
+    }
+    return next();
+  } catch (e) { return next(e); }
+});
+
 app.get("/api/portal/:wsId/config", async (req, res) => {
   try {
     const masterDb = getMasterDb();
