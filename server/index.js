@@ -5929,12 +5929,40 @@ app.get("/s/:slug", (req, res) => servePublishedSite(req, res, ""));
 app.get("/s/:slug/*", (req, res) => servePublishedSite(req, res, req.params[0]));
 
 
-/* ---- guard: only allow known collections through the generic CRUD ---- */
+/* ---- guard: only allow known collections through the generic CRUD ----
+
+   The collection side was always an allowlist. The PAGE fallback under it
+   was not: it joined req.params.c straight onto a directory and handed the
+   result to sendFile. A route parameter is one path segment in the URL,
+   but Express decodes it, and %2f decodes to a slash — so
+
+     GET /..%2fserver%2flib%2fcodeagent%2fscaffold%2findex
+
+   walked out of public/ and served a file from the server tree. Measured,
+   not theorised; that request returned the scaffold's index.html.
+
+   Nothing secret is in a .html file today, so the suffix was the only
+   thing holding this to "reads the layout of the disk" rather than
+   "reads anything". That is not a control, it is a coincidence — and it
+   stops being true the first time someone writes a .html file with
+   configuration in it, or generalises the extension.
+
+   Two checks, because each catches what the other might not. The pattern
+   says what a page name is: letters, digits, dash, underscore, and that
+   is all — no dot, no slash, so no traversal can even be spelled. The
+   resolve is the belt to that braces: whatever the pattern let through,
+   the file must still land inside public/. */
+const PUBLIC_DIR = path.resolve(__dirname, "..", "public");
+const PAGE_NAME = /^[A-Za-z0-9_-]{1,64}$/;
+
 function guard(req, res, next) {
   if (!COLLECTIONS.includes(req.params.c)) {
-    const pageFile = path.join(__dirname, "..", "public", `${req.params.c}.html`);
-    if (fs.existsSync(pageFile)) {
-      return res.sendFile(pageFile);
+    const name = String(req.params.c || "");
+    if (PAGE_NAME.test(name)) {
+      const pageFile = path.resolve(PUBLIC_DIR, name + ".html");
+      if ((pageFile === PUBLIC_DIR || pageFile.startsWith(PUBLIC_DIR + path.sep)) && fs.existsSync(pageFile)) {
+        return res.sendFile(pageFile);
+      }
     }
     return res.status(404).json({ error: "unknown collection" });
   }

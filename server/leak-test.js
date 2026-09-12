@@ -163,6 +163,51 @@ async function main() {
   }
   if (failures === beforeAnon) pass(anonLooked + " of those answered a stranger without leaking an address or a secret");
   else console.log("  (" + anonLooked + " of those swept as a stranger)");
+
+  /* ---- a URL cannot walk out of public/ ----------------------------
+     The generic-CRUD guard falls back to serving <name>.html out of
+     public/ when the name is not a collection, and it used to build that
+     path by joining the route parameter straight on. A route parameter is
+     one URL segment, but Express DECODES it and %2f decodes to a slash,
+     so /..%2fserver%2f... walked out of the directory and served a file
+     from the server tree. It really did: that is how this was found.
+
+     The probe is a file that genuinely exists outside public/, because
+     asking for one that does not proves nothing — a 404 would mean "no
+     such file", not "refused". */
+  const fs = require("fs");
+  const path = require("path");
+  const root = path.resolve(__dirname, "..");
+  const outside = [
+    "server/lib/codeagent/scaffold/index.html",
+    "node_modules/tslib/tslib.html",
+    "server/node_modules/tslib/tslib.html"
+  ].find((p) => fs.existsSync(path.join(root, p)));
+
+  if (!outside) {
+    console.log("  (no .html outside public/ on this checkout — traversal probe skipped)");
+  } else {
+    const rel = outside.replace(/.html$/, "");
+    const attempts = [
+      encodeURIComponent("../" + rel),
+      encodeURIComponent("../../" + rel),
+      "..%2f" + rel.split("/").join("%2f"),
+      "%2e%2e%2f" + rel.split("/").join("%2f"),
+      "..%5c" + rel.split("/").join("%5c")
+    ];
+    const got = [];
+    for (const a of attempts) {
+      const r = await fetch(BASE + "/" + a);
+      if (r.status === 200) got.push(a);
+    }
+    if (got.length) fail("a URL walked out of public/ and served a file: /" + got[0]);
+    else pass("none of " + attempts.length + " traversal spellings escaped public/ (probe: " + outside + ")");
+
+    /* And the fallback must still do its job for a real page. */
+    const page = await fetch(BASE + "/settings");
+    if (page.status === 200) pass("the page fallback still serves a real page");
+    else fail("/settings returned " + page.status + " — the traversal fix broke the page fallback");
+  }
 }
 
 main()
