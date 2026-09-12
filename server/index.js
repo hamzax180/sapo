@@ -216,6 +216,44 @@ const inquiryLimiter = rateLimit({ windowMs: 60 * 1000, max: 30, key: (req) => (
 const aiLimiter = rateLimit({ windowMs: 60 * 1000, max: 30 });
 const visitLimiter = rateLimit({ windowMs: 60 * 1000, max: 120, key: (req) => req.ip || "" });
 
+/* ---- a custom domain is that project's site, and nothing else ----
+
+   THIS HAS TO RUN FIRST. It used to be registered several hundred lines
+   down — after app.get("/") and after express.static — so on a connected
+   custom domain the root path served Souqi's own marketing page and the
+   customer's app was reachable at no address at all. The one URL that
+   matters most on a domain someone just pointed at us was the one URL
+   that showed them somebody else's homepage.
+
+   It waits for Mongo itself rather than being moved below the ensureDb
+   middleware, because that one sits under express.static deliberately so
+   static assets never block on a database. Only a request on a custom
+   host pays for this.
+
+   /api and /auth are excluded below: a customer's domain serves their
+   SITE, and does not get to be the platform's API or its sign-in page. */
+app.use(async (req, res, next) => {
+  const host = (req.hostname || "").toLowerCase().replace(/^www\./, "");
+  if (PLATFORM_HOSTS.has(host)) return next();   // the platform itself
+
+  const p = req.path || "";
+  if (p.indexOf("/api/") === 0 || p.indexOf("/auth/") === 0) return next();
+
+  try {
+    await ensureDb();
+    const masterDb = getMasterDb();
+    if (masterDb) {
+      const codeProject = await projects.findByCustomDomain(host);
+      if (codeProject && codeProject.published) {
+        return servePublishedSite(req, res, p.replace(/^\//, ""), codeProject);
+      }
+    }
+  } catch (err) {
+    // Non-fatal: fall through and let the platform answer.
+  }
+  next();
+});
+
 // home.html is the public entry point — the marketing page, not login.
 app.get("/", (req, res) => res.sendFile(path.join(__dirname, "..", "public", "home.html")));
 
@@ -473,34 +511,36 @@ const servableAll = (docs) => (Array.isArray(docs) ? docs.map(servable) : docs);
    for them. That product is retired, so there is one kind of custom domain
    now: a published project.
    ================================================================= */
+/* Hosts that ARE the platform, and therefore never belong to a customer.
+
+   This set had localhost, 127.0.0.1 and PLATFORM_HOST — and not the app's
+   own domain. So souqi.site fell through to the custom-domain lookup on
+   every request, and a published project claiming that name would have
+   been served in its place. Measured against a running server with a
+   throwaway host: a matching project took over /api/projects,
+   /api/account/me, /auth/login and /login alike.
+
+   Listing them here also removes a database round trip from every request
+   to the main domain, which is what that lookup was costing. */
+const APP_HOST = (process.env.APP_DOMAIN || "souqi.site").toLowerCase();
 const PLATFORM_HOSTS = new Set([
   "localhost", "127.0.0.1",
+  APP_HOST,
+  "www." + APP_HOST,
   (process.env.PLATFORM_HOST || "app.souqi.site").toLowerCase()
 ]);
 
-app.use(async (req, res, next) => {
-  const host = (req.hostname || "").toLowerCase().replace(/^www\./, "");
-  if (PLATFORM_HOSTS.has(host)) return next(); // platform itself — no portal lookup
-  try {
-    const masterDb = getMasterDb();
-    if (masterDb) {
-      /* The Sites branch that used to sit here served public/portal.html at
-         the root of a storefront workspace's custom domain. The storefront
-         product is retired and that file is deleted, so the lookup and the
-         sendFile both went with it — it had nothing to serve and would have
-         thrown ENOENT on any unrecognised host.
+/** Is this name the platform's own, or anything beneath it? */
+function isPlatformZone(name) {
+  const h = String(name || "").toLowerCase().trim().replace(/\.$/, "");
+  if (!h) return true;
+  if (PLATFORM_HOSTS.has(h)) return true;
+  if (h === APP_HOST || h.endsWith("." + APP_HOST)) return true;
+  const plat = (process.env.PLATFORM_HOST || "app.souqi.site").toLowerCase();
+  if (h === plat || h.endsWith("." + plat)) return true;
+  return false;
+}
 
-         What a custom domain means now is a published Souqi Code project. */
-      const codeProject = await projects.findByCustomDomain(host);
-      if (codeProject && codeProject.published) {
-        return servePublishedSite(req, res, req.path.replace(/^\//, ""), codeProject);
-      }
-    }
-  } catch (e) {
-    // Non-fatal — continue without portal context
-  }
-  next();
-});
 
 /* ---- Serve specific frontend pages ----
    The old deterministic site builder (agent.html), the workspace/signup
@@ -6063,6 +6103,11 @@ app.post("/api/codeagent/:key/domain", codeAgentLimiter, async (req, res, next) 
     }
     if (!/^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$/.test(raw)) {
       return res.status(400).json({ error: "that doesn't look like a valid domain (e.g. app.yourbrand.com)" });
+    }
+    /* Not a name we already own. Without this a published project could
+       claim souqi.site itself and be served in the platform's place. */
+    if (isPlatformZone(raw)) {
+      return res.status(400).json({ error: "that domain belongs to Souqi — use one you control" });
     }
     const clash = await projects.findByCustomDomain(raw);
     if (clash && clash.id !== project.id) {
