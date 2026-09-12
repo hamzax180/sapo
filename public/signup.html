@@ -280,8 +280,12 @@
       <form id="suForm" novalidate>
         <div class="su-field">
           <label class="su-label" for="suName">Your name</label>
+          <!-- The placeholder is a DESCRIPTION, never an example name. One
+               that looks like a real name reads as a field already filled in
+               with somebody's data — which is exactly how it was read back
+               when this said a real person's name. -->
           <input class="su-input" type="text" id="suName" name="name"
-                 autocomplete="name" required maxlength="80" placeholder="Hamza Tot">
+                 autocomplete="name" required maxlength="80" placeholder="Your full name">
           <!-- What the sidebar, the workspace member list and every greeting
                will call you. -->
           <div class="su-hint">This is the name shown across Souqi.</div>

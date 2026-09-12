@@ -634,6 +634,36 @@
                radial-gradient(130% 110% at 12% -5%,#0d2338,#081522 58%,#050e18)}
   .chero-grid{align-items:center}
   @media (max-width:900px){.chero{min-height:auto;display:block}}
+
+  /* A phone that is SHORT as well as narrow.
+
+     At 352x608 this page laid out to 666px, so the sign-in card ran 58px off
+     the bottom and the first thing a new visitor had to do was scroll to find
+     it. The width breakpoint above cannot see that: a 390x844 phone is the
+     same width and has room to spare. Keyed on height as well, and it takes
+     the space back from the decoration rather than the form — the mock
+     browser is the part that can afford to be smaller. */
+  @media (max-width:900px) and (max-height:760px){
+    .nav{padding:10px clamp(14px,4vw,44px);gap:16px}
+    .chero{padding:4px 0 14px}
+    .chero-h{font-size:clamp(1.9rem,7.6vw,2.45rem)}
+    .chero-sub{margin-top:8px;font-size:.94rem;line-height:1.42}
+    .chero-demo{margin-top:8px}
+    .cdemo-body{min-height:0;padding:14px}
+    /* The mock site inside the demo is a fixed 436px, narrowed to 360px by
+       the width breakpoint. That fixed height is what actually set the page
+       length — shrinking the body around it did nothing. */
+    .cdemo-site{height:206px}
+    .cdemo-top{padding:9px 12px;font-size:.72rem}
+    .cdemo-hint{font-size:1rem;margin-bottom:12px}
+    .chero-auth{margin-top:10px}
+    /* The last 42px was the hero own trailing space, not content. Nothing
+       was hidden by it, but it still put a scrollbar on a page that has
+       nothing below the fold to scroll to. */
+    .chero{padding-bottom:2px}
+    .chero-sub{margin-top:6px}
+    .cauth-card{padding:16px;border-radius:15px}
+  }
   @keyframes heroUp{from{opacity:0;transform:translateY(26px)}to{opacity:1;transform:none}}
   .chero-h{animation:heroUp .8s var(--ease) both;animation-delay:.04s}
   .chero-sub{animation:heroUp .8s var(--ease) both;animation-delay:.14s}
