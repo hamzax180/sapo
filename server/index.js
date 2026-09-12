@@ -263,6 +263,140 @@ if (!process.env.DB_ENCRYPTION_KEY) {
 const { requireSession, tenantScope, authorizeCrud, requireAdmin, resolveWsContext } = makeAuth({ JWT_SECRET, getMasterDb });
 initIdempotency({ getMasterDb });
 
+/* =================================================================
+   SESSION REVOCATION, IN ONE PLACE
+   -----------------------------------------------------------------
+   "Sign out other sessions" bumps a sessionEpoch on the user, and a
+   token carrying an older one is supposed to stop working. Exactly one
+   helper checked that — codeAgentSessionUserVerified — and only a
+   handful of routes call it. Measured against the running server, a
+   token with a stale epoch still opened the platform admin API, the
+   GDPR export, the whole generic CRUD, and every route in Code. The
+   button said "signed out"; nothing was.
+
+   Fixing that at each call site means changing appOwnerOf and its
+   twenty-five callers from sync to async. Doing it HERE is one function
+   and covers everything, including routes written later — the request
+   never reaches them carrying a revoked identity.
+
+   It is also cheap, which the old comment assumed it could not be. That
+   assumption came from codeAgentSessionUserVerified loading EVERY user in
+   the workspace to find one; this reads the one row by id.
+
+   THE EPOCH IS NEVER CACHED, and the first version of this cached it for
+   thirty seconds. An end-to-end test caught what that meant: revoke, then
+   immediately try the old cookie, and it still worked — the cached value
+   matched the token, so nothing even looked at the database. Half a minute
+   of "signed out" that is not signed out is most of the time that matters
+   in the case the feature exists for. A revocation check that can be stale
+   is not a revocation check.
+
+   What IS cached is the workspace context, which is the right thing to
+   cache: where a tenant's database lives is configuration and changes
+   approximately never, while the epoch is live state and is the whole
+   point. That keeps this to ONE read per authenticated request instead of
+   two, without holding on to the one value that must be current. The TTL
+   is there so a moved database is picked up without a redeploy.
+
+   Fails OPEN. If the database cannot be reached the request proceeds as
+   before: every other gate still applies, and refusing everyone because
+   Mongo blinked is a worse outage than the window it closes.
+   ================================================================= */
+const WS_TTL_MS = 5 * 60 * 1000;
+const WS_MAX = 2000;
+const wsCache = new Map();   // wsId -> { ws, at }
+
+async function cachedWsContext(wsId) {
+  const key = String(wsId || "");
+  const hit = wsCache.get(key);
+  if (hit && Date.now() - hit.at < WS_TTL_MS) return hit.ws;
+  const ws = await resolveWsContext(wsId);
+  if (wsCache.size >= WS_MAX) wsCache.clear();
+  wsCache.set(key, { ws: ws, at: Date.now() });
+  return ws;
+}
+
+/* users.id had no index. The collections are small enough that a scan is
+   not what costs anything today, but this read now happens on every
+   authenticated request, and "small enough" is a property of this month.
+   Created once per workspace per process, and a failure is ignored: an
+   index is an optimisation, and not having one must never refuse a
+   request. */
+const indexed = new Set();
+function ensureUserIndex(ws) {
+  const key = ws && ws.workspaceId;
+  if (!key || indexed.has(key)) return;
+  indexed.add(key);
+  Promise.resolve()
+    .then(() => dbAdapter.ensureIndex && dbAdapter.ensureIndex(ws, "users", { id: 1 }))
+    .catch(() => {});
+}
+
+async function liveSessionEpoch(wsId, userId) {
+  const ws = await cachedWsContext(wsId);
+  ensureUserIndex(ws);
+  const user = await dbAdapter.findOne(ws, "users", userId);
+  // No row, or a deactivated one, is not "epoch 0" — it is "no session".
+  if (!user || user.active === false) return null;
+  return user.sessionEpoch || 0;
+}
+
+/** Strip the credentials off the REQUEST, not just the response. Clearing
+    the cookie on the way out does nothing for the handler about to read
+    req.headers.cookie and honour the very token being revoked. */
+function stripSession(req) {
+  delete req.headers.authorization;
+  const raw = req.headers.cookie || "";
+  const kept = raw.split(";").map((p) => p.trim()).filter((p) => p && !/^sq_session=/.test(p));
+  if (kept.length) req.headers.cookie = kept.join("; ");
+  else delete req.headers.cookie;
+}
+
+app.use(async (req, res, next) => {
+  let token = (req.headers.authorization || "").replace(/^Bearer\s+/i, "").trim();
+  if (!token) {
+    const m = /(?:^|;\s*)sq_session=([^;]*)/.exec(req.headers.cookie || "");
+    if (m) { try { token = decodeURIComponent(m[1]); } catch (e) { token = m[1]; } }
+  }
+  if (!token) return next();
+
+  let d = null;
+  try { d = jwt.verify(token, JWT_SECRET); } catch (e) { return next(); }
+  // Not a session: an anon or edit grant carries no id, and requireSession
+  // and appOwnerOf both refuse a scope of their own accord.
+  if (!d || d.scope || !d.id) return next();
+
+  try {
+    const mine = d.sessionEpoch || 0;
+    const live = await liveSessionEpoch(d.wsId, d.id);
+    if (live === mine) return next();
+
+    stripSession(req);
+    res.clearCookie("sq_session", { path: "/" });
+
+    /* A page request is answered as a signed-OUT page rather than a JSON
+       401, so somebody whose session was revoked lands on the signed-out
+       view instead of a wall of JSON in the browser. An API caller gets
+       the 401 it can act on.
+
+       /auth/* is neither: it is the way BACK IN. Login and signup
+       authenticate from the body and logout only clears, so none of them
+       wants the cookie that was just stripped — and answering them 401
+       would mean a revoked session could never sign in again, which is
+       the same trap the missing epoch stamp set from the other side. */
+    const p = req.path || "";
+    const isAuthRoute = p.indexOf("/auth/") === 0;
+    const wantsJson = !isAuthRoute && (p.indexOf("/api/") === 0 ||
+      String(req.headers.accept || "").indexOf("application/json") >= 0);
+    if (wantsJson) {
+      return res.status(401).json({ error: { code: "session_revoked", message: "this session was signed out", requestId: req.id || null } });
+    }
+    return next();
+  } catch (e) {
+    return next();   // cannot check -> behave as before
+  }
+});
+
 // Canonical subscription plans; anything other than "free" is a paying
 // "subscriber". Monthly prices drive the MRR estimate (override via env
 // PLAN_PRICES as JSON if your pricing differs).
@@ -1250,7 +1384,14 @@ app.post("/auth/login", loginIpLimiter, loginLimiter, validateBody(loginSchema),
 
     // The signed token carries the workspace id — this is what every later
     // request is scoped by, so tenancy can't be spoofed via a header.
-    const session = { id: u.id, name: u.name, email: u.email, role: u.role, dept: u.dept, wsId: ws.workspaceId };
+    /* sessionEpoch is part of the session, not an afterthought.
+       "Sign out other sessions" works by bumping a counter on the user and
+       refusing any token carrying an older one. Only the revoke route was
+       stamping it, so the FIRST login after a revoke minted a token with no
+       epoch at all — which reads as 0, which does not match the bumped
+       value, which means the account's own Settings page refused its owner
+       from then on. Permanently. The feature broke the thing it protects. */
+    const session = { id: u.id, name: u.name, email: u.email, role: u.role, dept: u.dept, wsId: ws.workspaceId, sessionEpoch: u.sessionEpoch || 0 };
     const token = jwt.sign(session, JWT_SECRET, { expiresIn: "12h" });
     // Also set an httpOnly session cookie so browser clients (e.g. the admin
     // panel) never keep the token in JS-readable storage. httpOnly = not
@@ -1353,7 +1494,7 @@ app.post("/auth/signup", loginIpLimiter, loginLimiter, verifyCaptcha(), validate
     await dbAdapter.insertOne(ws, "users", ownerUser);
 
     const session = { id: ownerUser.id, name: ownerUser.name, email: ownerUser.email,
-                      role: "Owner", dept: "Management", wsId: wsId };
+                      role: "Owner", dept: "Management", wsId: wsId, sessionEpoch: ownerUser.sessionEpoch || 0 };
     const token = jwt.sign(session, JWT_SECRET, { expiresIn: "12h" });
     res.cookie("sq_session", token, {
       httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production",
@@ -2278,7 +2419,7 @@ app.post("/api/projects/:key/micro-claim", microClaimLimiter, verifyCaptcha(), v
       // Account + workspace exist; the project just isn't attached yet. Say
       // so plainly rather than losing either half of what already happened.
       const status = claimErr.status || 500;
-      const session = { id: ownerUser.id, name: ownerUser.name, email: ownerUser.email, role: "Owner", dept: "Management", wsId: wsId };
+      const session = { id: ownerUser.id, name: ownerUser.name, email: ownerUser.email, role: "Owner", dept: "Management", wsId: wsId, sessionEpoch: ownerUser.sessionEpoch || 0 };
       const token = jwt.sign(session, JWT_SECRET, { expiresIn: "12h" });
       return res.status(status).json({
         ok: false, accountCreated: true, wsId: wsId, token: token, user: session,
@@ -2286,7 +2427,7 @@ app.post("/api/projects/:key/micro-claim", microClaimLimiter, verifyCaptcha(), v
       });
     }
 
-    const session = { id: ownerUser.id, name: ownerUser.name, email: ownerUser.email, role: "Owner", dept: "Management", wsId: wsId };
+    const session = { id: ownerUser.id, name: ownerUser.name, email: ownerUser.email, role: "Owner", dept: "Management", wsId: wsId, sessionEpoch: ownerUser.sessionEpoch || 0 };
     const token = jwt.sign(session, JWT_SECRET, { expiresIn: "12h" });
     res.json({ ok: true, wsId: wsId, token: token, user: session, editToken: editToken, expiresIn: 900, meta: project.meta || null });
   } catch (e) {
@@ -3170,7 +3311,7 @@ app.get("/api/integrations/stripe", async (req, res, next) => {
       return res.json({ configured: false, connected: false, reason: "Stripe is not configured on this server" });
     }
     const ws = await resolveWsContext(sessionUser.wsId);
-    const user = await dbAdapter.findOne(ws, "users", { id: sessionUser.id });
+    const user = await dbAdapter.findOne(ws, "users", sessionUser.id);
     const acct = (user && user.stripeAccount) || null;
     res.json({
       configured: true,
@@ -3239,7 +3380,7 @@ app.delete("/api/integrations/stripe", async (req, res, next) => {
     const sessionUser = await codeAgentSessionUserVerified(req);
     if (!sessionUser) return res.status(401).json({ error: "not signed in" });
     const ws = await resolveWsContext(sessionUser.wsId);
-    const user = await dbAdapter.findOne(ws, "users", { id: sessionUser.id });
+    const user = await dbAdapter.findOne(ws, "users", sessionUser.id);
     const acct = (user && user.stripeAccount) || null;
 
     // Revoke at Stripe if we can, but forget locally regardless. If Stripe is
@@ -3647,7 +3788,7 @@ function githubRedirectUri(req) {
 /** The stored token, decrypted, plus the account it belongs to. */
 async function githubCredsFor(sessionUser) {
   const ws = await resolveWsContext(sessionUser.wsId);
-  const user = await dbAdapter.findOne(ws, "users", { id: sessionUser.id });
+  const user = await dbAdapter.findOne(ws, "users", sessionUser.id);
   const g = (user && user.githubAccount) || null;
   if (!g || !g.token) return null;
   let token = null;
@@ -3664,7 +3805,7 @@ app.get("/api/integrations/github", async (req, res, next) => {
       return res.json({ configured: false, connected: false, reason: "GitHub is not configured on this server" });
     }
     const ws = await resolveWsContext(sessionUser.wsId);
-    const user = await dbAdapter.findOne(ws, "users", { id: sessionUser.id });
+    const user = await dbAdapter.findOne(ws, "users", sessionUser.id);
     const g = (user && user.githubAccount) || null;
     res.json({
       configured: true,
@@ -3981,7 +4122,7 @@ async function ownerStripeAccount(project) {
   if (!project || !project.ownerUserId) return null;
   try {
     const ws = await resolveWsContext(project.wsId || null);
-    const user = await dbAdapter.findOne(ws, "users", { id: project.ownerUserId });
+    const user = await dbAdapter.findOne(ws, "users", project.ownerUserId);
     const acct = user && user.stripeAccount;
     return acct && acct.accountId ? acct : null;
   } catch (e) { return null; }
@@ -4055,9 +4196,19 @@ app.post("/api/apps/:projectId/checkout", checkoutLimiter, jsonDefault, async (r
 app.post("/api/stripe/webhook", express.raw({ type: "application/json", limit: "1mb" }), async (req, res) => {
   const verified = stripeLib.verifyWebhook(req.body, req.get("Stripe-Signature"));
   if (!verified.ok) {
-    // 400 tells Stripe to retry; that is right for a transient problem and
-    // harmless for a forged one, which will simply keep failing.
-    return res.status(400).json({ error: verified.reason });
+    /* The REASON stays here. This endpoint is unauthenticated by nature —
+       anyone can POST to it — and the reasons are a description of the
+       deployment: "STRIPE_WEBHOOK_SECRET is not configured" tells a
+       stranger that billing is not wired up yet, and "timestamp outside
+       tolerance" tells them their replay was noticed rather than their
+       signature being wrong. Neither is catastrophic and neither is
+       anyone's business.
+
+       Stripe does not read this body; it reads the status. 400 tells it to
+       retry, which is right for a transient problem and harmless for a
+       forged one, which will simply keep failing. */
+    console.warn("[stripe-webhook] rejected: " + verified.reason);
+    return res.status(400).json({ error: "invalid signature" });
   }
   const event = verified.event;
   try {
@@ -4120,7 +4271,7 @@ app.post("/api/stripe/webhook", express.raw({ type: "application/json", limit: "
 /** Raw stored map, still encrypted. Callers decrypt only what they need. */
 async function readAiKeys(sessionUser) {
   const ws = await resolveWsContext(sessionUser.wsId);
-  const user = await dbAdapter.findOne(ws, "users", { id: sessionUser.id });
+  const user = await dbAdapter.findOne(ws, "users", sessionUser.id);
   const keys = (user && user.aiKeys) || {};
   return (keys && typeof keys === "object") ? Object.assign({}, keys) : {};
 }
@@ -4244,7 +4395,7 @@ app.post("/api/codeagent/:key/micro-claim", microClaimLimiter, verifyCaptcha(), 
 
     await finalizeCodeClaim({ project, wsId, userId: ownerUser.id, email: emailLower, requestId: req.id });
 
-    const session = { id: ownerUser.id, name: ownerUser.name, email: ownerUser.email, role: "Owner", dept: "Management", wsId: wsId };
+    const session = { id: ownerUser.id, name: ownerUser.name, email: ownerUser.email, role: "Owner", dept: "Management", wsId: wsId, sessionEpoch: ownerUser.sessionEpoch || 0 };
     const token = jwt.sign(session, JWT_SECRET, { expiresIn: "12h" });
     res.cookie("sq_session", token, {
       httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production",

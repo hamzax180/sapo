@@ -256,6 +256,16 @@ async function findWorkspaceByDomain(masterDb, domain) {
  * Unified CRUD Methods
  */
 const dbAdapter = {
+  /* Best-effort index creation. Mongo only; a Postgres tenant stores rows
+     as JSONB under a primary-key id and is already indexed by it. Callers
+     must treat failure as fine — an index makes a query faster, and a
+     request that cannot create one must still be answered. */
+  async ensureIndex(workspace, collection, spec) {
+    const conn = await getDbClient(workspace);
+    if (conn.type !== "mongodb") return;
+    await conn.db.collection(collection).createIndex(spec);
+  },
+
   // Read all records (capped at MAX_SCAN to avoid unbounded memory use)
   async findAll(workspace, collection) {
     const conn = await getDbClient(workspace);
@@ -274,8 +284,30 @@ const dbAdapter = {
     }
   },
 
-  // Read one record by ID
+  /* Read one record by ID.
+
+     `id` is the id ITSELF, not a filter — the Mongo branch wraps it as
+     { id }. Seven of the eight callers in index.js passed { id: x }
+     anyway, which made the query { id: { id: x } }: a legal query that
+     matches nothing and returns null, indistinguishable from "no such
+     record". Nothing threw and nothing logged, so what it actually did
+     was quietly switch features off — push-to-GitHub said the account
+     was not connected, Settings said Stripe was not connected, a
+     published app reported it could not take payments, and a customer's
+     own AI keys were never found and never used.
+
+     The calls are corrected, and so is this: an object with an id is
+     unwrapped rather than mangled, and anything else throws. A wrong
+     shape should be loud or right, never a convincing null. */
   async findOne(workspace, collection, id) {
+    if (id && typeof id === "object") {
+      const keys = Object.keys(id);
+      if (keys.length === 1 && keys[0] === "id") id = id.id;
+      else throw new TypeError("findOne takes an id, not a filter (got " + JSON.stringify(keys) + ")");
+    }
+    if (typeof id !== "string" && typeof id !== "number") {
+      throw new TypeError("findOne needs an id; got " + typeof id);
+    }
     const conn = await getDbClient(workspace);
     if (conn.type === "mongodb") {
       const doc = await conn.db.collection(collection).findOne({ id });
