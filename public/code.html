@@ -11,6 +11,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Jost:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" crossorigin>
 <title>Souqi Code</title>
+<script src="/js/voice-input.js?v=1"></script>
 <script>
 (function(){var k="souqi-theme";try{var t=localStorage.getItem(k)||"light";document.documentElement.setAttribute("data-theme",t)}catch(e){}})();
 </script>
@@ -486,6 +487,23 @@
      collapses to 0 for the "Thought for Ns" summary state. */
   .ag-th-body{padding:0 2px 4px 4px;max-height:480px;overflow-y:auto;overflow-x:hidden;
     transition:max-height .3s var(--ease),opacity .2s,padding .2s}
+  /* This was the one scrollable region in the page with no scrollbar of its
+     own, so it fell through to the platform default — a full-width track
+     with arrow buttons, sitting inside a message stream where .ag-log and
+     .ag-hist-view are a thin tinted thumb on no track. Same rules as those,
+     and --wash-rgb is the scrollbar ink, already flipped per theme.
+
+     Deliberately NO scrollbar-width/scrollbar-color here. Chromium honours
+     the standard properties over ::-webkit-scrollbar, so measured in this
+     browser: these rules alone give the 6px this asks for, adding
+     scrollbar-width:thin widens it to 10px, and scrollbar-color WITHOUT a
+     width falls all the way back to the 15px default — wider than doing
+     nothing was supposed to fix. Firefox keeps its own thin overlay bar,
+     exactly as it already does for every other scroller on this page. */
+  .ag-th-body::-webkit-scrollbar{width:6px}
+  .ag-th-body::-webkit-scrollbar-track{background:transparent}
+  .ag-th-body::-webkit-scrollbar-thumb{background:rgba(var(--wash-rgb),.14);border-radius:8px}
+  .ag-th-body::-webkit-scrollbar-thumb:hover{background:rgba(var(--wash-rgb),.24)}
   .ag-thinking.collapsed .ag-th-body{max-height:0;opacity:0;padding-top:0;padding-bottom:0}
   .ag-th-body .ag-think{padding:6px 2px;font-size:.93rem}
 
@@ -1850,11 +1868,135 @@
        Scoped to :not(.is-new) because on the new-chat screen .ag-hero is
        a real flex container that deliberately CENTERS the greeting +
        composer group — pushing the composer down there would break it. */
-    .ag:not(.is-new) .ag-composer {
-      margin-top: 0;
+    /* PINNED, not placed.
+
+       Four attempts at this bug all worked the same way: keep the section a
+       viewport-height flex column and trust the composer to land on its
+       bottom edge. Each one fixed a real hole — a flag not cleared, a log
+       whose children were not what a selector assumed, a hero left as a
+       padded column — and each time the composer still floated, because the
+       chain has too many links and only one of them has to be wrong.
+
+       position:fixed removes the chain. The composer is bolted to the bottom
+       of the viewport whenever a conversation exists, and no amount of wrong
+       height, wrong display or stale class anywhere above it can move it.
+       The log is given matching room underneath so the last line is never
+       hidden behind it.
+
+       left:var(--rail) because the icon rail is a fixed column on the left;
+       the composer starts where the chat does. */
+    /* THE one that broke the phone layout for months of screenshots.
+
+       .ag-split.has-preview .ag{flex:0 0 clamp(340px,34vw,460px)} is a WIDTH:
+       it sizes the chat column beside the preview in the desktop row layout.
+       It carries no media query, and down here .ag-split is a flex COLUMN --
+       so the same declaration becomes a fixed 340px HEIGHT. At 352px the
+       clamp floors at 340 and the chat section is locked to 340px tall in a
+       608px viewport, with flex-grow:0 refusing to fill and flex-basis
+       beating the height:100dvh set below.
+
+       has-preview is added by loadProjectPreview(), which is why this only
+       ever appeared after OPENING A PROJECT and never in a synthetic log.
+       Every earlier fix was aimed at the log and the composer inside a
+       container that was itself 268px too short. */
+    .ag-split.has-preview .ag{flex:1 1 auto !important}
+
+    .ag:not(.is-new) .ag-composer,
+    .ag.has-convo .ag-composer,
+    .ag:has(#agLog > *:not(.ag-empty)) .ag-composer {
+      position: fixed;
+      left: var(--rail);
+      right: 0;
+      bottom: 0;
+      top: auto;
+      /* width:auto is load-bearing. .ag-composer shares a rule with .ag-log
+         and .ag-head that sets width:100%, and on a FIXED element that
+         resolves against the viewport rather than the space between left and
+         right — so the bar came out 352px wide starting at x=44 and carried
+         the send button 44px off the right edge. left and right have to be
+         what sizes it. */
+      width: auto;
+      z-index: 40;
+      margin: 0;
+      padding: 8px 10px calc(10px + env(safe-area-inset-bottom, 0px));
+      background: var(--paper);
+      border-top: 1px solid var(--line);
     }
-    .ag:not(.is-new){height:100dvh;min-height:0;overflow:hidden !important}
-    .ag:not(.is-new) .ag-log{flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden}
+    /* The preview takes the whole screen on a phone and the chat is hidden
+       behind it — but a fixed element does not care that its ancestor is
+       display:none unless it is told to. It is. */
+    .ag.tab-hidden .ag-composer { display: none !important; }
+    /* Exactly the bar's height, measured, rather than a guessed 124px that
+       was 16px too much on a short screen and would be too little the moment
+       the textarea grew to two lines. --composer-h is kept up to date by a
+       ResizeObserver; the fallback only matters for the first paint. */
+    .ag:not(.is-new) #agLog,
+    .ag.has-convo #agLog,
+    .ag:has(#agLog > *:not(.ag-empty)) #agLog {
+      padding-bottom: calc(var(--composer-h, 108px) + 10px);
+    }
+
+    /* Messages sit ON the composer, the way a chat does, instead of stacking
+       from the top and leaving a field of nothing between the last line and
+       the box you type in. margin-top:auto on the first child eats the free
+       space when the conversation is short and computes to nothing once it
+       overflows, so scrolling still behaves. */
+    .ag.has-convo #agLog,
+    .ag:not(.is-new) #agLog { display: flex; flex-direction: column; }
+    .ag.has-convo #agLog > *:first-child,
+    .ag:not(.is-new) #agLog > *:first-child { margin-top: auto; }
+    /* Each of these gets a :has() twin for the same reason the desktop rules
+       did: opening a project from the sidebar restores its history, and if
+       .is-new has not come off by the time that paints, the phone layout —
+       fixed height, hidden overflow, a log that scrolls inside itself — is
+       skipped entirely and the composer floats wherever the page happens to
+       be scrolled. The log's contents cannot be out of date; the flag can. */
+    .ag:not(.is-new),
+    .ag.has-convo,
+    .ag:has(#agLog > *:not(.ag-empty)){height:100dvh;min-height:0;overflow:hidden !important}
+    /* !important, and it has to be.
+
+       .ag.is-new .ag-log sets overflow:hidden!important and flex:0 0 auto for
+       the new-chat screen, where the log is a short block that must not
+       scroll. Those two are exactly wrong once a conversation exists: the log
+       sizes itself to its content and then CLIPS it, so the last message is
+       cut off mid-line and the log's box stops short of the composer with a
+       band of empty page between them.
+
+       Without !important here that rule keeps its overflow no matter how
+       specific this selector is, so every fix upstream — clearing is-new,
+       setting has-convo — only mattered if it happened before paint. This
+       wins outright instead. */
+    .ag:not(.is-new) .ag-log,
+    .ag.has-convo .ag-log,
+    .ag:has(#agLog > *:not(.ag-empty)) .ag-log{
+      flex:1 1 auto !important;
+      min-height:0 !important;
+      overflow-y:auto !important;
+      overflow-x:hidden !important;
+      scrollbar-width:thin !important;
+    }
+    /* The new-chat screen also hides the log's scrollbar outright; give it
+       back, or a conversation scrolls with no indication that it can. */
+    .ag:not(.is-new) .ag-log::-webkit-scrollbar,
+    .ag.has-convo .ag-log::-webkit-scrollbar,
+    .ag:has(#agLog > *:not(.ag-empty)) .ag-log::-webkit-scrollbar{
+      display:block !important;width:6px !important}
+    /* The hero is a padded flex column on the new-chat screen; with a
+       conversation it must get out of the way so the composer is a direct
+       flex child of .ag and lands on the bottom edge. */
+    /* display:contents, and it must win.
+
+       #agLog lives INSIDE #agHero, not directly under section.ag. So making
+       the log flex:1 1 auto only fills the HERO -- and .ag.is-new .ag-hero is
+       a padded, centred flex column sized to its content, which is why the
+       log stopped a third of the way up the screen with a band of empty page
+       under it no matter what the log rules said. The hero has to get out of
+       the way first, so the log becomes a direct flex child of .ag and can
+       fill a 100dvh column. */
+    .ag:not(.is-new) .ag-hero,
+    .ag.has-convo .ag-hero,
+    .ag:has(#agLog > *:not(.ag-empty)) .ag-hero{display:contents !important}
     /* The device-size picker only means something once there's room to
        switch between iPhone/iPad/monitor shapes side by side — desktop
        only. #agDeskPreviewToggle stays visible here: it's the ONLY way
@@ -1976,7 +2118,7 @@
   /* --- header: logo left, controls right --- */
   .ag-hist-head{display:flex;align-items:center;gap:8px;padding:10px 10px 12px 12px;width:100%;box-sizing:border-box}
   .ag-hist-mark{width:28px;height:28px;display:grid;place-items:center;flex:none}
-  .ag-hist-mark svg{width:23px;height:23px;display:block;overflow:visible}
+  .ag-hist-mark img{width:23px;height:23px;display:block;object-fit:contain;border-radius:5px}
   /* Sits between the mark and the toggle, the way the reference does.
      margin-left:auto pushes it to the right end of the header; the right
      margin is the width the fixed toggle occupies at the very edge. */
@@ -2054,11 +2196,30 @@
   .ag-hist-chats{flex:1 1 auto;min-height:0;
     display:flex;flex-direction:column;padding:2px 0 4px}
   .ag-chats-ttl{font-size:.655rem;font-weight:450;color:var(--mut);padding:10px 10px 4px;flex:0 0 auto}
-  .ag-chats-list{flex:1 1 auto;min-height:0;overflow-y:auto;padding:0 var(--sb-pad) 4px;scrollbar-width:thin;scrollbar-color:var(--line) transparent;display:flex;flex-direction:column;gap:2px}
+  /* No scrollbar-width / scrollbar-color on this rule, deliberately.
+     Chromium honours the standard properties OVER ::-webkit-scrollbar, so
+     setting them made the six-pixel rules below dead code and handed the
+     rail a ten-pixel standard scrollbar instead — a visible bar eating
+     sidebar width to scroll three recent projects. Measured in this
+     browser: these webkit rules alone give the 6px asked for, adding
+     scrollbar-width:thin widens it to 10px, and scrollbar-color without a
+     width falls all the way back to the 15px default with arrow buttons.
+
+     The thumb is transparent until the rail is hovered, so at rest nothing
+     shows at all. The 6px gutter stays reserved either way, which is what
+     stops the list shifting sideways when the thumb appears. */
+  .ag-chats-list{flex:1 1 auto;min-height:0;overflow-y:auto;padding:0 var(--sb-pad) 4px;display:flex;flex-direction:column;gap:2px}
   .ag-chats-list::-webkit-scrollbar{width:6px;height:6px}
   .ag-chats-list::-webkit-scrollbar-track{background:transparent}
-  .ag-chats-list::-webkit-scrollbar-thumb{background:var(--line);border-radius:99px}
+  .ag-chats-list::-webkit-scrollbar-thumb{background:transparent;border-radius:99px}
+  .ag-history:hover .ag-chats-list::-webkit-scrollbar-thumb{background:var(--line)}
   .ag-chats-list::-webkit-scrollbar-thumb:hover{background:var(--mut)}
+  /* Firefox has no ::-webkit-scrollbar at all, so without this it would get
+     a full-width classic bar — the very thing being removed above. Scoped
+     to Firefox so it cannot re-break Chromium. */
+  @supports (-moz-appearance:none){
+    .ag-chats-list{scrollbar-width:thin;scrollbar-color:var(--line) transparent}
+  }
   /* Rows keep their own height. A flex column shrinks its children before
      it overflows, and these had overflow:hidden so their min-content height
      was zero — 20 projects did not make the list scroll, they made every
@@ -2136,7 +2297,23 @@
                           list reads as a short list. */
   @media (min-height:660px){ .ag-hist-chats{min-height:clamp(96px,18vh,260px)} }
   @media (min-height:560px) and (max-height:659px){ .ag-hist-chats{min-height:76px} }
-  @media (max-height:700px){ .ag-hist-install,.ag-hist-links{display:none} }
+  /* Compressed, not deleted.
+
+     These two rows were display:none below 700px, and 700px of viewport is
+     more than a laptop usually has once the browser's own chrome is taken
+     off the screen — so "Install Souqi on ... Changelog" and the
+     Terms / Privacy / Plans line were simply absent for most people, on
+     every page with this rail. They are two 14px rows: the room comes from
+     tightening what sits around them and letting the chat list give up a
+     little more of its minimum, which it can afford because it scrolls. */
+  @media (max-height:700px){
+    .ag-hist-install{font-size:.68rem;gap:4px;margin-top:5px}
+    .ag-hist-install svg{width:12px;height:12px}
+    .ag-hist-links{font-size:.67rem;gap:7px;margin-top:4px}
+    .ag-hist-chats{min-height:56px}
+    .ag-hist-foot{padding-top:8px;padding-bottom:8px}
+    .ag-meter-row{padding:2px 0}
+  }
   @media (max-height:620px){
     .ag-meter-row .lab i{display:inline;margin-left:6px}
     .ag-meter-row{padding:1px 0}
@@ -2210,8 +2387,32 @@
 
     .ag-history:not(.on):not(:hover):not(.hover-open) .ag-ws .chev,
     .ag-history:not(.on):not(:hover):not(.hover-open) .ag-chats-ttl,
-    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-hist-foot,
-    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-user-gear{display:none !important}
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-hist-foot{display:none !important}
+
+    /* Settings keeps its icon on the collapsed rail. Hiding it left the one
+       route into Settings only reachable by first widening the sidebar — and
+       every other item in that rail survives the collapse as an icon, so the
+       gear disappearing read as a missing feature rather than a tidier rail.
+
+       Stacked, not side by side. The user row is a flex ROW, so putting the
+       gear back next to the avatar asked a 44px rail to hold a 32px avatar,
+       a 30px gear and the gap between them: the avatar lost, squeezed to
+       12px, and the pair still ran to the rail's edge. Avatar over gear is
+       how the phone rail already does it — this is the same treatment, which
+       the desktop rules had simply never been given. */
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-hist-user{
+      flex-direction:column;align-items:center;gap:4px;
+      padding-left:0 !important;padding-right:0 !important}
+    /* gap:0, like the tab and workspace rows above. The name beside the
+       avatar is collapsed to max-width:0 rather than removed, so it keeps
+       its transition — but a zero-width flex item is still a flex item, and
+       the 8px gap in front of it was being centred along with the circle.
+       That pushed the avatar 4px left of the rail's centre line, out of step
+       with the gear beneath it and every status dot above. */
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-user-main{
+      flex:none;width:32px;padding:5px 0;justify-content:center;gap:0}
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-user-gear{
+      display:grid !important;flex:none;width:30px;height:24px}
 
     /* Click-opened, so letting it render inside a panel that vanishes on
        mouse-out would strand it. */
@@ -2375,7 +2576,7 @@
     .ag-history:not(.on) .ag-tab-new{background:transparent;box-shadow:none}
     .ag-history:not(.on) .ag-hist-user{background:transparent}
     .ag-history:not(.on) .ag-hist-user{flex-direction:column;gap:3px;padding-left:0;padding-right:0}
-    .ag-history:not(.on) .ag-user-main{flex:none;width:32px;padding:5px 0;justify-content:center}
+    .ag-history:not(.on) .ag-user-main{flex:none;width:32px;padding:5px 0;justify-content:center;gap:0}
     .ag-history:not(.on) .ag-user-gear{display:grid !important;flex:none;width:30px;height:24px}
     /* Matches this page's own desktop rail, which hides the footer entirely:
        the plan card, meters and legal links have no 44px form, and left
@@ -2612,8 +2813,16 @@
     background:var(--card);box-shadow:0 30px 90px -28px rgba(0,0,0,.55);
     animation:sqSettingsIn var(--dur-chill,.3s) var(--ease-snappy,ease-out) both}
   @keyframes sqSettingsIn{from{opacity:0;transform:translateY(10px) scale(.985)}to{opacity:1;transform:none}}
+  /* And the same on the way out. [hidden] alone cut the panel dead in one
+     frame, which read as a crash next to the way it opens. .closing runs
+     the reverse and the overlay is hidden only once it has finished. The
+     exit uses the shorter token on purpose: a dismissal that lingers as
+     long as the arrival reads as lag. */
+  .ag-set-overlay.closing iframe{animation:sqSettingsOut var(--dur-snappy,.12s) var(--ease-snappy,ease-out) both}
+  @keyframes sqSettingsOut{from{opacity:1;transform:none}to{opacity:0;transform:translateY(6px) scale(.99)}}
   @media (prefers-reduced-motion:reduce){
     .ag-set-overlay iframe{animation-duration:1ms;animation-name:none;opacity:1}
+    .ag-set-overlay.closing iframe{animation-name:none;opacity:0}
   }
   @media (max-width:900px){
     .ag-set-overlay{padding:0}
@@ -2917,6 +3126,22 @@
   .ag:not(.is-new) #agLog,
   .ag:has(#agLog > *:not(.ag-empty)) #agLog{flex:1 1 auto;min-height:0;overflow-y:auto}
 
+  /* And the SECTION stops scrolling. .ag.is-new sets overflow-y:auto so the
+     new-chat screen can scroll as one page; left on with a real conversation
+     restored, the whole column scrolls instead of the log, and the composer
+     — a child of that column, not a fixed element — slides up the screen
+     with it and comes to rest over the messages.
+
+     The rules above already stopped trusting .is-new to be cleared. This is
+     the one declaration that was still trusting it. */
+  /* .ag.is-new{overflow-y:auto!important} lets the new-chat screen scroll as
+     one page. With a conversation restored that turns the whole column into
+     the scroller instead of the log, and the composer travels with it. */
+  .ag.is-new:has(#agLog > *:not(.ag-empty)),
+  .ag.is-new.has-convo{overflow:hidden !important;overflow-y:hidden !important}
+  .ag.has-convo .ag-hero{display:contents}
+  .ag.has-convo #agLog{flex:1 1 auto;min-height:0;overflow-y:auto}
+
 
   /* Laid out the way Claude's own usage popover does it: the limit's name
      on the left, and its reset time and percentage together on the right
@@ -3034,7 +3259,7 @@
      starts wide. -->
 <aside class="ag-history" id="agHistory" aria-label="Your account">
   <div class="ag-hist-head">
-    <span class="ag-hist-mark"><svg viewBox="0 0 24 24" fill="none" stroke="url(#souqiBag)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><defs><linearGradient id="souqiBag" x1="4" y1="4" x2="20" y2="20" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#1f8ae0"/><stop offset="1" stop-color="#22c55e"/></linearGradient></defs><path d="M5.2 8h13.6a1.4 1.4 0 0 1 1.39 1.55l-.86 9.4a1.9 1.9 0 0 1-1.89 1.75H6.56a1.9 1.9 0 0 1-1.89-1.75l-.86-9.4A1.4 1.4 0 0 1 5.2 8Z"/><path d="M8.9 10.4V4.9h6.2v5.5"/></svg></span><button type="button" class="ag-hist-search" id="agHistSearch" title="Search" aria-label="Search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.6-3.6"/></svg></button>
+    <span class="ag-hist-mark"><img src="/assets/logo.png" alt="" aria-hidden="true"></span><button type="button" class="ag-hist-search" id="agHistSearch" title="Search" aria-label="Search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.6-3.6"/></svg></button>
     <b class="ag-hist-brand-text"><span>Souqi</span><span>Code</span></b>
   </div>
 
@@ -3077,7 +3302,7 @@
     <a class="ag-hist-tab" href="/settings#integrations" title="Integrations">
       <i class="tab-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="m12 3 9 5-9 5-9-5 9-5z"/><path d="m3 12 9 5 9-5"/><path d="m3 17 9 5 9-5"/></svg></i><span class="lbl">Integrations</span></a>
 
-    <a class="ag-hist-tab" href="/settings#security" title="Security">
+    <a class="ag-hist-tab" href="/security" title="Security">
       <i class="tab-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/></svg></i><span class="lbl">Security</span></a>
   </div>
 
@@ -3465,6 +3690,7 @@
   // clearEmpty() on the first message, and by boot() when resuming an
   // existing project (which replays a real conversation instead).
   agSection.classList.add("is-new");
+  agSection.classList.remove("has-convo");   // back to the new-chat screen
   const agTypeRow = $("agTypeRow");
   const agHistOpen = $("agHistOpen"), agHistClose = $("agHistClose"), agHistBackdrop = $("agHistBackdrop"),
     agHistory = $("agHistory");
@@ -3670,12 +3896,90 @@
     const recent = $("agRecent");
     if (recent) recent.hidden = true;
     agSection.classList.remove("is-new");
+    /* has-convo is the positive statement of the same fact, and the phone
+       layout keys off it.
+
+       The CSS had been inferring "there is a conversation" two ways, and on a
+       phone both kept missing: :not(.is-new) trusts a flag to have been
+       cleared by the right code path, and :has(#agLog > *:not(.ag-empty))
+       trusts a structural guess about the log's children. This runs at the
+       one point every turn passes through — restored history calls sayUser()
+       and say() per turn, and both start here — so the class is set by the
+       thing that is actually true. */
+    agSection.classList.add("has-convo");
 
     if (!emptyShown) return;
     emptyShown = false;
     const el = $("agEmptyState");
     if (el) el.remove();
   }
+
+  /* The state is read off the log, not announced by whoever wrote to it.
+
+     clearEmpty() sets has-convo, and every chat turn calls it — but not
+     everything that fills the log is a turn. renderCard() appends the file
+     list straight to agLog and calls nothing, so reopening a project whose
+     restore produced a card and no rendered turns left .is-new in place and
+     has-convo unset: the hero stayed a padded, centred flex column and the
+     composer sat in the middle of the phone screen with the rest of the
+     column empty beneath it.
+
+     Any other path that learns to write to the log gets this for free, which
+     is the point — three separate rules had already tried to infer this fact
+     and each of them missed a different case. */
+  function syncConvoState() {
+    if (!agLog || !agSection) return;
+    var real = agLog.querySelector(":scope > *:not(.ag-empty)");
+    agSection.classList.toggle("has-convo", !!real);
+    if (real) agSection.classList.remove("is-new");
+  }
+  if (typeof MutationObserver === "function" && agLog) {
+    new MutationObserver(syncConvoState).observe(agLog, { childList: true });
+    syncConvoState();
+  }
+
+  /* The phone layout reserves room under the log for the fixed composer, and
+     the only honest source for that number is the composer itself — it grows
+     as the textarea does. Published as --composer-h for the CSS to read.
+
+     The first version published once and then only when the composer's SIZE
+     changed, which is not enough. The bar is only fixed on a phone and only
+     once a conversation exists, so the first measurement can be taken while
+     it is still part of the centred new-chat hero — and if its height never
+     changes afterwards, that reading sticks forever. A number too large by
+     290px puts the log's padding at 410px and parks the last message 300
+     pixels above the bar, with the top of the conversation scrolled out of
+     sight: the exact symptom, reproduced by setting the variable by hand.
+
+     So: re-measure on anything that can change the answer, and refuse a
+     reading that cannot be right. */
+  (function () {
+    var comp = document.querySelector(".ag-composer");
+    var ag = document.querySelector("section.ag");
+    if (!comp) return;
+
+    /* A composer on a phone is one textarea row and a button row. Anything
+       past this is a measurement taken in some other layout, not a bar we
+       should reserve room for. */
+    var MAX_SANE = 260;
+    var FALLBACK = 110;
+
+    function publish() {
+      var h = Math.round(comp.getBoundingClientRect().height);
+      if (!h || h > MAX_SANE) h = FALLBACK;
+      document.documentElement.style.setProperty("--composer-h", h + "px");
+    }
+
+    if (typeof ResizeObserver === "function") new ResizeObserver(publish).observe(comp);
+    /* The layout mode is carried on .ag's class list — is-new, has-convo,
+       tab-hidden all change what the bar is — so re-measure when it moves. */
+    if (typeof MutationObserver === "function" && ag) {
+      new MutationObserver(publish).observe(ag, { attributes: true, attributeFilter: ["class"] });
+    }
+    addEventListener("resize", publish);
+    addEventListener("orientationchange", publish);
+    publish();
+  })();
 
   function el(cls, html) { const d = document.createElement("div"); d.className = cls; if (html != null) d.innerHTML = html; return d; }
   function esc(t) { const d = document.createElement("span"); d.textContent = t == null ? "" : t; return d.innerHTML; }
@@ -5318,61 +5622,13 @@
   document.addEventListener("visibilitychange", () => { if (!document.hidden) loadProviders(); });
 
 
-  // Voice Input Speech Recognition
-  const agVoiceBtn = $("agVoiceBtn");
-  const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (SpeechRec && agVoiceBtn) {
-    const recognition = new SpeechRec();
-    recognition.continuous = true;
-    recognition.interimResults = true;
-    recognition.lang = "en-US";
-    let isListening = false;
-
-    agVoiceBtn.addEventListener("click", () => {
-      if (!isListening) {
-        try {
-          recognition.start();
-          isListening = true;
-          agVoiceBtn.classList.add("listening");
-          agVoiceBtn.title = "Listening... Click to stop";
-        } catch (e) {
-          console.warn("Speech recognition error:", e);
-        }
-      } else {
-        recognition.stop();
-        isListening = false;
-        agVoiceBtn.classList.remove("listening");
-        agVoiceBtn.title = "Voice Input Mode — Speak to type";
-      }
-    });
-
-    recognition.onresult = (event) => {
-      let currentTranscript = "";
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        currentTranscript += event.results[i][0].transcript;
-      }
-      if (currentTranscript.trim()) {
-        agInput.value = currentTranscript;
-        agInput.dispatchEvent(new Event("input"));
-      }
-    };
-
-    recognition.onend = () => {
-      isListening = false;
-      agVoiceBtn.classList.remove("listening");
-      agVoiceBtn.title = "Voice Input Mode — Speak to type";
-    };
-
-    recognition.onerror = (e) => {
-      console.warn("Speech recognition error:", e);
-      isListening = false;
-      agVoiceBtn.classList.remove("listening");
-    };
-  } else if (agVoiceBtn) {
-    agVoiceBtn.addEventListener("click", () => {
-      alert("Voice input is not supported in this browser. Please try Google Chrome or MS Edge.");
-    });
-  }
+  /* Voice input lives in js/voice-input.js now. It was forty lines here
+     and the same forty in home.html — the same four bugs in two places,
+     and a fix that only ever landed on one of them. The module wants
+     nothing but the button and the textarea: it writes .value and fires
+     `input`, so the counter and send-state listener below picks the
+     change up exactly as it does for typing. */
+  SouqiVoice.attach({ button: $("agVoiceBtn"), input: agInput });
   /* Mirrors MAX_PROMPT_CHARS in server/index.js. Duplicated rather than
      fetched: this is a hint, and a hint that needs a round trip to appear
      is worse than one that is occasionally a version behind. The server
@@ -5764,13 +6020,32 @@
   // iframe to a URL differing only in hash won't reload it — the settings
   // page listens for hashchange too, but assigning src is what makes the
   // FIRST open land on the right panel.
+  /* Closing belongs to the container too: .closing runs the reverse
+     animation and the overlay only goes [hidden] once it has finished.
+     A timer rather than animationend so a browser that never fires the
+     event — or reduced motion, where the animation is a no-op — still
+     ends with the overlay actually hidden. */
+  const SETTINGS_CLOSE_MS = 150;
+  let settingsCloseTimer = 0;
   function openSettings(panel) {
+    // Re-opening mid-close must cancel it, or the pending timer would
+    // hide the overlay again a moment after it was asked to appear.
+    clearTimeout(settingsCloseTimer);
+    agSetOverlay.classList.remove("closing");
     const src = "/settings" + (panel ? "#" + panel : "");
     if (agSetFrame.getAttribute("src") !== src) agSetFrame.setAttribute("src", src);
     agSetOverlay.hidden = false;
     if (window.SouqiLoading) window.SouqiLoading.hide();
   }
-  function closeSettings() { agSetOverlay.hidden = true; }
+  function closeSettings() {
+    if (agSetOverlay.hidden) return;
+    clearTimeout(settingsCloseTimer);
+    agSetOverlay.classList.add("closing");
+    settingsCloseTimer = setTimeout(function () {
+      agSetOverlay.classList.remove("closing");
+      agSetOverlay.hidden = true;
+    }, SETTINGS_CLOSE_MS);
+  }
   agSetOverlay.addEventListener("click", (e) => { if (e.target === agSetOverlay) closeSettings(); });
   // The settings page's own X is inside the iframe, so it can't reach this
   // handler directly — it posts up instead (see settings.html).
@@ -5780,7 +6055,14 @@
   // Any <a href="/settings"> or <a href="/pricing"> anywhere on the page
   // (e.g. the workspace dropdown or account gear) opens the overlay instead of navigating.
   document.addEventListener("click", (e) => {
-    if (e.target.closest("#agUserMain") || e.target.closest("#agUserGear")) {
+    if (e.target.closest("#agUserMain")) {
+      e.preventDefault();
+      /* Signed out, this row is labelled Sign in and there is no account
+         for the settings panel to be about — so it goes where it says. */
+      if (!document.body.dataset.signedIn) { location.href = "/login"; return; }
+      openSettings(); return;
+    }
+    if (e.target.closest("#agUserGear")) {
       e.preventDefault(); openSettings(); return;
     }
     const a = e.target.closest('a[href^="/settings"], a[href^="/pricing"], .ag-upgrade');
@@ -5794,8 +6076,15 @@
     }
   });
 
-  function openHistory() { agHistory.classList.add("on"); agHistBackdrop.classList.add("on"); }
-  function closeHistory() { agHistory.classList.remove("on"); agHistBackdrop.classList.remove("on"); }
+  /* Both go through toggleSidebar() rather than setting .on themselves.
+
+     These two moved the rail and the backdrop and nothing else, so opening
+     the sidebar this way left agDeskSidebarToggle without its .on class --
+     and the phone rule #agDeskSidebarToggle:not(.on){display:none} then kept
+     the close button hidden behind an open panel, with no way back out of it
+     except the backdrop. toggleSidebar() moves all four in step. */
+  function openHistory() { window.toggleSidebar(true); }
+  function closeHistory() { window.toggleSidebar(false); }
   if (agHistOpen) agHistOpen.addEventListener("click", openHistory);
   if (agHistClose) agHistClose.addEventListener("click", closeHistory);
   agHistBackdrop.addEventListener("click", closeHistory);
@@ -6024,6 +6313,8 @@
   }
 
   fetch("/api/account/me").then((r) => r.json()).then((d) => {
+    // Read by the rail's account row to decide between Settings and /login.
+    document.body.dataset.signedIn = d.signedIn ? "1" : "";
     if (d.signedIn) {
       const who = d.name || (d.email || "").split("@")[0] || "You";
       $("agUserNm").textContent = who;

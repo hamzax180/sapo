@@ -19,7 +19,6 @@
     "eval:nlu": "node ../scripts/train-classifier.js --eval",
     "test:agent": "node agent-test.js",
     "test:nlu": "node nlu-test.js",
-    "test:claim": "node claim-test.js",
     "test:project": "node project-test.js",
     "test:sse": "node sse-test.js",
     "test:refine": "node refine-test.js",
@@ -32,10 +31,11 @@
     "test:daytona-runtime": "node daytona-runtime-test.js",
     "test:ai-client": "node ai-client-test.js",
     "test:model-loop": "node model-loop-test.js",
-    "ci": "npm run check:schema && npm run check:nlu && npm run lint && npm test && npm run test:nlu && npm run test:agent && npm run test:claim && npm run test:project && npm run test:sse && npm run test:refine && npm run test:microclaim && npm run test:isolation && npm run test:secrets && npm run test:stripe && npm run test:ai-client && npm run test:model-loop && npm run test:csp && npm run smoke-test",
+    "ci": "npm run check:schema && npm run check:nlu && npm run lint && npm test && npm run test:nlu && npm run test:agent && npm run test:project && npm run test:sse && npm run test:refine && npm run test:microclaim && npm run test:isolation && npm run test:secrets && npm run test:stripe && npm run test:ai-client && npm run test:model-loop && npm run test:csp && npm run test:voice && npm run smoke-test",
     "test:stripe": "node stripe-test.js",
     "test:secrets": "node secretscan-test.js",
-    "test:csp": "node csp-test.js"
+    "test:csp": "node csp-test.js",
+    "test:voice": "node voice-test.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.122.0",

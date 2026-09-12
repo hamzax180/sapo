@@ -835,7 +835,45 @@
     .chero-sub{order:2}
     .chero-demo{order:3}
     .chero-auth{order:4}
+
+    /* ...and then the card is lifted back ONTO the demo, because stacked in
+       full both of them do not fit a phone. Measured at 390x844 before this:
+       the demo ran 272-674 and the card 726-1059, so only the top 118px of a
+       333px card was on screen and the password field was a 215px scroll
+       away. Overlapping costs nothing that matters — what the card covers is
+       the demo's lower third, while the URL bar, the building indicator and
+       the storefront hero all stay visible above it.
+
+       Both numbers are viewport-relative so this holds on a 667px SE as well
+       as an 844px phone, rather than being tuned to one device. The cap
+       crops rather than squashes: .cdemo is already overflow:hidden. */
+    .chero-demo{position:relative;z-index:1}
+    .cdemo{max-height:min(402px,42vh)}
+    .chero-auth{position:relative;z-index:3;margin-top:calc(-1 * clamp(150px,30vh,250px))}
   }
+  /* SHORT phones, by height rather than width. The overlay above fits a
+     390x844 phone with room to spare, but a 667px-tall SE cannot hold a
+     3.6rem headline, a two-line sub, a demo AND a 333px card at once — once
+     the header and the copy have taken their 204px there are about 130
+     pixels left for the demo, which is browser chrome and nothing else.
+
+     So the copy gives way, and only here: the headline comes down, the
+     gaps tighten, and the demo crops a little further. Tall phones keep the
+     full-bleed hero exactly as it was — this is scoped to max-height so it
+     cannot reach them. */
+  @media (max-width:600px) and (max-height:740px){
+    .chero-grid{gap:16px}
+    .chero-h{font-size:clamp(1.85rem,7.6vw,2.35rem);margin-left:-4px;margin-right:-4px}
+    .chero-sub{font-size:.88rem;line-height:1.45}
+    .cdemo{max-height:33vh}
+    .chero-auth{margin-top:calc(-1 * clamp(120px,21vh,170px))}
+    /* Take the last 20-odd pixels out of the CARD rather than out of the
+       demo. Overlapping further would have left only browser chrome showing,
+       and the padding is the one thing here nobody is reading. */
+    .cauth-card{padding:17px}
+    .cauth-note{font-size:.72rem}
+  }
+
   /* tablet / iPad: keep the login card and the demo side-by-side so both
      fit on one screen instead of stacking awkwardly */
   @media (min-width:601px) and (max-width:960px){
@@ -1601,12 +1639,6 @@
 </section>
 
 
-<script src="js/config.js?v=28"></script>
-<script src="js/seed.js?v=28"></script>
-<script src="js/sample-data.js?v=28"></script>
-<script src="js/industries.js?v=28"></script>
-<script src="js/store.js?v=28"></script>
-<script src="js/ui.js?v=28"></script>
 <script>
 (function(){
   var I=function(p){return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'+p+'</svg>';};
@@ -1930,7 +1962,6 @@
 (function () {
   function boot() {
     // If already signed in, go straight to Souqi Code.
-    try { if (window.Auth && Auth.current && Auth.current()) { location.href = "/agent"; return; } } catch (e) {}
     if (location.hash && location.hash.indexOf("#/track") === 0) { location.href = "/" + location.hash; return; }
 
     // Claude-style flow: enter email, then reveal the password step.
@@ -1995,12 +2026,7 @@
     } catch (e) {}
   }
 
-  // Give the app scripts a chance to initialise, then wire everything.
-  if (window.Store && Store.init) {
-    Promise.resolve(Store.init()).then(boot, boot);
-  } else {
-    boot();
-  }
+  boot();
 })();
 </script>
 

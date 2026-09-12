@@ -144,7 +144,12 @@
     .fade-up,.fade-in,.stagger > *{animation-duration:1ms;animation-delay:0ms;--fade-up-shift:0px}
   }
 
-  html, body{background:var(--paper);overscroll-behavior-x:none;overflow-x:hidden}
+  /* clip, not hidden. overflow-x:hidden turns the element into a scroll
+     container, and a scroll container silently breaks position:sticky in
+     every descendant — which is why the rail rode up off the top of the page
+     while the list scrolled instead of staying locked to the viewport. clip
+     stops the same horizontal overflow without creating that container. */
+  html, body{background:var(--paper);overscroll-behavior-x:none;overflow-x:clip}
   .ag-main, .wrap{overflow-x:hidden}
   body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--body);-webkit-font-smoothing:antialiased;display:flex;min-height:100vh}
   a{color:inherit;text-decoration:none}
@@ -160,15 +165,51 @@
      scrollbar — left alone it renders the OS default, which on Windows is
      a wide grey trough that looks like a 2010 desktop app bolted onto the
      side of the page. Same treatment the app list already gets. */
-  .ag-main{flex:1;min-width:0;display:flex;flex-direction:column;height:100vh;overflow-y:auto;
-    scrollbar-width:thin;scrollbar-color:rgba(128,128,128,.35) transparent}
-  .ag-main::-webkit-scrollbar{width:8px}
-  .ag-main::-webkit-scrollbar-track{background:transparent}
-  .ag-main::-webkit-scrollbar-thumb{background:rgba(128,128,128,.32);border-radius:8px}
-  .ag-main::-webkit-scrollbar-thumb:hover{background:rgba(128,128,128,.5)}
+  /* One scroller, and it is the window's. .ag-main used to be its own
+     height:100vh overflow:auto container, so the page carried TWO tracks —
+     an inner one a few hundred pixels in from the edge, plus the real one at
+     the window edge — for a single list of apps. The column now grows with
+     its content and the document scrolls, which is also why the rail below
+     has to become sticky: as a plain flex item it would scroll away with it. */
+  .ag-main{flex:1;min-width:0;display:flex;flex-direction:column}
+  /* The one remaining scrollbar. Inset with a transparent border and
+     background-clip so the thumb reads as a floating pill rather than a bar
+     welded to the window edge. Firefox gets the standard properties, scoped
+     so they cannot override the rules above in Chromium. */
+  html::-webkit-scrollbar{width:10px;height:10px}
+  html::-webkit-scrollbar-track{background:transparent}
+  html::-webkit-scrollbar-thumb{background:rgba(128,128,128,.32);border-radius:99px;
+    border:2px solid transparent;background-clip:content-box}
+  html::-webkit-scrollbar-thumb:hover{background:rgba(128,128,128,.55);
+    border:2px solid transparent;background-clip:content-box}
+  @supports (-moz-appearance:none){
+    html{scrollbar-width:thin;scrollbar-color:rgba(128,128,128,.35) transparent}
+  }
+  /* Scrollbars on this page's chrome. Deliberately webkit-only: Chromium
+     honours scrollbar-width / scrollbar-color OVER ::-webkit-scrollbar, so
+     declaring those makes every rule below them dead and brings back the
+     full-width OS bar with arrow buttons — which is exactly what was on
+     screen here. Firefox, which has no ::-webkit-scrollbar, is handled
+     separately at the bottom.
+
+     The rail gets no bar at all. It is chrome, it scrolls only on a short
+     window, and a scrollbar down the side of the navigation is the thing
+     being complained about. Wheel and touch still scroll it.
+
+     The main column keeps a thumb, because a list of fifty apps needs the
+     affordance — but a thin tinted one that only appears once the pointer
+     is actually over the column. */
+  .ag-history::-webkit-scrollbar{width:0;height:0}
+  @supports (-moz-appearance:none){
+    .ag-history{scrollbar-width:none}
+  }
 
   /* ---- sidebar: same shell as /projects so navigation feels continuous ---- */
-  .ag-history{position:relative !important;height:100vh;flex:0 0 0px;
+  /* sticky, not relative: the page is what scrolls now, and a relative rail
+     at height:100vh would ride up out of view with it. align-self keeps it
+     from being stretched to the full document height, which is what sticky
+     needs in order to stick at all. */
+  .ag-history{position:sticky !important;top:0;align-self:flex-start;height:100vh;flex:0 0 0px;
     width:0;min-width:0;max-width:var(--sb-w);overflow:hidden;
     background:var(--paper);border-right:0 solid var(--line);box-sizing:border-box;
     transition:width .26s var(--ease),flex-basis .26s var(--ease),border-color .26s var(--ease);
@@ -178,7 +219,7 @@
   /* --- header: logo left, controls right --- */
   .ag-hist-head{display:flex;align-items:center;gap:8px;padding:10px 10px 12px 12px;width:100%;box-sizing:border-box}
   .ag-hist-mark{width:28px;height:28px;display:grid;place-items:center;flex:none}
-  .ag-hist-mark svg{width:23px;height:23px;display:block;overflow:visible}
+  .ag-hist-mark img{width:23px;height:23px;display:block;object-fit:contain;border-radius:5px}
   /* Sits between the mark and the toggle, the way the reference does.
      margin-left:auto pushes it to the right end of the header; the right
      margin is the width the fixed toggle occupies at the very edge. */
@@ -256,11 +297,30 @@
   .ag-hist-chats{flex:1 1 auto;min-height:0;
     display:flex;flex-direction:column;padding:2px 0 4px}
   .ag-chats-ttl{font-size:.655rem;font-weight:450;color:var(--mut);padding:10px 10px 4px;flex:0 0 auto}
-  .ag-chats-list{flex:1 1 auto;min-height:0;overflow-y:auto;padding:0 var(--sb-pad) 4px;scrollbar-width:thin;scrollbar-color:var(--line) transparent;display:flex;flex-direction:column;gap:2px}
+  /* No scrollbar-width / scrollbar-color on this rule, deliberately.
+     Chromium honours the standard properties OVER ::-webkit-scrollbar, so
+     setting them made the six-pixel rules below dead code and handed the
+     rail a ten-pixel standard scrollbar instead — a visible bar eating
+     sidebar width to scroll three recent projects. Measured in this
+     browser: these webkit rules alone give the 6px asked for, adding
+     scrollbar-width:thin widens it to 10px, and scrollbar-color without a
+     width falls all the way back to the 15px default with arrow buttons.
+
+     The thumb is transparent until the rail is hovered, so at rest nothing
+     shows at all. The 6px gutter stays reserved either way, which is what
+     stops the list shifting sideways when the thumb appears. */
+  .ag-chats-list{flex:1 1 auto;min-height:0;overflow-y:auto;padding:0 var(--sb-pad) 4px;display:flex;flex-direction:column;gap:2px}
   .ag-chats-list::-webkit-scrollbar{width:6px;height:6px}
   .ag-chats-list::-webkit-scrollbar-track{background:transparent}
-  .ag-chats-list::-webkit-scrollbar-thumb{background:var(--line);border-radius:99px}
+  .ag-chats-list::-webkit-scrollbar-thumb{background:transparent;border-radius:99px}
+  .ag-history:hover .ag-chats-list::-webkit-scrollbar-thumb{background:var(--line)}
   .ag-chats-list::-webkit-scrollbar-thumb:hover{background:var(--mut)}
+  /* Firefox has no ::-webkit-scrollbar at all, so without this it would get
+     a full-width classic bar — the very thing being removed above. Scoped
+     to Firefox so it cannot re-break Chromium. */
+  @supports (-moz-appearance:none){
+    .ag-chats-list{scrollbar-width:thin;scrollbar-color:var(--line) transparent}
+  }
   /* Rows keep their own height. A flex column shrinks its children before
      it overflows, and these had overflow:hidden so their min-content height
      was zero — 20 projects did not make the list scroll, they made every
@@ -338,7 +398,23 @@
                           list reads as a short list. */
   @media (min-height:660px){ .ag-hist-chats{min-height:clamp(96px,18vh,260px)} }
   @media (min-height:560px) and (max-height:659px){ .ag-hist-chats{min-height:76px} }
-  @media (max-height:700px){ .ag-hist-install,.ag-hist-links{display:none} }
+  /* Compressed, not deleted.
+
+     These two rows were display:none below 700px, and 700px of viewport is
+     more than a laptop usually has once the browser's own chrome is taken
+     off the screen — so "Install Souqi on ... Changelog" and the
+     Terms / Privacy / Plans line were simply absent for most people, on
+     every page with this rail. They are two 14px rows: the room comes from
+     tightening what sits around them and letting the chat list give up a
+     little more of its minimum, which it can afford because it scrolls. */
+  @media (max-height:700px){
+    .ag-hist-install{font-size:.68rem;gap:4px;margin-top:5px}
+    .ag-hist-install svg{width:12px;height:12px}
+    .ag-hist-links{font-size:.67rem;gap:7px;margin-top:4px}
+    .ag-hist-chats{min-height:56px}
+    .ag-hist-foot{padding-top:8px;padding-bottom:8px}
+    .ag-meter-row{padding:2px 0}
+  }
   @media (max-height:620px){
     .ag-meter-row .lab i{display:inline;margin-left:6px}
     .ag-meter-row{padding:1px 0}
@@ -410,8 +486,32 @@
 
     .ag-history:not(.on):not(:hover):not(.hover-open) .ag-ws .chev,
     .ag-history:not(.on):not(:hover):not(.hover-open) .ag-chats-ttl,
-    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-hist-foot,
-    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-user-gear{display:none !important}
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-hist-foot{display:none !important}
+
+    /* Settings keeps its icon on the collapsed rail. Hiding it left the one
+       route into Settings only reachable by first widening the sidebar — and
+       every other item in that rail survives the collapse as an icon, so the
+       gear disappearing read as a missing feature rather than a tidier rail.
+
+       Stacked, not side by side. The user row is a flex ROW, so putting the
+       gear back next to the avatar asked a 44px rail to hold a 32px avatar,
+       a 30px gear and the gap between them: the avatar lost, squeezed to
+       12px, and the pair still ran to the rail's edge. Avatar over gear is
+       how the phone rail already does it — this is the same treatment, which
+       the desktop rules had simply never been given. */
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-hist-user{
+      flex-direction:column;align-items:center;gap:4px;
+      padding-left:0 !important;padding-right:0 !important}
+    /* gap:0, like the tab and workspace rows above. The name beside the
+       avatar is collapsed to max-width:0 rather than removed, so it keeps
+       its transition — but a zero-width flex item is still a flex item, and
+       the 8px gap in front of it was being centred along with the circle.
+       That pushed the avatar 4px left of the rail's centre line, out of step
+       with the gear beneath it and every status dot above. */
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-user-main{
+      flex:none;width:32px;padding:5px 0;justify-content:center;gap:0}
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-user-gear{
+      display:grid !important;flex:none;width:30px;height:24px}
 
     /* Click-opened, so letting it render inside a panel that vanishes on
        mouse-out would strand it. */
@@ -570,7 +670,7 @@
     .ag-history:not(.on) .ag-tab-new{background:transparent;box-shadow:none}
     .ag-history:not(.on) .ag-hist-user{background:transparent}
     .ag-history:not(.on) .ag-hist-user{flex-direction:column;gap:3px;padding-left:0;padding-right:0}
-    .ag-history:not(.on) .ag-user-main{flex:none;width:32px;padding:5px 0;justify-content:center}
+    .ag-history:not(.on) .ag-user-main{flex:none;width:32px;padding:5px 0;justify-content:center;gap:0}
     .ag-history:not(.on) .ag-user-gear{display:grid !important;flex:none;width:30px;height:24px}
     /* Matches this page's own desktop rail, which hides the footer entirely:
        the plan card, meters and legal links have no 44px form, and left
@@ -619,6 +719,12 @@
   .btn-d:disabled,.btn-g:disabled{opacity:.55;cursor:not-allowed}
   .btn-danger{padding:9px 15px;border:1px solid rgba(217,45,32,.35);border-radius:10px;background:transparent;color:var(--danger);font-size:.86rem;font-weight:600;cursor:pointer;transition:.16s}
   .btn-danger:hover{background:rgba(217,45,32,.08)}
+  /* Armed only once the name matches. The guard already existed, but it
+     fired as a toast AFTER the click — you learned the rule by breaking it.
+     Showing the button dimmed says the same thing before you reach for it,
+     and the click-time check stays as the thing that actually enforces it. */
+  .btn-danger[disabled]{opacity:.4;cursor:not-allowed}
+  .btn-danger[disabled]:hover{background:transparent}
   /* Two-word labels in a flex row with no wrapping budget: at narrow widths
      "Open builder" broke onto three lines and the pair grew taller than the
      page heading below it. */
@@ -733,11 +839,21 @@
      to a fixed corner glow rather than to nothing. */
   .app::after{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;
     z-index:0;opacity:0;transition:opacity .3s var(--ease);
+    /* A neutral wash, not the type colour. --tile still identifies the app on
+       its tile mark, but bathing the whole card in cyan or magenta on hover
+       made the grid flicker between unrelated hues as the pointer crossed it,
+       and said nothing a glance at the tile does not already say. One grey
+       lift for every card, so hover reads as "this one" rather than as a
+       second, louder colour system. */
     background:radial-gradient(420px circle at var(--mx,16%) var(--my,0%),
-      var(--tile,var(--accent)),transparent 62%)}
-  .app:hover{border-color:var(--card-hover-border);box-shadow:var(--card-hover-shadow);transform:translateY(-2px)}
+      rgba(190,198,208,.55),transparent 62%)}
+  /* Hover changes the card's COLOUR, never its position. The lift and the
+     tile's scale-and-rotate meant the icon you were pointing at slid out from
+     under the cursor, and on a grid of these the whole page twitched as the
+     pointer crossed it. */
+  .app:hover{border-color:var(--card-hover-border);box-shadow:var(--card-hover-shadow)}
   .app:hover::after{opacity:.09}
-  .app:hover .tile{transform:scale(1.06) rotate(-1.5deg)}
+  .app:hover .tile{transform:none}
   /* A focus ring is not a hover state. Keyboard users were getting the mouse
      treatment and no ring at all. */
   .app:focus-visible{outline:2px solid var(--accent);outline-offset:2px;
@@ -747,14 +863,122 @@
   /* One inline --tile drives the fill, the inner highlight and the drop glow.
      The wash over it is fixed white-to-black, so every identity colour gets
      the same light without needing a second value per card. */
+  /* A dark square with the type mark in the type's colour — the same tile
+     the builder's recent-projects grid uses. --tile is still the card's
+     identity colour (it drives the hover glow below), but it now means
+     something: a website card glows cyan, a game card red. */
   .app .tile{width:36px;height:36px;border-radius:11px;display:grid;place-items:center;flex:none;
-    font-family:var(--disp);font-weight:700;font-size:1.02rem;color:#fff;
-    background-color:var(--tile);
-    background-image:linear-gradient(152deg,rgba(255,255,255,.32),rgba(255,255,255,0) 46%,rgba(0,0,0,.22));
-    box-shadow:0 4px 12px -5px var(--tile),inset 0 1px 0 rgba(255,255,255,.36),
-      inset 0 0 0 1px rgba(0,0,0,.09);
-    text-shadow:0 1px 2px rgba(0,0,0,.22);
+    font-family:var(--disp);font-weight:700;font-size:1.02rem;
+    color:var(--tile);background:#0f0f0f;
+    box-shadow:0 4px 12px -6px var(--tile),inset 0 0 0 1px rgba(255,255,255,.07);
     transition:transform .24s var(--ease)}
+  .app .tile svg{width:20px;height:20px}
+
+  /* ---- card preview -----------------------------------------------------
+     A real miniature of the running app: the deployed site itself in an
+     iframe, scaled down. A full 1280px frame scaled with transform, not a
+     small iframe — a 300px-wide viewport makes a responsive site render its
+     MOBILE layout, which is not what the app looks like.
+
+     Only an app that is RUNNING gets one. Everything else shows its type
+     mark: a Souqi Code project is React/TSX until something builds it — not
+     one revision in this database holds an .html file — so there is no
+     document to put in a frame, and a grey placeholder dressed up as a
+     screenshot would be a lie about that. */
+  .pv{position:relative;display:block;width:100%;aspect-ratio:16/10;overflow:hidden;
+    border-radius:10px;background:var(--paper-2);border:1px solid var(--line);margin:10px 0 0}
+  /* pointer-events:none — the card is the click target, and a live app inside
+     it must not swallow the click or scroll the grid. */
+  .pv iframe{position:absolute;top:0;left:0;width:1280px;height:800px;border:0;
+    transform-origin:0 0;pointer-events:none;background:#fff}
+  .pv.loading::after{content:"";position:absolute;inset:0;
+    background:linear-gradient(90deg,transparent,rgba(139,152,165,.10),transparent);
+    transform:translateX(-100%);animation:sweep 1.4s var(--ease) infinite}
+  .pv-none{position:absolute;inset:0;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;gap:10px;padding:0 14px}
+  .pv-none i{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;
+    flex:none;background:#0f0f0f;color:var(--tile);box-shadow:inset 0 0 0 1px rgba(255,255,255,.07)}
+  .pv-none i svg{width:18px;height:18px}
+  .pv-none b{font-size:.72rem;font-weight:500;color:var(--mut);text-align:center;line-height:1.4}
+
+  /* Open sits in the card header now, beside the status pill, rather than in
+     a panel header the card no longer has. */
+  .dt-open{font-size:.78rem;font-weight:600;color:var(--accent);margin-top:3px}
+  .dt-open:hover{text-decoration:underline}
+  /* A shape, not just a height. The app is always rendered at 1280x800 — a
+     real desktop viewport — and that frame is scaled to FIT this box, so the
+     preview looks like the site looks on a desktop no matter how wide the
+     panel happens to be. Sizing the iframe to the panel instead handed the
+     app a 1353x470 viewport and it laid itself out for that, which is not a
+     preview of anything anyone will see. */
+  .dt-live{position:relative;width:100%;flex:1;min-height:clamp(300px,46vh,520px);
+    overflow:hidden;background:var(--paper-2)}
+  /* pointer-events:none deliberately: the app is here to be SEEN. A 3D scene
+     that grabs the wheel would trap the page scroll, and Open is right there
+     for actually using it. */
+  .dt-live iframe{position:absolute;top:0;left:0;width:1280px;height:800px;border:0;
+    transform-origin:0 0;pointer-events:none}
+  /* Centred icon over centred text, the same placeholder the cards grid
+     shows — so "nothing to preview" looks the same wherever you meet it. */
+  .dt-live-off{display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:12px;background:var(--paper-2);color:var(--mut);font-size:.82rem;
+    text-align:center;padding:0 20px}
+  .dt-live-off i{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;
+    flex:none;background:#0f0f0f;color:var(--tile);
+    box-shadow:inset 0 0 0 1px rgba(255,255,255,.07)}
+  .dt-live-off i svg{width:20px;height:20px}
+  /* The log box fills its column instead of the fixed 420px it had when it
+     was a full-width panel with nothing beside it. */
+  /* max-height:none was mine, and it is what made a long build run off the
+     end of the page — the base .logs rule caps at 420px for exactly this
+     reason. Bounded again, and it scrolls inside itself. */
+  .dt-logs .logs{min-height:clamp(220px,26vh,320px);
+    max-height:clamp(280px,40vh,460px);overflow-y:auto;overflow-x:auto}
+
+
+  /* A scrollbar worth looking at, on a terminal that is worth reading.
+     A gradient pill floating inside a transparent border, brightening under
+     the pointer — and webkit-only, because Chromium honours scrollbar-width
+     and scrollbar-color OVER these rules and would hand back the flat
+     platform bar instead. Firefox gets the thin tinted one below. */
+  .dt-logs .logs::-webkit-scrollbar{width:12px;height:12px}
+  .dt-logs .logs::-webkit-scrollbar-track{background:transparent}
+  .dt-logs .logs::-webkit-scrollbar-corner{background:transparent}
+  .dt-logs .logs::-webkit-scrollbar-thumb{
+    background:linear-gradient(180deg,rgba(125,145,175,.58),rgba(88,108,138,.46));
+    border-radius:99px;border:3px solid transparent;background-clip:content-box}
+  .dt-logs .logs::-webkit-scrollbar-thumb:hover{
+    background:linear-gradient(180deg,rgba(158,184,220,.85),rgba(112,138,175,.65));
+    border:3px solid transparent;background-clip:content-box}
+  .dt-logs .logs::-webkit-scrollbar-thumb:active{
+    background:linear-gradient(180deg,var(--accent),rgba(112,138,175,.8));
+    border:3px solid transparent;background-clip:content-box}
+  @supports (-moz-appearance:none){
+    .dt-logs .logs{scrollbar-width:thin;scrollbar-color:rgba(125,145,175,.6) transparent}
+  }
+
+  /* Pipeline and controls, one panel under the split. */
+  .dt-run-body{padding:16px 20px 18px}
+  .dt-run-body .acts{margin-top:16px}
+  .dt-run-body .steps{margin:0}
+  .dt-run .panel-h b{flex:none}
+  .run-meta{flex:1;min-width:0;font-size:.76rem;color:var(--mut);
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  /* What the beads mean, in words. Four circles and a filling bar say which
+     stage you are at but never what that stage IS, and "Starting" is not
+     self-explanatory when you are waiting on it. */
+  .run-say{margin-top:14px;font-size:.82rem;color:var(--ink-2);line-height:1.55}
+  .run-say b{font-weight:600;color:var(--ink)}
+  /* And what the buttons do. Redeploy, Stop and Restart are three verbs with
+     real consequences for something that is live, offered with no indication
+     of which one keeps your data or your address. */
+  .dt-run-note{margin-top:12px;font-size:.79rem;color:var(--mut);line-height:1.55;max-width:78ch}
+  /* A live site should take two clicks to take down. The button arms itself
+     rather than opening a dialog — same gesture, one extra beat, and it
+     disarms on its own if it was a misclick. */
+  .btn-g.arming{border-color:rgba(217,45,32,.5);color:var(--danger);
+    background:rgba(217,45,32,.07)}
+  @media (prefers-reduced-motion:reduce){ .pv.loading::after{animation:none} }
   .app .nm{flex:1;min-width:0}
   /* Two lines, then ellipsis. One nowrap line cut "A portfolio site for a
      photographer" mid-word with nowhere to recover it from; the element also
@@ -797,13 +1021,113 @@
   .back{display:inline-flex;align-items:center;gap:7px;color:var(--ink-2);font-size:.86rem;font-weight:500;cursor:pointer;border:0;background:none;padding:0;margin-bottom:16px}
   .back:hover{color:var(--ink)}
   .back svg{width:15px;height:15px}
-  .hero{border:1px solid var(--line);background:var(--card);border-radius:16px;padding:20px 22px;margin-bottom:16px}
-  .hero .h-top{display:flex;align-items:flex-start;gap:14px;flex-wrap:wrap}
-  .hero h2{font-size:1.35rem;flex:1;min-width:0}
-  .hero .h-url{display:inline-flex;align-items:center;gap:6px;font-size:.86rem;color:var(--accent-2);font-weight:500;margin-top:6px}
-  .hero .h-url svg{width:13px;height:13px}
-  .hero .h-err{margin-top:12px;border:1px solid rgba(217,45,32,.3);background:rgba(217,45,32,.07);color:var(--danger);
-    border-radius:10px;padding:10px 12px;font-size:.85rem;line-height:1.45}
+  /* ---- the app card ------------------------------------------------------
+     The title, the preview and the health readout used to be three separate
+     bordered boxes stacked down the page: a title card that was mostly empty,
+     the preview, and a health panel stretched to the preview's height with
+     two-thirds of itself blank. They describe ONE thing, so they are one
+     card — the header names it, the body shows it running, the rail beside it
+     says how it is doing. Two card borders, a 14px gutter and a duplicated
+     status pill went with them. */
+  .dt-app{border:1px solid var(--line);background:var(--card);border-radius:16px;
+    margin-bottom:16px;overflow:hidden}
+  .dt-app-head{display:flex;align-items:flex-start;gap:14px;flex-wrap:wrap;
+    padding:18px 22px;border-bottom:1px solid var(--line)}
+  /* The same tile the cards grid and the builder's recent list draw, so one
+     app looks like itself everywhere — including on its own page, which was
+     the one place it had no face at all. */
+  .dt-app-head .tile{width:42px;height:42px;border-radius:13px;display:grid;place-items:center;
+    flex:none;color:var(--tile);background:#0f0f0f;
+    box-shadow:0 5px 14px -7px var(--tile),inset 0 0 0 1px rgba(255,255,255,.07)}
+  .dt-app-head .tile svg{width:22px;height:22px}
+  .dt-app-id{flex:1;min-width:0}
+  .dt-app-head h2{font-size:1.35rem}
+  .dt-app-head .h-url{display:inline-flex;align-items:center;gap:6px;font-size:.86rem;
+    color:var(--accent-2);font-weight:500;margin-top:6px}
+  .dt-app-head .h-url svg{width:13px;height:13px}
+  /* Full bleed inside the card: a rounded error box inside a rounded card,
+     inset on all four sides, was a third border in a design losing borders. */
+  .h-err{border-bottom:1px solid rgba(217,45,32,.3);background:rgba(217,45,32,.07);
+    color:var(--danger);padding:11px 22px;font-size:.85rem;line-height:1.45}
+
+  /* Preview and health share one row, divided by a hairline rather than by
+     two card edges and a gutter. */
+  .dt-app-body{display:grid;grid-template-columns:1.38fr .62fr}
+  .dt-app-pv{min-width:0;display:flex;flex-direction:column}
+
+  /* A window around the window. The preview was a bare rectangle of pixels
+     that could as easily have been a screenshot or a background image; a
+     chrome bar with the address in it says "this is the site, live, right
+     now" without a caption having to. */
+  .dt-chrome{display:flex;align-items:center;gap:10px;flex:none;
+    padding:9px 12px;border-bottom:1px solid var(--line);background:var(--paper-2)}
+  .dt-chrome .dots{display:flex;gap:6px;flex:none}
+  .dt-chrome .dots i{width:9px;height:9px;border-radius:50%;background:var(--line)}
+  .dt-chrome .addr{flex:1;min-width:0;text-align:center;font-family:var(--mono);
+    font-size:.72rem;color:var(--mut);background:var(--card);border:1px solid var(--line);
+    border-radius:999px;padding:3px 12px;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+  .dt-app-health{border-left:1px solid var(--line);min-width:0}
+  /* Status as a statement, not a table row. "state / running" in a key-value
+     list made the single most important fact on the page look like metadata
+     — same weight as the exit code. */
+  .dt-state{padding:17px 18px 15px;border-bottom:1px solid var(--line)}
+  .dt-state .sv{display:flex;align-items:center;gap:10px;font-family:var(--disp);
+    font-weight:700;font-size:1.12rem;letter-spacing:-.01em;text-transform:capitalize}
+  .dt-state .sv i{width:9px;height:9px;border-radius:50%;background:var(--mut);flex:none}
+  .dt-state.on .sv i{background:var(--ok);box-shadow:0 0 0 4px rgba(34,165,101,.16)}
+  .dt-state.bad .sv i{background:var(--danger);box-shadow:0 0 0 4px rgba(217,45,32,.16)}
+  .dt-state.busy .sv i{background:var(--accent);animation:halo 2s ease-in-out infinite}
+  .dt-state .ss{font-size:.77rem;color:var(--mut);margin-top:6px}
+  /* Two-up: these are short numbers, and one per full-width row was what left
+     the rail mostly empty. */
+  .dt-facts{display:flex;flex-wrap:wrap}
+  .dt-facts > div{flex:1 1 50%;min-width:0;padding:12px 18px;border-bottom:1px solid var(--line)}
+  .dt-facts > div + div{border-left:1px solid var(--line)}
+  .dt-facts .k{display:block;font-size:.68rem;letter-spacing:.1em;text-transform:uppercase;
+    color:var(--mut);font-weight:600}
+  .dt-facts .v{display:block;font-family:var(--mono);font-size:.9rem;color:var(--ink);margin-top:4px}
+  @media (max-width:1000px){
+    .dt-app-body{grid-template-columns:1fr}
+    .dt-app-health{border-left:0;border-top:1px solid var(--line)}
+  }
+
+  /* ---- the detail view on a phone ---------------------------------------
+     The header is a flex row of four things: tile, name, Open, status pill.
+     On a 352px screen the pill and Open took their natural widths and the
+     name — the only flexible item — was left with 48px, so a two-word title
+     broke across two lines in a column narrower than either word.
+
+     Giving the name a basis of "the row minus the tile" makes it claim the
+     first line; Open and the pill wrap onto the second, which is where they
+     read as actions rather than as debris around the title. */
+  @media (max-width:640px){
+    .dt-app-head{padding:14px 16px;gap:12px;align-items:center}
+    .dt-app-head .tile{width:36px;height:36px;border-radius:11px}
+    .dt-app-head .tile svg{width:19px;height:19px}
+    .dt-app-head h2{font-size:1.12rem}
+    .dt-app-id{flex:1 1 calc(100% - 48px);min-width:0}
+    .dt-open{order:3;margin-top:0}
+    .dt-app-head .pill{order:4}
+
+    /* Four controls in the logs header — day, count, Copy, Wrap, and the
+       Build/Runtime pair — cannot share one 320px line. The meta line goes
+       above them rather than squeezing the segmented control to nothing. */
+    .dt-logs .panel-h{flex-wrap:wrap;row-gap:9px}
+    .dt-logs .panel-h .log-meta{flex:1 1 100%;order:-1}
+
+    /* Stacked: two 160px cells put a label above a value with room for
+       neither. */
+    .dt-facts > div{flex:1 1 100%}
+    .dt-facts > div + div{border-left:0}
+
+    /* The address chip and the DNS record are long strings in a narrow box;
+       let them wrap instead of pushing the panel wider than the screen. */
+    .cfg-fixed code,.dns-row code{white-space:normal;word-break:break-all}
+    .dns-row{flex-wrap:wrap;row-gap:6px}
+    .dns-row .k{width:100%}
+  }
 
   /* ---- the deploy stepper: the signature element ----
      Four states the deploy plane actually reports, drawn as a track that
@@ -848,19 +1172,33 @@
      theme stops reading as a terminal, and build output is the one place
      people expect a console. */
   .logs{position:relative;background:#0d1117;max-height:420px;overflow-y:auto;overflow-x:auto}
-  .logs pre{margin:0;padding:14px 16px;font-family:var(--mono);font-size:.78rem;line-height:1.65;color:#c9d1d9;white-space:pre;min-height:80px}
+  .logs pre{margin:0;padding:12px 0;font-family:var(--mono);font-size:.78rem;line-height:1.65;
+    color:#c9d1d9;white-space:pre;min-height:80px}
+  /* Each line is its own block so a failure can be marked down its whole
+     width. Coloured text alone meant a red line and a grey line had the same
+     shape, and in five hundred lines of build output shape is what you
+     actually scan for. Joined with no newline between them — the blocks
+     provide the line breaks, and a \n as well would double-space the log. */
+  .logs .ln{display:block;padding:0 16px;border-left:2px solid transparent}
+  .logs .ln.err{color:#f87171;border-left-color:#f87171;background:rgba(248,113,113,.07)}
+  .logs .ln.sys{color:#58a6ff;border-left-color:#2f5878}
   .logs .ts{color:#4d5866;font-variant-numeric:tabular-nums}
-  .logs .err{color:#f87171}
-  .logs .sys{color:#58a6ff}
+  /* Wrapping is a choice, not a default: pre keeps a long line readable by
+     scrolling, wrap keeps it on screen. Toggled by adding a class rather than
+     re-rendering, so flipping it does not rebuild the panel — and with it the
+     live preview iframe. */
+  .logs.wrap pre,.logs.wrap .ln{white-space:pre-wrap;overflow-wrap:anywhere}
+  .dt-logs .panel-h b{flex:none}
+  .log-meta{flex:1;min-width:0;font-family:var(--mono);font-size:.73rem;color:var(--mut);
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .dt-logs .panel-h .dbmini{flex:none}
+  .dbmini.on{border-color:var(--accent);color:var(--accent)}
   .logs-empty{padding:26px 16px;color:#6e7681;font-family:var(--mono);font-size:.78rem}
   .jump{position:sticky;bottom:10px;float:right;margin-right:14px;border:0;border-radius:999px;background:var(--accent);color:#fff;
     font-size:.75rem;font-weight:600;padding:5px 12px;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.35)}
 
-  .kv{display:flex;align-items:center;gap:10px;padding:11px 16px;border-bottom:1px solid var(--line);font-size:.85rem}
-  .kv:last-child{border-bottom:0}
-  .kv .k{font-family:var(--mono);font-size:.8rem;color:var(--ink);font-weight:500;flex:none;min-width:150px}
-  .kv .v{color:var(--mut);font-family:var(--mono);font-size:.8rem;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis}
-  .kv .n{color:var(--mut);flex:1}
+  /* .kv is gone: the last key-value table row on this page became either a
+     fact cell or a value in its own right. */
 
   /* ---- database panel ---- */
   .dbnote{padding:12px 16px;font-size:.8rem;color:var(--mut);line-height:1.55;border-bottom:1px solid var(--line)}
@@ -872,30 +1210,146 @@
   .cfg-sec{display:flex;align-items:center;gap:10px;padding:13px 16px 3px;border-top:1px solid var(--line)}
   .cfg-sec b{flex:1;font-size:.84rem}
   .cfg-list{margin:0;padding:10px 16px 14px 34px;color:var(--mut);font-size:.8rem;line-height:1.8}
-  .cfg-nudge{color:var(--mut);font-size:.8rem}
-  .cfg-dns{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:0 16px 12px;font-size:.78rem;color:var(--mut)}
-  .cfg-dns code{background:var(--paper-2);border-radius:6px;padding:2px 7px;font-family:var(--mono);font-size:.78rem;color:var(--ink)}
+  /* Beside the button rather than instead of it, so it needs to sit on the
+     button's baseline instead of the top of the row. */
+  .cfg-nudge{color:var(--mut);font-size:.8rem;align-self:center}
+  /* The DNS record, shaped like the form you are about to paste it into.
+     It used to be one inline sentence — CNAME shop.x.com -> app.souqi.site —
+     and every provider asks for the same three fields in a column, so you had
+     to pick the sentence apart and retype both halves by hand. */
+  .dns-card{margin:12px 20px 0;border:1px solid var(--line);border-radius:12px;overflow:hidden}
+  .dns-row{display:flex;align-items:center;gap:12px;padding:10px 14px;
+    border-bottom:1px solid var(--line)}
+  .dns-row:last-child{border-bottom:0}
+  .dns-row .k{flex:none;width:56px;font-size:.68rem;letter-spacing:.1em;text-transform:uppercase;
+    color:var(--mut);font-weight:600}
+  .dns-row code{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+    font-family:var(--mono);font-size:.8rem;color:var(--ink)}
+  .dns-row button{flex:none;padding:4px 10px;font-size:.75rem}
+  .cfg-steps{counter-reset:s;list-style:none;margin:0;padding:10px 20px 0}
+  .cfg-steps li{counter-increment:s;position:relative;padding:0 0 8px 26px;
+    font-size:.8rem;color:var(--mut);line-height:1.55}
+  .cfg-steps li::before{content:counter(s);position:absolute;left:0;top:1px;
+    width:17px;height:17px;border-radius:50%;background:var(--paper-2);
+    border:1px solid var(--line);color:var(--ink);font-size:.66rem;font-weight:700;
+    display:grid;place-items:center}
   .cfg-acts{display:flex;gap:8px;flex-wrap:wrap;padding:0 16px 14px}
+
+  /* ---- Configure: sections, not table rows -------------------------------
+     Every piece in here — the heading, the note under it, the field, the hint
+     below the field — was a full-width row with its own bottom border, so the
+     panel was a hairline every forty pixels and nothing looked more related
+     to anything else than to everything else. One rule per SECTION now, and
+     the parts of a section sit together inside it.
+
+     Scoped to .cfg because dbPanel() shares .dbnote and .dbform and is a
+     different shape: a mode picker, not a form. */
+  /* Spacing runs one way only: every block pays for the gap ABOVE itself,
+     and the panel pays for the last one at the bottom. The sections are not
+     wrapped in anything — they are a flat run of siblings — so there is no
+     ":last element of a section" to hang a bottom margin on, and giving both
+     sides padding would have doubled it wherever two blocks met. The rule
+     between sections comes from .cfg-sec's margin-top sitting ABOVE its own
+     border. */
+  .cfg{padding-bottom:18px}
+  .cfg .cfg-sec{margin-top:18px;padding:16px 20px 0;border-top:1px solid var(--line)}
+  /* The section that opens the panel needs no rule above it — the panel
+     header already draws one. NOT :first-of-type: .panel-h is a div too, so
+     that never matched the first section and the panel opened with two
+     hairlines eighteen pixels apart. */
+  .cfg .panel-h + .cfg-sec{margin-top:0;border-top:0}
+  .cfg .cfg-sec b{font-size:.9rem}
+  .cfg .dbnote{padding:7px 20px 0;border-bottom:0;
+    /* A line of help is read, not scanned: full-bleed across 1300px it was
+       one long line your eye had to travel back across. */
+    max-width:82ch}
+  .cfg .dbform{padding:13px 20px 0;border-bottom:0}
+  /* A hostname is about twenty characters. Stretching its field the width of
+     the page made a short answer look like a long one. */
+  .cfg .dbform input{flex:0 1 360px;max-width:100%}
+  /* Disabled buttons already dim; the fields beside them did not, so a row
+     read as half available. */
+  .cfg .dbform input:disabled{opacity:.55;cursor:not-allowed;background:var(--paper-2)}
+  .cfg .cfg-hint{padding:9px 20px 0}
+  .cfg .cfg-acts{padding:14px 20px 0}
+  .cfg .cfg-env{padding:10px 20px 0}
+  .cfg .cfg-block{margin:0 0 2px;border-bottom:0}
+
+  /* ---- Database: facts, not table rows ----------------------------------
+     database / user / password / size were four full-width rows with a 150px
+     label column, so each value sat alone in the middle of 1300px with its
+     label a hand's width away and a hairline under every one. They are four
+     short strings: side by side, label above value, they read as one block of
+     credentials instead of four unrelated rows. */
+  .db-facts{display:flex;flex-wrap:wrap;border-bottom:1px solid var(--line)}
+  .db-facts > div{flex:1 1 190px;min-width:0;padding:13px 20px;
+    border-left:1px solid var(--line)}
+  .db-facts > div:first-child{border-left:0}
+  .db-facts .k{display:block;font-size:.68rem;letter-spacing:.1em;text-transform:uppercase;
+    color:var(--mut);font-weight:600}
+  .db-facts .v{display:block;font-family:var(--mono);font-size:.82rem;color:var(--ink);
+    margin-top:5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .db .dbnote{max-width:86ch}
+  /* Refresh moved up here from inside the size row, where it was a button
+     living in a data cell — it acts on the panel, not on that one value. */
+  .db .panel-h .dbmini{flex:none}
+
+  /* A value you cannot change, shown as a value rather than as a table row
+     with a lonely label in the left column. */
+  .cfg-fixed{display:flex;align-items:center;gap:11px;flex-wrap:wrap;padding:12px 20px 0}
+  .cfg-fixed code{font-family:var(--mono);font-size:.85rem;color:var(--ink);
+    background:var(--paper-2);border:1px solid var(--line);border-radius:9px;padding:7px 12px}
+  .cfg-fixed .tag{font-size:.68rem;letter-spacing:.1em;text-transform:uppercase;
+    color:var(--mut);font-weight:600}
   .cfg-block{padding:13px 16px;border-bottom:1px solid var(--line);background:color-mix(in srgb, var(--danger) 7%, transparent)}
   .cfg-block b{display:block;font-size:.85rem;color:var(--danger);margin-bottom:5px}
   .cfg-block p{margin:0 0 8px;font-size:.8rem;color:var(--mut);line-height:1.55}
   .cfg-block ul{margin:0;padding-left:18px;font-size:.8rem;line-height:1.85}
   .cfg-block code{font-family:var(--mono);font-size:.78rem;color:var(--ink)}
   .cfg-block span{color:var(--mut);font-family:var(--mono);font-size:.75rem}
-  .cfg-checks{list-style:none;margin:0;padding:8px 16px 14px}
-  .cfg-checks li{display:flex;gap:10px;align-items:baseline;padding:4px 0;font-size:.8rem}
-  .cfg-checks li::before{content:"";flex:none;width:7px;height:7px;border-radius:50%;margin-top:5px;background:var(--mut)}
-  .cfg-checks li.s-pass::before{background:var(--ok)}
-  .cfg-checks li.s-warn::before{background:var(--warn)}
-  .cfg-checks li.s-fail::before{background:var(--danger)}
-  .cfg-checks b{flex:none;min-width:132px;font-weight:600}
-  .cfg-checks span{color:var(--mut);line-height:1.5}
-  .cfg-env{list-style:none;margin:0;padding:6px 16px 0}
-  .cfg-env li{display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--line)}
+  /* Checks live in the health rail now, not in Configuration. They are
+     results, not settings — "did it pass" belongs beside "is it running",
+     and it is what fills a rail that was two-thirds empty. Stacked rather
+     than name-beside-summary: the rail is ~340px, and a 132px name column
+     left the summary four words wide. */
+  .dt-checks{padding:15px 18px}
+  .dt-checks-h{font-size:.68rem;letter-spacing:.1em;text-transform:uppercase;
+    color:var(--mut);font-weight:600;margin-bottom:9px}
+  .dt-checks ul{list-style:none;margin:0;padding:0}
+  .dt-checks li{display:flex;gap:9px;align-items:flex-start;padding:5px 0;font-size:.8rem}
+  .dt-checks li::before{content:"";flex:none;width:7px;height:7px;border-radius:50%;
+    margin-top:5px;background:var(--mut)}
+  .dt-checks li.s-pass::before{background:var(--ok)}
+  .dt-checks li.s-warn::before{background:var(--warn)}
+  .dt-checks li.s-fail::before{background:var(--danger)}
+  .dt-checks b{display:block;font-weight:600;font-size:.79rem}
+  .dt-checks span{display:block;color:var(--mut);line-height:1.45;font-size:.76rem;margin-top:1px}
+  /* Environment variables are a SET, so they get a container of their own.
+     Loose under a heading, each row stretched the key to the left edge and
+     pinned its masked value to the right — a name and its value six hundred
+     pixels apart, which is the one pairing on this panel you actually read
+     across. Boxed, with the value sitting directly after the name. */
+  .env-box{margin:12px 20px 0;border:1px solid var(--line);border-radius:12px;overflow:hidden}
+  .env-head{display:flex;align-items:center;gap:8px;padding:9px 14px;background:var(--paper-2);
+    border-bottom:1px solid var(--line);font-size:.68rem;letter-spacing:.1em;
+    text-transform:uppercase;color:var(--mut);font-weight:600}
+  .env-head .n{margin-left:auto;letter-spacing:0;text-transform:none;font-size:.74rem}
+  .cfg-env{list-style:none;margin:0;padding:0}
+  .cfg-env li{display:flex;align-items:center;gap:12px;padding:10px 14px;
+    border-bottom:1px solid var(--line)}
   .cfg-env li:last-child{border-bottom:0}
-  .cfg-env code{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--mono);font-size:.8rem;color:var(--ink)}
-  .cfg-env span{flex:none;font-family:var(--mono);font-size:.78rem;color:var(--mut);letter-spacing:.04em}
+  .cfg-env code{flex:0 1 auto;max-width:50%;min-width:0;overflow:hidden;text-overflow:ellipsis;
+    white-space:nowrap;font-family:var(--mono);font-size:.8rem;color:var(--ink);font-weight:600}
+  .cfg-env span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+    font-family:var(--mono);font-size:.78rem;color:var(--mut);letter-spacing:.04em}
   .cfg-env button{flex:none;padding:4px 10px;font-size:.75rem}
+  /* An empty set should say so. Before, nothing had been set and nothing
+     said nothing had been set — the section was a paragraph and a form. */
+  .env-empty{padding:18px 14px;text-align:center;font-size:.8rem;color:var(--mut);line-height:1.5}
+  /* A key is short and a value is not: two equal 360px boxes made a name
+     field the same size as the secret going into it. */
+  .cfg .env-form #envKey{flex:0 1 240px}
+  .cfg .env-form #envVal{flex:1 1 300px}
   .dbnote:last-child{border-bottom:0}
   .dbnote code{font-family:var(--mono);font-size:.75rem;background:var(--paper-2);border:1px solid var(--line);
     border-radius:5px;padding:1px 5px;color:var(--ink)}
@@ -910,7 +1364,6 @@
   .dbmini:disabled{opacity:.55;cursor:not-allowed}
   .dbmini.warn{color:var(--danger);border-color:rgba(217,45,32,.3);background:transparent}
   .dbmini.warn:hover{background:rgba(217,45,32,.08);border-color:rgba(217,45,32,.5)}
-  .kv .kvbtn{flex:none;margin-left:auto}
 
   /* ---- data browser ---- */
   .dbtable-row{display:flex;align-items:center;gap:10px;width:100%;text-align:left;cursor:pointer;
@@ -945,11 +1398,32 @@
   .meter{height:6px;border-radius:999px;background:var(--paper-2);overflow:hidden}
   .meter i{display:block;height:100%;border-radius:999px;background:var(--accent);transition:width .5s var(--ease)}
 
-  .danger{border:1px solid rgba(217,45,32,.3);border-radius:16px;padding:16px;margin-top:22px}
-  .danger b{display:block;font-size:.9rem;margin-bottom:4px}
-  .danger p{margin:0 0 12px;font-size:.84rem;color:var(--mut);line-height:1.5}
-  .danger input{border:1px solid var(--line);border-radius:9px;padding:8px 11px;font:inherit;font-size:.85rem;
-    background:var(--card);color:var(--ink);width:min(240px,100%);margin-right:8px}
+  /* Centred, like the empty states and the preview placeholder. Everything
+     in here is one short warning and the two controls that act on it —
+     ranged down the left edge of a full-width box it read as the start of a
+     form with the rest missing.
+
+     A faint red wash as well as the outline, so it reads as a ZONE rather
+     than as one more panel that happens to have a red border. */
+  .danger{border:1px solid rgba(217,45,32,.28);border-radius:16px;
+    background:rgba(217,45,32,.035);padding:26px 20px;margin-top:22px;text-align:center}
+  .danger-ico{width:42px;height:42px;border-radius:13px;margin:0 auto 13px;display:grid;
+    place-items:center;background:rgba(217,45,32,.1);color:var(--danger)}
+  .danger-ico svg{width:20px;height:20px}
+  .danger b{display:block;font-size:.95rem;margin-bottom:6px}
+  /* Measured, not full-bleed: centred prose running the whole width of a
+     1100px panel is three words a line and hard to track back. */
+  .danger p{margin:0 auto 14px;max-width:52ch;font-size:.84rem;color:var(--mut);line-height:1.55}
+  /* The name you have to type, shown instead of described. It used to live
+     in the placeholder, where it vanished the moment you started typing —
+     exactly when you needed to check it. */
+  .danger .danger-ask{margin-bottom:16px;font-size:.82rem;color:var(--ink-2)}
+  .danger .danger-ask code{font-family:var(--mono);font-size:.79rem;color:var(--ink);
+    background:var(--paper-2);border:1px solid var(--line);border-radius:7px;padding:3px 8px}
+  .danger-act{display:flex;justify-content:center;align-items:center;gap:10px;flex-wrap:wrap}
+  .danger input{border:1px solid var(--line);border-radius:10px;padding:9px 13px;font:inherit;
+    font-size:.85rem;background:var(--card);color:var(--ink);width:min(280px,100%);
+    text-align:center;transition:border-color .15s}
   .danger input:focus{outline:none;border-color:var(--danger)}
 
 
@@ -968,8 +1442,26 @@
     display:flex;align-items:center;justify-content:center;padding:clamp(8px,3.5vh,40px);
     -webkit-backdrop-filter:var(--scrim-blur);backdrop-filter:var(--scrim-blur)}
   .ag-set-overlay[hidden]{display:none !important;pointer-events:none !important;visibility:hidden !important}
+  /* The panel is an iframe, and an iframe appears the instant it is
+     displayed — so the box snapped into place with nothing to soften it.
+     The container is what arrives and what leaves; everything inside it
+     comes along. Same motion as the builder, because it is the same
+     overlay opened from a different page.
+
+     The entrance restarts on every open by itself: the overlay is toggled
+     with [hidden], and display:none back to display re-runs a CSS
+     animation. The exit needs .closing because [hidden] would otherwise
+     cut it dead in one frame. */
   .ag-set-overlay iframe{width:min(1393px,92vw);height:min(700px,80vh);border:0;border-radius:13px;
-    background:var(--card);box-shadow:0 30px 90px -28px rgba(0,0,0,.55)}
+    background:var(--card);box-shadow:0 30px 90px -28px rgba(0,0,0,.55);
+    animation:sqSettingsIn var(--dur-chill,.3s) var(--ease-snappy,ease-out) both}
+  @keyframes sqSettingsIn{from{opacity:0;transform:translateY(10px) scale(.985)}to{opacity:1;transform:none}}
+  .ag-set-overlay.closing iframe{animation:sqSettingsOut var(--dur-snappy,.12s) var(--ease-snappy,ease-out) both}
+  @keyframes sqSettingsOut{from{opacity:1;transform:none}to{opacity:0;transform:translateY(6px) scale(.99)}}
+  @media (prefers-reduced-motion:reduce){
+    .ag-set-overlay iframe{animation-duration:1ms;animation-name:none;opacity:1}
+    .ag-set-overlay.closing iframe{animation-name:none;opacity:0}
+  }
   @media (max-width:900px){
     .ag-set-overlay{padding:0}
     .ag-set-overlay iframe{width:100%;height:100%;border-radius:0}
@@ -1010,7 +1502,14 @@
        grid's 160px minimum forced a wrap at any phone width. */
     .kpis{display:flex;gap:8px;margin-bottom:16px}
     .kpi{flex:1 1 0;min-width:0;padding:10px 8px;border-radius:12px}
-    .k-label{font-size:.58rem;letter-spacing:.06em;line-height:1.2}
+    /* Two lines of label space for every tile, whether the label needs them
+       or not. "Live" and "Apps" fit on one line while "In flight" and "Host
+       memory" wrap to two, so the numbers underneath sat at three different
+       heights — a row of figures you are meant to compare at a glance, not
+       one of which lined up. min-height rather than height: a label that
+       somehow needed a third line should push the tile taller, not be cut
+       off. */
+    .k-label{font-size:.58rem;letter-spacing:.04em;line-height:1.2;min-height:2.4em}
     .k-val{font-size:1.15rem;margin-top:3px}
     /* The sub-line is the first thing to go: at ~80px wide it wraps to
        three lines and says less than the number above it. */
@@ -1257,7 +1756,7 @@
 <body><div class="ag-hist-backdrop" id="agHistBackdrop"></div>
 <aside class="ag-history" id="agHistory" aria-label="Your account">
   <div class="ag-hist-head">
-    <span class="ag-hist-mark"><svg viewBox="0 0 24 24" fill="none" stroke="url(#souqiBag)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><defs><linearGradient id="souqiBag" x1="4" y1="4" x2="20" y2="20" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#1f8ae0"/><stop offset="1" stop-color="#22c55e"/></linearGradient></defs><path d="M5.2 8h13.6a1.4 1.4 0 0 1 1.39 1.55l-.86 9.4a1.9 1.9 0 0 1-1.89 1.75H6.56a1.9 1.9 0 0 1-1.89-1.75l-.86-9.4A1.4 1.4 0 0 1 5.2 8Z"/><path d="M8.9 10.4V4.9h6.2v5.5"/></svg></span><button type="button" class="ag-hist-search" id="agHistSearch" title="Search" aria-label="Search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.6-3.6"/></svg></button>
+    <span class="ag-hist-mark"><img src="/assets/logo.png" alt="" aria-hidden="true"></span><button type="button" class="ag-hist-search" id="agHistSearch" title="Search" aria-label="Search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.6-3.6"/></svg></button>
     <b class="ag-hist-brand-text"><span>Souqi</span><span>Code</span></b>
   </div>
 
@@ -1300,7 +1799,7 @@
     <a class="ag-hist-tab" href="/settings#integrations" title="Integrations">
       <i class="tab-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="m12 3 9 5-9 5-9-5 9-5z"/><path d="m3 12 9 5 9-5"/><path d="m3 17 9 5 9-5"/></svg></i><span class="lbl">Integrations</span></a>
 
-    <a class="ag-hist-tab" href="/settings#security" title="Security">
+    <a class="ag-hist-tab" href="/security" title="Security">
       <i class="tab-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/></svg></i><span class="lbl">Security</span></a>
   </div>
 
@@ -1428,6 +1927,18 @@
   var LIVE = { QUEUED: 1, BUILDING: 1, STARTING: 1 };   // still moving → poll fast
   var TILE = ["#1aa6df", "#7c5cff", "#f59e0b", "#ec4899", "#10b981", "#6b6ff0"];
 
+  /* The pipeline in words, for the line under the beads. FOOT_NOTE is the
+     card's one-liner and stays deliberately terse; this one has a whole panel
+     to explain itself in. */
+  var PHASE_SAY = {
+    QUEUED: "Waiting for a build worker to pick this up.",
+    BUILDING: "Building the image from your source. This is the slow part.",
+    STARTING: "The image is built — starting the container and waiting for it to answer.",
+    RUNNING: "Live and serving.",
+    STOPPED: "The container is stopped. Nothing is served, and nothing is lost.",
+    FAILED: "The last deploy did not finish. The reason is in the logs above."
+  };
+
   /* What the footer says when there is no URL to show. The pill already gives
      the status; this says what it MEANS for the person looking at it. */
   var FOOT_NOTE = {
@@ -1448,6 +1959,10 @@
   var detail = null;     // {status, logs, env, ...} for openKey
   var logPhase = "build";
   var logPinned = true;  // auto-scroll until the reader scrolls away
+  /* Held here rather than in the signature: putting it in detailSig would
+     make every toggle a full repaint, and a full repaint tears out the live
+     preview iframe and reloads the running app. */
+  var logWrap = false;
 
   /* The app's database. Loaded once when a detail view opens rather than
      on the status poll: it changes when someone changes it, not every two
@@ -1466,6 +1981,14 @@
   var cfgDraft = "";
   var cfgCheck = null;     // {available, hostname, reason} | null
   var cfgCheckT = null;    // debounce timer
+
+  /* The delete confirmation is a draft for the same reason cfgDraft is one,
+     and it mattered more here than anywhere: this field asks you to type an
+     app name exactly, and any repaint — a new log line, a restart counter
+     ticking — wiped it mid-word. The one field in the page that demands a
+     careful transcription was the one field that could not survive being
+     typed into slowly. */
+  var delDraft = "";
 
   /* Custom domain. The row itself arrives on the existing status poll as
      detail.customDomain, so there is no separate loader — only the input
@@ -1507,6 +2030,33 @@
   var PAGE = 25;
   var loaded = false;
 
+  /* Type, not initial. The tile hashed the slug into a colour and stamped
+     the title's first letter on it, so two websites looked as unrelated as a
+     website and a game, and the mark said nothing about what the project
+     actually is. These are the same two maps the builder's "Your recent
+     Projects" grid draws from, so one app looks like itself everywhere.
+
+     Anything without a mapped buildType keeps the old hashed colour but
+     still gets an icon: these are projects built before buildType existed,
+     and one lone "P" in a grid of glyphs reads as a broken tile rather than
+     as a project whose type nobody recorded. The generic window is what the
+     builder shows for an app it cannot classify. */
+  var TYPE_COLOR = { website: "#1aa6df", webapp: "#7c5cff", game: "#f43f5e", dashboard: "#f59e0b", portfolio: "#ec4899", mobile: "#10b981" };
+  var TYPE_GLYPH = {
+    website: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 0 1 0 18 15 15 0 0 1 0-18z"/></svg>',
+    webapp: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18"/></svg>',
+    dashboard: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>',
+    portfolio: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1.3"/><rect x="14" y="3" width="7" height="7" rx="1.3"/><rect x="3" y="14" width="7" height="7" rx="1.3"/><rect x="14" y="14" width="7" height="7" rx="1.3"/></svg>',
+    mobile: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></svg>',
+    game: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 12h4M8 10v4"/><circle cx="15.5" cy="11" r="1"/><circle cx="17.5" cy="14" r="1"/><path d="M17.7 6H6.3a4.3 4.3 0 0 0-4.24 3.6l-1 6A3.4 3.4 0 0 0 4.4 19.5c1 0 1.9-.45 2.5-1.2L8.4 16.5h7.2l1.5 1.8c.6.75 1.5 1.2 2.5 1.2a3.4 3.4 0 0 0 3.34-3.9l-1-6A4.3 4.3 0 0 0 17.7 6z"/></svg>'
+  };
+  function tileTint(p, keyFallback) {
+    return TYPE_COLOR[p.buildType] || tileColor(keyFallback);
+  }
+  var GLYPH_ANY = TYPE_GLYPH.webapp;
+  function tileMark(p) {
+    return TYPE_GLYPH[p.buildType] || GLYPH_ANY;
+  }
   function tileColor(s) {
     var n = 0, i; s = String(s || "");
     for (i = 0; i < s.length; i++) n = (n * 31 + s.charCodeAt(i)) >>> 0;
@@ -1739,12 +2289,16 @@
       var title = r.title || "Untitled app";
       var live = r.status === "RUNNING" && r.url;
       return '<button type="button" class="app" data-key="' + esc(r.key) + '"' +
-        ' title="' + esc(title) + '" style="--tile:' + tileColor(r.key) + '">' +
+        ' title="' + esc(title) + '" style="--tile:' + tileTint(r, r.key) + '">' +
         '<span class="top">' +
-          '<span class="tile">' + esc(title.charAt(0).toUpperCase() || "A") + '</span>' +
+          '<span class="tile">' + tileMark(r) + '</span>' +
           '<span class="nm"><b>' + esc(title) + '</b><i>' + esc(timeAgo(r.updatedAt)) + '</i></span>' +
           pill(r.status) +
         '</span>' +
+        '<span class="pv" data-key="' + esc(r.key) + '"' +
+          (live ? ' data-url="' + esc(r.url) + '"' : '') +
+          ' data-glyph=\'' + tileMark(r) + '\'' +
+          ' data-label="Deploy to show preview here"></span>' +
         '<span class="foot">' +
           /* Never an empty row. A deployment with a status but no URL - stopped,
              failed, mid-build - used to render an empty span here, so the card
@@ -1753,6 +2307,102 @@
                 : '<span>' + esc(r.status ? FOOT_NOTE[r.status] || "not running" : "never deployed") + "</span>") +
         "</span></button>";
     }).join("") + "</div>";
+    wirePreviews($("listBody"));
+  }
+
+  /* ---- card previews ----------------------------------------------------
+     One IntersectionObserver for the grid: nothing mounts until a card comes
+     near the viewport, because fifty live iframes on load is fifty page loads.
+
+     This page has already fetched live status for every row, so it hands the
+     address straight over in data-url and skips the round trip. /projects has
+     no URL to hand over and asks the server instead (GET .../thumb). Either
+     way the question answered is "is it serving right now", not "does a
+     deployment exist" — a status pill cannot tell you the first one. */
+  var pvSeen = new WeakSet();
+  var pvObserver = ("IntersectionObserver" in window) ? new IntersectionObserver(function (entries) {
+    entries.forEach(function (e) {
+      if (!e.isIntersecting) return;
+      pvObserver.unobserve(e.target);
+      loadPreview(e.target);
+    });
+  }, { rootMargin: "300px" }) : null;
+
+  function pvFallback(el) {
+    el.classList.remove("loading");
+    el.innerHTML = '<span class="pv-none"><i>' + (el.getAttribute("data-glyph") || "") +
+      '</i><b>' + esc(el.getAttribute("data-label") || "Deploy to show preview here") + '</b></span>';
+  }
+
+  function pvMount(el, url) {
+    var f = document.createElement("iframe");
+    /* allow-scripts AND allow-same-origin, and the second one is not slack.
+
+       These are Vite builds: the served index.html is an empty <div id="root">
+       plus <script type="module" crossorigin src="./assets/index-*.js">. A
+       module script marked crossorigin is fetched in CORS mode, and a frame
+       with allow-scripts ALONE has an opaque origin — so the request goes out
+       as Origin: null, the static host does not answer it, the bundle never
+       loads, React never mounts and the card shows a blank white rectangle.
+       That is exactly what it did.
+
+       The usual warning about this pair — that a frame can reach up and strip
+       its own sandbox — applies when the framed document is SAME-ORIGIN with
+       the page framing it. This one never is: the apps are served from their
+       own subdomains, so allow-same-origin only gives the frame its own real
+       origin back, and the ordinary same-origin policy still stands between it
+       and this page's DOM, cookies and storage.
+
+       Everything not listed here stays denied, which is why the attribute is
+       still worth having: no top-navigation (it cannot move the console out
+       from under you), no popups, no forms, no modals. */
+    f.setAttribute("sandbox", "allow-scripts allow-same-origin");
+    f.setAttribute("loading", "lazy");
+    f.setAttribute("referrerpolicy", "no-referrer");
+    f.setAttribute("tabindex", "-1");
+    f.setAttribute("aria-hidden", "true");
+    f.addEventListener("load", function () { el.classList.remove("loading"); });
+    f.src = url;
+    el.innerHTML = "";
+    el.appendChild(f);
+    pvScale(el, f);
+    // A site that never answers must not leave the card shimmering forever.
+    setTimeout(function () { el.classList.remove("loading"); }, 8000);
+  }
+
+  function loadPreview(el) {
+    if (pvSeen.has(el)) return;
+    pvSeen.add(el);
+    el.classList.add("loading");
+
+    var known = el.getAttribute("data-url");
+    if (known) { pvMount(el, known); return; }
+
+    var key = el.getAttribute("data-key");
+    if (!key) { pvFallback(el); return; }
+    fetch("/api/projects/" + encodeURIComponent(key) + "/thumb", { credentials: "same-origin" })
+      .then(function (r) { return r.ok ? r.json() : { mode: "none" }; })
+      .then(function (d) {
+        if (d && d.mode === "url" && d.url) pvMount(el, d.url); else pvFallback(el);
+      })
+      .catch(function () { pvFallback(el); });
+  }
+
+  /* 1280px of site into whatever width the card currently is. Recomputed on
+     resize because the grid reflows between one, two and three columns. */
+  function pvScale(el, f) {
+    var w = el.clientWidth;
+    if (w) f.style.transform = "scale(" + (w / 1280) + ")";
+  }
+  addEventListener("resize", function () {
+    document.querySelectorAll(".pv iframe").forEach(function (f) { pvScale(f.parentNode, f); });
+  });
+
+  /** Hand every freshly rendered .pv to the observer. */
+  function wirePreviews(root) {
+    (root || document).querySelectorAll(".pv").forEach(function (el) {
+      if (pvObserver) pvObserver.observe(el); else loadPreview(el);
+    });
   }
 
   /* ---------------- detail ---------------- */
@@ -1804,12 +2454,55 @@
       return '<div class="logs-empty">' + esc((logs && logs.note) || "No output yet.") + "</div>";
     }
     var body = logs.lines.map(function (l) {
-      if (typeof l === "string") return esc(l);
-      var t = l.at ? '<span class="ts">' + esc(String(l.at).replace("T", " ").slice(0, 19)) + "</span>  " : "";
+      if (typeof l === "string") return '<span class="ln">' + esc(l) + "</span>";
+      /* Time only. Every line carried a full "2026-09-11 18:45:43" and the
+         date was the same on all of them — eleven characters of identical
+         text in front of every message, pushing the part you are reading a
+         third of the way across the panel. The day is in the panel header
+         instead, and the clipboard copy still carries the whole timestamp. */
+      var t = l.at ? '<span class="ts">' + esc(String(l.at).replace("T", " ").slice(11, 19)) + "</span>  " : "";
       var cls = l.stream === "stderr" ? "err" : (l.phase === "system" || l.stream === "system" ? "sys" : "");
-      return t + (cls ? '<span class="' + cls + '">' + esc(l.line) + "</span>" : esc(l.line));
-    }).join("\n");
+      return '<span class="ln' + (cls ? " " + cls : "") + '">' + t + esc(l.line) + "</span>";
+    }).join("");
     return "<pre>" + body + "</pre>";
+  }
+
+  /* The day these lines are from, for the panel header. */
+  function logDay(logs) {
+    var lines = (logs && logs.lines) || [];
+    for (var i = 0; i < lines.length; i++) {
+      var l = lines[i];
+      if (l && typeof l !== "string" && l.at) return String(l.at).slice(0, 10);
+    }
+    return "";
+  }
+
+  /* A build log is something you paste into a bug report, and the only way to
+     get it out of here was to drag-select five hundred lines. Rebuilt from
+     the data rather than read off the DOM: the lines are block elements now,
+     so textContent would run them all together, and the display drops the
+     date that a pasted log needs. */
+  /* Copy, with the button itself as the confirmation — a toast for something
+     this small is a notification you have to read to learn nothing. */
+  function copyText(btn, text, what) {
+    if (!text) { toast("Nothing to copy yet."); return; }
+    if (!navigator.clipboard || !navigator.clipboard.writeText) {
+      toast("Copying isn't available in this browser."); return;
+    }
+    navigator.clipboard.writeText(text).then(function () {
+      var was = btn.textContent;
+      btn.textContent = "Copied";
+      setTimeout(function () { btn.textContent = was; }, 1400);
+    }, function () { toast("Couldn't copy " + (what || "that") + "."); });
+  }
+
+  function copyLogs(btn) {
+    var lines = (detail && detail.logs && detail.logs.lines) || [];
+    if (!lines.length) { toast("Nothing to copy yet."); return; }
+    copyText(btn, lines.map(function (l) {
+      if (typeof l === "string") return l;
+      return (l.at ? String(l.at).replace("T", " ").slice(0, 19) + "  " : "") + l.line;
+    }).join("\n"), "the log");
   }
 
   /* A poll that repaints an unchanged view is worse than no poll: it
@@ -1817,9 +2510,20 @@
      can yank a button out from under a click. So the whole detail body is
      only rewritten when something a reader would actually notice has
      changed. */
-  function detailSig(d) {
+  /* Two signatures, and the split is what lets a live preview survive.
+
+     Everything about this panel used to be rebuilt whenever the log tail
+     grew, which during a build is several times a second. That was merely
+     wasteful until the left column became a running app in an iframe: an
+     innerHTML swap tears the frame out and puts a new one back, so the app
+     reloaded itself on every log line. detailSigStable() is the same
+     signature without the line count, so "only the logs moved" can take the
+     cheap path and patch the log box in place. */
+  function detailSigStable(d) { return detailSig(d, true); }
+
+  function detailSig(d, ignoreLogs) {
     var c = d.container || {};
-    var n = d.logs && d.logs.lines ? d.logs.lines.length : -1;
+    var n = ignoreLogs ? "" : (d.logs && d.logs.lines ? d.logs.lines.length : -1);
     var b = dbInfo || {};
     var g = cfgInfo || {}, k = cfgCheck || {};
     var cd = d.customDomain || {};
@@ -1832,6 +2536,61 @@
       envList ? envList.map(function (v) { return v.key + v.masked; }).join(",") : "?",
       envKey, envVal.length, envMsg, envBusy].join("|");
   }
+
+  /* The live preview frame. Built once per address: a running app is a real
+     page load, and rebuilding it on every repaint would restart whatever it
+     was doing. The stable-signature path above is what keeps repaints rare
+     enough for that to hold. */
+  function mountLivePreview() {
+    var slot = $("dtLive");
+    if (!slot) return;
+    var url = slot.getAttribute("data-url");
+    if (!url) return;
+    var f = document.createElement("iframe");
+    /* Same reasoning as the card previews: allow-scripts so a Vite bundle can
+       boot, allow-same-origin so its crossorigin module script is not fetched
+       from an opaque origin, and nothing else. The app is cross-origin, so
+       neither grant reaches this page. */
+    f.setAttribute("sandbox", "allow-scripts allow-same-origin");
+    f.setAttribute("referrerpolicy", "no-referrer");
+    f.setAttribute("title", "Live preview");
+    f.src = url;
+    slot.appendChild(f);
+    scaleLivePreview();
+  }
+
+  /* Fit a 1280x800 desktop viewport into the box and centre it.
+
+     The frame is ALWAYS 1280x800 — the app then lays itself out the way it
+     does on a desktop, and this only changes how big that rendering appears.
+     Sizing the iframe to the panel instead made the app respond to whatever
+     odd shape the panel was, so a wide short panel produced a wide short
+     site that exists nowhere else.
+
+     min() of the two ratios contains rather than crops, and the cap at 1
+     stops a large panel blowing a 1280px page up past its own pixels, which
+     only ever looks soft. */
+  function scaleLivePreview() {
+    var slot = $("dtLive");
+    if (!slot) return;
+    var f = slot.querySelector("iframe");
+    if (!f) return;
+    var w = slot.clientWidth, h = slot.clientHeight;
+    if (!w || !h) return;
+    /* COVER, not contain. Fitting the whole 1280x800 frame inside the box
+       left thick empty bars down both sides — the preview was mostly not the
+       preview. Filling the box and letting the edges crop shows the app,
+       which is what the panel is for; Open is there for the whole page. */
+    var s = Math.max(w / 1280, h / 800);
+    f.style.width = "1280px";
+    f.style.height = "800px";
+    /* Centred sideways, but pinned to the TOP. Centring vertically too would
+       crop the header off every site — the one part of a page that is always
+       worth seeing — to show a bit more of its footer. */
+    f.style.transform = "translate(" + ((w - 1280 * s) / 2) + "px," +
+      Math.max(0, (h - 800 * s) / 2) + "px) scale(" + s + ")";
+  }
+  addEventListener("resize", scaleLivePreview);
 
   /* ---------------- database ---------------- */
 
@@ -1996,11 +2755,11 @@
 
   function dbPanel() {
     var b = dbInfo;
-    if (!b) return '<div class="panel"><div class="panel-h"><b>Database</b></div>' +
+    if (!b) return '<div class="panel db"><div class="panel-h"><b>Database</b></div>' +
       '<div class="sk" style="height:96px;margin:16px"></div></div>';
 
     if (b.unavailable) {
-      return '<div class="panel"><div class="panel-h"><b>Database</b></div>' +
+      return '<div class="panel db"><div class="panel-h"><b>Database</b></div>' +
         '<div class="dbnote">Couldn\'t read the database for this app just now. ' +
         'Nothing has changed — try again in a moment.</div></div>';
     }
@@ -2012,7 +2771,15 @@
     var canBrowse = b.mode === "builtin" && b.configured;
     if (tab === "data" && !canBrowse) tab = "builtin";
 
-    var out = '<div class="panel"><div class="panel-h"><b>Database</b>' +
+    /* The size reading is the one thing on this panel you can ask for again,
+       so its button belongs in the panel header with the tabs — not inside
+       the row whose value it happens to update. */
+    var showMeasure = tab === "builtin" && b.mode === "builtin" && b.configured;
+
+    var out = '<div class="panel db"><div class="panel-h"><b>Database</b>' +
+      (showMeasure
+        ? '<button type="button" class="dbmini" data-dbact="measure">Refresh size</button>'
+        : "") +
       '<div class="seg">' +
         '<button type="button" data-dbtab="builtin" class="' + (tab === "builtin" ? "on" : "") + '">Built-in</button>' +
         '<button type="button" data-dbtab="external" class="' + (tab === "external" ? "on" : "") + '">Your own</button>' +
@@ -2025,11 +2792,12 @@
 
     if (tab === "builtin") {
       if (b.mode === "builtin" && b.configured) {
-        out += '<div class="kv"><span class="k">database</span><span class="v">' + esc(b.name || "—") + "</span></div>" +
-          '<div class="kv"><span class="k">user</span><span class="v">' + esc(b.role || "—") + "</span></div>" +
-          '<div class="kv"><span class="k">password</span><span class="v">' + esc(b.masked || "••••") + "</span></div>" +
-          '<div class="kv"><span class="k">size</span><span class="v">' + esc(bytes(b.sizeBytes)) + "</span>" +
-          '<button type="button" class="dbmini kvbtn" data-dbact="measure">Refresh</button></div>' +
+        out += '<div class="db-facts">' +
+          '<div><span class="k">database</span><span class="v" title="' + esc(b.name || "") + '">' + esc(b.name || "—") + "</span></div>" +
+          '<div><span class="k">user</span><span class="v" title="' + esc(b.role || "") + '">' + esc(b.role || "—") + "</span></div>" +
+          '<div><span class="k">password</span><span class="v">' + esc(b.masked || "••••") + "</span></div>" +
+          '<div><span class="k">size</span><span class="v">' + esc(bytes(b.sizeBytes) || "—") + "</span></div>" +
+          "</div>" +
           '<div class="dbnote">Your app reads this as <code>SOUQI_DATABASE_URL</code>, and as ' +
           '<code>DATABASE_URL</code> unless you set that yourself. It is reachable only from ' +
           'this app — no other app on the platform can connect to it, and neither can the internet.' +
@@ -2053,9 +2821,11 @@
         "anything with a connection string. Deploy it once first, so there is something to connect.</div>";
     } else {
       if (b.mode === "external" && b.configured) {
-        out += '<div class="kv"><span class="k">database</span><span class="v">' + esc(b.name || "—") + "</span></div>" +
-          '<div class="kv"><span class="k">user</span><span class="v">' + esc(b.role || "—") + "</span></div>" +
-          '<div class="kv"><span class="k">connection</span><span class="v">' + esc(b.masked || "••••") + "</span></div>";
+        out += '<div class="db-facts">' +
+          '<div><span class="k">database</span><span class="v" title="' + esc(b.name || "") + '">' + esc(b.name || "—") + "</span></div>" +
+          '<div><span class="k">user</span><span class="v" title="' + esc(b.role || "") + '">' + esc(b.role || "—") + "</span></div>" +
+          '<div><span class="k">connection</span><span class="v">' + esc(b.masked || "••••") + "</span></div>" +
+          "</div>";
       }
       out += '<div class="dbnote">Point this app at a Postgres you already run — Neon, Supabase, RDS, ' +
         "anything that gives you a connection string. We check it connects before saving it, and we " +
@@ -2133,14 +2903,14 @@
     var g = cfgInfo;
     // Named while it loads, so the panel that is coming is identifiable.
     if (g === null) {
-      return '<div class="panel"><div class="panel-h"><b>Configure</b></div>' +
+      return '<div class="panel cfg"><div class="panel-h"><b>Configure</b></div>' +
         '<div class="sk"><div class="bar" style="width:58%"></div>' +
         '<div class="bar" style="width:34%"></div></div></div>';
     }
     if (g.unavailable) {
       // Visible, and it names the status: an address panel that silently is
       // not there is indistinguishable from one that has not loaded yet.
-      return '<div class="panel"><div class="panel-h"><b>Configure</b></div>' +
+      return '<div class="panel cfg"><div class="panel-h"><b>Configure</b></div>' +
         '<div class="cfg-block"><b>Couldn\u2019t load the address settings</b>' +
         "<p>" + esc(g.reason || "the request failed") +
         (g.status ? " (HTTP " + esc(g.status) + ")" : "") +
@@ -2148,7 +2918,7 @@
     }
 
     var appDomain = g.appDomain || "souqi.site";
-    var out = '<div class="panel"><div class="panel-h"><b>Configure</b></div>';
+    var out = '<div class="panel cfg"><div class="panel-h"><b>Configure</b></div>';
 
     // Deliberately first: it is the reason the deploy did not happen.
     if (secIssues && secIssues.length) {
@@ -2162,12 +2932,15 @@
     }
 
     // ---- address ----
+    out += '<div class="cfg-sec"><b>Address</b></div>';
     if (g.locked) {
       // A hostname is allocated at create and reused by every redeploy, so
       // once it exists this is a fact to show, not a field to edit.
-      out += '<div class="kv"><span class="k">address</span><span class="v">' +
-        esc(g.subdomain ? g.subdomain + "." + appDomain : "assigned automatically") + "</span></div>" +
-        '<div class="dbnote">The address is fixed once an app has been deployed.</div>';
+      out += '<div class="cfg-fixed"><code>' +
+        esc(g.subdomain ? g.subdomain + "." + appDomain : "assigned automatically") +
+        '</code><span class="tag">fixed</span></div>' +
+        '<div class="dbnote">The address is set when an app is first deployed and ' +
+        "reused by every redeploy, so it cannot be changed here.</div>";
     } else {
       var val = cfgDraft !== "" ? cfgDraft : (g.subdomain || "");
       var k = cfgCheck;
@@ -2200,12 +2973,41 @@
     // Only after the first deploy. The record we ask the customer to create
     // points at the generated hostname, which is allocated at create and does
     // not exist before it.
-    if (st) {
-      var cd = (detail && detail.customDomain) || null;
-      out += '<div class="cfg-sec"><b>Custom domain</b></div>';
-      if (!cd) {
-        out += '<div class="dbnote">Serve this app on your own domain instead. ' +
-          "You'll add one DNS record, then we check it.</div>" +
+    var cd = (detail && detail.customDomain) || null;
+    out += '<div class="cfg-sec"><b>Custom domain</b></div>';
+      /* The generated hostname is what the customer's CNAME has to point at,
+         and it exists before any of this — so say so up front instead of
+         revealing it only after they have committed to a name. */
+      var target = g.subdomain ? g.subdomain + "." + appDomain : "";
+      /* The record we ask for points at the generated hostname, which is
+         allocated by the first deploy and does not exist before it — so the
+         section is here for the shape of the page, but a form would be a
+         button whose only outcome is a 409 from the plane. */
+      if (!st) {
+        /* The same section you get after deploying, with the controls inert:
+           the steps are worth reading BEFORE you deploy — they are what tells
+           you a custom domain is possible at all — and a disabled field shows
+           what the job looks like. A one-line "available later" said none of
+           that and made the section look like a stub. */
+        out += '<div class="dbnote">Serve this app on your own domain instead of the ' +
+          "address above. Available once it has been deployed &mdash; the record you'll " +
+          "create points at the address that first deploy allocates, so there is " +
+          "nothing to point at yet.</div>" +
+          '<ol class="cfg-steps">' +
+          "<li>Enter the domain you want to use.</li>" +
+          "<li>Add the DNS record we show you, at whoever manages that domain.</li>" +
+          "<li>Check it &mdash; once it resolves, we issue the certificate and serve it.</li>" +
+          "</ol>" +
+          '<div class="dbform"><input type="text" placeholder="shop.yourbrand.com" disabled>' +
+          '<button type="button" class="btn-g" disabled>Connect</button></div>';
+      } else if (!cd) {
+        out += '<div class="dbnote">Serve this app on your own domain instead of ' +
+          (target ? "<code>" + esc(target) + "</code>" : "the address above") + ".</div>" +
+          '<ol class="cfg-steps">' +
+          "<li>Enter the domain you want to use.</li>" +
+          "<li>Add the DNS record we show you, at whoever manages that domain.</li>" +
+          "<li>Check it &mdash; once it resolves, we issue the certificate and serve it.</li>" +
+          "</ol>" +
           '<div class="dbform"><input type="text" id="domName" placeholder="shop.yourbrand.com" ' +
           'autocomplete="off" spellcheck="false" value="' + esc(domDraft) + '">' +
           '<button type="button" class="btn-g" data-dom="attach"' + (domBusy ? " disabled" : "") +
@@ -2213,33 +3015,67 @@
       } else if (!cd.verified) {
         // Nothing is routed and no certificate is requested in this state, and
         // saying so is the honest answer to "I connected it, why is it down".
-        out += '<div class="kv"><span class="k">domain</span><span class="v">' + esc(cd.domain) + "</span></div>" +
+        out += '<div class="cfg-fixed"><code>' + esc(cd.domain) +
+          '</code><span class="tag">not verified</span></div>' +
           '<div class="dbnote">Create this record at your DNS provider, then check it. ' +
           "Until it passes, this domain isn't served and no certificate is requested for it.</div>" +
-          '<div class="cfg-dns"><b>CNAME</b><code>' + esc(cd.domain) + "</code>&rarr;<code>" +
-          esc(cd.target || "") + "</code></div>" +
+          '<div class="dns-card">' +
+          '<div class="dns-row"><span class="k">Type</span><code>CNAME</code></div>' +
+          '<div class="dns-row"><span class="k">Name</span><code>' + esc(cd.domain) + "</code>" +
+            '<button type="button" class="dbmini" data-copy="' + esc(cd.domain) + '">Copy</button></div>' +
+          '<div class="dns-row"><span class="k">Value</span><code>' + esc(cd.target || "") + "</code>" +
+            '<button type="button" class="dbmini" data-copy="' + esc(cd.target || "") + '">Copy</button></div>' +
+          "</div>" +
+          /* Two things people get stuck on, and neither was written down:
+             most providers want the label alone in Name, and a new record is
+             not instant — Check has to be pressed again, because nothing here
+             re-checks on its own. */
+          '<div class="dbnote">Some providers want only the part before your root ' +
+          "domain in <b>Name</b>. A new record usually resolves within a few minutes, " +
+          "sometimes longer &mdash; press Check again when it has had time.</div>" +
           '<div class="cfg-acts"><button type="button" class="btn-d" data-dom="verify"' +
           (domBusy ? " disabled" : "") + ">" + (domBusy ? "Checking\u2026" : "Check DNS") + "</button>" +
           '<button type="button" class="btn-g" data-dom="detach">Remove</button></div>';
       } else {
-        out += '<div class="kv"><span class="k">domain</span><span class="v">' + esc(cd.domain) + "</span></div>" +
-          '<div class="cfg-hint ok">&#10003; verified &mdash; served at https://' + esc(cd.domain) + "</div>" +
+        out += '<div class="cfg-fixed"><code>' + esc(cd.domain) +
+          '</code><span class="tag">verified</span></div>' +
+          '<div class="cfg-hint ok">&#10003; served at https://' + esc(cd.domain) + "</div>" +
           '<div class="cfg-acts"><button type="button" class="btn-g" data-dom="detach">Remove</button></div>';
       }
-      if (domMsg) out += '<div class="cfg-hint bad">' + esc(domMsg) + "</div>";
-    }
+    if (domMsg) out += '<div class="cfg-hint bad">' + esc(domMsg) + "</div>";
 
     // ---- environment variables ----
     /* Post-deploy only, and honest about two things people get wrong here:
        a value can never be read back out, and nothing changes in the running
        container until the next deploy. */
-    if (st) {
-      out += '<div class="cfg-sec"><b>Environment variables</b></div>';
-      if (envList === null) {
+    out += '<div class="cfg-sec"><b>Environment variables</b></div>';
+      /* Same reason as the domain above: the plane keys variables off a
+         deployProjectId that the first deploy creates, and PUT /env answers
+         400 until then. */
+      if (!st) {
+        /* The box, the count and the add form exactly as they appear later,
+           inert. What a variable IS here — write-only, read back as four
+           characters, applied on the next deploy — is worth knowing before
+           you have one, and it only reads as a real feature if it looks like
+           the thing you will actually use. */
+        out += '<div class="dbnote">Values are written and never read back — we can show ' +
+          "the last four characters and nothing more. Changes take effect on the next deploy.</div>" +
+          '<div class="env-box"><div class="env-head">Variables<span class="n">none yet</span></div>' +
+          '<div class="env-empty">Available once this app has been deployed &mdash; variables ' +
+          "are stored against the deployment, which the first deploy creates.</div></div>" +
+          '<div class="dbform env-form">' +
+          '<input type="text" placeholder="API_KEY" disabled>' +
+          '<input type="password" placeholder="value" disabled>' +
+          '<button type="button" class="btn-d" disabled>Add</button></div>';
+      } else if (envList === null) {
         out += '<div class="sk" style="height:52px;margin:10px 16px"></div>';
       } else {
         out += '<div class="dbnote">Values are written and never read back — we can show ' +
           "the last four characters and nothing more. Changes take effect on the next deploy.</div>";
+
+        out += '<div class="env-box"><div class="env-head">Variables<span class="n">' +
+          (envList.length ? envList.length + (envList.length === 1 ? " variable" : " variables") : "none yet") +
+          "</span></div>";
         if (envList.length) {
           out += '<ul class="cfg-env">';
           for (var ei = 0; ei < envList.length; ei++) {
@@ -2249,34 +3085,28 @@
               (envBusy ? " disabled" : "") + ">Remove</button></li>";
           }
           out += "</ul>";
+        } else {
+          out += '<div class="env-empty">Nothing set yet. Anything you add here is handed to ' +
+            "the container the next time it deploys.</div>";
         }
-        out += '<div class="dbform">' +
+        out += "</div>";
+
+        out += '<div class="dbform env-form">' +
           '<input type="text" id="envKey" placeholder="API_KEY" autocomplete="off" ' +
           'spellcheck="false" value="' + esc(envKey) + '">' +
           '<input type="password" id="envVal" placeholder="value" autocomplete="new-password" ' +
           'value="' + esc(envVal) + '">' +
           '<button type="button" class="btn-d" data-env="add"' + (envBusy ? " disabled" : "") + ">" +
           (envBusy ? "Saving…" : "Add") + "</button></div>";
-        if (envMsg) out += '<div class="cfg-hint bad">' + esc(envMsg) + "</div>";
-      }
+      if (envMsg) out += '<div class="cfg-hint bad">' + esc(envMsg) + "</div>";
     }
 
-    // ---- checks ----
-    /* Real tests, kept visibly apart from "What we enforce" below. That
-       separation is the whole point: these ran and could have come out
-       differently, the list below is a description of the runtime and is true
-       before anything is built. Merging them into one score would restate the
-       claim settings.html declined to make. */
-    var checks = (detail && detail.checks) || [];
-    if (st && checks.length) {
-      out += '<div class="cfg-sec"><b>Checks</b></div><ul class="cfg-checks">';
-      for (var ci = 0; ci < checks.length; ci++) {
-        var ck = checks[ci];
-        out += '<li class="s-' + esc(ck.status) + '"><b>' + esc(CHECK_NAME[ck.id] || ck.id) +
-          "</b><span>" + esc(ck.summary || ck.status) + "</span></li>";
-      }
-      out += "</ul>";
-    }
+    /* The Checks list that stood here moved into the health rail beside the
+       preview — see renderDetail(). It was the odd one out in this panel:
+       everything else here is something you SET, and those were results.
+       "What we enforce" stays, and the separation it needed is now a whole
+       panel wide: these ran and could have come out differently, the list
+       below describes the runtime and is true before anything is built. */
 
     // ---- what we enforce ----
     // Deliberately NOT presented as a scan. These are properties of the
@@ -2291,9 +3121,8 @@
       "<li>CPU, memory and process limits enforced by the kernel</li>" +
       "</ul>";
 
-    if (!st) {
-      out += '<div class="acts"><button type="button" class="btn-d" data-act="deploy">Deploy</button></div>';
-    }
+    /* The Deploy button that stood here is up in the Deployment panel now,
+       with Redeploy, Start, Stop and Restart — see renderDetail(). */
     return out + "</div>";
   }
 
@@ -2303,67 +3132,217 @@
 
     var sig = detailSig(d);
     if (sig === renderDetail._sig && $("detailBody").children.length) return;
+
+    /* Only the log tail moved: replace the log box and leave the rest of the
+       panel standing, preview included. */
+    var stable = detailSigStable(d);
+    if (stable === renderDetail._stable && $("logBox")) {
+      var lb = $("logBox");
+      lb.innerHTML = logView(d.logs);
+      if (logPinned) lb.scrollTop = lb.scrollHeight;
+      renderDetail._sig = sig;
+      return;
+    }
     renderDetail._sig = sig;
+    renderDetail._stable = stable;
     var busy = !!LIVE[st];
     var title = r.title || "App";
 
-    var out = '<div class="hero"><div class="h-top">' +
-      "<div style=\"flex:1;min-width:0\"><h2>" + esc(title) + "</h2>" +
-      (d.url && st === "RUNNING"
+    var live = d.url && st === "RUNNING";
+
+    /* The card header is the app's identity and the two things you do with
+       it: open it, and see whether it is up. The pipeline and the action
+       buttons used to sit here too, which pushed the thing you actually came
+       to look at — the running app — most of a screen down the page. They are
+       below the card now, with the rest of the controls. */
+    var out = '<div class="dt-app"><div class="dt-app-head">' +
+      '<span class="tile" style="--tile:' + tileTint(r, r.key) + '">' + tileMark(r) + "</span>" +
+      '<div class="dt-app-id"><h2>' + esc(title) + "</h2>" +
+      (live
         ? '<a class="h-url" href="' + esc(d.url) + '" target="_blank" rel="noopener">' +
           '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><path d="M15 3h6v6M10 14 21 3"/></svg>' +
           esc(String(d.url).replace(/^https?:\/\//, "")) + "</a>"
         : "") +
-      "</div>" + pill(st) + "</div>";
+      "</div>" +
+      (live ? '<a class="dt-open" href="' + esc(d.url) + '" target="_blank" rel="noopener">Open</a>' : "") +
+      pill(st) + "</div>";
 
-    if (st) out += stepper(st);
+    /* An error stays at the top of the card. It is the one thing that changes
+       what you do next, and finding it under a preview would be finding it
+       late. */
     if (d.error) out += '<div class="h-err">' + esc(d.error) + "</div>";
+
+    /* The app itself, with what the platform knows about it in a rail beside
+       it — so "is it up, and is it healthy" is answered next to the thing
+       rather than in a Container panel three scrolls down. The address is not
+       repeated here: the header above already links it. */
+    /* Rendered whether or not anything is deployed. A project that has never
+       shipped used to get a title card and nothing else — no preview frame, no
+       health rail, no log panel, no pipeline — so the page you land on before
+       your first deploy looks like a different product from the one you get
+       after it, and none of it tells you what deploying will give you. The
+       shape is the same either way; the contents say "not yet". */
+    out += '<div class="dt-app-body"><div class="dt-app-pv">';
+    if (live) {
+      out += '<div class="dt-chrome"><span class="dots"><i></i><i></i><i></i></span>' +
+        '<span class="addr">' + esc(String(d.url).replace(/^https?:\/\//, "")) + "</span></div>";
+      /* Filled in after innerHTML, not here — see mountLivePreview(). The
+         iframe is built once and only rebuilt when the address changes. */
+      out += '<div class="dt-live" id="dtLive" data-url="' + esc(d.url) + '"></div>';
+    } else {
+      out += '<div class="dt-live dt-live-off"><i>' + tileMark(r) + "</i><span>" +
+        (!st ? "Deploy to show preview here"
+          : st === "STOPPED" ? "Stopped — start it to see it here"
+          : LIVE[st] ? "Building — the preview appears once it is running"
+          : "Not running") + "</span></div>";
+    }
+    out += "</div>";
+
+    var c = d.container || {};
+    var tone = st === "RUNNING" ? "on" : st === "FAILED" ? "bad" : LIVE[st] ? "busy" : "";
+    out += '<div class="dt-app-health">' +
+      '<div class="dt-state ' + tone + '"><div class="sv"><i></i>' +
+        esc(st ? (c.state || String(st).toLowerCase()) : "not deployed") + "</div>" +
+      '<div class="ss">' +
+        (!st ? "nothing has been built for this project yet"
+          : c.ageSeconds == null ? "not reported yet"
+          : esc("checked " + c.ageSeconds + "s ago")) +
+      "</div></div>" +
+      '<div class="dt-facts">' +
+      '<div><span class="k">restarts</span><span class="v">' + esc(String(c.restarts == null ? "—" : c.restarts)) + "</span></div>" +
+      '<div><span class="k">exit code</span><span class="v">' + esc(String(c.exitCode == null ? "—" : c.exitCode)) + "</span></div>" +
+      "</div>";
+
+    /* Results, beside the thing they ran against. */
+    var checks = d.checks || [];
+    if (checks.length) {
+      out += '<div class="dt-checks"><div class="dt-checks-h">Checks</div><ul>';
+      for (var ci = 0; ci < checks.length; ci++) {
+        var ck = checks[ci];
+        out += '<li class="s-' + esc(ck.status) + '"><b>' + esc(CHECK_NAME[ck.id] || ck.id) +
+          "</b><span>" + esc(ck.summary || ck.status) + "</span></li>";
+      }
+      out += "</ul></div>";
+    }
+    out += "</div>";
+
+    out += "</div>";     // the body
+    out += "</div>";     // the app card
+
+    /* Logs get the full width on their own row — a build line is long, and
+       sharing a row with the preview cut the end off every one of them. The
+       header carries what day these are from and how many there are, both of
+       which were already sitting in the data. */
+    var lgn = (d.logs && d.logs.lines || []).length;
+    var lgd = logDay(d.logs);
+    out += '<div class="panel dt-logs"><div class="panel-h"><b>Logs</b>' +
+      '<span class="log-meta">' +
+        (lgd ? esc(lgd) : "") + (lgd && lgn ? " · " : "") +
+        (lgn ? lgn + (lgn === 1 ? " line" : " lines") : "") + "</span>" +
+      '<button type="button" class="dbmini" data-logact="copy">Copy</button>' +
+      '<button type="button" class="dbmini' + (logWrap ? " on" : "") + '" data-logact="wrap">Wrap</button>' +
+      '<div class="seg"><button type="button" data-phase="build" class="' + (logPhase === "build" ? "on" : "") + '">Build</button>' +
+      '<button type="button" data-phase="runtime" class="' + (logPhase === "runtime" ? "on" : "") + '">Runtime</button></div></div>' +
+      '<div class="logs' + (logWrap ? " wrap" : "") + '" id="logBox">' +
+      (st ? logView(d.logs)
+          : '<div class="logs-empty">Nothing built yet — the build output appears here the moment you deploy.</div>') +
+      "</div></div>";
+
+    /* Progress and controls, directly under the preview they act on. */
+    var stepAt = FLOW.indexOf(st) + 1;
+    out += '<div class="panel dt-run"><div class="panel-h"><b>' +
+      (st ? "Deployment" : "Not deployed yet") + "</b>" +
+      '<span class="run-meta">' +
+        /* No step number for FAILED: the status alone does not say WHICH step
+           it died on, and FLOW.indexOf("FAILED") is -1 — reading a step name
+           out of that would have confidently reported "queued" every time. */
+        (st && LIVE[st] && stepAt ? "step " + stepAt + " of " + FLOW.length
+          : st === "RUNNING" ? "all four steps complete"
+          : "") + "</span></div>" +
+      '<div class="dt-run-body">';
+    /* The stepper draws every bead unlit when there is no status, which is
+       exactly the right picture for "none of this has happened yet" — and it
+       shows what the four steps ARE before you commit to running them. */
+    out += stepper(st);
+    out += '<div class="run-say"><b>' +
+      (st ? esc(st.charAt(0) + st.slice(1).toLowerCase()) + "." : "Not deployed.") + "</b> " +
+      esc(st ? (PHASE_SAY[st] || "")
+             : "Nothing has been built yet. Deploy below and these four steps run in order.") +
+      "</div>";
 
     /* Every button here is queued work on the deploy plane, so each one
        goes disabled with a present-tense label and the poll decides when
        it is really done. Claiming success on the 202 would be a lie. */
     out += '<div class="acts">';
     if (!st) {
-      // Deploy moves into the Configure panel below, so the button sits
-      // after the decisions it commits rather than before them.
-      // Only when there is actually something below to choose in.
-      out += '<span class="cfg-nudge">' +
+      /* Deploy sits with the other lifecycle buttons, under the pipeline it
+         starts. It used to live at the very bottom of the Configure panel, on
+         the theory that it should come after the decisions it commits — but
+         that panel has since grown an address, a data note, a custom-domain
+         section, environment variables and a five-item list of what the
+         runtime enforces. The one button that makes the page DO anything
+         ended up below all of it, under a static description of container
+         security, a full screen from the empty preview telling you to deploy.
+         Every decision below it is optional; an address is generated if you
+         choose none. */
+      out += '<button type="button" class="btn-d" data-act="deploy">Deploy</button>' +
+        '<span class="cfg-nudge">' +
         (cfgInfo && cfgInfo.unavailable
-          ? "Address settings could not be loaded."
-          : "Choose an address below, then deploy.") + "</span>";
+          ? "Address settings could not be loaded — deploying will generate one."
+          : "Set an address in Configure first, or deploy and we'll generate one.") +
+        "</span>";
     } else {
       out += '<button type="button" class="btn-d" data-act="redeploy"' + (busy ? " disabled" : "") + ">Redeploy</button>";
       if (st === "RUNNING") out += '<button type="button" class="btn-g" data-act="stop">Stop</button>';
       else if (st === "STOPPED") out += '<button type="button" class="btn-g" data-act="start">Start</button>';
       if (st === "RUNNING") out += '<button type="button" class="btn-g" data-act="restart">Restart</button>';
     }
+    out += "</div>";
+
+    /* Three verbs with real consequences, offered with nothing saying which
+       one keeps your data or your address. They all do — that is worth saying
+       once, here, rather than letting people find out by trying. */
+    out += '<div class="dt-run-note">' +
+        (!st
+          ? "Deploying builds an image from your source, starts it in its own container and puts it on the address you choose above."
+          : busy
+          ? "This is in progress. The controls come back when it settles."
+          : st === "STOPPED"
+            ? "<b>Start</b> brings it back on the same address, with its database and settings untouched."
+            : st === "FAILED"
+              ? "<b>Redeploy</b> tries again from your latest source. Nothing was lost — the previous container, database and address are all still here."
+              : "<b>Redeploy</b> rebuilds from your latest source. <b>Restart</b> bounces the container without rebuilding. <b>Stop</b> takes it off the air — the address, the database and the settings are all kept.") +
+      "</div>";
+
     out += "</div></div>";
 
     out += cfgPanel(st);
 
+    /* Shown before the first deploy too: dbPanel() has a branch that says a
+       database will be created on that deploy, which is exactly what someone
+       looking at an undeployed project wants to know.
+
+       (The Container panel that used to sit here says what Status & health
+       now says beside the preview, only further down the page.) */
+    out += dbPanel();
+
+    /* Delete is the one thing deliberately NOT mirrored here: it removes a
+       deployment, and before the first deploy there is no deployment to
+       remove — the button could only ever return an error. */
     if (st) {
-      out += '<div class="panel"><div class="panel-h"><b>Logs</b>' +
-        '<div class="seg"><button type="button" data-phase="build" class="' + (logPhase === "build" ? "on" : "") + '">Build</button>' +
-        '<button type="button" data-phase="runtime" class="' + (logPhase === "runtime" ? "on" : "") + '">Runtime</button></div></div>' +
-        '<div class="logs" id="logBox">' + logView(d.logs) + "</div></div>";
-
-      out += dbPanel();
-
-      var c = d.container;
-      if (c) {
-        out += '<div class="panel"><div class="panel-h"><b>Container</b></div>' +
-          '<div class="kv"><span class="k">state</span><span class="v">' + esc(c.state || "—") + "</span></div>" +
-          '<div class="kv"><span class="k">restarts</span><span class="v">' + esc(String(c.restarts == null ? "—" : c.restarts)) + "</span></div>" +
-          '<div class="kv"><span class="k">exit code</span><span class="v">' + esc(String(c.exitCode == null ? "—" : c.exitCode)) + "</span></div>" +
-          '<div class="kv"><span class="k">observed</span><span class="v">' +
-            (c.ageSeconds == null ? "—" : esc(c.ageSeconds + "s ago")) + "</span></div></div>";
-      }
-
-      out += '<div class="danger"><b>Delete this deployment</b>' +
+      out += '<div class="danger">' +
+        '<div class="danger-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' +
+        '<path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/>' +
+        '<path d="M10 11v6M14 11v6"/></svg></div>' +
+        "<b>Delete this deployment</b>" +
         "<p>Stops the container, removes its image and its network, and frees the capacity. " +
         "Your source is untouched — you can deploy again at any time.</p>" +
-        '<input type="text" id="delConfirm" placeholder="Type the app name to confirm" autocomplete="off">' +
-        '<button type="button" class="btn-danger" data-act="destroy">Delete</button></div>';
+        '<p class="danger-ask">Type <code>' + esc(title) + "</code> to confirm.</p>" +
+        '<div class="danger-act">' +
+        '<input type="text" id="delConfirm" placeholder="App name" autocomplete="off" ' +
+        'spellcheck="false" value="' + esc(delDraft) + '">' +
+        '<button type="button" class="btn-danger" data-act="destroy"' +
+        (delDraft.trim() === title.trim() ? "" : " disabled") + ">Delete</button></div></div>";
     }
 
     /* A repaint driven by a build log line must not take the cursor away
@@ -2371,9 +3350,10 @@
        dbDraft/cfgDraft keep the text; this keeps the caret. */
     var ae = document.activeElement;
     var typing = ae && (ae.id === "dbUrl" || ae.id === "cfgName" || ae.id === "domName" ||
-      ae.id === "envKey" || ae.id === "envVal") ? ae.id : null;
+      ae.id === "envKey" || ae.id === "envVal" || ae.id === "delConfirm") ? ae.id : null;
 
     $("detailBody").innerHTML = out;
+    mountLivePreview();
 
     if (typing) {
       var f = $(typing);
@@ -2397,6 +3377,9 @@
     domDraft = ""; domMsg = null; domBusy = false;
     secIssues = null;
     envList = null; envKey = ""; envVal = ""; envMsg = null; envBusy = false;
+    // Left set, a name typed to delete one app would arrive already typed —
+    // and already armed — on the next app opened.
+    delDraft = "";
     renderDetail._sig = null;          // a different app must always repaint
     location.hash = "#" + key;
     $("viewList").hidden = true; $("viewDetail").hidden = false;
@@ -2415,6 +3398,7 @@
     domDraft = ""; domMsg = null; domBusy = false;
     secIssues = null;
     envList = null; envKey = ""; envVal = ""; envMsg = null; envBusy = false;
+    delDraft = "";
     if (location.hash) location.hash = "";
     $("viewDetail").hidden = true; $("viewList").hidden = false;
     renderList(); schedule();
@@ -2426,7 +3410,13 @@
     var card = e.target.closest(".app") || e.target.closest(".ag-chat-item");
     if (card && card.dataset.key) { openDetail(card.dataset.key); return; }
 
-    if (e.target.closest("#agUserMain") || e.target.closest("#agUserGear")) { openPanel("/settings"); return; }
+    if (e.target.closest("#agUserMain")) {
+      /* Signed out, this row is labelled Sign in and there is no account
+         for the settings panel to be about — so it goes where it says. */
+      if (!document.body.dataset.signedIn) { location.href = "/login"; return; }
+      openPanel("/settings"); return;
+    }
+    if (e.target.closest("#agUserGear")) { openPanel("/settings"); return; }
 
     var chip = e.target.closest(".fchip");
     if (chip) {
@@ -2443,6 +3433,20 @@
 
     var jump = e.target.closest(".jump");
     if (jump) { logPinned = true; var b = $("logBox"); if (b) b.scrollTop = b.scrollHeight; jump.remove(); return; }
+
+    var cp = e.target.closest("[data-copy]");
+    if (cp) { copyText(cp, cp.getAttribute("data-copy")); return; }
+
+    var la = e.target.closest("[data-logact]");
+    if (la) {
+      if (la.dataset.logact === "copy") { copyLogs(la); return; }
+      /* Toggled in place, deliberately — see logWrap's declaration. */
+      logWrap = !logWrap;
+      la.classList.toggle("on", logWrap);
+      var lb2 = $("logBox");
+      if (lb2) lb2.classList.toggle("wrap", logWrap);
+      return;
+    }
 
     var dbtab = e.target.closest("[data-dbtab]");
     if (dbtab) {
@@ -2474,6 +3478,15 @@
      vanish out from under whoever was halfway through pasting it. */
   document.addEventListener("input", function (e) {
     if (!e.target) return;
+    if (e.target.id === "delConfirm") {
+      delDraft = e.target.value;
+      /* Arm the button here rather than repainting: putting delDraft in the
+         signature would rebuild the whole panel on every keystroke, which is
+         how the field would lose focus again by a different route. */
+      var delBtn = document.querySelector(".danger .btn-danger");
+      if (delBtn) delBtn.disabled = delDraft.trim() !== ((row() || {}).title || "").trim();
+      return;
+    }
     if (e.target.id === "dbUrl") dbDraft = e.target.value;
     if (e.target.id === "domName") { domDraft = e.target.value; return; }
     if (e.target.id === "envKey") { envKey = e.target.value; return; }
@@ -2650,6 +3663,32 @@
       if (typed !== (row().title || "").trim()) { toast("Type the app name exactly to confirm."); return; }
     }
 
+    /* Stop takes a live site off the air, and it was one click away from a
+       button sitting next to Restart. The button arms instead of opening a
+       dialog: same gesture, one extra beat, and it disarms itself after a few
+       seconds so a misclick costs nothing. Delete has its type-the-name gate;
+       this is the proportionate version of it. */
+    if (name === "stop" && btn.dataset.armed !== "1") {
+      btn.dataset.armed = "1";
+      btn.classList.add("arming");
+      var back = btn.textContent;
+      btn.textContent = "Confirm stop";
+      clearTimeout(runAction._disarm);
+      runAction._disarm = setTimeout(function () {
+        if (!btn.isConnected) return;
+        btn.dataset.armed = "";
+        btn.classList.remove("arming");
+        btn.textContent = back;
+      }, 4000);
+      return;
+    }
+    /* Disarm BEFORE the label is captured below. `was` is what the button goes
+       back to if the call fails, and on the confirming click the label reads
+       "Confirm stop" — restoring that would leave a button permanently asking
+       to confirm something it already tried. */
+    if (name === "stop") { btn.classList.remove("arming"); btn.dataset.armed = ""; btn.textContent = "Stop"; }
+    clearTimeout(runAction._disarm);
+
     var was = btn.textContent;
     var verb = { deploy: "Deploying…", redeploy: "Redeploying…", stop: "Stopping…", start: "Starting…", restart: "Restarting…", destroy: "Deleting…" };
     btn.disabled = true; btn.textContent = verb[name] || "Working…";
@@ -2726,13 +3765,32 @@
      Settings and plans open over this page rather than navigating to
      them, which is what the builder does and what keeps a deploy you are
      watching on screen while you check a setting. */
+  var SETTINGS_CLOSE_MS = 150;
+  var settingsCloseTimer = 0;
   function openPanel(src) {
+    // Re-opening mid-close must cancel it, or the pending timer would hide
+    // the overlay again a moment after it was asked to appear.
+    clearTimeout(settingsCloseTimer);
+    $("agSetOverlay").classList.remove("closing");
     var f = $("agSetFrame");
     if (f.getAttribute("src") !== src) f.setAttribute("src", src);
     $("agSetOverlay").hidden = false;
     if (window.SouqiLoading) window.SouqiLoading.hide();
   }
-  function closePanel() { $("agSetOverlay").hidden = true; }
+  /* .closing runs the reverse animation and the overlay only goes [hidden]
+     once it has finished. A timer rather than animationend so a browser
+     that never fires the event — or reduced motion, where the animation is
+     a no-op — still ends with the overlay actually hidden. */
+  function closePanel() {
+    var o = $("agSetOverlay");
+    if (o.hidden) return;
+    clearTimeout(settingsCloseTimer);
+    o.classList.add("closing");
+    settingsCloseTimer = setTimeout(function () {
+      o.classList.remove("closing");
+      o.hidden = true;
+    }, SETTINGS_CLOSE_MS);
+  }
 
   $("agSetOverlay").addEventListener("click", function (e) {
     if (e.target === $("agSetOverlay")) closePanel();
@@ -2798,6 +3856,8 @@
       // placeholder in place invented a workspace and an account both
       // called "S", which is worse than saying nothing.
       if (!d || !d.signedIn) { $("agWsNm").textContent = "Sign in"; return; }
+      // Read by the rail's account row to decide between Settings and /login.
+      document.body.dataset.signedIn = "1";
       var who = d.company || d.email || "Account";
       var initial = String(who).charAt(0).toUpperCase();
       $("agWsSigned").textContent = d.email || "Signed in";

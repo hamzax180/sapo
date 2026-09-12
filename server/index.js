@@ -25,7 +25,7 @@ const cors = require("cors");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const { connect, getMasterDb } = require("./db"); // default master MongoDB connection
-const { testConnection, seedWorkspaceDatabase, findWorkspaceByDomain, dbAdapter } = require("./db-adapters");
+const { testConnection, seedWorkspaceDatabase, dbAdapter } = require("./db-adapters");
 const { idForCollection } = require("./lib/ids");
 const { httpError, errorHandler } = require("./lib/errors");
 const requestId = require("./middleware/requestId");
@@ -39,6 +39,7 @@ const { encryptSecret, decryptSecret } = require("./lib/crypto");
 const aiProviders = require("./lib/ai/providers");
 const scaffoldFiles = require("./lib/codeagent/scaffold-files");
 const secretscan = require("./lib/secretscan");
+const depscan = require("./lib/depscan");
 const stripeLib = require("./lib/stripe");
 
 /* How long a brief is allowed to be.
@@ -86,6 +87,16 @@ app.disable("x-powered-by");
 const jsonBig = express.json({ limit: "12mb" });
 const jsonDefault = express.json({ limit: "4mb" });
 app.use((req, res, next) => {
+  /* The Stripe webhook is authenticated by an HMAC over the RAW request
+     bytes, so it has to reach its own express.raw() with the stream still
+     unread. Parsing it here set req._body, body-parser then SKIPPED the raw
+     parser on the route, and verifyWebhook was handed the parsed object
+     instead of the bytes — it stringified to [object Object] and no genuine
+     Stripe signature could ever match it. The route looked correct in
+     isolation, which is why this survived: the damage is done four hundred
+     lines earlier, by a middleware that runs on everything. */
+  if (req.path === "/api/stripe/webhook") return next();
+
   // /api/codeagent/build: a base64-encoded logo upload (see attachLogoIfPresent)
   // can legitimately run to ~4MB even after the client's own 2MB cap on the
   // decoded image — base64 adds ~33%, and this is JSON, not multipart.
@@ -94,8 +105,42 @@ app.use((req, res, next) => {
   return (big ? jsonBig : jsonDefault)(req, res, next);
 });
 
-const origins = (process.env.CORS_ORIGIN || "*").split(",").map((s) => s.trim());
-app.use(cors({ origin: origins.includes("*") ? true : origins }));
+/* CORS_ORIGIN is a comma-separated allowlist. `*` reflects whatever Origin
+   the request carried, which is the right default for local development
+   and the wrong one for a public deployment — so production refuses to
+   start on it rather than quietly serving every origin that asks.
+
+   Worth being precise about what this does and does not protect: browsers
+   never send sq_session cross-origin, because credentials are not enabled
+   on this middleware and the cookie is SameSite=Lax. So a wildcard was
+   never an account-takeover route. What it did allow was any site reading
+   this API's unauthenticated responses from its own page. */
+let origins = (process.env.CORS_ORIGIN || "*").split(",").map((s) => s.trim()).filter(Boolean);
+let corsWildcard = origins.includes("*");
+
+/* A wildcard in production is refused — but by NARROWING, not by throwing.
+
+   This used to `throw` here, at module scope. On a long-lived server that is
+   a loud startup failure you fix in a minute; in a serverless function it is
+   a crash on every single invocation, so one unset variable turned into
+   FUNCTION_INVOCATION_FAILED on every API route while the static pages kept
+   serving and looked fine. A guard against a misconfiguration must not be
+   more destructive than the misconfiguration.
+
+   So the wildcard is dropped and the app's own domain is used instead: the
+   safe end of the range it was refusing, and the same value the message
+   below asks for. Loud in the log, still running. */
+if (corsWildcard && process.env.NODE_ENV === "production") {
+  const appDomain = (process.env.APP_DOMAIN || "souqi.site").toLowerCase();
+  origins = ["https://" + appDomain, "https://www." + appDomain];
+  corsWildcard = false;
+  console.error(
+    "[cors] CORS_ORIGIN is '*' in production — refusing it and falling back to " +
+    origins.join(", ") + ". Set CORS_ORIGIN explicitly to the origins allowed " +
+    "to call this API, e.g. CORS_ORIGIN=https://" + appDomain + ",https://www." + appDomain
+  );
+}
+app.use(cors({ origin: corsWildcard ? true : origins }));
 
 // Every request gets a unique correlation id (req_...), echoed as X-Request-Id.
 app.use(requestId);
@@ -115,9 +160,10 @@ const visitLimiter = rateLimit({ windowMs: 60 * 1000, max: 120, key: (req) => re
 app.get("/", (req, res) => res.sendFile(path.join(__dirname, "..", "public", "home.html")));
 
 // WebContainers require Cross-Origin Isolation (SharedArrayBuffer).
-// These headers ONLY apply to the builder page, not globally — setting
-// them site-wide would break third-party embeds on portal/storefront
-// pages.
+// These headers ONLY apply to the builder page, not globally — set
+// site-wide they blank every deployed-app preview thumbnail on /projects
+// and /deployments, because those apps send no cross-origin headers of
+// their own (see the long note in middleware/securityHeaders.js).
 //
 // /agent and /agent/:slug are in this list because THEY are the routes a
 // user actually lands on; both sendFile code.html. Without them the page
@@ -125,6 +171,17 @@ app.get("/", (req, res) => res.sendFile(path.join(__dirname, "..", "public", "ho
 // fails — a build that dies for a reason nothing on the page explains.
 // (/code and /code.html stay listed: they serve the same document, so
 // isolating one entry point and not the others would just move the bug.)
+//
+// /settings is here for the OTHER reason a route belongs in this list: it
+// does not need isolation itself, it is FRAMED by pages that have it. A
+// document embedded in a COEP context must assert COEP too, and that rule
+// is not origin-scoped — a same-origin child is blocked exactly like a
+// cross-origin one, and `credentialless` relaxes the requirement for
+// subresources, never for frames. The builder's settings overlay is an
+// <iframe src="/settings">, so with no COEP on the response the browser
+// refused the navigation and painted "localhost refused to connect" where
+// the settings panel should have been. Anything else this page ever frames
+// has to be added here for the same reason.
 function crossOriginIsolate(req, res, next) {
   res.setHeader("Cross-Origin-Embedder-Policy", "credentialless");
   res.setHeader("Cross-Origin-Opener-Policy", "same-origin");
@@ -133,6 +190,8 @@ function crossOriginIsolate(req, res, next) {
 app.use("/agent", crossOriginIsolate);
 app.use("/code", crossOriginIsolate);
 app.use("/code.html", crossOriginIsolate);
+app.use("/settings", crossOriginIsolate);
+app.use("/settings.html", crossOriginIsolate);
 
 app.use(express.static(path.join(__dirname, "..", "public")));
 
@@ -193,9 +252,13 @@ const COLLECTIONS = ["users", "clients", "suppliers", "products", "quotes", "ord
 
 /* =================================================================
    CUSTOM DOMAIN MIDDLEWARE
-   Runs on every request. If the Host header matches a workspace's
-   customDomain, we attach the workspace context to req.portalWs
-   so portal routes can serve the right branded experience.
+   Runs on every request. A Host header that is not the platform itself
+   is looked up against Souqi Code's published projects, and a match is
+   served that project's site.
+
+   It used to check storefront workspaces first and render public/portal.html
+   for them. That product is retired, so there is one kind of custom domain
+   now: a published project.
    ================================================================= */
 const PLATFORM_HOSTS = new Set([
   "localhost", "127.0.0.1",
@@ -208,18 +271,13 @@ app.use(async (req, res, next) => {
   try {
     const masterDb = getMasterDb();
     if (masterDb) {
-      const ws = await findWorkspaceByDomain(masterDb, host);
-      if (ws) {
-        req.portalWs = ws;
-        // If they hit the root of a custom domain, serve the portal directly
-        if (req.path === "/" || req.path === "") {
-          return res.sendFile(path.join(__dirname, "..", "public", "portal.html"));
-        }
-        return next();
-      }
-      // Not a Sites workspace domain — check Souqi Code's own published
-      // projects before falling through. Same trust model, same reason
-      // it's safe (see projects.js findByCustomDomain's own comment).
+      /* The Sites branch that used to sit here served public/portal.html at
+         the root of a storefront workspace's custom domain. The storefront
+         product is retired and that file is deleted, so the lookup and the
+         sendFile both went with it — it had nothing to serve and would have
+         thrown ENOENT on any unrecognised host.
+
+         What a custom domain means now is a published Souqi Code project. */
       const codeProject = await projects.findByCustomDomain(host);
       if (codeProject && codeProject.published) {
         return servePublishedSite(req, res, req.path.replace(/^\//, ""), codeProject);
@@ -250,6 +308,7 @@ app.get("/privacy", (req, res) => res.sendFile(path.join(__dirname, "..", "publi
 app.get("/settings", (req, res) => res.sendFile(path.join(__dirname, "..", "public", "settings.html")));
 app.get("/projects", (req, res) => res.sendFile(path.join(__dirname, "..", "public", "projects.html")));
 app.get("/deployments", (req, res) => res.sendFile(path.join(__dirname, "..", "public", "deployments.html")));
+app.get("/security", (req, res) => res.sendFile(path.join(__dirname, "..", "public", "security.html")));
 app.get("/checkout", (req, res) => res.sendFile(path.join(__dirname, "..", "public", "checkout.html")));
 app.get("/mobile", (req, res) => res.sendFile(path.join(__dirname, "..", "public", "mobile.html")));
 // Where Stripe Checkout returns a shopper. Souqi-hosted rather than bouncing
@@ -258,7 +317,6 @@ app.get("/mobile", (req, res) => res.sendFile(path.join(__dirname, "..", "public
 app.get("/pay/success", (req, res) => res.sendFile(path.join(__dirname, "..", "public", "pay-success.html")));
 app.get("/pay/cancelled", (req, res) => res.sendFile(path.join(__dirname, "..", "public", "pay-cancelled.html")));
 app.get("/admin", (req, res) => res.sendFile(path.join(__dirname, "..", "public", "admin.html")));
-app.get("/portal/:wsId", (req, res) => res.sendFile(path.join(__dirname, "..", "public", "portal.html")));
 
 app.get("/public/login", (req, res) => res.sendFile(path.join(__dirname, "..", "public", "login.html")));
 
@@ -1149,8 +1207,17 @@ app.post("/auth/login", loginLimiter, validateBody(loginSchema), async (req, res
  */
 app.post("/auth/signup", loginLimiter, verifyCaptcha(), validateBody(signupSchema), async (req, res, next) => {
   try {
-    const { email, password, company, country } = req.valid;
+    const { name, email, password, company, country } = req.valid;
     const emailLower = String(email).toLowerCase();
+
+    /* The schema's min:1 measures the raw string, so "   " satisfies it. The
+       store then trimmed it to nothing and quietly fell back to the email's
+       local part — which is the exact behaviour requiring a name was meant to
+       end, reachable by typing three spaces. Rejected here instead. */
+    const displayName = String(name || "").trim();
+    if (!displayName) {
+      return res.status(400).json({ error: "name is required" });
+    }
 
     const masterDb = getMasterDb();
     if (!masterDb) return res.status(503).json({ error: "Master DB not available" });
@@ -1178,7 +1245,10 @@ app.post("/auth/signup", loginLimiter, verifyCaptcha(), validateBody(signupSchem
 
     const ownerUser = {
       id: "usr_" + crypto.randomBytes(8).toString("base64url"),
-      name: emailLower.split("@")[0],
+      /* The name they gave, not a slice of their address. No fallback: a
+         blank one is rejected above, so reaching here means there is a real
+         name to store. */
+      name: displayName.slice(0, 80),
       email: emailLower,
       password: password,            // hashed by insertOne — see note above
       role: "Owner", dept: "Management", active: true,
@@ -1270,175 +1340,13 @@ const INDUSTRY_LABELS = {
   wholesale: "Wholesale & trade", retail: "Retail shop"
 };
 
-const agentLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 8, key: (req) => req.ip || "" });
+/* The Sites agent's draft store stood here — a TTL'd agent_drafts collection
+   with an in-memory fallback, plus the rate limiter for /api/agent/build.
+   All of it served routes that are gone. A build in the current product is a
+   PROJECT: durable, owned by a cookie or an account, and versioned, which is
+   what the section below this one is about. */
 
-const DRAFT_TTL_MS = 7 * 24 * 60 * 60 * 1000;
-const draftMemory = new Map();   // fallback when the master DB isn't up
 
-function pruneDrafts() {
-  const now = Date.now();
-  for (const [id, d] of draftMemory) if (d.expiresAt <= now) draftMemory.delete(id);
-  if (draftMemory.size > 500) {
-    // hard cap so an unbacked dev server can't grow without bound
-    const oldest = [...draftMemory.entries()].sort((a, b) => a[1].createdAt - b[1].createdAt);
-    oldest.slice(0, draftMemory.size - 500).forEach(([id]) => draftMemory.delete(id));
-  }
-}
-
-async function saveDraft(draft) {
-  const masterDb = getMasterDb();
-  if (masterDb) {
-    await masterDb.collection("agent_drafts").insertOne(draft);
-    // TTL index is idempotent; expired drafts are reaped by Mongo itself
-    masterDb.collection("agent_drafts")
-      .createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 })
-      .catch(() => {});
-    return;
-  }
-  pruneDrafts();
-  draftMemory.set(draft.id, draft);
-}
-
-async function loadDraft(id) {
-  const masterDb = getMasterDb();
-  if (masterDb) return masterDb.collection("agent_drafts").findOne({ id: id }, { projection: { _id: 0 } });
-  pruneDrafts();
-  return draftMemory.get(id) || null;
-}
-
-/**
- * POST /api/agent/build
- * Body: { prompt, mode? }   — no auth; this is the free first build.
- * Returns: { draftId, config, meta, issues }
- */
-app.post("/api/agent/build", agentLimiter, async (req, res, next) => {
-  try {
-    const prompt = String((req.body && req.body.prompt) || "").trim();
-    if (prompt.length < 3) return res.status(400).json({ error: "prompt is required" });
-    const promptCap = await promptLimitFor(req);
-    if (prompt.length > promptCap) return res.status(400).json({ error: tooLongMessage("That brief", prompt.length, promptCap) });
-
-    const mode = String((req.body && req.body.mode) || "").slice(0, 30);
-    // set when the visitor answered a "which is closest?" question
-    const forcedIndustry = String((req.body && req.body.industry) || "").slice(0, 30);
-
-    /* ---- understand (no model, no network — see NO-API-BUILDER-PLAN §3) ---- */
-    const verdictNlu = classify(prompt);
-    const slots = extract(prompt, verdictNlu.lang);
-
-    // Guessing confidently wrong is worse than asking. One chip row costs the
-    // visitor a tap; it costs us 150ms.
-    if (!forcedIndustry && !verdictNlu.certain) {
-      return res.json({
-        needsAnswer: {
-          question: "Which is closest to your business?",
-          options: choices(verdictNlu).map((k) => ({ key: k, label: INDUSTRY_LABELS[k] || k }))
-        },
-        lang: verdictNlu.lang,
-        confidence: verdictNlu.confidence
-      });
-    }
-
-    const industry = forcedIndustry || verdictNlu.industry;
-
-    // Today: the deterministic composer, now fed real slots instead of its own
-    // keyword guess. A model pipeline would slot in here and hand its output to
-    // the SAME validator below.
-    const composed = composer.compose(prompt, {
-      mode: mode,
-      industry: industry,
-      company: slots.company,
-      city: slots.city,
-      currency: slots.currency,
-      colour: slots.colour,
-      features: slots.features,
-      tone: slots.tone,
-      lang: slots.lang
-    });
-    const verdict = validateSiteConfig(composed.config, { forAgent: true });
-
-    if (!verdict.ok) {
-      console.error("agent build failed validation:", verdict.issues.slice(0, 5));
-      return res.status(502).json({ error: "could not build a site from that", issues: verdict.issues.slice(0, 5) });
-    }
-
-    const now = Date.now();
-    const draft = {
-      id: "dr_" + crypto.randomBytes(9).toString("base64url"),
-      prompt: prompt.slice(0, 2000),
-      mode: mode,
-      meta: composed.meta,
-      config: verdict.config,
-      ip: req.ip || "",
-      createdAt: new Date(now).toISOString(),
-      expiresAt: new Date(now + DRAFT_TTL_MS)
-    };
-    await saveDraft(draft);
-
-    res.json({
-      draftId: draft.id,
-      config: draft.config,
-      meta: draft.meta,
-      issues: verdict.issues.slice(0, 10),
-      expiresInDays: 7
-    });
-  } catch (e) {
-    next(e);
-  }
-});
-
-/**
- * POST /api/agent/claim
- * Body: { draftId, wsId }   Header: Authorization: Bearer <owner JWT>
- *
- * Turns an anonymous draft into the workspace's live storefront. This is the
- * moment a draft stops being a throwaway and becomes the owner's property, so
- * it goes through the SAME ownership check as every other workspace write —
- * knowing a draft id is not authorisation for anything.
- *
- * Returns an edit token so the caller can jump straight into the live editor.
- */
-app.post("/api/agent/claim", async (req, res, next) => {
-  try {
-    const draftId = String((req.body && req.body.draftId) || "");
-    const wsId = String((req.body && req.body.wsId) || "");
-    if (!/^dr_[A-Za-z0-9_-]{6,40}$/.test(draftId)) return res.status(400).json({ error: "bad draft id" });
-    if (!wsId) return res.status(400).json({ error: "wsId is required" });
-
-    const { decoded, masterDb } = await assertOwnsWorkspace(req, wsId);
-
-    const draft = await loadDraft(draftId);
-    if (!draft) return res.status(404).json({ error: "draft not found or expired" });
-
-    // Re-validate on the way in. The draft was validated when it was built,
-    // but it has been sitting in a database since — never trust stored state
-    // that is about to become a published page.
-    const verdict = validateSiteConfig(draft.config, { forAgent: true });
-    if (!verdict.ok) return res.status(422).json({ error: "draft is no longer valid", issues: verdict.issues.slice(0, 5) });
-
-    await masterDb.collection("workspaces").updateOne(
-      { id: wsId },
-      { $set: { storefrontConfig: verdict.config, storefrontEnabled: true } }
-    );
-
-    // one draft, one claim
-    if (getMasterDb()) await masterDb.collection("agent_drafts").deleteOne({ id: draftId });
-    draftMemory.delete(draftId);
-
-    const ws = await resolveWsContext(wsId);
-    await writeAudit(dbAdapter, ws, {
-      requestId: req.id, actor: decoded.email, action: "workspace.storefront.claim",
-      entity: "workspace", entityId: wsId,
-      summary: "Agent draft " + draftId + " claimed as the live storefront"
-    });
-
-    const editToken = jwt.sign({ wsId: wsId, email: decoded.email, scope: "portal-edit" }, JWT_SECRET, { expiresIn: "15m" });
-    res.json({ ok: true, wsId: wsId, editToken: editToken, expiresIn: 900, meta: draft.meta || null });
-  } catch (e) {
-    if (e.status) return res.status(e.status).json({ error: e.message });
-    next(e);
-  }
-});
 
 /* =================================================================
    PROJECTS — the durable object (docs/AGENT-PARITY-PLAN.md §1–3)
@@ -1608,7 +1516,25 @@ app.post("/api/projects", projectLimiter, async (req, res, next) => {
     keep that true without a schema-level index change for one filter. */
 app.get("/api/projects", async (req, res, next) => {
   try {
-    const owner = anon.ownerOf(req, res);
+    /* appOwnerOf, not anon.ownerOf — the same distinction the usage card was
+       fixed for, and the same symptom: anon.ownerOf fills userId from the
+       Authorization header ONLY, so a person signed in by cookie came back
+       carrying their anon id. This list was therefore scoped to whatever that
+       browser cookie happened to own, while /api/deploy/overview (which uses
+       deployOwnerOf, i.e. appOwnerOf) was scoped to the account — one account,
+       two endpoints, 52 apps on /deployments and 3 on /projects.
+
+       ownerFilter() ORs ownerUserId with ownerAnonId, so this only ever adds:
+       anything still held by the cookie stays in the list beside the
+       account-owned projects, and a signed-out visitor resolves to exactly the
+       same owner as before.
+
+       Only the LIST moves. Every /api/projects/:key route keeps anon.ownerOf
+       deliberately — microclaim-test.js pins that a cookie-only read of a
+       CLAIMED project is refused, and that asymmetry is a real property, not
+       an oversight. Listing what you own is not the same question as proving
+       you own one particular thing. */
+    const owner = appOwnerOf(req, res);
     const kind = String(req.query.kind || "");
     const onlyFavorites = req.query.favorite === "1";
     const limit = Number(req.query.limit) || 30;
@@ -1853,6 +1779,20 @@ app.post("/api/projects/:key/turns", projectLimiter, async (req, res, next) => {
  * renderer (generic-renderer.js) the published storefront runs, with no
  * separate preview code path to keep in sync (docs/AGENT-PARITY-PLAN.md §6).
  * Owner-only: a draft isn't published, so it isn't public like a real portal.
+ *
+ * THE ONLY handler for this path, and it has to stay that way. A second
+ * app.get() on it used to sit further down the file, rendering HTML instead
+ * of this JSON — published snapshot if there was one, otherwise a generated
+ * "this project hasn't been published yet" page. Express matches the first
+ * route registered, so that one never ran at all, and the two disagreed
+ * about both the response body and the content type.
+ *
+ * It was a leftover of the server-side preview approach that was already
+ * retired: /api/codeagent/preview/:key above it is a 410 stub saying
+ * previews are served locally by WebContainers now, and code.html says the
+ * same in its own words — it renders through a real build precisely because
+ * this endpoint "never showed anything real" for a draft. Nothing called
+ * the HTML one; portal.js calls this one and wants the JSON.
  */
 app.get("/api/projects/:key/preview", async (req, res, next) => {
   try {
@@ -1872,6 +1812,53 @@ app.get("/api/projects/:key/preview", async (req, res, next) => {
       storefrontEnabled: true,
       storefrontConfig: revision.config
     });
+  } catch (e) { next(e); }
+});
+
+
+/**
+ * GET /api/projects/:key/thumb — what a card can actually show for this
+ * project, decided here rather than guessed at by the page.
+ *
+ * Two answers, and the honest part is that there are only two:
+ *
+ *   { mode: "url", url }   a deployment that is RUNNING and has an address.
+ *                          The card iframes the real running site.
+ *   { mode: "none", reason } everything else.
+ *
+ * There is deliberately no "render the source" mode. A Souqi Code project is
+ * React/TSX — measured across every revision in this database, not one
+ * contains an .html file of any kind, because the model writes components and
+ * the build is what turns them into a page. So there is no document to put in
+ * an iframe until something has built it. An older endpoint tried anyway and
+ * produced a grey "this project hasn't been published yet" card with a file
+ * listing on it; code.html says so in its own comment and renders through a
+ * real build instead. A placeholder that looks like a broken screenshot is
+ * worse than a card that admits it has nothing to show.
+ *
+ * Only a project that has actually been deployed costs a request to the
+ * deploy plane — the rest answer from the row itself.
+ */
+app.get("/api/projects/:key/thumb", async (req, res, next) => {
+  try {
+    const owner = appOwnerOf(req, res);
+    const project = await resolveProject(req.params.key, owner);
+    if (!project) return res.status(404).json({ error: "project not found" });
+
+    if (!project.deploymentId) return res.json({ mode: "none", reason: "not-deployed" });
+    if (!deployplane.isConfigured()) return res.json({ mode: "none", reason: "deploy-plane-off" });
+
+    const s = await deployplane.getStatus(cookieOf(req), project.deploymentId);
+    if (!s.ok || !s.body) return res.json({ mode: "none", reason: "status-unavailable" });
+    if (s.body.status !== "RUNNING" || !s.body.url) {
+      return res.json({ mode: "none", reason: String(s.body.status || "not-running").toLowerCase() });
+    }
+
+    /* A short cache: a running app's address does not move, and without this
+       every scroll back over a card pays for the deploy-plane round trip
+       again. */
+    res.setHeader("Cache-Control", "private, max-age=60");
+    res.json({ mode: "url", url: s.body.url, status: s.body.status });
   } catch (e) { next(e); }
 });
 
@@ -3064,6 +3051,338 @@ app.delete("/api/integrations/stripe", async (req, res, next) => {
 });
 
 /* =====================================================================
+   BILLING — Souqi's own subscriptions.
+
+   The Connect routes above sell things for OTHER people. These sell
+   Souqi, and the money lands on Souqi's account, so nothing here carries
+   a connected-account id.
+
+   The card is collected by Stripe Elements inside /checkout, which means
+   the card number never reaches this server and PCI scope stays at SAQ-A.
+   What the browser sends is a plan name and an interval; what it gets
+   back is a client secret for one PaymentIntent. It never sends an
+   amount, and it is never trusted about a price: /checkout used to do its
+   own arithmetic on a hardcoded 20 USD and a hardcoded exchange rate,
+   which is fine for a mockup and indefensible the moment a real card is
+   involved. Every figure below comes from Stripe.
+   ===================================================================== */
+
+/* A subscribe creates real objects on Souqi's Stripe account, so it is not
+   somewhere to allow unlimited retries — a loop here fills the dashboard
+   with incomplete subscriptions. The reads are cheap and cached, so only
+   the writing routes are limited. */
+const billingLimiter = rateLimit({
+  windowMs: 60 * 1000, max: 10,
+  key: (req) => (req.ip || "") + ":billing"
+});
+
+/* Prices change about once a year and the checkout page asks for all of
+   them on every load, so they are cached rather than fetched per request.
+   Five minutes is short enough that a price edit in the dashboard shows up
+   while someone is still looking at the tab it was wrong in. */
+const PRICE_TTL_MS = 5 * 60 * 1000;
+const priceCache = new Map();
+
+async function cachedPrice(priceId) {
+  if (!priceId) return null;
+  const hit = priceCache.get(priceId);
+  if (hit && hit.until > Date.now()) return hit.price;
+  const got = await stripeLib.getPrice(priceId);
+  if (!got.ok) {
+    // A price id that Stripe will not return is a configuration error, and
+    // the honest answer is to omit that option from the catalogue rather
+    // than show a button that cannot charge.
+    console.warn("[billing] could not read price " + priceId + ": " + got.reason);
+    return null;
+  }
+  priceCache.set(priceId, { price: got, until: Date.now() + PRICE_TTL_MS });
+  return got;
+}
+
+/** Plan already lives on the workspace row, so billing state joins it there. */
+async function readWorkspaceBilling(wsId) {
+  const db = getMasterDb();
+  if (!db || !wsId) return null;
+  try {
+    return await db.collection("workspaces").findOne(
+      { id: wsId }, { projection: { plan: 1, billing: 1, company: 1 } });
+  } catch (e) { return null; }
+}
+
+/**
+ * Write one subscription's outcome onto its workspace.
+ *
+ * The delicate part is the downgrade. A subscription is born `incomplete`
+ * — that is what default_incomplete means — so treating "not entitled" as
+ * "set plan to free" would knock a paying customer down to free the
+ * instant they clicked Subscribe on a bigger plan, and leave them there
+ * until the card cleared. So an un-entitled subscription only clears the
+ * plan when it is the one the workspace is actually relying on; a brand
+ * new incomplete one writes the pointer and leaves the plan alone.
+ *
+ * Returns the plan the workspace ended up on.
+ */
+async function applySubscription(wsId, sub, soldPlan, req, actor) {
+  const db = getMasterDb();
+  if (!db || !wsId || !sub || !sub.id) return null;
+
+  const plan = String(soldPlan || (sub.metadata && sub.metadata.souqiPlan) || "");
+  const entitlement = stripeLib.entitlementForStatus(sub.status, plan);
+  // An entitlement the rest of the server has no limits for is a config
+  // mistake. Granting it anyway would silently hand out a plan that every
+  // gate then reads as free — better to refuse it here, loudly.
+  const granted = entitlement && PLANS.includes(entitlement) ? entitlement : null;
+  if (entitlement && !granted) {
+    console.warn("[billing] plan '" + plan + "' maps to entitlement '" + entitlement +
+      "', which is not one of: " + PLANS.join(", "));
+  }
+
+  const existing = await readWorkspaceBilling(wsId);
+  const wasRelyingOnThis = !!(existing && existing.billing && existing.billing.subscriptionId === sub.id);
+
+  const billing = {
+    customerId: sub.customerId || (existing && existing.billing && existing.billing.customerId) || null,
+    subscriptionId: sub.id,
+    status: sub.status || null,
+    soldPlan: plan || null,
+    priceId: sub.priceId || null,
+    currentPeriodEnd: sub.currentPeriodEnd || null,
+    cancelAtPeriodEnd: !!sub.cancelAtPeriodEnd,
+    updatedAt: new Date().toISOString()
+  };
+
+  const set = { billing: billing };
+  let nextPlan = existing ? (existing.plan || "free") : "free";
+  if (granted) {
+    nextPlan = granted;
+    set.plan = granted;
+  } else if (wasRelyingOnThis) {
+    nextPlan = "free";
+    set.plan = "free";
+  }
+
+  try {
+    await db.collection("workspaces").updateOne({ id: wsId }, { $set: set });
+  } catch (e) {
+    console.warn("[billing] could not write billing state for " + wsId + ": " + e.message);
+    return null;
+  }
+
+  // Only worth an audit line when the plan actually moved — a webhook for
+  // a renewal fires monthly and says nothing new.
+  if (set.plan && (!existing || existing.plan !== set.plan)) {
+    try {
+      await writeMasterAudit(db, {
+        requestId: req && req.id, actor: actor || "stripe", wsId: wsId,
+        action: "billing.plan.change", entityId: wsId,
+        summary: "Plan set to " + set.plan + " (" + (plan || "unknown") + ", " + sub.status + ")",
+        meta: {
+          subscriptionId: sub.id, status: sub.status, soldPlan: plan || null,
+          from: existing ? existing.plan || "free" : null, to: set.plan
+        }
+      });
+    } catch (e) { /* an audit line is not worth failing a payment over */ }
+  }
+  return nextPlan;
+}
+
+/**
+ * GET /api/billing/config — everything /checkout needs to render honestly.
+ *
+ * Publishable key, the sold plans, and each plan's REAL amount straight
+ * from the Price object. No price ids: a page that knew them could ask to
+ * be charged for a different one.
+ */
+app.get("/api/billing/config", async (req, res, next) => {
+  try {
+    if (!stripeLib.isBillingConfigured()) {
+      return res.json({
+        configured: false,
+        reason: "subscriptions are not configured on this server (STRIPE_SECRET_KEY / STRIPE_PUBLISHABLE_KEY / STRIPE_BILLING_PLANS)"
+      });
+    }
+    const sessionUser = await codeAgentSessionUserVerified(req);
+    const catalogue = stripeLib.planCatalogue();
+    const plans = {};
+
+    for (const id of Object.keys(catalogue)) {
+      const entry = { id: id, label: catalogue[id].label, prices: {} };
+      const intervals = catalogue[id].intervals || {};
+      for (const interval of Object.keys(intervals)) {
+        for (const currency of intervals[interval]) {
+          const price = await cachedPrice(stripeLib.priceIdFor(id, interval, currency));
+          if (!price) continue;
+          entry.prices[interval] = entry.prices[interval] || {};
+          entry.prices[interval][currency] = {
+            amountMinor: price.amountMinor,
+            currency: price.currency,
+            interval: price.interval,
+            intervalCount: price.intervalCount
+          };
+        }
+      }
+      // A plan with no readable price is not offerable, so it is not offered.
+      if (Object.keys(entry.prices).length) plans[id] = entry;
+    }
+
+    const ws = sessionUser ? await readWorkspaceBilling(sessionUser.wsId) : null;
+    res.json({
+      configured: Object.keys(plans).length > 0,
+      publishableKey: stripeLib.publishableKey(),
+      plans: plans,
+      signedIn: !!sessionUser,
+      email: sessionUser ? sessionUser.email : null,
+      currentPlan: ws ? ws.plan || "free" : "free",
+      subscriptionStatus: ws && ws.billing ? ws.billing.status || null : null
+    });
+  } catch (e) { next(e); }
+});
+
+/**
+ * POST /api/billing/promo — is this code real, and what does it take off.
+ *
+ * Only ever a PREVIEW. The discount that is actually applied is applied by
+ * Stripe when the subscription is created, from the same code; this exists
+ * so the order summary can show a true figure before submit instead of the
+ * flat 10% off anything that /checkout used to draw.
+ */
+app.post("/api/billing/promo", billingLimiter, jsonDefault, async (req, res, next) => {
+  try {
+    if (!stripeLib.isBillingConfigured()) return res.status(503).json({ error: "subscriptions are not configured on this server" });
+    const sessionUser = await codeAgentSessionUserVerified(req);
+    if (!sessionUser) return res.status(401).json({ error: "not signed in" });
+
+    const promo = await stripeLib.lookupPromotionCode((req.body && req.body.code) || "");
+    if (!promo.ok) {
+      // A wrong code is the shopper's normal case, not a server fault.
+      if (promo.notFound) return res.status(404).json({ error: promo.reason });
+      return res.status(502).json({ error: promo.reason });
+    }
+    res.json({
+      ok: true, code: promo.code,
+      percentOff: promo.percentOff, amountOffMinor: promo.amountOffMinor,
+      currency: promo.currency
+    });
+  } catch (e) { next(e); }
+});
+
+/**
+ * POST /api/billing/subscribe — create the subscription, hand back one
+ * client secret for the page to confirm the card against.
+ *
+ * Signed in is mandatory: a subscription with no account to attach it to
+ * would take money and entitle nobody.
+ */
+app.post("/api/billing/subscribe", billingLimiter, jsonDefault, async (req, res, next) => {
+  try {
+    if (!stripeLib.isBillingConfigured()) return res.status(503).json({ error: "subscriptions are not configured on this server" });
+    const sessionUser = await codeAgentSessionUserVerified(req);
+    if (!sessionUser) return res.status(401).json({ error: "not signed in" });
+    if (!sessionUser.wsId) return res.status(409).json({ error: "this account has no workspace to put a plan on" });
+
+    const body = req.body || {};
+    const plan = String(body.plan || "").toLowerCase();
+    const interval = String(body.interval || "month").toLowerCase();
+    const currency = String(body.currency || "usd").toLowerCase();
+
+    // The price id is resolved HERE, from server config. This is the line
+    // that stops a crafted request buying the top plan at the bottom price.
+    const priceId = stripeLib.priceIdFor(plan, interval, currency);
+    if (!priceId) return res.status(400).json({ error: "that plan, interval or currency is not for sale" });
+
+    const entitlement = stripeLib.entitlementFor(plan);
+    if (!entitlement || !PLANS.includes(entitlement)) {
+      return res.status(500).json({ error: "that plan is misconfigured on this server" });
+    }
+
+    const ws = await readWorkspaceBilling(sessionUser.wsId);
+    const customer = await stripeLib.findOrCreateCustomer({
+      existingId: ws && ws.billing ? ws.billing.customerId : null,
+      email: sessionUser.email,
+      name: (ws && ws.company) || sessionUser.name || undefined,
+      metadata: { souqiWsId: String(sessionUser.wsId), souqiUserId: String(sessionUser.id) }
+    });
+    if (!customer.ok) return res.status(502).json({ error: customer.reason });
+
+    let promotionCodeId = null;
+    if (body.promoCode) {
+      const promo = await stripeLib.lookupPromotionCode(body.promoCode);
+      if (!promo.ok) {
+        if (promo.notFound) return res.status(400).json({ error: promo.reason });
+        return res.status(502).json({ error: promo.reason });
+      }
+      promotionCodeId = promo.id;
+    }
+
+    const made = await stripeLib.createSubscription({
+      customerId: customer.id,
+      priceId: priceId,
+      promotionCodeId: promotionCodeId,
+      // The webhook has no session to ask, so everything it needs to find
+      // the workspace again rides along on the subscription itself.
+      metadata: {
+        souqiWsId: String(sessionUser.wsId),
+        souqiUserId: String(sessionUser.id),
+        souqiPlan: plan,
+        souqiEntitlement: entitlement
+      },
+      // Stripe replays an idempotency key's first response, so a double
+      // click gets one subscription rather than two.
+      idempotencyKey: req.get("Idempotency-Key") || undefined
+    });
+    if (!made.ok) return res.status(502).json({ error: made.reason });
+
+    const sub = made.subscription;
+    await applySubscription(sessionUser.wsId, sub, plan, req, sessionUser.id);
+
+    const alreadyPaid = sub.status === "active" || sub.status === "trialing";
+    if (!sub.clientSecret && !alreadyPaid) {
+      return res.status(502).json({ error: "Stripe created the subscription but returned no payment to confirm" });
+    }
+
+    res.json({
+      ok: true,
+      subscriptionId: sub.id,
+      status: sub.status,
+      // Null when a 100%-off code or a trial means there is nothing to pay
+      // today. The page treats that as done rather than as an error.
+      clientSecret: sub.clientSecret,
+      invoice: sub.invoice
+    });
+  } catch (e) { next(e); }
+});
+
+/**
+ * POST /api/billing/sync — read this account's subscription back from
+ * Stripe and apply whatever it says.
+ *
+ * The browser learns the card cleared before the webhook does, so without
+ * this the success page would have to either lie or poll. The webhook is
+ * still the authority for everything afterwards — renewals, failures,
+ * cancellations — this only closes the gap on the first payment.
+ */
+app.post("/api/billing/sync", billingLimiter, jsonDefault, async (req, res, next) => {
+  try {
+    if (!stripeLib.isBillingConfigured()) return res.status(503).json({ error: "subscriptions are not configured on this server" });
+    const sessionUser = await codeAgentSessionUserVerified(req);
+    if (!sessionUser) return res.status(401).json({ error: "not signed in" });
+
+    const ws = await readWorkspaceBilling(sessionUser.wsId);
+    const subId = ws && ws.billing ? ws.billing.subscriptionId : null;
+    if (!subId) return res.json({ ok: true, plan: ws ? ws.plan || "free" : "free", status: null });
+
+    const got = await stripeLib.getSubscription(subId);
+    if (!got.ok) return res.status(502).json({ error: got.reason });
+
+    // Read back from Stripe, never from the request: a body that could say
+    // "I am on Pro now" would be a free upgrade button.
+    const sub = got.subscription;
+    const plan = await applySubscription(sessionUser.wsId, sub, sub.metadata && sub.metadata.souqiPlan, req, sessionUser.id);
+    res.json({ ok: true, plan: plan || "free", status: sub.status, currentPeriodEnd: sub.currentPeriodEnd });
+  } catch (e) { next(e); }
+});
+
+/* =====================================================================
    GITHUB — the generated app, in a repository the person actually owns.
 
    Same split of surfaces as Stripe above, and the same principle: the
@@ -3528,6 +3847,35 @@ app.post("/api/stripe/webhook", express.raw({ type: "application/json", limit: "
   }
   const event = verified.event;
   try {
+    /* Connect events carry the connected account they happened on; Souqi's
+       own events do not. Both arrive here when one endpoint is subscribed
+       to both sets, so the presence of `account` is what tells a merchant's
+       subscription apart from a Souqi subscription — without that check, a
+       connected account which happens to sell subscriptions of its own
+       could be read as a plan change on Souqi. */
+    const onConnectedAccount = !!event.account;
+
+    if (!onConnectedAccount && (
+          event.type === "customer.subscription.created" ||
+          event.type === "customer.subscription.updated" ||
+          event.type === "customer.subscription.deleted")) {
+      const sub = stripeLib.summariseSubscription(event.data && event.data.object);
+      const wsId = sub.metadata && sub.metadata.souqiWsId;
+      /* No workspace id in the metadata means this subscription did not come
+         from /api/billing/subscribe — someone created it in the dashboard,
+         say. There is nothing to attribute it to, and guessing from the
+         customer would be worse than leaving it alone. */
+      if (wsId) {
+        /* A deletion arrives as the subscription in its final state, which
+           Stripe reports as canceled — pinning it here means the plan is
+           cleared even if that ever stops being true. */
+        const effective = event.type === "customer.subscription.deleted"
+          ? Object.assign({}, sub, { status: "canceled" })
+          : sub;
+        await applySubscription(wsId, effective, effective.metadata.souqiPlan, req, "stripe");
+      }
+    }
+
     if (event.type === "checkout.session.completed") {
       const session = event.data && event.data.object;
       const projectId = session && session.metadata && session.metadata.souqiProjectId;
@@ -4349,88 +4697,6 @@ app.get("/api/codeagent/:key", async (req, res, next) => {
 // Kept as a stub to avoid 404s from old bookmarks.
 app.get("/api/codeagent/preview/:key", (req, res) => res.status(410).send("Preview is now served locally by WebContainers. Open the project in Souqi Code."));
 app.get("/api/codeagent/preview/:key/*", (req, res) => res.status(410).send("Preview is now served locally by WebContainers. Open the project in Souqi Code."));
-
-/**
- * GET /api/projects/:key/preview
- * Returns a preview of the project — published HTML if available,
- * otherwise source files + metadata. Used by the sidebar (code.html)
- * and projects page (projects.html) for instant project previews
- * without a full rebuild.
- */
-app.get("/api/projects/:key/preview", async (req, res, next) => {
-  try {
-    const owner = anon.ownerOf(req, res);
-    const project = await resolveProject(req.params.key, owner);
-    if (!project) return res.status(404).json({ error: "project not found" });
-
-    const meta = project.meta || {};
-    const buildType = meta.buildType || "website";
-    const color = { website: "#1aa6df", dashboard: "#7c5ce7", webapp: "#e05a33", portfolio: "#2ea87a", mobile: "#e0a11a", game: "#f43f5e" }[buildType] || "#8b98a5";
-
-    // Published — serve compiled HTML from published snapshot
-    if (project.published && project.published.files) {
-      const htmlB64 = project.published.files["index.html"];
-      const cssB64 = project.published.files["style.css"] || project.published.files["styles.css"] || null;
-      const jsB64 = project.published.files["script.js"] || project.published.files["main.js"] || null;
-      if (htmlB64) {
-        let html = Buffer.from(htmlB64, "base64").toString("utf-8");
-        // Inject published CSS/JS inline if they aren't already
-        if (cssB64 && !html.includes("style.css") && !html.includes("styles.css")) {
-          html = html.replace("</head>", "<style>" + Buffer.from(cssB64, "base64").toString("utf-8") + "</style></head>");
-        }
-        res.setHeader("Content-Type", "text/html; charset=utf-8");
-        res.setHeader("Cache-Control", "public, max-age=3600");
-        return res.send(html);
-      }
-    }
-
-    // Not published — generate an HTML preview from the source files
-    const revision = await projects.head(project.id);
-    const files = revision && revision.config ? revision.config.files : null;
-
-    if (files) {
-      const htmlKey = Object.keys(files).find(k => /^index\.html?$/i.test(k) || k === "index.html");
-      const cssKeys = Object.keys(files).filter(k => k.endsWith(".css"));
-      const jsKeys = Object.keys(files).filter(k => k.endsWith(".js") || k.endsWith(".ts") || k.endsWith(".tsx"));
-
-      let html = files[htmlKey] || "";
-      if (!html) {
-        // No index.html — generate a minimal wrapper showing source files
-        const title = project.title || "Untitled app";
-        const cssInline = cssKeys.map(k => files[k]).join("\n");
-        html = "<!DOCTYPE html><html><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>" + escHtml(title) + "</title>";
-        if (cssInline) html += "<style>" + cssInline + "</style>";
-        html += "</head><body><div style=\"max-width:800px;margin:60px auto;padding:20px;font-family:system-ui,sans-serif;text-align:center\">";
-        html += "<h2 style=\"font-weight:700\">" + escHtml(title) + "</h2>";
-        html += "<p style=\"color:#666\">This project hasn't been published yet. Source files are available for editing.</p>";
-        html += "<ul style=\"text-align:left;list-style:none;padding:0;background:#f5f5f5;border-radius:8px;padding:16px\">";
-        for (const k of Object.keys(files).filter(f => !f.startsWith("node_modules/")).slice(0, 20)) {
-          html += "<li style=\"font-family:monospace;font-size:13px;padding:4px 0;border-bottom:1px solid #eee\">" + escHtml(k) + "</li>";
-        }
-        html += "</ul></div></body></html>";
-      } else {
-        // Has index.html — inject CSS inline so it renders standalone
-        const cssInline = cssKeys.map(k => "<style>/* " + k + " */\n" + files[k] + "\n</style>").join("\n");
-        if (cssInline) html = html.replace("</head>", cssInline + "</head>");
-      }
-
-      res.setHeader("Content-Type", "text/html; charset=utf-8");
-      res.setHeader("Cache-Control", "public, max-age=300");
-      return res.send(html);
-    }
-
-    // No files at all — fallback JSON
-    res.json({
-      ok: true, notPublished: true,
-      project: { id: project.id, slug: project.slug, title: project.title, buildType, color },
-      updatedAt: project.updatedAt
-    });
-  } catch (e) { next(e); }
-});
-
-function escHtml(s) {
-  return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
-}
 
 // Total base64 payload kept comfortably under Mongo's 16MB document cap —
 // dist/ is model-written text plus whatever assets it references, and
@@ -5350,18 +5616,6 @@ async function servePublishedSite(req, res, subPath, projectOverride) {
 app.get("/s/:slug", (req, res) => servePublishedSite(req, res, ""));
 app.get("/s/:slug/*", (req, res) => servePublishedSite(req, res, req.params[0]));
 
-/** GET /api/agent/draft/:id — read a draft back (reload, share-preview). */
-app.get("/api/agent/draft/:id", async (req, res, next) => {
-  try {
-    const id = String(req.params.id || "");
-    if (!/^dr_[A-Za-z0-9_-]{6,40}$/.test(id)) return res.status(400).json({ error: "bad draft id" });
-    const draft = await loadDraft(id);
-    if (!draft) return res.status(404).json({ error: "draft not found or expired" });
-    res.json({ draftId: draft.id, prompt: draft.prompt, meta: draft.meta, config: draft.config });
-  } catch (e) {
-    next(e);
-  }
-});
 
 /* ---- guard: only allow known collections through the generic CRUD ---- */
 function guard(req, res, next) {
@@ -5428,7 +5682,166 @@ app.delete("/:c/:id", crud, async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
+/* ---- security scanner ------------------------------------------------- */
+// Rate limiter for upload scans
+const securityScanLimiter = rateLimit({ windowMs: 60000, max: 20, message: { error: "too many scans — try again in a minute" } });
+
+// GET /api/security/overview — aggregate scan overview for all user projects
+app.get("/api/security/overview", async (req, res, next) => {
+  try {
+    const owner = appOwnerOf(req, res);
+    const mine = await projects.list(owner, 100);
+    
+    let totalVulnerabilities = { critical: 0, high: 0, moderate: 0, low: 0 };
+    const projectSummaries = [];
+    const cookie = cookieOf(req);
+    
+    for (const p of mine) {
+      let source = {};
+      try {
+        const src = await projects.materialize(p.id);
+        if (src && src.files) source = scaffoldFiles.withScaffold(src.files);
+      } catch (e) { /* ignore if history pruned */ }
+
+      const secretResult = secretscan.scan(source);
+      
+      let depResult = { findings: [], total: 0, critical: 0, high: 0, moderate: 0, low: 0 };
+      if (source["package.json"]) {
+        depResult = depscan.scan(source["package.json"], source["package-lock.json"]);
+      }
+      
+      let deployChecks = null;
+      if (p.deploymentId && deployplane.isConfigured()) {
+        try {
+          const r = await deployplane.getChecks(cookie, p.deploymentId);
+          if (r.ok) deployChecks = r.body;
+        } catch (e) { /* deploy plane unavailable */ }
+      }
+      
+      const vulnCount = secretResult.findings.length + depResult.total;
+      totalVulnerabilities.critical += (depResult.critical || 0);
+      totalVulnerabilities.high += (depResult.high || 0) + secretResult.findings.filter(f => f.severity === "high").length;
+      totalVulnerabilities.moderate += (depResult.moderate || 0);
+      totalVulnerabilities.low += (depResult.low || 0) + secretResult.findings.filter(f => f.severity === "medium").length;
+      
+      projectSummaries.push({
+        key: p.slug || p.id,
+        title: p.title || p.slug || "Untitled",
+        vulnerabilities: vulnCount,
+        severity: depResult.critical > 0 || secretResult.blocked ? "critical" : depResult.high > 0 ? "high" : depResult.moderate > 0 ? "moderate" : depResult.low > 0 ? "low" : "none",
+        published: !!p.published,
+        deployed: !!p.deploymentId,
+        lastScan: p.updatedAt || p.createdAt,
+        deployChecks: deployChecks,
+        secretFindings: secretResult.findings.length,
+        depFindings: depResult.total
+      });
+    }
+    
+    res.json({
+      totalProjects: mine.length,
+      totalVulnerabilities,
+      clean: Object.values(totalVulnerabilities).every(v => v === 0),
+      projects: projectSummaries
+    });
+  } catch (e) { next(e); }
+});
+
+// POST /api/security/scan/:projectKey — rescan a specific project
+app.post("/api/security/scan/:projectKey", async (req, res, next) => {
+  try {
+    const owner = appOwnerOf(req, res);
+    const project = await resolveProject(req.params.projectKey, owner);
+    if (!project) return res.status(404).json({ error: "project not found" });
+    
+    let source = {};
+    try {
+      const src = await projects.materialize(project.id);
+      if (src && src.files) source = scaffoldFiles.withScaffold(src.files);
+    } catch (e) {}
+
+    const secretResult = secretscan.scan(source);
+    
+    let depResult = { findings: [], total: 0, critical: 0, high: 0, moderate: 0, low: 0 };
+    if (source["package.json"]) {
+      depResult = depscan.scan(source["package.json"], source["package-lock.json"]);
+    }
+    
+    res.json({
+      project: project.title || project.slug,
+      secrets: secretResult,
+      dependencies: depResult,
+      scannedAt: new Date().toISOString()
+    });
+  } catch (e) { next(e); }
+});
+
+// POST /api/security/scan/upload — scan an uploaded external project (ephemeral)
+app.post("/api/security/scan/upload", securityScanLimiter,
+  express.json({ limit: "50mb" }),
+  async (req, res, next) => {
+  try {
+    const files = req.body && req.body.files;
+    if (!files || typeof files !== "object") return res.status(400).json({ error: "send { files: { path: content } }" });
+    
+    const secretResult = secretscan.scan(files);
+    
+    let depResult = { findings: [], total: 0, critical: 0, high: 0, moderate: 0, low: 0 };
+    const pkgPath = Object.keys(files).find(p => p === "package.json" || p.endsWith("/package.json"));
+    const lockPath = Object.keys(files).find(p => p === "package-lock.json" || p.endsWith("/package-lock.json"));
+    if (pkgPath) {
+      depResult = depscan.scan(files[pkgPath], lockPath ? files[lockPath] : null);
+    }
+    
+    res.json({
+      secrets: secretResult,
+      dependencies: depResult,
+      scannedAt: new Date().toISOString(),
+      filesScanned: Object.keys(files).length
+    });
+  } catch (e) { next(e); }
+});
+
+// GET /api/security/scan/:projectKey/details — detailed findings for one project
+app.get("/api/security/scan/:projectKey/details", async (req, res, next) => {
+  try {
+    const owner = appOwnerOf(req, res);
+    const project = await resolveProject(req.params.projectKey, owner);
+    if (!project) return res.status(404).json({ error: "project not found" });
+    
+    let source = {};
+    try {
+      const src = await projects.materialize(project.id);
+      if (src && src.files) source = scaffoldFiles.withScaffold(src.files);
+    } catch (e) {}
+
+    const secretResult = secretscan.scan(source);
+    
+    let depResult = { findings: [], total: 0, critical: 0, high: 0, moderate: 0, low: 0 };
+    if (source["package.json"]) {
+      depResult = depscan.scan(source["package.json"], source["package-lock.json"]);
+    }
+    
+    let deployChecks = null;
+    if (project.deploymentId && deployplane.isConfigured()) {
+      try {
+        const r = await deployplane.getChecks(cookieOf(req), project.deploymentId);
+        if (r.ok) deployChecks = r.body;
+      } catch (e) { /* deploy plane unavailable */ }
+    }
+    
+    res.json({
+      project: { key: project.slug || project.id, title: project.title || project.slug, published: !!project.published, deployed: !!project.deploymentId },
+      secrets: secretResult,
+      dependencies: depResult,
+      deployChecks: deployChecks,
+      scannedAt: new Date().toISOString()
+    });
+  } catch (e) { next(e); }
+});
+
 // Central error handler — turns thrown/next(err) into a safe envelope
+
 // { error: { code, message, requestId } } and keeps 5xx details server-side.
 app.use(errorHandler);
 
