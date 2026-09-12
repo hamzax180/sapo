@@ -1126,9 +1126,18 @@ app.post("/api/storefront/edit-token", async (req, res) => {
 app.get("/api/storefront/edit-token/verify", async (req, res) => {
   try {
     const wsId = req.query && req.query.wsId;
-    // Prefer the token from a header (not logged in the request line); fall
-    // back to the query param for older edit links.
-    const et = req.headers["x-edit-token"] || (req.query && req.query.et);
+    /* HEADER ONLY. This used to fall back to ?et= "for older edit links",
+       and the comment that said so also said why it was the second choice:
+       a query string is logged in the request line. Not by this app's own
+       logger, which records req.path — but by the platform's access log, by
+       the browser's history, and by the Referer sent to any third party the
+       page then loads.
+
+       The fallback had no caller left. The live storefront editor it was
+       written for is retired and nothing in public/ mints or sends an edit
+       token at all, so this removes a way to leak a credential and takes
+       nothing working with it. */
+    const et = req.headers["x-edit-token"];
     if (!wsId || !et) return res.status(400).json({ ok: false, error: "wsId and et are required" });
     const decoded = jwt.verify(String(et), JWT_SECRET);
     if (decoded.scope !== "portal-edit" || decoded.wsId !== wsId) {
