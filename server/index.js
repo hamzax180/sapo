@@ -947,7 +947,24 @@ app.get("/api/ws/:id/config", async (req, res) => {
     const masterDb = getMasterDb();
     if (!masterDb) return res.status(503).json({ error: "Master DB not available" });
     const ws = await masterDb.collection("workspaces").findOne({ id: req.params.id });
-    if (!ws) return res.status(404).json({ error: "Workspace not found" });
+
+    /* A STOREFRONT'S config, and only a storefront's.
+
+       This is unauthenticated because a shop page has to read its own
+       theme before anyone signs in. It stripped the obviously secret
+       fields and returned the rest — which, for an account that runs no
+       shop, still meant handing anyone holding a workspace id the company
+       name, the PLAN they are on, and the day they signed up.
+
+       Gated on the same flag as /api/portal/*, for the same reason: every
+       account here is a Souqi Code account and none has a storefront, so
+       there is no caller and nothing legitimate to answer. Folded into the
+       404 above so a workspace with no shop and a workspace that does not
+       exist give the same answer. */
+    if (!ws || ws.storefrontEnabled !== true) {
+      return res.status(404).json({ error: "Workspace not found" });
+    }
+
     // Strip sensitive fields
     const { _id, dbUri, dbType, password, ownerUserId, ownerEmail, ...safe } = ws;
     res.json(safe);

@@ -164,6 +164,41 @@ async function main() {
   if (failures === beforeAnon) pass(anonLooked + " of those answered a stranger without leaking an address or a secret");
   else console.log("  (" + anonLooked + " of those swept as a stranger)");
 
+  /* ---- a workspace id is not a key to the account ------------------
+
+     The retired storefront left several routes that take a workspace id
+     and answer anyone, because a shop page has to read its own theme
+     before a shopper signs in. For an account that runs no shop — which
+     is all of them here — that meant an id alone returned the company
+     name, the PLAN, and the signup date; and two of the portal routes
+     accepted WRITES into the tenant's own collections.
+
+     They are gated on storefrontEnabled now. This asks with a REAL
+     workspace id, because asking with an invented one proves nothing: a
+     404 would mean "no such workspace" rather than "refused". */
+  const realWs = me.wsId || myWs;
+  const idOnly = [
+    ["GET", "/api/ws/" + realWs + "/config"],
+    ["GET", "/api/portal/" + realWs + "/config"],
+    ["GET", "/api/portal/" + realWs + "/products"],
+    ["POST", "/api/portal/" + realWs + "/orders"],
+    ["POST", "/api/portal/" + realWs + "/inquiry"]
+  ];
+  const answered = [];
+  for (const [method, p] of idOnly) {
+    const r = await fetch(BASE + p, {
+      method: method,
+      headers: { "Content-Type": "application/json" },
+      body: method === "POST" ? JSON.stringify({ customer: { name: "P", email: "p@x.z" }, items: [{ name: "W", price: 1, qty: 1 }], message: "hi" }) : undefined
+    });
+    if (r.status < 400) answered.push(method + " " + p + " (" + r.status + ")");
+  }
+  if (answered.length) {
+    fail("a workspace id alone still opens: " + answered.join(", "));
+  } else {
+    pass("a workspace id alone opens none of the " + idOnly.length + " storefront routes");
+  }
+
   /* ---- a URL cannot walk out of public/ ----------------------------
      The generic-CRUD guard falls back to serving <name>.html out of
      public/ when the name is not a collection, and it used to build that
