@@ -523,6 +523,19 @@
 
   ::-webkit-scrollbar-corner{background:transparent !important}
   .ag-composer{flex:0 0 auto;position:relative;bottom:0;z-index:10;background:var(--paper);padding:8px 0 calc(12px + env(safe-area-inset-bottom));overflow:visible}
+  /* Lifted off the page for the length of the travel: the shadow grows as it
+     leaves the middle of the screen and settles as it lands, so the move
+     reads as the composer being placed rather than teleporting. will-change
+     keeps it on its own compositor layer for the half second it is moving —
+     and only then, because a permanent layer on a full-width bar costs memory
+     for the 99% of the time it is still. */
+  .ag-composer.ag-flipping{
+    will-change:transform;
+    box-shadow:0 26px 60px -28px rgba(0,0,0,.55);
+    transition:transform .52s cubic-bezier(.16,1,.3,1),box-shadow .52s ease-out}
+  @media (prefers-reduced-motion:reduce){
+    .ag-composer.ag-flipping{transition:none;box-shadow:none}
+  }
   /* ---------------------------------------------------------------
      Composer treatment: an aurora bloom (::before) behind the box and a
      travelling light beam (::after) around its rim.
@@ -3877,6 +3890,64 @@
       : "What are we <span class=\"hi\">building</span> today?";
   }
 
+  /* The composer's move from the middle of the new-chat screen to the bottom
+     of a conversation, animated.
+
+     It cannot be a CSS transition. The move happens because .ag-hero flips
+     from a centred flex column to display:contents, and there is no
+     interpolation between those — the box simply teleports.
+
+     So this is FLIP: measure where it is (First), let the layout change
+     happen (Last), Invert the difference with a transform so it still LOOKS
+     where it started, then Play by transitioning that transform away. The
+     browser animates a compositor-only property from an arbitrary layout
+     change, which is the only way to move something between two layouts
+     that share no animatable value.
+
+     The easing is a hard out-cubic: quick to leave, long to settle. The glow
+     rides along on a class so it can bloom during the travel and fade as it
+     lands, which is what makes it read as deliberate rather than as a jump
+     someone slowed down. */
+  function flipComposerToBottom(first) {
+    const el = document.querySelector(".ag-composer");
+    if (!el || !first) return;
+    if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+    const last = el.getBoundingClientRect();
+    const dx = first.left - last.left;
+    const dy = first.top - last.top;
+    // A settled layout produces no movement; animating zero would only add a
+    // frame of nothing and a pointless class toggle.
+    if (Math.abs(dx) < 1 && Math.abs(dy) < 1) return;
+
+    // Scale as well as position: the composer is wider in the hero than in
+    // the column, and translating alone would show the width snap.
+    const sx = last.width ? first.width / last.width : 1;
+
+    el.style.transformOrigin = "50% 50%";
+    el.style.transition = "none";
+    el.style.transform = "translate(" + dx + "px," + dy + "px) scale(" + sx + ",1)";
+    el.getBoundingClientRect();              // flush, or the next frame coalesces
+    el.classList.add("ag-flipping");
+
+    requestAnimationFrame(function () {
+      el.style.transition = "transform .52s cubic-bezier(.16,1,.3,1)";
+      el.style.transform = "translate(0,0) scale(1,1)";
+    });
+
+    const clean = function () {
+      el.style.transition = "";
+      el.style.transform = "";
+      el.style.transformOrigin = "";
+      el.classList.remove("ag-flipping");
+      el.removeEventListener("transitionend", onEnd);
+    };
+    const onEnd = function (e) { if (e.propertyName === "transform") clean(); };
+    el.addEventListener("transitionend", onEnd);
+    // transitionend does not fire if the element is re-laid-out mid-flight.
+    setTimeout(clean, 900);
+  }
+
   function clearEmpty() {
     /* Two jobs, and they must not share a guard.
 
@@ -3891,6 +3962,14 @@
        to an empty log, and dropping .is-new returns .ag-hero to
        display:contents — the normal scrolling-log-under-sticky-composer
        layout. */
+    /* Measured BEFORE anything below moves it — that is the "First" of FLIP,
+       and there is no way to recover it once the class is gone. Only worth
+       taking while the hero is still the centred one; every later call to
+       clearEmpty() is a no-op move and flipComposerToBottom bails on it. */
+    const wasNew = agSection.classList.contains("is-new");
+    const composerEl = document.querySelector(".ag-composer");
+    const first = wasNew && composerEl ? composerEl.getBoundingClientRect() : null;
+
     const extras = $("agNewExtras");
     if (extras) extras.hidden = true;
     const recent = $("agRecent");
@@ -3908,10 +3987,16 @@
        thing that is actually true. */
     agSection.classList.add("has-convo");
 
-    if (!emptyShown) return;
-    emptyShown = false;
-    const el = $("agEmptyState");
-    if (el) el.remove();
+    if (emptyShown) {
+      emptyShown = false;
+      const el = $("agEmptyState");
+      if (el) el.remove();
+    }
+
+    /* Last + Invert + Play, after every layout change above has landed. The
+       greeting is removed first so the measurement is of the real resting
+       place and not of a box the removal is about to move again. */
+    flipComposerToBottom(first);
   }
 
   /* The state is read off the log, not announced by whoever wrote to it.
