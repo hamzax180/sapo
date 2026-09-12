@@ -529,6 +529,28 @@
      keeps it on its own compositor layer for the half second it is moving —
      and only then, because a permanent layer on a full-width bar costs memory
      for the 99% of the time it is still. */
+  /* A clone of what the new-chat screen was, dissolving upward while the
+     composer goes down. pointer-events:none because it is a picture of
+     something that has already gone. */
+  .ag-hero-ghost{
+    pointer-events:none;z-index:6;opacity:1;filter:blur(0px);
+    transform:translateY(0) scale(1);transform-origin:50% 50%;
+    transition:opacity .40s ease-out,
+               transform .60s cubic-bezier(.16,1,.3,1),
+               filter .40s ease-out}
+  .ag-hero-ghost.out{opacity:0;filter:blur(7px);transform:translateY(-22px) scale(.97)}
+
+  /* The first line of the conversation, arriving under the composer tail. */
+  @keyframes agFirstIn{
+    from{opacity:0;transform:translateY(14px) scale(.985);filter:blur(3px)}
+    to{opacity:1;transform:none;filter:blur(0)}
+  }
+  .ag-user.ag-first-in{animation:agFirstIn .46s cubic-bezier(.16,1,.3,1) .08s both}
+  @media (prefers-reduced-motion:reduce){
+    .ag-hero-ghost{display:none}
+    .ag-user.ag-first-in{animation:none}
+  }
+
   .ag-composer.ag-flipping{
     will-change:transform;
     box-shadow:0 26px 60px -28px rgba(0,0,0,.55);
@@ -3908,6 +3930,41 @@
      rides along on a class so it can bloom during the travel and fade as it
      lands, which is what makes it read as deliberate rather than as a jump
      someone slowed down. */
+  /* The greeting, the type tiles and the example prompts, leaving.
+   *
+   * They used to vanish in the frame the class changed, so the composer glided
+   * down past a hole where the page had been — two unrelated events rather
+   * than one movement.
+   *
+   * They cannot simply be transitioned: .ag:not(.is-new) sets display:none on
+   * them with !important, and a display change is not animatable anyway. So
+   * each one is CLONED, the clone pinned with position:fixed over the exact
+   * pixels the original occupied, and the original hidden as before. The clone
+   * owes nothing to the layout — it cannot hold the page open or fight the
+   * cascade — and it is free to dissolve on its own timeline.
+   *
+   * Upward, against the composer's descent. Opposing motion is what makes the
+   * pair read as one choreographed change; both sliding the same way would
+   * just look like the page scrolled. */
+  function dissolveHero(nodes) {
+    if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    nodes.forEach(function (n) {
+      if (!n) return;
+      const r = n.getBoundingClientRect();
+      if (!r.width || !r.height) return;          // already hidden: nothing to see leave
+      const ghost = n.cloneNode(true);
+      ghost.removeAttribute("id");                 // never two of an id, even briefly
+      ghost.classList.add("ag-hero-ghost");
+      ghost.hidden = false;
+      ghost.style.cssText =
+        "position:fixed;left:" + r.left + "px;top:" + r.top + "px;" +
+        "width:" + r.width + "px;height:" + r.height + "px;margin:0;";
+      document.body.appendChild(ghost);
+      requestAnimationFrame(function () { ghost.classList.add("out"); });
+      setTimeout(function () { ghost.remove(); }, 700);
+    });
+  }
+
   function flipComposerToBottom(first) {
     const el = document.querySelector(".ag-composer");
     if (!el || !first) return;
@@ -3971,8 +4028,12 @@
     const first = wasNew && composerEl ? composerEl.getBoundingClientRect() : null;
 
     const extras = $("agNewExtras");
-    if (extras) extras.hidden = true;
     const recent = $("agRecent");
+    /* Cloned while they are still on screen and still have a size — a
+       moment later they are display:none and there is nothing to measure. */
+    if (wasNew) dissolveHero([$("agEmptyState"), extras, recent]);
+
+    if (extras) extras.hidden = true;
     if (recent) recent.hidden = true;
     agSection.classList.remove("is-new");
     /* has-convo is the positive statement of the same fact, and the phone
@@ -4231,8 +4292,13 @@
   setInterval(function () { refreshWhens(); }, 30000);
 
   function sayUser(text, isQueued, atIso) {
+    /* Whether this is the line that STARTS the chat, read before clearEmpty
+       clears the flag that says so. It lands while the composer is still
+       travelling, so it rises in behind it rather than blinking into place. */
+    const opensChat = agSection.classList.contains("is-new");
     clearEmpty();
     const row = el("ag-user");
+    if (opensChat) row.classList.add("ag-first-in");
     const qBadge = isQueued ? ' <small class="muted" style="opacity:0.75; font-size:0.75rem; margin-left:6px;">(Queued)</small>' : '';
     const at = atIso || new Date().toISOString();
     row.innerHTML = '<div class="bubble">' + esc(text) + qBadge + '</div>'
