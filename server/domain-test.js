@@ -39,11 +39,16 @@ const pass = (m) => console.log("  ✓ " + m);
    the request goes out over a raw socket instead. Finding that out the
    slow way is why this comment exists. */
 function get(path, host) {
-  const http = require("http");
   const url = new URL(BASE);
+  const https = url.protocol === "https:";
+  const lib = require(https ? "https" : "http");
   return new Promise((resolve, reject) => {
-    const req = http.request({
-      host: url.hostname, port: url.port || 80, path: path, method: "GET",
+    const req = lib.request({
+      host: url.hostname, port: url.port || (https ? 443 : 80), path: path, method: "GET",
+      /* servername, so TLS is negotiated for the real host while the HTTP
+         Host header carries the probe. Without it the handshake asks for a
+         certificate nobody has issued. */
+      servername: url.hostname,
       headers: host ? { Host: host } : {}
     }, (res) => {
       let body = "";
@@ -77,6 +82,25 @@ function get(path, host) {
     });
 
     console.log("\n── custom domains ─────────────────────────────────────");
+
+    /* CAN THIS TEST EVEN REACH THE APP?
+
+       It works by sending a Host header the app has never seen. That is
+       fine for a server you can talk to directly, and impossible through
+       a platform that routes BY that header: Vercel matches the Host
+       against the domains registered on the project and answers an
+       unknown one itself, so the request never reaches Express at all.
+
+       Run against production, every assertion below then failed — not
+       because production is wrong but because nothing was asked. Detect
+       it and skip, the same way scope-test does when its key does not
+       open the door. */
+    const reach = await get("/", PROBE_HOST);
+    if (reach.status === 404 && /could not be found|DEPLOYMENT_NOT_FOUND/i.test(reach.body)) {
+      console.log("• domain-test SKIPPED — " + BASE + " routes by Host, so a made-up one never reaches the app.");
+      console.log("  (run it against a server you can send an arbitrary Host to; the logic is the same code)");
+      return;
+    }
 
     /* ---- the customer's domain is the customer's app ---- */
     const theirs = [];
