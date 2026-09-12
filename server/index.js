@@ -140,6 +140,40 @@ if (corsWildcard && process.env.NODE_ENV === "production") {
     "to call this API, e.g. CORS_ORIGIN=https://" + appDomain + ",https://www." + appDomain
   );
 }
+/* =================================================================
+   THE TWO ENDPOINTS A PUBLISHED APP IS ALLOWED TO CALL
+   -----------------------------------------------------------------
+   Published apps run in an opaque origin (see securityHeaders — the
+   sandbox is what stops one reading the platform API as whoever opens
+   it). An opaque origin sends `Origin: null` and is cross-origin to
+   everything, so a shop could no longer fetch its own prices or start a
+   checkout.
+
+   Allowing any origin is correct HERE and nowhere else, because both
+   were already public and credential-free by design: the prices are not
+   a secret, and a shopper has no Souqi account. `*` also forbids
+   credentials by specification, which is the property wanted — no cookie
+   can ride one of these even by accident.
+
+   AHEAD of the global cors(), because that one answers the preflight
+   itself and answers it for an allowlist these two are not on: OPTIONS
+   came back 204 with no Access-Control-Allow-Origin at all, which fails
+   the preflight and blocks the POST that follows. Measured, after the
+   first attempt at this put the handler on the route instead, where it
+   never ran.
+   ================================================================= */
+const PUBLIC_APP_PATH = /^\/api\/apps\/[^\/]+\/(payment-items|checkout)$/;
+app.use((req, res, next) => {
+  if (!PUBLIC_APP_PATH.test(req.path || "")) return next();
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.vary("Origin");
+  res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  res.setHeader("Access-Control-Max-Age", "600");
+  if (req.method === "OPTIONS") return res.status(204).end();
+  next();
+});
+
 app.use(cors({ origin: corsWildcard ? true : origins }));
 
 // Every request gets a unique correlation id (req_...), echoed as X-Request-Id.

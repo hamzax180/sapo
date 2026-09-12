@@ -160,5 +160,64 @@ check("every page an isolated page frames is isolated too", () => {
     "      paints \"refused to connect\" inside the frame.");
 });
 
+/* ---- published apps are not the platform ----------------------------
+
+   A published app is a model-written bundle served from /s/<slug>, on the
+   platform's own host. The platform authenticates with a cookie and
+   nothing else, so while that page was same-origin its script could read
+   /api as whoever opened the link and post the result anywhere connect-src
+   allowed, which was every https host there is.
+
+   `sandbox` without allow-same-origin is the whole fix: the page loads
+   into an opaque origin, /api becomes cross-origin to it, and the session
+   cookie is not sent. Each check below exists because one word can undo
+   it. */
+
+const headersSrc = fs.readFileSync(path.join(__dirname, "middleware", "securityHeaders.js"), "utf8");
+const indexSrc = fs.readFileSync(path.join(__dirname, "index.js"), "utf8");
+const publishedCsp = (() => {
+  const m = /const PUBLISHED_CSP = \[([\s\S]*?)\]\.join/.exec(headersSrc);
+  return m ? m[1] : "";
+})();
+
+check("published sites get a policy of their own", () => {
+  assert.ok(publishedCsp, "no PUBLISHED_CSP in securityHeaders.js");
+  assert.ok(/isPublishedSite/.test(headersSrc), "nothing routes /s/ to it");
+});
+
+check("a published app is sandboxed into an opaque origin", () => {
+  assert.ok(/sandbox/.test(publishedCsp), "the published policy has no sandbox directive");
+  assert.ok(!/allow-same-origin/.test(publishedCsp),
+    "allow-same-origin is back — that one flag returns the page to the platform origin, and with it the ability to read /api as whoever opens the link");
+});
+
+check("it can still be an app", () => {
+  for (const flag of ["allow-scripts", "allow-forms", "allow-top-navigation-by-user-activation"]) {
+    assert.ok(publishedCsp.indexOf(flag) >= 0, "published apps lost " + flag);
+  }
+});
+
+check("only the two public payment routes answer any origin", () => {
+  const m = /const PUBLIC_APP_PATH = (\/.*\/);/.exec(indexSrc);
+  assert.ok(m, "PUBLIC_APP_PATH is gone, so a shop cannot fetch its own prices");
+  const body = m[1].slice(1, m[1].lastIndexOf("/"));
+  const re = new RegExp(body);
+  for (const p of ["/api/apps/pr_x/payment-items", "/api/apps/pr_x/checkout"]) {
+    assert.ok(re.test(p), p + " is no longer reachable from a published app");
+  }
+  for (const p of ["/api/projects", "/api/account/me", "/api/admin/overview", "/users",
+                   "/api/apps/pr_x/anything-else", "/api/ws/w1/export"]) {
+    assert.ok(!re.test(p), p + " answers any origin, which makes the sandbox pointless");
+  }
+});
+
+check("the allowance is mounted before the global cors()", () => {
+  const mine = indexSrc.indexOf("PUBLIC_APP_PATH");
+  const glob = indexSrc.indexOf("app.use(cors({");
+  assert.ok(mine >= 0 && glob >= 0, "could not find both CORS registrations");
+  assert.ok(mine < glob,
+    "cors() is mounted first, so it answers the preflight for these paths without an Access-Control-Allow-Origin, and the POST that follows never runs");
+});
+
 if (failures) { console.log("\n✗ " + failures + " CSP CHECK(S) FAILED\n"); process.exit(1); }
-console.log("\n✓ ALL CSP TESTS PASSED (6)\n");
+console.log("\n✓ ALL CSP TESTS PASSED (11)\n");
