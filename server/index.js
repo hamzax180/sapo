@@ -115,12 +115,29 @@ app.use((req, res, next) => {
    on this middleware and the cookie is SameSite=Lax. So a wildcard was
    never an account-takeover route. What it did allow was any site reading
    this API's unauthenticated responses from its own page. */
-const origins = (process.env.CORS_ORIGIN || "*").split(",").map((s) => s.trim()).filter(Boolean);
-const corsWildcard = origins.includes("*");
+let origins = (process.env.CORS_ORIGIN || "*").split(",").map((s) => s.trim()).filter(Boolean);
+let corsWildcard = origins.includes("*");
+
+/* A wildcard in production is refused — but by NARROWING, not by throwing.
+
+   This used to `throw` here, at module scope. On a long-lived server that is
+   a loud startup failure you fix in a minute; in a serverless function it is
+   a crash on every single invocation, so one unset variable turned into
+   FUNCTION_INVOCATION_FAILED on every API route while the static pages kept
+   serving and looked fine. A guard against a misconfiguration must not be
+   more destructive than the misconfiguration.
+
+   So the wildcard is dropped and the app's own domain is used instead: the
+   safe end of the range it was refusing, and the same value the message
+   below asks for. Loud in the log, still running. */
 if (corsWildcard && process.env.NODE_ENV === "production") {
-  throw new Error(
-    "CORS_ORIGIN is '*' in production. Set it to the origins that are allowed " +
-    "to call this API, e.g. CORS_ORIGIN=https://souqi.site,https://www.souqi.site"
+  const appDomain = (process.env.APP_DOMAIN || "souqi.site").toLowerCase();
+  origins = ["https://" + appDomain, "https://www." + appDomain];
+  corsWildcard = false;
+  console.error(
+    "[cors] CORS_ORIGIN is '*' in production — refusing it and falling back to " +
+    origins.join(", ") + ". Set CORS_ORIGIN explicitly to the origins allowed " +
+    "to call this API, e.g. CORS_ORIGIN=https://" + appDomain + ",https://www." + appDomain
   );
 }
 app.use(cors({ origin: corsWildcard ? true : origins }));
