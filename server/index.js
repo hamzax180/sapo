@@ -251,6 +251,37 @@ const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.0-flash";
 const COLLECTIONS = ["users", "clients", "suppliers", "products", "quotes", "orders", "shipments", "invoices", "purchaseorders", "bills", "payments", "notifications", "audit"];
 
 /* =================================================================
+   WHAT NEVER LEAVES THE SERVER
+   -----------------------------------------------------------------
+   A users row carries the bcrypt hash on the same document as the name
+   and the email, because /auth/login needs both in one read. That is
+   fine at rest and was not fine on the wire: GET /users, GET /users/:id
+   and GET /api/ws/:id/export each answered 200 with every hash in the
+   workspace in the body. Checked against the running server, not read
+   off the schema.
+
+   bcrypt is not plaintext, but it is offline-crackable at the attacker's
+   leisure, and the caller does not have to be an attacker to matter — a
+   Staff account reading /users got the Owner's hash, which is a
+   privilege escalation with a delay on it. The export is worse: a file
+   people email to each other.
+
+   Stripped BY FIELD NAME and for every collection, not by a per-route
+   allowlist, so a collection that grows a password column later is
+   covered the day it does rather than the day someone remembers. _id
+   goes too — Mongo's own key is not part of anyone's API.
+   ================================================================= */
+const NEVER_SERVED = ["password", "passwordHash", "salt", "resetToken", "sessionEpoch", "_id"];
+
+function servable(doc) {
+  if (!doc || typeof doc !== "object") return doc;
+  const out = {};
+  for (const k of Object.keys(doc)) if (!NEVER_SERVED.includes(k)) out[k] = doc[k];
+  return out;
+}
+const servableAll = (docs) => (Array.isArray(docs) ? docs.map(servable) : docs);
+
+/* =================================================================
    CUSTOM DOMAIN MIDDLEWARE
    Runs on every request. A Host header that is not the platform itself
    is looked up against Souqi Code's published projects, and a match is
@@ -846,7 +877,10 @@ app.get("/api/ws/:id/export", async (req, res, next) => {
     const ws = await resolveWsContext(req.params.id);
     const collections = {};
     for (const c of COLLECTIONS) {
-      collections[c] = await dbAdapter.findAll(ws, c).catch(() => []);
+      /* An export is a data-subject's own copy of their records, not a
+         credential dump. Redacted like every other exit: a GDPR file is
+         the single most likely document here to be mailed onward. */
+      collections[c] = servableAll(await dbAdapter.findAll(ws, c).catch(() => []));
     }
     await writeAudit(dbAdapter, ws, {
       requestId: req.id, actor: decoded.email, action: "workspace.export",
@@ -5891,7 +5925,7 @@ const crud = [guard, requireSession, tenantScope, authorizeCrud];
 app.get("/:c", crud, async (req, res, next) => {
   try {
     const docs = await dbAdapter.findAll(req.ws, req.params.c);
-    res.json(docs);
+    res.json(servableAll(docs));
   } catch (e) { next(e); }
 });
 
@@ -5899,7 +5933,7 @@ app.get("/:c/:id", crud, async (req, res, next) => {
   try {
     const doc = await dbAdapter.findOne(req.ws, req.params.c, req.params.id);
     if (!doc) return next(httpError(404, "not_found", "not found"));
-    res.json(doc);
+    res.json(servable(doc));
   } catch (e) { next(e); }
 });
 
@@ -5912,7 +5946,8 @@ app.post("/:c", crud, async (req, res, next) => {
     record.wsId = req.ws.workspaceId;
     record.requestId = req.id;
     const saved = await dbAdapter.insertOne(req.ws, req.params.c, record);
-    res.status(201).json(saved);
+    // insertOne hashes a password on the way in; the echo must not carry it back.
+    res.status(201).json(servable(saved));
   } catch (e) { next(e); }
 });
 
@@ -5923,7 +5958,7 @@ app.put("/:c/:id", crud, async (req, res, next) => {
     delete patch.id; delete patch.wsId;
     const updated = await dbAdapter.updateOne(req.ws, req.params.c, req.params.id, patch);
     if (!updated) return next(httpError(404, "not_found", "not found"));
-    res.json(updated);
+    res.json(servable(updated));
   } catch (e) { next(e); }
 });
 

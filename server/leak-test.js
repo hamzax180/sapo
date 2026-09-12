@@ -85,15 +85,34 @@ async function main() {
   const mine = await master.collection("projects")
     .find({ ownerUserId: me.id }, { projection: { id: 1, slug: 1 } }).limit(1).toArray();
   const key = mine.length ? mine[0].id : null;
+
+  /* The row as it exists at rest, so the sweep can tell "this endpoint
+     does not return a hash" from "there was no hash to return". A test
+     that passes because the fixture is empty is the same as no test.
+     Reuses the detector above rather than restating the pattern: two
+     copies of a regex is two chances to write one that matches nothing,
+     which is what happened on the first attempt at this line. */
+  const rowHasHash = SECRETS[0][0].test(String(me.password || ""));
   await c.close();
 
   console.log("\n── leak sweep: signed in as " + me.email + " (" + me.__n + " projects) ─────");
   console.log("   watching for " + otherEmails.length + " other account address(es)\n");
 
+  console.log("   the signed-in user's row " + (rowHasHash ? "DOES" : "does not") +
+    " carry a bcrypt hash at rest" + (rowHasHash ? " — so there is something to leak" : " (weak fixture)"));
+
   const paths = [
     "/api/account", "/api/account/ai-keys", "/api/account/usage", "/api/account/plan",
     "/api/projects", "/api/security/overview", "/api/codeagent/limits",
-    "/api/billing/plans", "/api/deploy/quota", "/health"
+    "/api/billing/plans", "/api/deploy/quota", "/health",
+    /* The generic CRUD over the tenant's own collections. users sits on the
+       allowlist and its rows hold the bcrypt hash, which is how three
+       endpoints came to serve every password hash in a workspace to anyone
+       holding a session — a Staff account included. */
+    "/users", "/users/" + me.id, "/clients", "/products", "/audit",
+    /* And the data-subject export, the single most likely document here to
+       be forwarded to somebody else. */
+    "/api/ws/" + (me.wsId || myWs) + "/export"
   ];
   if (key) paths.push(
     "/api/projects/" + key, "/api/codeagent/" + key, "/api/projects/" + key + "/details",
@@ -102,6 +121,7 @@ async function main() {
     "/api/deploy/" + key + "/status", "/api/deploy/" + key + "/database"
   );
 
+  const before = failures;
   let looked = 0;
   for (const p of paths) {
     let res, body;
@@ -121,10 +141,12 @@ async function main() {
       if (lower.includes(other)) fail(p + " (" + res.status + ") returned another account's address: " + other);
     }
   }
-  pass(looked + " responses carried no secret and no other account's address");
+  if (failures === before) pass(looked + " responses carried no secret and no other account's address");
+  else console.log("  (" + looked + " responses swept)");
 
   /* And the same sweep with NO session at all: anything that answers 200
      to a stranger had better be answering with nothing personal. */
+  const beforeAnon = failures;
   let anonLooked = 0;
   for (const p of paths) {
     let res, body;
@@ -139,7 +161,8 @@ async function main() {
       if (lower.includes(addr)) fail("ANONYMOUS " + p + " (" + res.status + ") returned an account address: " + addr);
     }
   }
-  pass(anonLooked + " of those answered a stranger without leaking an address or a secret");
+  if (failures === beforeAnon) pass(anonLooked + " of those answered a stranger without leaking an address or a secret");
+  else console.log("  (" + anonLooked + " of those swept as a stranger)");
 }
 
 main()
