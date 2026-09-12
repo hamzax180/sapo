@@ -136,6 +136,7 @@ const uploadSource = (cookie, deploymentId, files) =>
 
 const getDeployment = (cookie, id) => call("GET", "/deployments/" + encodeURIComponent(id), { cookie });
 const getStatus = (cookie, id) => call("GET", "/deployments/" + encodeURIComponent(id) + "/status", { cookie });
+const getChecks = (cookie, id) => call("GET", "/deployments/" + encodeURIComponent(id) + "/checks", { cookie });
 
 const getLogs = (cookie, id, phase, tail) =>
   call("GET", "/deployments/" + encodeURIComponent(id) + "/logs?phase=" +
@@ -216,7 +217,7 @@ module.exports = {
   health, capacity,
   createProject, createDeployment, uploadSource, nameAvailable,
   attachDomain, verifyDomain, detachDomain,
-  getDeployment, getStatus, getLogs, action, destroy,
+  getDeployment, getStatus, getChecks, getLogs, action, destroy,
   getEnv, putEnv, deleteEnvKey,
   getDatabase, setDatabase, measureDatabase, dropBuiltinDatabase, browseDatabase
 };

@@ -16,11 +16,7 @@
         },
         {
           "key": "Content-Security-Policy",
-          "value": "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://cdn.tailwindcss.com https://cdnjs.cloudflare.com https://unpkg.com; worker-src 'self' blob:; child-src 'self' blob: https://*.webcontainer-api.io https://stackblitz.com; frame-src 'self' blob: https://*.webcontainer-api.io https://stackblitz.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' https: blob: data:; frame-ancestors 'self'; base-uri 'self'; form-action 'self'; object-src 'none'"
-        },
-        {
-          "key": "Cross-Origin-Embedder-Policy",
-          "value": "credentialless"
+          "value": "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://cdn.tailwindcss.com https://cdnjs.cloudflare.com https://unpkg.com https://js.stripe.com; worker-src 'self' blob:; child-src 'self' blob: https://*.webcontainer-api.io https://stackblitz.com; frame-src 'self' blob: https://*.webcontainer-api.io https://stackblitz.com https://js.stripe.com https://hooks.stripe.com https://*.souqi.site https://souqi.site; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' https: blob: data:; frame-ancestors 'self'; base-uri 'self'; form-action 'self'; object-src 'none'"
         },
         {
           "key": "Cross-Origin-Opener-Policy",
@@ -36,11 +32,37 @@
         },
         {
           "key": "Permissions-Policy",
-          "value": "geolocation=(), microphone=(), camera=(self)"
+          "value": "geolocation=(), microphone=(self), camera=(self)"
         },
         {
           "key": "Strict-Transport-Security",
           "value": "max-age=31536000; includeSubDomains; preload"
+        }
+      ]
+    },
+    {
+      "source": "/(agent|code|settings)(/.*)?",
+      "headers": [
+        {
+          "key": "Cross-Origin-Embedder-Policy",
+          "value": "credentialless"
+        },
+        {
+          "key": "Cross-Origin-Opener-Policy",
+          "value": "same-origin"
+        }
+      ]
+    },
+    {
+      "source": "/(api|auth)/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-store"
+        },
+        {
+          "key": "Vary",
+          "value": "Cookie, Origin"
         }
       ]
     }
@@ -83,6 +105,10 @@
     {
       "source": "/deployments",
       "destination": "/deployments"
+    },
+    {
+      "source": "/security",
+      "destination": "/security"
     },
     {
       "source": "/mobile",

@@ -94,9 +94,17 @@
   .su-wrap{display:grid;grid-template-columns:1fr 1fr;min-height:100vh}
   .su-form-col{display:flex;flex-direction:column;padding:clamp(24px,4vw,48px);
     background:var(--paper)}
+  /* Hovering the wordmark turns it into Back, the same gesture checkout.html
+     uses — it is the only way off this page, and "Souqi" did not look like a
+     way off anything. */
   .su-brand{display:inline-flex;align-items:center;gap:9px;font-family:var(--disp);
     font-weight:800;font-size:1.1rem;color:var(--ink);text-decoration:none;width:fit-content}
   .su-brand img{width:26px;height:26px;object-fit:contain;border-radius:5px}
+  .su-brand .arrow{font-size:1.05rem;color:var(--mut);transition:transform .15s ease,color .15s ease}
+  .su-brand .back-text{display:none}
+  .su-brand:hover .brand-text{display:none}
+  .su-brand:hover .back-text{display:inline-block}
+  .su-brand:hover .arrow{transform:translateX(-3px);color:var(--ink)}
   .su-body{flex:1;display:flex;flex-direction:column;justify-content:center;
     max-width:400px;width:100%;margin:0 auto;padding:32px 0}
   .su-h1{font-family:var(--disp);font-size:clamp(1.6rem,3vw,2rem);font-weight:600;
@@ -134,6 +142,8 @@
   .su-eye:hover{color:var(--ink);background:var(--paper-2)}
   .su-eye svg{width:17px;height:17px}
   .su-hint{font-size:.76rem;color:var(--mut);margin-top:6px}
+  .su-hint.ok{color:var(--ok,#22a565)}
+  .su-hint.bad{color:var(--danger,#d92d20)}
 
   .su-submit{width:100%;height:48px;border:0;border-radius:10px;cursor:pointer;
     background:var(--accent);color:#fff;font:inherit;font-size:.98rem;font-weight:700;
@@ -153,35 +163,80 @@
   .su-alt a{color:var(--accent);font-weight:600;text-decoration:none}
   .su-alt a:hover{text-decoration:underline}
 
-  /* Decorative half: a full-bleed SVG with the tagline set over it.
-     SVG rather than a photo — it is a few KB instead of a few hundred,
-     stays sharp at any size or DPR, and is drawn from the brand tokens so
-     it cannot drift from the rest of the site. */
-  /* Text sits slightly above centre and hard left. Dead-centre put the
-     headline in the busiest part of the artwork; this keeps it in the
-     quiet band the composition deliberately leaves open. */
-  .su-panel{position:relative;overflow:hidden;background:#0b1e33;
-    display:flex;align-items:center;
-    padding:clamp(32px,4vw,64px) clamp(32px,4vw,64px) clamp(72px,9vw,132px)}
-  .su-panel-art{position:absolute;inset:0;width:100%;height:100%;
-    object-fit:cover;display:block}
-  .su-panel-in{position:relative;z-index:1;color:#fff;max-width:420px}
-  .su-panel-in h2{font-family:var(--disp);font-size:clamp(1.7rem,2.8vw,2.5rem);font-weight:600;
-    margin:0 0 14px;line-height:1.14;letter-spacing:-.015em;
-    text-shadow:0 2px 18px rgba(5,13,24,.5)}
-  .su-panel-in p{margin:0;font-size:1rem;line-height:1.6;color:rgba(255,255,255,.82);
-    text-shadow:0 1px 12px rgba(5,13,24,.5)}
-  .su-marks{display:flex;flex-direction:column;gap:13px;margin-top:30px}
-  .su-mark{display:flex;align-items:flex-start;gap:11px;font-size:.94rem;
-    color:rgba(255,255,255,.92);text-shadow:0 1px 10px rgba(5,13,24,.45)}
-  .su-mark i{flex:none;width:19px;height:19px;border-radius:50%;background:var(--accent);
-    display:grid;place-items:center;margin-top:1px;box-shadow:0 2px 10px rgba(26,166,223,.5)}
-  .su-mark i svg{width:11px;height:11px;color:#04202e}
-  .su-wordmark{display:inline-flex;align-items:center;gap:9px;margin-top:34px;
-    padding:9px 15px 9px 11px;border-radius:12px;background:var(--accent);
-    font-family:var(--disp);font-weight:800;font-size:1.05rem;color:#fff;
-    box-shadow:0 8px 26px rgba(26,166,223,.42)}
-  .su-wordmark img{width:22px;height:22px;object-fit:contain;border-radius:4px}
+  /* ---- the ad half -------------------------------------------------------
+     This was a full-bleed SVG with a tagline over it, and the SVG lost. Its
+     glass cards were drawn at 3-16% white and then TWO vignettes were painted
+     on top — one of them 72% opaque across exactly the third the type sits in
+     — so a composition with a browser, a phone and a code fragment in it
+     never reached the eye, and the panel read as a flat navy rectangle. The
+     art was also a 1200x1600 portrait canvas cropped by object-fit:cover into
+     a short panel, which threw away most of whatever survived.
+
+     So: no image at all. The field is built from the same palette that SVG
+     used (#1aa6df, #7c3aed, #63d0ff over #0b1e33) as CSS gradients — which
+     cannot be cropped wrong, weigh nothing next to an 8KB file, and leave the
+     foreground free for what this half is actually for: saying what you get. */
+  .su-panel{position:relative;overflow:hidden;color:#fff;
+    display:flex;align-items:center;padding:clamp(32px,4vw,60px);
+    background:
+      radial-gradient(58% 44% at 78% 10%,rgba(26,166,223,.34),transparent 62%),
+      radial-gradient(64% 52% at 6% 94%,rgba(124,58,237,.30),transparent 64%),
+      radial-gradient(42% 34% at 52% 56%,rgba(99,208,255,.13),transparent 66%),
+      linear-gradient(158deg,#0b1e33 0%,#102a45 54%,#0d3f5c 100%)}
+  /* The 60px grid the SVG had, kept and masked to a soft centre. It gives the
+     orbs something to sit on, so they read as light in a space rather than as
+     coloured smudges on a flat fill. */
+  .su-panel::before{content:"";position:absolute;inset:0;pointer-events:none;
+    background:
+      repeating-linear-gradient(to right,rgba(255,255,255,.05) 0 1px,transparent 1px 60px),
+      repeating-linear-gradient(to bottom,rgba(255,255,255,.05) 0 1px,transparent 1px 60px);
+    -webkit-mask-image:radial-gradient(120% 92% at 50% 38%,#000 28%,transparent 78%);
+    mask-image:radial-gradient(120% 92% at 50% 38%,#000 28%,transparent 78%)}
+  .su-panel-in{position:relative;z-index:1;width:100%;max-width:470px;margin:0 auto}
+
+  .su-eyebrow{display:flex;align-items:center;gap:9px;margin:0 0 15px;
+    font-size:.7rem;font-weight:700;letter-spacing:.15em;text-transform:uppercase;
+    color:rgba(255,255,255,.6)}
+  .su-eyebrow::before{content:"";width:18px;height:1px;background:var(--accent);flex:none}
+  .su-panel-in h2{font-family:var(--disp);font-size:clamp(1.65rem,2.5vw,2.25rem);font-weight:600;
+    margin:0 0 11px;line-height:1.14;letter-spacing:-.018em}
+  .su-lede{margin:0 0 26px;font-size:.97rem;line-height:1.6;color:rgba(255,255,255,.7)}
+
+  /* The tiles. These numbers ARE the fix: the old artwork failed because it
+     was drawn at 3-16% white, so 7% fill against a 13% border is the floor
+     that still reads as a surface over the gradient rather than dissolving
+     into it. Lower them and this panel goes straight back to looking empty. */
+  .su-caps{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .su-cap{position:relative;border-radius:14px;padding:15px 14px 14px;
+    background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.13);
+    -webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+  /* One-pixel top highlight — the difference between a translucent panel that
+     reads as lit from above and one that reads as a flat grey box. */
+  .su-cap::after{content:"";position:absolute;inset:0 0 auto;height:1px;
+    border-radius:14px 14px 0 0;pointer-events:none;
+    background:linear-gradient(90deg,transparent,rgba(255,255,255,.3),transparent)}
+  /* .su-cap .su-cap-ic, not .su-cap-ic. The tile is a <span>, so the
+     description rule below — .su-cap span — matched it too, and at (0,1,1) it
+     outranked a bare (0,1,0) class: display:block won over display:grid,
+     place-items did nothing, and every glyph sat jammed in the top-left
+     corner of its tile with a quarter of the blue square empty beside it.
+     Two classes here settles it, and the rule below no longer reaches the
+     tile at all. */
+  .su-cap .su-cap-ic{width:36px;height:36px;border-radius:11px;display:grid;place-items:center;
+    margin-bottom:12px;background:linear-gradient(150deg,rgba(26,166,223,.95),rgba(26,166,223,.42));
+    box-shadow:0 4px 14px rgba(26,166,223,.34)}
+  /* 15px was small enough that a 1.8 stroke landed between pixels and every
+     icon read as a smudge. Bigger tile, bigger glyph, round joins so the four
+     match each other. */
+  .su-cap .su-cap-ic svg{width:19px;height:19px;color:#fff;
+    stroke-linecap:round;stroke-linejoin:round}
+  .su-cap b{display:block;font-size:.89rem;font-weight:600;margin-bottom:4px;letter-spacing:-.005em}
+  .su-cap span:not(.su-cap-ic){display:block;font-size:.79rem;line-height:1.5;color:rgba(255,255,255,.64)}
+
+  .su-panel-foot{display:flex;align-items:center;gap:9px;margin:24px 0 0;
+    padding-top:17px;border-top:1px solid rgba(255,255,255,.12);
+    font-size:.85rem;color:rgba(255,255,255,.7)}
+  .su-panel-foot svg{width:15px;height:15px;color:var(--accent);flex:none}
 
   @media (max-width:900px){
     .su-wrap{grid-template-columns:1fr}
@@ -196,8 +251,11 @@
 
 <div class="su-wrap">
   <div class="su-form-col">
-    <a class="su-brand" href="/home">
-      <img src="assets/logo.png" alt=""><span>Souqi</span>
+    <a class="su-brand" href="/home" title="Back to souqi.site">
+      <span class="arrow">&larr;</span>
+      <img src="assets/logo.png" alt="">
+      <span class="brand-text">Souqi</span>
+      <span class="back-text">Back</span>
     </a>
 
     <div class="su-body">
@@ -221,6 +279,15 @@
 
       <form id="suForm" novalidate>
         <div class="su-field">
+          <label class="su-label" for="suName">Your name</label>
+          <input class="su-input" type="text" id="suName" name="name"
+                 autocomplete="name" required maxlength="80" placeholder="Hamza Tot">
+          <!-- What the sidebar, the workspace member list and every greeting
+               will call you. -->
+          <div class="su-hint">This is the name shown across Souqi.</div>
+        </div>
+
+        <div class="su-field">
           <label class="su-label" for="suEmail">Email</label>
           <input class="su-input" type="email" id="suEmail" name="email"
                  autocomplete="email" required placeholder="you@company.com">
@@ -243,6 +310,16 @@
           <div class="su-hint">At least 8 characters.</div>
         </div>
 
+        <!-- Typed twice because it cannot be read back. A typo in a password
+             you never see again locks you out of an account you just made,
+             and the only route back is a reset that does not exist yet. -->
+        <div class="su-field">
+          <label class="su-label" for="suPass2">Confirm password</label>
+          <input class="su-input" type="password" id="suPass2" name="password2"
+                 autocomplete="new-password" required placeholder="Type it again">
+          <div class="su-hint" id="suMatch"></div>
+        </div>
+
         <div class="su-field">
           <label class="su-label" for="suCompany">Workspace name <span style="font-weight:400;color:var(--mut)">(optional)</span></label>
           <input class="su-input" type="text" id="suCompany" name="company"
@@ -263,17 +340,50 @@
     </div>
   </div>
 
-  <aside class="su-panel" aria-hidden="true">
-    <img class="su-panel-art" src="assets/signup-panel.svg" alt="" decoding="async">
-    <div class="su-panel-in">
-      <h2>Describe it once. Ship it today.</h2>
-      <p>Your first build is free — no card needed.</p>
-      <div class="su-marks">
-        <div class="su-mark"><i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></i>A real, running app — not a mockup</div>
-        <div class="su-mark"><i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></i>Edit any section live on the page</div>
-        <div class="su-mark"><i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></i>Publish to your own domain</div>
+  <!-- The ad. Not decorative any more, so not aria-hidden: a screen-reader
+       user deciding whether to sign up deserves the same four facts everyone
+       else gets. The background it sits on is pure CSS, so nothing decorative
+       leaks into the accessibility tree either way.
+
+       .stagger is already defined in this file (with a reduced-motion
+       override) and was used nowhere — its five children now arrive in
+       sequence for free. -->
+  <aside class="su-panel">
+    <div class="su-panel-in stagger">
+      <p class="su-eyebrow">One platform</p>
+      <h2>Everything your app runs on. In one place.</h2>
+      <p class="su-lede">We keep the hard part.</p>
+
+      <!-- Each line is a capability that already ships, and each icon is the
+           one used on the surface that provides it, so the ad and the product
+           cannot drift apart. -->
+      <div class="su-caps">
+        <div class="su-cap">
+          <span class="su-cap-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 0 1 0 18a15 15 0 0 1 0-18z"/></svg></span>
+          <b>Web</b>
+          <span>A real, running app on your own domain.</span>
+        </div>
+        <div class="su-cap">
+          <span class="su-cap-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v12c0 1.7 3.6 3 8 3s8-1.3 8-3V6"/><path d="M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg></span>
+          <b>Database</b>
+          <span>Postgres per app, reachable only by that app.</span>
+        </div>
+        <div class="su-cap">
+          <span class="su-cap-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m5 8 7-4 7 4v5c0 4.4-3 7.4-7 8.5C8 20.4 5 17.4 5 13z"/><path d="m9 12 2 2 4-4"/></svg></span>
+          <b>Security</b>
+          <span>Hashed passwords, signed sessions, per-workspace isolation.</span>
+        </div>
+        <div class="su-cap">
+          <span class="su-cap-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M17.5 19a4.5 4.5 0 0 0 .5-8.97A6 6 0 0 0 6.08 10.2 3.5 3.5 0 0 0 6.5 19z"/></svg></span>
+          <b>Cloud</b>
+          <span>Hosting, deploys and certificates handled for you.</span>
+        </div>
       </div>
-      <span class="su-wordmark"><img src="assets/logo.png" alt="">Souqi</span>
+
+      <p class="su-panel-foot">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+        Your first build is free — no card needed.
+      </p>
     </div>
   </aside>
 </div>
@@ -282,8 +392,11 @@
 (function () {
   "use strict";
   var form = document.getElementById("suForm");
+  var name = document.getElementById("suName");
   var email = document.getElementById("suEmail");
   var pass = document.getElementById("suPass");
+  var pass2 = document.getElementById("suPass2");
+  var match = document.getElementById("suMatch");
   var company = document.getElementById("suCompany");
   var submit = document.getElementById("suSubmit");
   var err = document.getElementById("suErr");
@@ -296,13 +409,28 @@
   }
   function clearErr() {
     err.classList.remove("show");
+    name.removeAttribute("aria-invalid");
     email.removeAttribute("aria-invalid");
     pass.removeAttribute("aria-invalid");
+    pass2.removeAttribute("aria-invalid");
   }
+
+  /* Said while typing, not on submit. Learning the two do not match only
+     after pressing the button means retyping both of them. */
+  function checkMatch() {
+    if (!pass2.value) { match.textContent = ""; match.className = "su-hint"; return; }
+    var ok = pass.value === pass2.value;
+    match.textContent = ok ? "Passwords match." : "These do not match yet.";
+    match.className = "su-hint " + (ok ? "ok" : "bad");
+  }
+  pass.addEventListener("input", checkMatch);
+  pass2.addEventListener("input", checkMatch);
 
   eye.addEventListener("click", function () {
     var show = pass.type === "password";
-    pass.type = show ? "text" : "password";
+    /* Both fields, or revealing one to check a typo leaves the other masked —
+       and the confirm field is the one you are checking it against. */
+    pass.type = pass2.type = show ? "text" : "password";
     eye.setAttribute("aria-label", show ? "Hide password" : "Show password");
     pass.focus();
   });
@@ -317,11 +445,14 @@
     e.preventDefault();
     clearErr();
 
+    var nm = name.value.trim();
     var em = email.value.trim();
     var pw = pass.value;
+    if (!nm) return fail("Enter your name — it is what Souqi will call you.", name);
     if (!em || em.indexOf("@") < 0) return fail("Enter a valid email address.", email);
     // Mirrors signupSchema min:8 so the common case never round-trips.
     if (pw.length < 8) return fail("Password must be at least 8 characters.", pass);
+    if (pw !== pass2.value) return fail("The two passwords do not match.", pass2);
 
     submit.disabled = true;
     submit.textContent = "Creating account…";
@@ -332,7 +463,7 @@
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "same-origin",
-        body: JSON.stringify({ email: em, password: pw, company: company.value.trim() })
+        body: JSON.stringify({ name: nm, email: em, password: pw, company: company.value.trim() })
       });
       var j = await r.json().catch(function () { return {}; });
 

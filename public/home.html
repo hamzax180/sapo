@@ -10,6 +10,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Jost:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <title>Souqi — What will you build?</title>
+<script src="js/voice-input.js?v=1"></script>
 <meta name="description" content="Describe your business in one sentence and Souqi builds your storefront, then hands it to a live editor you can click and change.">
 <script>
 (function(){var k="souqi-theme";try{var t=localStorage.getItem(k)||"light";document.documentElement.setAttribute("data-theme",t)}catch(e){}})();
@@ -1411,48 +1412,10 @@
     btn.addEventListener("click", (e) => { if (e) e.stopPropagation(); bhSetMode(name); });
   });
 
-  /* Voice Input Speech Recognition */
-  const bhVoiceBtn = $("bhVoiceBtn");
-  const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (SpeechRec && bhVoiceBtn) {
-    const recognition = new SpeechRec();
-    recognition.continuous = true;
-    recognition.interimResults = true;
-    recognition.lang = "en-US";
-    let isListening = false;
-
-    bhVoiceBtn.addEventListener("click", () => {
-      if (!isListening) {
-        try {
-          recognition.start();
-          isListening = true;
-          bhVoiceBtn.classList.add("listening");
-          bhVoiceBtn.title = "Listening... Click to stop";
-        } catch (e) {
-          console.warn("Speech recognition error:", e);
-        }
-      } else {
-        recognition.stop();
-        isListening = false;
-        bhVoiceBtn.classList.remove("listening");
-        bhVoiceBtn.title = "Voice Input Mode — Speak to type";
-      }
-    });
-
-    recognition.onresult = (event) => {
-      let currentTranscript = "";
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        currentTranscript += event.results[i][0].transcript;
-      }
-      if (currentTranscript.trim()) {
-        ta.value = currentTranscript;
-        autoGrow();
-        syncSend();
-      }
-    };
-    recognition.onend = () => { isListening = false; bhVoiceBtn.classList.remove("listening"); };
-    recognition.onerror = () => { isListening = false; bhVoiceBtn.classList.remove("listening"); };
-  }
+  /* Voice input: see js/voice-input.js. `ta` already has an input
+     listener that calls autoGrow() and syncSend(), so the module setting
+     .value and dispatching `input` is the whole of what this page needs. */
+  SouqiVoice.attach({ button: $("bhVoiceBtn"), input: ta });
 
   function autoGrow() { ta.style.height = "auto"; ta.style.height = Math.min(ta.scrollHeight, 230) + "px"; }
   function syncSend() {

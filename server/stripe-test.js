@@ -281,6 +281,214 @@ const CONFIGURED = { clientId: "ca_test", secretKey: "sk_test_123", webhookSecre
     assert.ok(/not JSON/.test(out.reason));
   });
 
+  console.log("\n── subscriptions: Souqi is the merchant here ──────────");
+
+  const BILLING = {
+    clientId: "ca_test", secretKey: "sk_test_123", webhookSecret: "whsec_test",
+    publishableKey: "pk_test_123",
+    plans: {
+      core: { label: "Souqi Core", entitlement: "pro",
+              prices: { month: { usd: "price_core_m", try: "price_core_m_try" },
+                        year: { usd: "price_core_y" } } },
+      pro: { label: "Souqi Pro", entitlement: "max",
+             prices: { month: { usd: "price_pro_m" } } }
+    }
+  };
+
+  await check("a secret key alone is not enough — the card fields need a publishable one", () => {
+    stripe.init(Object.assign({}, BILLING, { publishableKey: "" }));
+    assert.strictEqual(stripe.isBillingConfigured(), false);
+  });
+
+  await check("keys without a plan catalogue sell nothing", () => {
+    stripe.init(Object.assign({}, BILLING, { plans: {} }));
+    assert.strictEqual(stripe.isBillingConfigured(), false);
+  });
+
+  await check("all three present -> billing is on", () => {
+    stripe.init(BILLING);
+    assert.strictEqual(stripe.isBillingConfigured(), true);
+  });
+
+  await check("the catalogue a browser may see carries NO price ids", () => {
+    stripe.init(BILLING);
+    const cat = JSON.stringify(stripe.planCatalogue());
+    assert.ok(!/price_/.test(cat), "a price id leaked into the public catalogue: " + cat);
+    assert.deepStrictEqual(stripe.planCatalogue().core.intervals.month.sort(), ["try", "usd"]);
+  });
+
+  await check("a plan/interval/currency with no price is not for sale", () => {
+    stripe.init(BILLING);
+    assert.strictEqual(stripe.priceIdFor("core", "month", "usd"), "price_core_m");
+    assert.strictEqual(stripe.priceIdFor("core", "year", "try"), null);
+    assert.strictEqual(stripe.priceIdFor("pro", "year", "usd"), null);
+    assert.strictEqual(stripe.priceIdFor("nonsense", "month", "usd"), null);
+  });
+
+  await check("the sold plan maps to the internal plan the server gates on", () => {
+    stripe.init(BILLING);
+    assert.strictEqual(stripe.entitlementFor("core"), "pro");
+    assert.strictEqual(stripe.entitlementFor("pro"), "max");
+    assert.strictEqual(stripe.entitlementFor("made-up"), null);
+  });
+
+  await check("an incomplete subscription entitles nobody — this is the free-plan bug", () => {
+    stripe.init(BILLING);
+    assert.strictEqual(stripe.entitlementForStatus("incomplete", "core"), null);
+    assert.strictEqual(stripe.entitlementForStatus("incomplete_expired", "core"), null);
+    assert.strictEqual(stripe.entitlementForStatus("canceled", "core"), null);
+    assert.strictEqual(stripe.entitlementForStatus("unpaid", "core"), null);
+  });
+
+  await check("past_due keeps the plan while Stripe is still retrying the card", () => {
+    stripe.init(BILLING);
+    assert.strictEqual(stripe.entitlementForStatus("active", "core"), "pro");
+    assert.strictEqual(stripe.entitlementForStatus("trialing", "core"), "pro");
+    assert.strictEqual(stripe.entitlementForStatus("past_due", "core"), "pro");
+  });
+
+  await check("a subscription is created on SOUQI, with no connected-account header", async () => {
+    const f = recordingFetch({ id: "sub_1", status: "incomplete", customer: "cus_1",
+      items: { data: [{ price: { id: "price_core_m" } }] },
+      latest_invoice: { subtotal: 2000, tax: 0, total: 2000, currency: "usd",
+        payment_intent: { client_secret: "pi_1_secret", status: "requires_payment_method" } } });
+    stripe.init(Object.assign({}, BILLING, { fetchImpl: f.impl }));
+    const out = await stripe.createSubscription({ customerId: "cus_1", priceId: "price_core_m" });
+    assert.strictEqual(out.ok, true);
+    // The Connect half sets this header on purpose; here its ABSENCE is the
+    // point — with it, the money would land on someone else's account.
+    assert.strictEqual(f.calls[0].headers["Stripe-Account"], undefined);
+    assert.ok(/\/v1\/subscriptions$/.test(f.calls[0].url), f.calls[0].url);
+  });
+
+  await check("it asks for default_incomplete, or the first invoice fails with no card", async () => {
+    const f = recordingFetch({ id: "sub_1", status: "incomplete", customer: "cus_1",
+      items: { data: [] }, latest_invoice: { payment_intent: { client_secret: "x" } } });
+    stripe.init(Object.assign({}, BILLING, { fetchImpl: f.impl }));
+    await stripe.createSubscription({ customerId: "cus_1", priceId: "price_core_m" });
+    const body = decodeURIComponent(f.calls[0].body);
+    assert.ok(/payment_behavior=default_incomplete/.test(body), body);
+    assert.ok(/save_default_payment_method]=on_subscription/.test(body), body);
+  });
+
+  await check("the client secret comes back so the browser can confirm the card", async () => {
+    const f = recordingFetch({ id: "sub_9", status: "incomplete", customer: "cus_1",
+      items: { data: [{ price: { id: "price_core_m" } }] },
+      latest_invoice: { subtotal: 2000, tax: 400, total: 2400, currency: "usd",
+        total_discount_amounts: [{ amount: 200 }],
+        payment_intent: { client_secret: "pi_9_secret", status: "requires_confirmation" } } });
+    stripe.init(Object.assign({}, BILLING, { fetchImpl: f.impl }));
+    const out = await stripe.createSubscription({ customerId: "cus_1", priceId: "price_core_m" });
+    assert.strictEqual(out.subscription.clientSecret, "pi_9_secret");
+    assert.strictEqual(out.subscription.invoice.totalMinor, 2400);
+    assert.strictEqual(out.subscription.invoice.taxMinor, 400);
+    assert.strictEqual(out.subscription.invoice.discountMinor, 200);
+  });
+
+  await check("a zero total is reported as 0, not swallowed as missing", async () => {
+    // A 100%-off coupon makes every one of these legitimately zero, and a
+    // plain || would have turned them back into "unknown".
+    const f = recordingFetch({ id: "sub_free", status: "active", customer: "cus_1",
+      items: { data: [] },
+      latest_invoice: { subtotal: 0, tax: 0, total: 0, currency: "usd", payment_intent: null } });
+    stripe.init(Object.assign({}, BILLING, { fetchImpl: f.impl }));
+    const out = await stripe.createSubscription({ customerId: "cus_1", priceId: "price_core_m" });
+    assert.strictEqual(out.subscription.invoice.totalMinor, 0);
+    assert.strictEqual(out.subscription.clientSecret, null);
+    assert.strictEqual(out.subscription.status, "active");
+  });
+
+  await check("no price for that plan -> refused before any network call", async () => {
+    const f = recordingFetch({});
+    stripe.init(Object.assign({}, BILLING, { fetchImpl: f.impl }));
+    const out = await stripe.createSubscription({ customerId: "cus_1", priceId: null });
+    assert.strictEqual(out.ok, false);
+    assert.strictEqual(f.calls.length, 0);
+  });
+
+  await check("Stripe Tax is only requested when it is switched on", async () => {
+    const resp = { id: "sub_1", status: "incomplete", items: { data: [] },
+      latest_invoice: { payment_intent: { client_secret: "x" } } };
+    let f = recordingFetch(resp);
+    stripe.init(Object.assign({}, BILLING, { fetchImpl: f.impl, automaticTax: false }));
+    await stripe.createSubscription({ customerId: "cus_1", priceId: "price_core_m" });
+    assert.ok(!/automatic_tax/.test(decodeURIComponent(f.calls[0].body)));
+
+    f = recordingFetch(resp);
+    stripe.init(Object.assign({}, BILLING, { fetchImpl: f.impl, automaticTax: true }));
+    await stripe.createSubscription({ customerId: "cus_1", priceId: "price_core_m" });
+    assert.ok(/automatic_tax\[enabled\]=true/.test(decodeURIComponent(f.calls[0].body)));
+  });
+
+  await check("a price is read with GET and a query string, not a POST body", async () => {
+    const f = recordingFetch({ id: "price_core_m", unit_amount: 2000, currency: "usd",
+      recurring: { interval: "month", interval_count: 1 } });
+    stripe.init(Object.assign({}, BILLING, { fetchImpl: f.impl }));
+    const out = await stripe.getPrice("price_core_m");
+    assert.strictEqual(out.amountMinor, 2000);
+    assert.strictEqual(out.interval, "month");
+    assert.strictEqual(f.calls[0].body, undefined, "a GET must not carry a body");
+  });
+
+  await check("a promotion code lookup goes in the query string", async () => {
+    const f = recordingFetch({ data: [{ id: "promo_1", code: "SAVE10", coupon: { percent_off: 10 } }] });
+    stripe.init(Object.assign({}, BILLING, { fetchImpl: f.impl }));
+    const out = await stripe.lookupPromotionCode("SAVE10");
+    assert.strictEqual(out.ok, true);
+    assert.strictEqual(out.id, "promo_1");
+    assert.strictEqual(out.percentOff, 10);
+    assert.ok(/code=SAVE10/.test(f.calls[0].url), f.calls[0].url);
+    assert.ok(/active=true/.test(f.calls[0].url), f.calls[0].url);
+  });
+
+  await check("an unknown promotion code is notFound, not a failure to handle", async () => {
+    const f = recordingFetch({ data: [] });
+    stripe.init(Object.assign({}, BILLING, { fetchImpl: f.impl }));
+    const out = await stripe.lookupPromotionCode("NOPE");
+    assert.strictEqual(out.ok, false);
+    assert.strictEqual(out.notFound, true);
+  });
+
+  await check("a stale customer id falls through to a new customer, not a dead checkout", async () => {
+    const box = { calls: [] };
+    box.impl = async (url, opts) => {
+      box.calls.push({ url: url, headers: opts.headers, body: opts.body });
+      // The stored id 404s (deleted in the dashboard, or the keys were
+      // swapped between test and live); the create that follows succeeds.
+      if (/\/v1\/customers\/cus_gone/.test(url)) {
+        return { ok: false, status: 404, json: async () => ({ error: { message: "No such customer" } }) };
+      }
+      return { ok: true, status: 200, json: async () => ({ id: "cus_new" }) };
+    };
+    stripe.init(Object.assign({}, BILLING, { fetchImpl: box.impl }));
+    const out = await stripe.findOrCreateCustomer({ existingId: "cus_gone", email: "a@b.c" });
+    assert.strictEqual(out.ok, true);
+    assert.strictEqual(out.id, "cus_new");
+    assert.strictEqual(out.reused, false);
+  });
+
+  await check("a live customer id is reused rather than duplicated every purchase", async () => {
+    const f = recordingFetch({ id: "cus_live" });
+    stripe.init(Object.assign({}, BILLING, { fetchImpl: f.impl }));
+    const out = await stripe.findOrCreateCustomer({ existingId: "cus_live", email: "a@b.c" });
+    assert.strictEqual(out.reused, true);
+    assert.strictEqual(f.calls.length, 1, "it should not have created a second customer");
+  });
+
+  await check("a webhook subscription object summarises without an expanded invoice", () => {
+    stripe.init(BILLING);
+    const out = stripe.summariseSubscription({
+      id: "sub_x", status: "active", customer: "cus_x",
+      items: { data: [{ price: { id: "price_core_m" } }] },
+      latest_invoice: "in_x",
+      metadata: { souqiWsId: "ws_1", souqiPlan: "core" }
+    });
+    assert.strictEqual(out.invoice, null);
+    assert.strictEqual(out.clientSecret, null);
+    assert.strictEqual(out.metadata.souqiWsId, "ws_1");
+    assert.strictEqual(out.status, "active");
+  });
+
   console.log("\n" + (failed === 0 ? "✓ ALL STRIPE TESTS PASSED (" + passed + ")" : "✗ " + failed + " FAILED, " + passed + " passed"));
   process.exit(failed === 0 ? 0 : 1);
 })();

@@ -142,10 +142,15 @@
     .fade-up,.fade-in,.stagger > *{animation-duration:1ms;animation-delay:0ms;--fade-up-shift:0px}
   }
 
+  /* clip, not hidden. overflow-x:hidden turns the element into a scroll
+     container, and a scroll container silently breaks position:sticky in
+     every descendant — which is why the rail rode up off the top of the page
+     while the list scrolled instead of staying locked to the viewport. clip
+     stops the same horizontal overflow without creating that container. */
   html, body {
     background: var(--paper);
     overscroll-behavior-x: none;
-    overflow-x: hidden;
+    overflow-x: clip;
   }
   .ag-main, .wrap {
     overflow-x: hidden;
@@ -159,9 +164,50 @@
   button:focus, button:focus-visible, a:focus, a:focus-visible { outline: none !important; box-shadow: none !important; }
   h1,h2{font-family:var(--disp);font-weight:700;letter-spacing:-.02em;margin:0}
 
-  .ag-main{flex:1;min-width:0;display:flex;flex-direction:column;height:100vh;overflow-y:auto}
+  /* One scroller, and it is the window's. .ag-main used to be its own
+     height:100vh overflow:auto container, so the page carried TWO tracks —
+     an inner one a few hundred pixels in from the edge, plus the real one at
+     the window edge — for a single list of apps. The column now grows with
+     its content and the document scrolls, which is also why the rail below
+     has to become sticky: as a plain flex item it would scroll away with it. */
+  .ag-main{flex:1;min-width:0;display:flex;flex-direction:column}
+  /* The one remaining scrollbar. Inset with a transparent border and
+     background-clip so the thumb reads as a floating pill rather than a bar
+     welded to the window edge. Firefox gets the standard properties, scoped
+     so they cannot override the rules above in Chromium. */
+  html::-webkit-scrollbar{width:10px;height:10px}
+  html::-webkit-scrollbar-track{background:transparent}
+  html::-webkit-scrollbar-thumb{background:rgba(128,128,128,.32);border-radius:99px;
+    border:2px solid transparent;background-clip:content-box}
+  html::-webkit-scrollbar-thumb:hover{background:rgba(128,128,128,.55);
+    border:2px solid transparent;background-clip:content-box}
+  @supports (-moz-appearance:none){
+    html{scrollbar-width:thin;scrollbar-color:rgba(128,128,128,.35) transparent}
+  }
+  /* Scrollbars on this page's chrome. Deliberately webkit-only: Chromium
+     honours scrollbar-width / scrollbar-color OVER ::-webkit-scrollbar, so
+     declaring those makes every rule below them dead and brings back the
+     full-width OS bar with arrow buttons — which is exactly what was on
+     screen here. Firefox, which has no ::-webkit-scrollbar, is handled
+     separately at the bottom.
+
+     The rail gets no bar at all. It is chrome, it scrolls only on a short
+     window, and a scrollbar down the side of the navigation is the thing
+     being complained about. Wheel and touch still scroll it.
+
+     The main column keeps a thumb, because a list of fifty apps needs the
+     affordance — but a thin tinted one that only appears once the pointer
+     is actually over the column. */
+  .ag-history::-webkit-scrollbar{width:0;height:0}
+  @supports (-moz-appearance:none){
+    .ag-history{scrollbar-width:none}
+  }
   /* ---- sidebar: the same rail as the builder and /deployments ---- */
-  .ag-history{position:relative !important;height:100vh;flex:0 0 0px;
+  /* sticky, not relative: the page is what scrolls now, and a relative rail
+     at height:100vh would ride up out of view with it. align-self keeps it
+     from being stretched to the full document height, which is what sticky
+     needs in order to stick at all. */
+  .ag-history{position:sticky !important;top:0;align-self:flex-start;height:100vh;flex:0 0 0px;
     width:0;min-width:0;max-width:var(--sb-w);overflow:hidden;
     background:var(--paper);border-right:0 solid var(--line);box-sizing:border-box;
     transition:width .26s var(--ease),flex-basis .26s var(--ease),border-color .26s var(--ease);
@@ -171,7 +217,7 @@
   /* --- header: logo left, controls right --- */
   .ag-hist-head{display:flex;align-items:center;gap:8px;padding:10px 10px 12px 12px;width:100%;box-sizing:border-box}
   .ag-hist-mark{width:28px;height:28px;display:grid;place-items:center;flex:none}
-  .ag-hist-mark svg{width:23px;height:23px;display:block;overflow:visible}
+  .ag-hist-mark img{width:23px;height:23px;display:block;object-fit:contain;border-radius:5px}
   /* Sits between the mark and the toggle, the way the reference does.
      margin-left:auto pushes it to the right end of the header; the right
      margin is the width the fixed toggle occupies at the very edge. */
@@ -249,11 +295,30 @@
   .ag-hist-chats{flex:1 1 auto;min-height:0;
     display:flex;flex-direction:column;padding:2px 0 4px}
   .ag-chats-ttl{font-size:.655rem;font-weight:450;color:var(--mut);padding:10px 10px 4px;flex:0 0 auto}
-  .ag-chats-list{flex:1 1 auto;min-height:0;overflow-y:auto;padding:0 var(--sb-pad) 4px;scrollbar-width:thin;scrollbar-color:var(--line) transparent;display:flex;flex-direction:column;gap:2px}
+  /* No scrollbar-width / scrollbar-color on this rule, deliberately.
+     Chromium honours the standard properties OVER ::-webkit-scrollbar, so
+     setting them made the six-pixel rules below dead code and handed the
+     rail a ten-pixel standard scrollbar instead — a visible bar eating
+     sidebar width to scroll three recent projects. Measured in this
+     browser: these webkit rules alone give the 6px asked for, adding
+     scrollbar-width:thin widens it to 10px, and scrollbar-color without a
+     width falls all the way back to the 15px default with arrow buttons.
+
+     The thumb is transparent until the rail is hovered, so at rest nothing
+     shows at all. The 6px gutter stays reserved either way, which is what
+     stops the list shifting sideways when the thumb appears. */
+  .ag-chats-list{flex:1 1 auto;min-height:0;overflow-y:auto;padding:0 var(--sb-pad) 4px;display:flex;flex-direction:column;gap:2px}
   .ag-chats-list::-webkit-scrollbar{width:6px;height:6px}
   .ag-chats-list::-webkit-scrollbar-track{background:transparent}
-  .ag-chats-list::-webkit-scrollbar-thumb{background:var(--line);border-radius:99px}
+  .ag-chats-list::-webkit-scrollbar-thumb{background:transparent;border-radius:99px}
+  .ag-history:hover .ag-chats-list::-webkit-scrollbar-thumb{background:var(--line)}
   .ag-chats-list::-webkit-scrollbar-thumb:hover{background:var(--mut)}
+  /* Firefox has no ::-webkit-scrollbar at all, so without this it would get
+     a full-width classic bar — the very thing being removed above. Scoped
+     to Firefox so it cannot re-break Chromium. */
+  @supports (-moz-appearance:none){
+    .ag-chats-list{scrollbar-width:thin;scrollbar-color:var(--line) transparent}
+  }
   /* Rows keep their own height. A flex column shrinks its children before
      it overflows, and these had overflow:hidden so their min-content height
      was zero — 20 projects did not make the list scroll, they made every
@@ -331,7 +396,23 @@
                           list reads as a short list. */
   @media (min-height:660px){ .ag-hist-chats{min-height:clamp(96px,18vh,260px)} }
   @media (min-height:560px) and (max-height:659px){ .ag-hist-chats{min-height:76px} }
-  @media (max-height:700px){ .ag-hist-install,.ag-hist-links{display:none} }
+  /* Compressed, not deleted.
+
+     These two rows were display:none below 700px, and 700px of viewport is
+     more than a laptop usually has once the browser's own chrome is taken
+     off the screen — so "Install Souqi on ... Changelog" and the
+     Terms / Privacy / Plans line were simply absent for most people, on
+     every page with this rail. They are two 14px rows: the room comes from
+     tightening what sits around them and letting the chat list give up a
+     little more of its minimum, which it can afford because it scrolls. */
+  @media (max-height:700px){
+    .ag-hist-install{font-size:.68rem;gap:4px;margin-top:5px}
+    .ag-hist-install svg{width:12px;height:12px}
+    .ag-hist-links{font-size:.67rem;gap:7px;margin-top:4px}
+    .ag-hist-chats{min-height:56px}
+    .ag-hist-foot{padding-top:8px;padding-bottom:8px}
+    .ag-meter-row{padding:2px 0}
+  }
   @media (max-height:620px){
     .ag-meter-row .lab i{display:inline;margin-left:6px}
     .ag-meter-row{padding:1px 0}
@@ -403,8 +484,32 @@
 
     .ag-history:not(.on):not(:hover):not(.hover-open) .ag-ws .chev,
     .ag-history:not(.on):not(:hover):not(.hover-open) .ag-chats-ttl,
-    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-hist-foot,
-    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-user-gear{display:none !important}
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-hist-foot{display:none !important}
+
+    /* Settings keeps its icon on the collapsed rail. Hiding it left the one
+       route into Settings only reachable by first widening the sidebar — and
+       every other item in that rail survives the collapse as an icon, so the
+       gear disappearing read as a missing feature rather than a tidier rail.
+
+       Stacked, not side by side. The user row is a flex ROW, so putting the
+       gear back next to the avatar asked a 44px rail to hold a 32px avatar,
+       a 30px gear and the gap between them: the avatar lost, squeezed to
+       12px, and the pair still ran to the rail's edge. Avatar over gear is
+       how the phone rail already does it — this is the same treatment, which
+       the desktop rules had simply never been given. */
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-hist-user{
+      flex-direction:column;align-items:center;gap:4px;
+      padding-left:0 !important;padding-right:0 !important}
+    /* gap:0, like the tab and workspace rows above. The name beside the
+       avatar is collapsed to max-width:0 rather than removed, so it keeps
+       its transition — but a zero-width flex item is still a flex item, and
+       the 8px gap in front of it was being centred along with the circle.
+       That pushed the avatar 4px left of the rail's centre line, out of step
+       with the gear beneath it and every status dot above. */
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-user-main{
+      flex:none;width:32px;padding:5px 0;justify-content:center;gap:0}
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-user-gear{
+      display:grid !important;flex:none;width:30px;height:24px}
 
     /* Click-opened, so letting it render inside a panel that vanishes on
        mouse-out would strand it. */
@@ -563,7 +668,7 @@
     .ag-history:not(.on) .ag-tab-new{background:transparent;box-shadow:none}
     .ag-history:not(.on) .ag-hist-user{background:transparent}
     .ag-history:not(.on) .ag-hist-user{flex-direction:column;gap:3px;padding-left:0;padding-right:0}
-    .ag-history:not(.on) .ag-user-main{flex:none;width:32px;padding:5px 0;justify-content:center}
+    .ag-history:not(.on) .ag-user-main{flex:none;width:32px;padding:5px 0;justify-content:center;gap:0}
     .ag-history:not(.on) .ag-user-gear{display:grid !important;flex:none;width:30px;height:24px}
     /* Matches this page's own desktop rail, which hides the footer entirely:
        the plan card, meters and legal links have no 44px form, and left
@@ -683,11 +788,21 @@
      to a fixed corner glow rather than to nothing. */
   .card::after{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;
     z-index:0;opacity:0;transition:opacity .3s var(--ease);
+    /* A neutral wash, not the type colour. --tile still identifies the app on
+       its tile mark, but bathing the whole card in cyan or magenta on hover
+       made the grid flicker between unrelated hues as the pointer crossed it,
+       and said nothing a glance at the tile does not already say. One grey
+       lift for every card, so hover reads as "this one" rather than as a
+       second, louder colour system. */
     background:radial-gradient(420px circle at var(--mx,16%) var(--my,0%),
-      var(--tile,var(--accent)),transparent 62%)}
-  .card:hover{border-color:var(--card-hover-border);box-shadow:var(--card-hover-shadow);transform:translateY(-2px)}
+      rgba(190,198,208,.55),transparent 62%)}
+  /* Hover changes the card's COLOUR, never its position. The lift and the
+     tile's scale-and-rotate meant the icon you were pointing at slid out from
+     under the cursor, and on a grid of these the whole page twitched as the
+     pointer crossed it. */
+  .card:hover{border-color:var(--card-hover-border);box-shadow:var(--card-hover-shadow)}
   .card:hover::after{opacity:.09}
-  .card:hover .tile{transform:scale(1.06) rotate(-1.5deg)}
+  .card:hover .tile{transform:none}
   /* A focus ring is not a hover state. Keyboard users were getting the mouse
      treatment and no ring at all. */
   .card:focus-visible{outline:2px solid var(--accent);outline-offset:2px;
@@ -697,14 +812,45 @@
   /* One inline --tile drives the fill, the inner highlight and the drop glow.
      The wash over it is fixed white-to-black, so every identity colour gets
      the same light without needing a second value per card. */
+  /* A dark square with the type mark in the type's colour — the same tile
+     the builder's recent-projects grid uses. --tile is still the card's
+     identity colour (it drives the hover glow below), but it now means
+     something: a website card glows cyan, a game card red. */
   .card .tile{width:36px;height:36px;border-radius:11px;display:grid;place-items:center;flex:none;
-    font-family:var(--disp);font-weight:700;font-size:1.02rem;color:#fff;
-    background-color:var(--tile);
-    background-image:linear-gradient(152deg,rgba(255,255,255,.32),rgba(255,255,255,0) 46%,rgba(0,0,0,.22));
-    box-shadow:0 4px 12px -5px var(--tile),inset 0 1px 0 rgba(255,255,255,.36),
-      inset 0 0 0 1px rgba(0,0,0,.09);
-    text-shadow:0 1px 2px rgba(0,0,0,.22);
+    font-family:var(--disp);font-weight:700;font-size:1.02rem;
+    color:var(--tile);background:#0f0f0f;
+    box-shadow:0 4px 12px -6px var(--tile),inset 0 0 0 1px rgba(255,255,255,.07);
     transition:transform .24s var(--ease)}
+  .card .tile svg{width:20px;height:20px}
+
+  /* ---- card preview -----------------------------------------------------
+     A real miniature of the running app: the deployed site itself in an
+     iframe, scaled down. A full 1280px frame scaled with transform, not a
+     small iframe — a 300px-wide viewport makes a responsive site render its
+     MOBILE layout, which is not what the app looks like and reads as a
+     different site altogether.
+
+     Only a project with a RUNNING deployment gets one. Everything else shows
+     its type mark: a Souqi Code project is React/TSX until something builds
+     it — not one revision in this database contains an .html file — so there
+     is genuinely no document to put in a frame yet, and a grey placeholder
+     dressed up as a screenshot would be a lie about that. */
+  .pv{position:relative;display:block;width:100%;aspect-ratio:16/10;overflow:hidden;
+    border-radius:10px;background:var(--paper-2);border:1px solid var(--line);margin:10px 0 0}
+  /* pointer-events:none — the card is the click target, and a live app inside
+     it must not swallow the click or scroll the grid. */
+  .pv iframe{position:absolute;top:0;left:0;width:1280px;height:800px;border:0;
+    transform-origin:0 0;pointer-events:none;background:#fff}
+  .pv.loading::after{content:"";position:absolute;inset:0;
+    background:linear-gradient(90deg,transparent,rgba(139,152,165,.10),transparent);
+    transform:translateX(-100%);animation:sweep 1.4s var(--ease) infinite}
+  .pv-none{position:absolute;inset:0;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;gap:10px;padding:0 14px}
+  .pv-none i{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;
+    flex:none;background:#0f0f0f;color:var(--tile);box-shadow:inset 0 0 0 1px rgba(255,255,255,.07)}
+  .pv-none i svg{width:18px;height:18px}
+  .pv-none b{font-size:.72rem;font-weight:500;color:var(--mut);text-align:center;line-height:1.4}
+  @media (prefers-reduced-motion:reduce){ .pv.loading::after{animation:none} }
   .card .nm{flex:1;min-width:0}
   /* Two lines, then ellipsis. One nowrap line cut "A portfolio site for a
      photographer" mid-word with nowhere to recover it from; the element also
@@ -909,8 +1055,26 @@
     display:flex;align-items:center;justify-content:center;padding:clamp(8px,3.5vh,40px);
     -webkit-backdrop-filter:var(--scrim-blur);backdrop-filter:var(--scrim-blur)}
   .ag-set-overlay[hidden]{display:none !important;pointer-events:none !important;visibility:hidden !important}
+  /* The panel is an iframe, and an iframe appears the instant it is
+     displayed — so the box snapped into place with nothing to soften it.
+     The container is what arrives and what leaves; everything inside it
+     comes along. Same motion as the builder, because it is the same
+     overlay opened from a different page.
+
+     The entrance restarts on every open by itself: the overlay is toggled
+     with [hidden], and display:none back to display re-runs a CSS
+     animation. The exit needs .closing because [hidden] would otherwise
+     cut it dead in one frame. */
   .ag-set-overlay iframe{width:min(1393px,92vw);height:min(700px,80vh);border:0;border-radius:13px;
-    background:var(--card);box-shadow:0 30px 90px -28px rgba(0,0,0,.55)}
+    background:var(--card);box-shadow:0 30px 90px -28px rgba(0,0,0,.55);
+    animation:sqSettingsIn var(--dur-chill,.3s) var(--ease-snappy,ease-out) both}
+  @keyframes sqSettingsIn{from{opacity:0;transform:translateY(10px) scale(.985)}to{opacity:1;transform:none}}
+  .ag-set-overlay.closing iframe{animation:sqSettingsOut var(--dur-snappy,.12s) var(--ease-snappy,ease-out) both}
+  @keyframes sqSettingsOut{from{opacity:1;transform:none}to{opacity:0;transform:translateY(6px) scale(.99)}}
+  @media (prefers-reduced-motion:reduce){
+    .ag-set-overlay iframe{animation-duration:1ms;animation-name:none;opacity:1}
+    .ag-set-overlay.closing iframe{animation-name:none;opacity:0}
+  }
   @media (max-width:900px){
     .ag-set-overlay{padding:0}
     .ag-set-overlay iframe{width:100%;height:100%;border-radius:0}
@@ -1190,7 +1354,7 @@
 <body><div class="ag-hist-backdrop" id="agHistBackdrop"></div>
 <aside class="ag-history" id="agHistory" aria-label="Your account">
   <div class="ag-hist-head">
-    <span class="ag-hist-mark"><svg viewBox="0 0 24 24" fill="none" stroke="url(#souqiBag)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><defs><linearGradient id="souqiBag" x1="4" y1="4" x2="20" y2="20" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#1f8ae0"/><stop offset="1" stop-color="#22c55e"/></linearGradient></defs><path d="M5.2 8h13.6a1.4 1.4 0 0 1 1.39 1.55l-.86 9.4a1.9 1.9 0 0 1-1.89 1.75H6.56a1.9 1.9 0 0 1-1.89-1.75l-.86-9.4A1.4 1.4 0 0 1 5.2 8Z"/><path d="M8.9 10.4V4.9h6.2v5.5"/></svg></span><button type="button" class="ag-hist-search" id="agHistSearch" title="Search" aria-label="Search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.6-3.6"/></svg></button>
+    <span class="ag-hist-mark"><img src="/assets/logo.png" alt="" aria-hidden="true"></span><button type="button" class="ag-hist-search" id="agHistSearch" title="Search" aria-label="Search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.6-3.6"/></svg></button>
     <b class="ag-hist-brand-text"><span>Souqi</span><span>Code</span></b>
   </div>
 
@@ -1233,7 +1397,7 @@
     <a class="ag-hist-tab" href="/settings#integrations" title="Integrations">
       <i class="tab-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="m12 3 9 5-9 5-9-5 9-5z"/><path d="m3 12 9 5 9-5"/><path d="m3 17 9 5 9-5"/></svg></i><span class="lbl">Integrations</span></a>
 
-    <a class="ag-hist-tab" href="/settings#security" title="Security">
+    <a class="ag-hist-tab" href="/security" title="Security">
       <i class="tab-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/></svg></i><span class="lbl">Security</span></a>
   </div>
 
@@ -1364,13 +1528,32 @@
   /* ---------- in-place panel ----------
      Settings and plans open over this page rather than navigating to
      them, matching the builder. */
+  var SETTINGS_CLOSE_MS = 150;
+  var settingsCloseTimer = 0;
   function openPanel(src) {
+    // Re-opening mid-close must cancel it, or the pending timer would hide
+    // the overlay again a moment after it was asked to appear.
+    clearTimeout(settingsCloseTimer);
+    $("agSetOverlay").classList.remove("closing");
     var f = $("agSetFrame");
     if (f.getAttribute("src") !== src) f.setAttribute("src", src);
     $("agSetOverlay").hidden = false;
     if (window.SouqiLoading) window.SouqiLoading.hide();
   }
-  function closePanel() { $("agSetOverlay").hidden = true; }
+  /* .closing runs the reverse animation and the overlay only goes [hidden]
+     once it has finished. A timer rather than animationend so a browser
+     that never fires the event — or reduced motion, where the animation is
+     a no-op — still ends with the overlay actually hidden. */
+  function closePanel() {
+    var o = $("agSetOverlay");
+    if (o.hidden) return;
+    clearTimeout(settingsCloseTimer);
+    o.classList.add("closing");
+    settingsCloseTimer = setTimeout(function () {
+      o.classList.remove("closing");
+      o.hidden = true;
+    }, SETTINGS_CLOSE_MS);
+  }
 
   $("agSetOverlay").addEventListener("click", function (e) {
     if (e.target === $("agSetOverlay")) closePanel();
@@ -1390,7 +1573,14 @@
      panel instead — sidebar rows, the workspace menu, the account gear and
      Upgrade. Ctrl/cmd-click still goes to the real page. */
   document.addEventListener("click", function (e) {
-    if (e.target.closest("#agUserMain") || e.target.closest("#agUserGear")) {
+    if (e.target.closest("#agUserMain")) {
+      e.preventDefault();
+      /* Signed out, this row is labelled Sign in and there is no account
+         for the settings panel to be about — so it goes where it says. */
+      if (!document.body.dataset.signedIn) { location.href = "/login"; return; }
+      openPanel("/settings"); return;
+    }
+    if (e.target.closest("#agUserGear")) {
       e.preventDefault(); openPanel("/settings"); return;
     }
     var a = e.target.closest('a[href^="/settings"], a[href^="/pricing"], .ag-upgrade');
@@ -1476,7 +1666,6 @@
     });
   }
 
-  var TYPE_COLOR = { website: "#1aa6df", webapp: "#7c5cff", dashboard: "#f59e0b", portfolio: "#ec4899", mobile: "#10b981" };
   function timeAgo(iso) {
     var s = (Date.now() - new Date(iso)) / 1000;
     if (s < 3600) return Math.max(1, Math.round(s / 60)) + "m ago";
@@ -1512,6 +1701,33 @@
      the slug gives a stable, varied colour that means "this app", and the
      build type moved to the metadata line where a word says it better. */
   var TILE = ["#1aa6df", "#7c5cff", "#f59e0b", "#ec4899", "#10b981", "#6b6ff0"];
+  /* Type, not initial. The tile hashed the slug into a colour and stamped
+     the title's first letter on it, so two websites looked as unrelated as a
+     website and a game, and the mark said nothing about what the project
+     actually is. These are the same two maps the builder's "Your recent
+     Projects" grid draws from, so one app looks like itself everywhere.
+
+     Anything without a mapped buildType keeps the old hashed colour but
+     still gets an icon: these are projects built before buildType existed,
+     and one lone "P" in a grid of glyphs reads as a broken tile rather than
+     as a project whose type nobody recorded. The generic window is what the
+     builder shows for an app it cannot classify. */
+  var TYPE_COLOR = { website: "#1aa6df", webapp: "#7c5cff", game: "#f43f5e", dashboard: "#f59e0b", portfolio: "#ec4899", mobile: "#10b981" };
+  var TYPE_GLYPH = {
+    website: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 0 1 0 18 15 15 0 0 1 0-18z"/></svg>',
+    webapp: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18"/></svg>',
+    dashboard: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>',
+    portfolio: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1.3"/><rect x="14" y="3" width="7" height="7" rx="1.3"/><rect x="3" y="14" width="7" height="7" rx="1.3"/><rect x="14" y="14" width="7" height="7" rx="1.3"/></svg>',
+    mobile: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></svg>',
+    game: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 12h4M8 10v4"/><circle cx="15.5" cy="11" r="1"/><circle cx="17.5" cy="14" r="1"/><path d="M17.7 6H6.3a4.3 4.3 0 0 0-4.24 3.6l-1 6A3.4 3.4 0 0 0 4.4 19.5c1 0 1.9-.45 2.5-1.2L8.4 16.5h7.2l1.5 1.8c.6.75 1.5 1.2 2.5 1.2a3.4 3.4 0 0 0 3.34-3.9l-1-6A4.3 4.3 0 0 0 17.7 6z"/></svg>'
+  };
+  function tileTint(p, keyFallback) {
+    return TYPE_COLOR[p.buildType] || tileColor(keyFallback);
+  }
+  var GLYPH_ANY = TYPE_GLYPH.webapp;
+  function tileMark(p) {
+    return TYPE_GLYPH[p.buildType] || GLYPH_ANY;
+  }
   function tileColor(s) {
     var n = 0, i; s = String(s || "");
     for (i = 0; i < s.length; i++) n = (n * 31 + s.charCodeAt(i)) >>> 0;
@@ -1556,19 +1772,123 @@
     return '<span class="pill s-none" title="Not deployed" aria-label="Not deployed"><span class="dot"></span>Not deployed</span>';
   }
 
+  /* ---- card previews ----------------------------------------------------
+     One IntersectionObserver for the whole grid: a list of fifty apps mounts
+     nothing until a card comes near the viewport, because fifty live iframes
+     on load is fifty page loads.
+
+     What a card can show is decided by the server (GET .../thumb) — a RUNNING
+     deployment answers with its address, everything else answers "none". The
+     page does not infer it from a status pill or a `deployed` flag, because
+     those say a deployment EXISTS, not that it is serving right now. The one
+     shortcut is data-url: /deployments has already fetched live status for
+     every row, so it passes what it knows and skips the round trip. */
+  var pvSeen = new WeakSet();
+  var pvObserver = ("IntersectionObserver" in window) ? new IntersectionObserver(function (entries) {
+    entries.forEach(function (e) {
+      if (!e.isIntersecting) return;
+      pvObserver.unobserve(e.target);
+      loadPreview(e.target);
+    });
+  }, { rootMargin: "300px" }) : null;
+
+  function pvFallback(el) {
+    el.classList.remove("loading");
+    el.innerHTML = '<span class="pv-none"><i>' + (el.getAttribute("data-glyph") || "") +
+      '</i><b>' + esc(el.getAttribute("data-label") || "Deploy to show preview here") + '</b></span>';
+  }
+
+  function pvMount(el, url) {
+    var f = document.createElement("iframe");
+    /* allow-scripts AND allow-same-origin, and the second one is not slack.
+
+       These are Vite builds: the served index.html is an empty <div id="root">
+       plus <script type="module" crossorigin src="./assets/index-*.js">. A
+       module script marked crossorigin is fetched in CORS mode, and a frame
+       with allow-scripts ALONE has an opaque origin — so the request goes out
+       as Origin: null, the static host does not answer it, the bundle never
+       loads, React never mounts and the card shows a blank white rectangle.
+       That is exactly what it did.
+
+       The usual warning about this pair — that a frame can reach up and strip
+       its own sandbox — applies when the framed document is SAME-ORIGIN with
+       the page framing it. This one never is: the apps are served from their
+       own subdomains, so allow-same-origin only gives the frame its own real
+       origin back, and the ordinary same-origin policy still stands between it
+       and this page's DOM, cookies and storage.
+
+       Everything not listed here stays denied, which is why the attribute is
+       still worth having: no top-navigation (it cannot move the console out
+       from under you), no popups, no forms, no modals. */
+    f.setAttribute("sandbox", "allow-scripts allow-same-origin");
+    f.setAttribute("loading", "lazy");
+    f.setAttribute("referrerpolicy", "no-referrer");
+    f.setAttribute("tabindex", "-1");
+    f.setAttribute("aria-hidden", "true");
+    f.addEventListener("load", function () { el.classList.remove("loading"); });
+    f.src = url;
+    el.innerHTML = "";
+    el.appendChild(f);
+    pvScale(el, f);
+    // A site that never answers must not leave the card shimmering forever.
+    setTimeout(function () { el.classList.remove("loading"); }, 8000);
+  }
+
+  function loadPreview(el) {
+    if (pvSeen.has(el)) return;
+    pvSeen.add(el);
+    el.classList.add("loading");
+
+    var known = el.getAttribute("data-url");
+    if (known) { pvMount(el, known); return; }
+
+    var key = el.getAttribute("data-key");
+    if (!key) { pvFallback(el); return; }
+    fetch("/api/projects/" + encodeURIComponent(key) + "/thumb", { credentials: "same-origin" })
+      .then(function (r) { return r.ok ? r.json() : { mode: "none" }; })
+      .then(function (d) {
+        if (d && d.mode === "url" && d.url) pvMount(el, d.url); else pvFallback(el);
+      })
+      .catch(function () { pvFallback(el); });
+  }
+
+  /* 1280px of site into whatever width the card currently is. Recomputed on
+     resize because the grid reflows between one, two and three columns. */
+  function pvScale(el, f) {
+    var w = el.clientWidth;
+    if (w) f.style.transform = "scale(" + (w / 1280) + ")";
+  }
+  addEventListener("resize", function () {
+    document.querySelectorAll(".pv iframe").forEach(function (f) { pvScale(f.parentNode, f); });
+  });
+
+  /** Hand every freshly rendered .pv to the observer. */
+  function wirePreviews(root) {
+    (root || document).querySelectorAll(".pv").forEach(function (el) {
+      if (pvObserver) pvObserver.observe(el); else loadPreview(el);
+    });
+  }
+
+  /* The card already carries a status pill; repeating it under the mark said
+     the same thing twice. This says what to DO about it instead. */
+  function pvLabel() {
+    return "Deploy to show preview here";
+  }
   function renderGrid(list) {
     return '<div class="grid">' + list.map(function (p) {
       var title = p.title || "Untitled app";
       var star = p.favorite ? "on" : "";
       var kind = p.buildType && p.buildType !== "website" ? esc(p.buildType) + " \u00b7 " : "";
       return '<a class="card" href="/agent/' + esc(p.slug) + '" title="' + esc(title) + '"'
-        + ' style="--tile:' + tileColor(p.slug || p.id) + '">'
+        + ' style="--tile:' + tileTint(p, p.slug || p.id) + '">'
         + '<span class="top">'
-        + '<span class="tile">' + esc(title.charAt(0).toUpperCase() || "A") + '</span>'
+        + '<span class="tile">' + tileMark(p) + '</span>'
         + '<span class="nm"><b>' + esc(title) + '</b>'
         + '<i>' + kind + esc(timeAgo(p.updatedAt)) + '</i></span>'
         + statusPill(p)
         + '</span>'
+        + '<span class="pv" data-key="' + esc(p.slug || p.id) + '"'
+        + ' data-glyph=\'' + tileMark(p) + '\' data-label="' + esc(pvLabel(p)) + '"></span>'
         + '<span class="foot">' + (p.published ? META_PUB : META_PRIV)
         + '<span class="sp"></span>'
         + '<button type="button" class="star ' + star + '" data-slug="' + esc(p.slug)
@@ -1582,11 +1902,11 @@
   function renderRows(list) {
     return '<div class="rows">' + list.map(function (p) {
       var title = p.title || "Untitled app";
-      var color = tileColor(p.slug || p.id);
+      var color = tileTint(p, p.slug || p.id);
       var star = p.favorite ? "on" : "";
       var meta = p.published ? META_PUB : META_PRIV;
       return '<a class="row" href="/agent/' + esc(p.slug) + '" style="--tile:' + color + '">'
-        + '<span class="tile">' + esc(title.charAt(0).toUpperCase() || "A") + '</span>'
+        + '<span class="tile">' + tileMark(p) + '</span>'
         + '<span class="t">' + esc(title) + '</span>'
         + '<span class="m">' + meta + ' · ' + esc(timeAgo(p.updatedAt)) + '</span>'
         + '<button type="button" class="star ' + star + '" data-slug="' + esc(p.slug) + '" data-fav="' + (p.favorite ? "1" : "0") + '" aria-label="Favorite" onclick="event.preventDefault()">' + STAR + '</button>'
@@ -1609,6 +1929,8 @@
       return;
     }
     container.innerHTML = view === "list" ? renderRows(list) : renderGrid(list);
+    // Only the grid carries previews; the list view is a dense text layout.
+    if (view !== "list") wirePreviews(container);
   }
 
   fetch("/api/projects?kind=code&limit=200").then(function (r) { return r.json(); }).then(function (d) {
@@ -1717,6 +2039,8 @@
       // placeholder in place invented a workspace and an account both
       // called "S", which is worse than saying nothing.
       if (!d || !d.signedIn) { $("agWsNm").textContent = "Sign in"; return; }
+      // Read by the rail's account row to decide between Settings and /login.
+      document.body.dataset.signedIn = "1";
       account = d;
       var who = d.company || d.email || "Your Workspace";
       $("agWsSigned").textContent = d.email || "Signed in";

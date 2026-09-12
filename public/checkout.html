@@ -10,6 +10,11 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <!-- Stripe Elements. Each card field below is an iframe served from this
+       origin, which is the whole point: a card number entered here is never
+       in this page's DOM, never in a request to Souqi, and never in a log.
+       CSP allows js.stripe.com and hooks.stripe.com for exactly this. -->
+  <script src="https://js.stripe.com/v3/"></script>
   <script>
     (function(){
       var k = "souqi-theme";
@@ -235,9 +240,28 @@
     .brand-jcb { background: #004098; }
 
     .card-inputs-grid { display: grid; grid-template-columns: 1fr 1fr; }
-    .card-inputs-grid input { border: 0; border-radius: 0; }
-    .card-inputs-grid input:first-child { border-right: 1px solid var(--input-border); }
-    .card-inputs-grid input:focus { z-index: 2; position: relative; }
+    .card-inputs-grid > .form-input { border: 0; border-radius: 0; }
+    .card-inputs-grid > .form-input:first-child { border-right: 1px solid var(--input-border); }
+
+    /* The card fields are Stripe iframes now, not inputs. Two consequences
+       the styling has to follow: :focus can never land on the container, so
+       the focus ring keys off .StripeElement--focus which Stripe sets for
+       exactly this; and the container has no text of its own to give it a
+       height, so it needs one or the box collapses to its padding before
+       the iframe finishes loading. */
+    .form-input.StripeElement { min-height: 43px; }
+    .form-input.StripeElement--focus { border-color: var(--brand-red); box-shadow: 0 0 0 3px rgba(255, 53, 0, 0.14); }
+    .card-inputs-grid > .StripeElement--focus { z-index: 2; position: relative; }
+    .form-input.StripeElement--invalid { border-color: #dc2626; }
+
+    /* Anything that stops the charge going through says so here, directly
+       above the button that was pressed — a decline the shopper cannot see
+       is indistinguishable from a page that silently does nothing. */
+    .pay-error { margin-top: 10px; padding: 10px 12px; border-radius: 8px; font-size: 0.84rem;
+      background: rgba(220, 38, 38, 0.08); border: 1px solid rgba(220, 38, 38, 0.3); color: #dc2626; }
+    .pay-notice { margin-bottom: 14px; padding: 12px 14px; border-radius: 10px; font-size: 0.84rem;
+      background: var(--card-bg); border: 1px solid var(--line); color: var(--ink-2); }
+    .submit-pay-btn[disabled] { opacity: 0.55; cursor: not-allowed; }
 
     .address-link { font-size: 0.78rem; color: var(--mut); text-decoration: underline; margin-top: 6px; cursor: pointer; display: inline-block; }
     .address-link:hover { color: var(--ink); }
@@ -393,29 +417,29 @@
             <div class="oc-billing" id="mobOcBillingCycle">Billed monthly</div>
           </div>
         </div>
-        <div class="oc-price" id="mobOcBasePrice">TRY 996.00</div>
+        <div class="oc-price" id="mobOcBasePrice">—</div>
       </div>
     </div>
 
     <div class="summary-list" style="margin-bottom:0;">
       <div class="sum-row">
         <span>Subtotal</span>
-        <span id="mobSubtotalAmt">TRY 996.00</span>
+        <span id="mobSubtotalAmt">—</span>
       </div>
 
       <div class="sum-row" id="mobPromoDiscountRow" style="display:none; color:#16a34a; font-weight:600;">
         <span>Promotion discount (-10%)</span>
-        <span id="mobPromoDiscountAmt">-TRY 119.52</span>
+        <span id="mobPromoDiscountAmt">—</span>
       </div>
 
       <div class="sum-row">
-        <span>VAT (20%) <span title="Value Added Tax" style="cursor:help;">ⓘ</span></span>
-        <span id="mobVatAmt">TRY 199.20</span>
+        <span>Tax <span title="Calculated by Stripe from your billing address" style="cursor:help;">ⓘ</span></span>
+        <span id="mobVatAmt">—</span>
       </div>
 
       <div class="sum-row total">
         <span>Total due today</span>
-        <span class="amt" id="mobTotalAmt">TRY 1,195.20</span>
+        <span class="amt" id="mobTotalAmt">—</span>
       </div>
     </div>
   </div>
@@ -436,7 +460,7 @@
 
       <div class="co-plan-sub" id="subscribePlanSub">Subscribe to Souqi Core</div>
       <div class="co-main-price">
-        <span class="amt" id="mainPriceAmt">TRY 1,195.20</span>
+        <span class="amt" id="mainPriceAmt">—</span>
         <span class="unit">per month</span>
       </div>
 
@@ -444,12 +468,12 @@
       <button type="button" class="add-code-btn" id="addCodeBtn">
         <span>Add code</span> <span>⌄</span>
       </button>
-      <div id="promoDrawer" style="display:none; margin: 0 auto 16px; max-width: 320px; width: 100%;">
+      <div id="promoDrawer" class="promo-drawer" style="display:none; margin: 0 auto 16px; max-width: 320px; width: 100%;">
         <div style="display:flex; gap:8px;">
-          <input type="text" id="promoInput" class="form-input" placeholder="Enter promo code (e.g. SOUQI10)" style="padding:8px 12px; font-size:0.84rem;" />
-          <button type="button" id="applyPromoBtn" class="promo-btn" style="background:var(--brand-red); color:#fff; flex:none; padding:8px 16px;">Apply</button>
+          <input type="text" class="form-input promo-input" placeholder="Promotion code" style="padding:8px 12px; font-size:0.84rem;" />
+          <button type="button" class="promo-btn promo-apply" style="background:var(--brand-red); color:#fff; flex:none; padding:8px 16px;">Apply</button>
         </div>
-        <div id="promoMsg" style="font-size:0.78rem; margin-top:4px;"></div>
+        <div class="promo-msg" style="font-size:0.78rem; margin-top:4px;"></div>
       </div>
 
       <!-- Currency Switcher -->
@@ -457,7 +481,7 @@
         <button type="button" class="curr-btn active" id="btnTRY">🇹🇷 TRY</button>
         <button type="button" class="curr-btn" id="btnUSD">🇺🇸 USD</button>
       </div>
-      <div class="curr-subtext" id="rateSubtext">1 USD = 49.8001 TRY. Charges will vary based on exchange rates.</div>
+      <div class="curr-subtext" id="rateSubtext"></div>
 
       <!-- Order Details Card -->
       <div class="order-card">
@@ -469,7 +493,7 @@
               <div class="oc-billing" id="ocBillingCycle">Billed monthly</div>
             </div>
           </div>
-          <div class="oc-price" id="ocBasePrice">TRY 996.00</div>
+          <div class="oc-price" id="ocBasePrice">—</div>
         </div>
 
         <div class="oc-annual-row">
@@ -478,9 +502,9 @@
               <input type="checkbox" id="annualToggle" />
               <span class="slider"></span>
             </label>
-            <span><span class="oc-save-badge" id="saveBadgeText">Save 10%</span> with annual billing</span>
+            <span><span class="oc-save-badge" id="saveBadgeText"></span> with annual billing</span>
           </div>
-          <div class="oc-annual-price" id="ocAnnualSub">TRY 896.40/month</div>
+          <div class="oc-annual-price" id="ocAnnualSub">—</div>
         </div>
       </div>
 
@@ -488,31 +512,31 @@
       <div class="summary-list" id="desktopSummaryList">
         <div class="sum-row">
           <span>Subtotal</span>
-          <span id="subtotalAmt">TRY 996.00</span>
+          <span id="subtotalAmt">—</span>
         </div>
 
         <button type="button" class="promo-btn" id="promoBtn">+ Add promotion code</button>
-        <div id="promoDrawer" style="display:none; margin: 8px 0 12px;">
+        <div id="promoDrawerSummary" class="promo-drawer" style="display:none; margin: 8px 0 12px;">
           <div style="display:flex; gap:8px;">
-            <input type="text" id="promoInput" class="form-input" placeholder="Enter promo code (e.g. SOUQI10)" style="padding:8px 12px; font-size:0.84rem;" />
-            <button type="button" id="applyPromoBtn" class="promo-btn" style="background:var(--brand-red); color:#fff; flex:none; padding:8px 16px;">Apply</button>
+            <input type="text" class="form-input promo-input" placeholder="Promotion code" style="padding:8px 12px; font-size:0.84rem;" />
+            <button type="button" class="promo-btn promo-apply" style="background:var(--brand-red); color:#fff; flex:none; padding:8px 16px;">Apply</button>
           </div>
-          <div id="promoMsg" style="font-size:0.78rem; margin-top:4px;"></div>
+          <div class="promo-msg" style="font-size:0.78rem; margin-top:4px;"></div>
         </div>
 
         <div class="sum-row" id="promoDiscountRow" style="display:none; color:#16a34a; font-weight:600;">
           <span>Promotion discount (-10%)</span>
-          <span id="promoDiscountAmt">-TRY 119.52</span>
+          <span id="promoDiscountAmt">—</span>
         </div>
 
         <div class="sum-row">
-          <span>VAT (20%) <span title="Value Added Tax" style="cursor:help;">ⓘ</span></span>
-          <span id="vatAmt">TRY 199.20</span>
+          <span>Tax <span title="Calculated by Stripe from your billing address" style="cursor:help;">ⓘ</span></span>
+          <span id="vatAmt">—</span>
         </div>
 
         <div class="sum-row total">
           <span>Total due today</span>
-          <span class="amt" id="totalAmt">TRY 1,195.20</span>
+          <span class="amt" id="totalAmt">—</span>
         </div>
       </div>
     </div>
@@ -520,6 +544,7 @@
     <!-- RIGHT COLUMN: Payment Form -->
     <div class="co-right">
       <div class="pay-wrap">
+        <div class="pay-notice" id="payNotice" hidden></div>
         <!-- Apple Pay express button -->
         <button type="button" class="apple-pay-btn" id="applePayBtn" aria-label="Pay with Apple Pay">
           <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
@@ -535,7 +560,7 @@
         <!-- Contact Information -->
         <div class="form-group">
           <label class="form-label">Contact information</label>
-          <input type="email" class="form-input" id="emailInput" value="hamza1tot@gmail.com" placeholder="email@example.com" />
+          <input type="email" class="form-input" id="emailInput" placeholder="email@example.com" autocomplete="email" />
         </div>
 
         <!-- Payment Method -->
@@ -551,17 +576,17 @@
                 <span class="card-brand-badge brand-jcb" id="bJcb" style="opacity:0.4;">JCB</span>
               </div>
             </div>
-            <input type="text" class="form-input" id="cardNumberInput" maxlength="19" placeholder="1234 1234 1234 1234" style="border-radius: 0; border: 0; border-bottom: 1px solid var(--input-border);" />
+            <div class="form-input" id="cardNumberEl" style="border-radius: 0; border: 0; border-bottom: 1px solid var(--input-border);"></div>
             <div class="card-inputs-grid">
-              <input type="text" class="form-input" id="cardExpInput" maxlength="5" placeholder="MM / YY" />
-              <input type="text" class="form-input" id="cardCvcInput" maxlength="4" placeholder="CVC" />
+              <div class="form-input" id="cardExpEl"></div>
+              <div class="form-input" id="cardCvcEl"></div>
             </div>
           </div>
         </div>
 
         <div class="form-group">
           <label class="form-label">Cardholder name</label>
-          <input type="text" class="form-input" placeholder="Full name on card" />
+          <input type="text" class="form-input" id="cardNameInput" placeholder="Full name on card" autocomplete="cc-name" />
         </div>
 
         <!-- Billing Address -->
@@ -573,12 +598,12 @@
             <option value="GB">United Kingdom</option>
             <option value="DE">Germany</option>
           </select>
-          <input type="text" class="form-input" placeholder="Address" />
+          <input type="text" class="form-input" id="addr1Input" placeholder="Address" autocomplete="address-line1" />
           <div id="manualAddressDrawer" style="display:none; flex-direction:column; gap:8px; margin-top:8px;">
-            <input type="text" class="form-input" placeholder="Address line 2 (Optional)" />
+            <input type="text" class="form-input" id="addr2Input" placeholder="Address line 2 (Optional)" autocomplete="address-line2" />
             <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
-              <input type="text" class="form-input" placeholder="City" />
-              <input type="text" class="form-input" placeholder="Postal code" />
+              <input type="text" class="form-input" id="cityInput" placeholder="City" autocomplete="address-level2" />
+              <input type="text" class="form-input" id="postalInput" placeholder="Postal code" autocomplete="postal-code" />
             </div>
           </div>
           <span class="address-link" id="toggleManualAddress">Enter address manually</span>
@@ -594,9 +619,10 @@
         <button type="button" class="submit-pay-btn" id="paySubmitBtn">
           Subscribe
         </button>
+        <div class="pay-error" id="payError" hidden></div>
 
         <div class="legal-text">
-          By subscribing, you authorise Souqi to charge you in TRY at the displayed exchange rate or the exchange rate at the time of billing, according to the terms until you cancel.<br />
+          By subscribing, you authorise Souqi to charge the amount shown above to your card on each billing period, until you cancel. Your bank may add its own conversion fee if your card is in another currency.<br />
           By placing your order, you agree to our <a href="/terms" target="_blank">Terms of Service</a> and <a href="/privacy" target="_blank">Privacy Policy</a>.<br />
           <span style="display:inline-block; margin-top:4px;">↺ Eligible for a refund</span>
         </div>
@@ -613,10 +639,38 @@
   </div>
 
   <script>
+    /* =================================================================
+       /checkout — a real Stripe subscription.
+
+       What this page used to do: compute a price from a hardcoded 20 USD
+       and a hardcoded exchange rate, collect a card number into its own
+       DOM, and then run a setTimeout that turned the button green and
+       said "Subscription Confirmed". Nothing was charged and no plan was
+       recorded.
+
+       What it does now, and the order matters:
+         1. ask the server who is signed in and what is actually for sale;
+         2. mount Stripe's card fields — iframes, so the card number is
+            never in this document;
+         3. POST a PLAN NAME (never an amount) to /api/billing/subscribe,
+            which resolves the price server-side and returns one client
+            secret;
+         4. confirm that secret in the browser, which is also what runs
+            3-D Secure when the issuer asks for it;
+         5. tell the server to re-read the subscription from Stripe before
+            leaving, so the plan is live by the time the next page loads.
+
+       Every figure on screen comes from a Stripe Price. There is no
+       arithmetic here that decides what anyone is charged.
+       ================================================================= */
     (function () {
-      window.addEventListener("load", function() {
-        setTimeout(function() {
-          var sk = document.getElementById("skeletonLoader");
+      "use strict";
+
+      function $(id) { return document.getElementById(id); }
+
+      window.addEventListener("load", function () {
+        setTimeout(function () {
+          var sk = $("skeletonLoader");
           if (sk) sk.classList.add("hidden");
         }, 400);
       });
@@ -627,130 +681,419 @@
       }
 
       var planKey = (getQuery("plan") || "core").toLowerCase();
-      var currency = "TRY";
-      var isAnnual = false;
-      var hasPromo = false;
-      var USD_TO_TRY = 49.8001;
+      var interval = "month";
+      var currency = "usd";
+      var promo = null;       // the server's answer about a code, never a guess
+      var config = null;      // /api/billing/config
+      var stripe = null, cardNumber = null, cardExpiry = null, cardCvc = null;
+      var submitting = false;
+      var orderToken = null;  // idempotency, reset whenever the order changes
 
-      var BASE_USD = { starter: 0, core: 20, pro: 100 };
-      var planNames = { starter: "Starter", core: "Souqi Core", pro: "Souqi Pro" };
+      var btnTRY = $("btnTRY");
+      var btnUSD = $("btnUSD");
+      var annualToggle = $("annualToggle");
+      var subscribePlanSub = $("subscribePlanSub");
+      var mainPriceAmt = $("mainPriceAmt");
+      var ocAnnualSub = $("ocAnnualSub");
+      var saveBadgeText = $("saveBadgeText");
+      var rateSubtext = $("rateSubtext");
+      var paySubmitBtn = $("paySubmitBtn");
+      var payError = $("payError");
+      var payNotice = $("payNotice");
+      var emailInput = $("emailInput");
 
-      var btnTRY = document.getElementById("btnTRY");
-      var btnUSD = document.getElementById("btnUSD");
-      var annualToggle = document.getElementById("annualToggle");
-      var subscribePlanSub = document.getElementById("subscribePlanSub");
-      var mainPriceAmt = document.getElementById("mainPriceAmt");
-      var ocAnnualSub = document.getElementById("ocAnnualSub");
-      var saveBadgeText = document.getElementById("saveBadgeText");
-      var rateSubtext = document.getElementById("rateSubtext");
+      var mobileDetailsBtn = $("mobileDetailsBtn");
+      var detailsArrow = $("detailsArrow");
+      var mobileDetailsPanel = $("mobileDetailsPanel");
+      var mobOcPlanTitle = $("mobOcPlanTitle");
+      var mobOcBillingCycle = $("mobOcBillingCycle");
+      var mobOcBasePrice = $("mobOcBasePrice");
+      var mobSubtotalAmt = $("mobSubtotalAmt");
+      var mobPromoDiscountRow = $("mobPromoDiscountRow");
+      var mobPromoDiscountAmt = $("mobPromoDiscountAmt");
+      var mobVatAmt = $("mobVatAmt");
+      var mobTotalAmt = $("mobTotalAmt");
 
-      // Mobile Details Panel elements
-      var mobileDetailsBtn = document.getElementById("mobileDetailsBtn");
-      var detailsArrow = document.getElementById("detailsArrow");
-      var mobileDetailsPanel = document.getElementById("mobileDetailsPanel");
-      var mobOcPlanTitle = document.getElementById("mobOcPlanTitle");
-      var mobOcBillingCycle = document.getElementById("mobOcBillingCycle");
-      var mobOcBasePrice = document.getElementById("mobOcBasePrice");
-      var mobSubtotalAmt = document.getElementById("mobSubtotalAmt");
-      var mobPromoDiscountRow = document.getElementById("mobPromoDiscountRow");
-      var mobPromoDiscountAmt = document.getElementById("mobPromoDiscountAmt");
-      var mobVatAmt = document.getElementById("mobVatAmt");
-      var mobTotalAmt = document.getElementById("mobTotalAmt");
+      // Two drawers, same behaviour — see the markup note about the ids
+      // they used to share.
+      var promoToggles = [[$("addCodeBtn"), $("promoDrawer")],
+                          [$("promoBtn"), $("promoDrawerSummary")]];
+      var promoMsgs = Array.prototype.slice.call(document.querySelectorAll(".promo-msg"));
+      var promoInputs = Array.prototype.slice.call(document.querySelectorAll(".promo-input"));
 
-      // Promo Code elements
-      var addCodeBtn = document.getElementById("addCodeBtn");
-      var promoDrawer = document.getElementById("promoDrawer");
-      var promoInput = document.getElementById("promoInput");
-      var applyPromoBtn = document.getElementById("applyPromoBtn");
-      var promoMsg = document.getElementById("promoMsg");
+      /* ---- money ----------------------------------------------------
+         Amounts arrive from Stripe in minor units. Most currencies have
+         two decimal places, but a handful have none at all — 500 JPY is
+         500 yen, not 5 — and dividing those by 100 would understate the
+         price by two orders of magnitude on the one screen where that
+         matters most. */
+      var ZERO_DECIMAL = ["bif", "clp", "djf", "gnf", "jpy", "kmf", "krw",
+                          "mga", "pyg", "rwf", "ugx", "vnd", "vuv", "xaf",
+                          "xof", "xpf"];
 
-      // Set by updateCheckout(); read by the Apple Pay session so the sheet
-      // charges exactly what the order summary shows.
-      var currentTotalUSD = 0;
-
-      function formatMoney(val, curr) {
-        if (curr === "TRY") {
-          return "TRY " + (val * USD_TO_TRY).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-        }
-        return "US$" + val.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      function majorUnits(minor, curr) {
+        return ZERO_DECIMAL.indexOf(String(curr || "").toLowerCase()) >= 0
+          ? minor : minor / 100;
       }
 
+      function formatMinor(minor, curr) {
+        var value = majorUnits(minor, curr);
+        try {
+          return new Intl.NumberFormat(undefined, {
+            style: "currency", currency: String(curr).toUpperCase()
+          }).format(value);
+        } catch (e) {
+          // An unknown currency code should still render a number rather
+          // than throw and leave the summary blank.
+          return String(curr).toUpperCase() + " " + value.toFixed(2);
+        }
+      }
+
+      function showError(message) {
+        payError.textContent = message;
+        payError.hidden = false;
+      }
+      function clearError() {
+        payError.textContent = "";
+        payError.hidden = true;
+      }
+      function showNotice(message) {
+        payNotice.textContent = message;
+        payNotice.hidden = false;
+      }
+
+      function disableCheckout(message) {
+        paySubmitBtn.disabled = true;
+        showNotice(message);
+      }
+
+      /* ---- what is for sale ----------------------------------------- */
+
+      function planEntry() {
+        return config && config.plans ? config.plans[planKey] : null;
+      }
+
+      function priceFor(iv, cur) {
+        var p = planEntry();
+        if (!p || !p.prices || !p.prices[iv]) return null;
+        return p.prices[iv][cur] || null;
+      }
+
+      /** The currencies this plan can actually be billed in, for this interval. */
+      function currenciesFor(iv) {
+        var p = planEntry();
+        if (!p || !p.prices || !p.prices[iv]) return [];
+        return Object.keys(p.prices[iv]);
+      }
+
+      /* Any change to what is being bought invalidates the idempotency key:
+         reusing it would make Stripe replay the FIRST subscription it saw,
+         so switching from monthly to annual would silently buy the monthly
+         one again. Retrying the same order, on the other hand, must reuse
+         it — that is what stops a double click creating two subscriptions. */
+      function resetOrderToken() {
+        orderToken = [planKey, interval, currency, promo ? promo.code : "", Date.now(),
+                      Math.random().toString(36).slice(2)].join(":");
+      }
+
+      /* ---- the summary, drawn from Stripe's numbers ------------------ */
+
       function updateCheckout() {
-        var name = planNames[planKey] || "Souqi Core";
+        var entry = planEntry();
+        var name = entry ? entry.label : planKey;
         subscribePlanSub.textContent = "Subscribe to " + name;
         if (mobOcPlanTitle) mobOcPlanTitle.textContent = name;
 
-        var baseUSD = BASE_USD[planKey] !== undefined ? BASE_USD[planKey] : 20;
-        var effectiveMonthlyUSD = isAnnual ? baseUSD * 0.9 : baseUSD;
-        var subtotalUSD = effectiveMonthlyUSD;
-        var discountUSD = hasPromo ? subtotalUSD * 0.10 : 0;
-        var afterDiscountUSD = subtotalUSD - discountUSD;
-        var vatUSD = afterDiscountUSD * 0.20;
-        var totalUSD = afterDiscountUSD + vatUSD;
-        // Kept in module scope so the Apple Pay session can charge the same
-        // figure the summary shows. All arithmetic here is in USD and only
-        // formatted into `currency` for display, so this is the USD total.
-        currentTotalUSD = totalUSD;
+        var price = priceFor(interval, currency);
+        if (!price) {
+          // Nothing to show and nothing to charge. Say so rather than
+          // rendering a number that is not attached to anything.
+          mainPriceAmt.textContent = "—";
+          return;
+        }
 
-        var totalFormatted = formatMoney(totalUSD, currency);
-        var baseFormatted = formatMoney(baseUSD, currency);
-        var annualFormatted = formatMoney(baseUSD * 0.9, currency) + "/month";
-        var subtotalFormatted = formatMoney(subtotalUSD, currency);
-        var discountFormatted = "-" + formatMoney(discountUSD, currency);
-        var vatFormatted = formatMoney(vatUSD, currency);
+        var subtotalMinor = price.amountMinor;
+        var discountMinor = 0;
+        if (promo) {
+          if (promo.percentOff) discountMinor = Math.round(subtotalMinor * (promo.percentOff / 100));
+          else if (promo.amountOffMinor && String(promo.currency).toLowerCase() === currency) {
+            discountMinor = Math.min(promo.amountOffMinor, subtotalMinor);
+          }
+        }
+        var dueMinor = Math.max(0, subtotalMinor - discountMinor);
 
-        mainPriceAmt.textContent = totalFormatted;
-        ocAnnualSub.textContent = annualFormatted;
-        saveBadgeText.textContent = "Save 10%";
+        mainPriceAmt.textContent = formatMinor(dueMinor, currency);
 
-        // Desktop breakdown updates
-        var ocPlanTitle = document.getElementById("ocPlanTitle");
-        var ocBillingCycle = document.getElementById("ocBillingCycle");
-        var ocBasePrice = document.getElementById("ocBasePrice");
-        var subtotalAmt = document.getElementById("subtotalAmt");
-        var promoDiscountRow = document.getElementById("promoDiscountRow");
-        var promoDiscountAmt = document.getElementById("promoDiscountAmt");
-        var vatAmt = document.getElementById("vatAmt");
-        var totalAmt = document.getElementById("totalAmt");
+        var monthly = priceFor("month", currency);
+        var yearly = priceFor("year", currency);
+
+        // The annual line and its badge are computed from the two real
+        // prices, so a change to either in the Stripe dashboard moves what
+        // this page claims. It used to say "Save 10%" unconditionally.
+        if (yearly) {
+          ocAnnualSub.textContent = formatMinor(Math.round(yearly.amountMinor / 12), currency) + "/month";
+          if (monthly && monthly.amountMinor > 0) {
+            var saved = Math.round((1 - (yearly.amountMinor / (monthly.amountMinor * 12))) * 100);
+            saveBadgeText.textContent = saved > 0 ? "Save " + saved + "%" : "Same price";
+          }
+        } else {
+          ocAnnualSub.textContent = "Not available for this plan";
+          saveBadgeText.textContent = "";
+        }
+
+        var ocPlanTitle = $("ocPlanTitle");
+        var ocBillingCycle = $("ocBillingCycle");
+        var ocBasePrice = $("ocBasePrice");
+        var subtotalAmt = $("subtotalAmt");
+        var promoDiscountRow = $("promoDiscountRow");
+        var promoDiscountAmt = $("promoDiscountAmt");
+        var vatAmt = $("vatAmt");
+        var totalAmt = $("totalAmt");
+
+        var cycle = interval === "year" ? "Billed annually" : "Billed monthly";
+        var subtotalText = formatMinor(subtotalMinor, currency);
+        var discountText = "-" + formatMinor(discountMinor, currency);
+        var totalText = formatMinor(dueMinor, currency);
 
         if (ocPlanTitle) ocPlanTitle.textContent = name;
-        if (ocBillingCycle) ocBillingCycle.textContent = isAnnual ? "Billed annually" : "Billed monthly";
-        if (ocBasePrice) ocBasePrice.textContent = baseFormatted;
-        if (subtotalAmt) subtotalAmt.textContent = subtotalFormatted;
-        if (vatAmt) vatAmt.textContent = vatFormatted;
-        if (totalAmt) totalAmt.textContent = totalFormatted;
+        if (ocBillingCycle) ocBillingCycle.textContent = cycle;
+        if (ocBasePrice) ocBasePrice.textContent = subtotalText;
+        if (subtotalAmt) subtotalAmt.textContent = subtotalText;
+        if (totalAmt) totalAmt.textContent = totalText;
 
-        if (hasPromo) {
-          if (promoDiscountRow) promoDiscountRow.style.display = "flex";
-          if (promoDiscountAmt) promoDiscountAmt.textContent = discountFormatted;
+        /* Tax is Stripe Tax's to compute, against an address it does not
+           have until the payment is confirmed. The old page printed a flat
+           20% VAT line regardless of where the buyer was, which was wrong
+           everywhere except Turkey. When Stripe Tax is off there is no tax
+           line at all; when it is on, the line says so honestly. */
+        var taxRow = vatAmt ? vatAmt.closest(".sum-row") : null;
+        if (config && config.automaticTax) {
+          if (vatAmt) vatAmt.textContent = "At payment";
+          if (mobVatAmt) mobVatAmt.textContent = "At payment";
+          if (taxRow) taxRow.style.display = "";
+        } else {
+          if (taxRow) taxRow.style.display = "none";
+          if (mobVatAmt && mobVatAmt.closest(".sum-row")) mobVatAmt.closest(".sum-row").style.display = "none";
+        }
+
+        if (promo && discountMinor > 0) {
+          if (promoDiscountRow) {
+            promoDiscountRow.style.display = "flex";
+            var label = promoDiscountRow.querySelector("span");
+            if (label) label.textContent = "Promotion (" + promo.code + ")";
+          }
+          if (promoDiscountAmt) promoDiscountAmt.textContent = discountText;
           if (mobPromoDiscountRow) mobPromoDiscountRow.style.display = "flex";
-          if (mobPromoDiscountAmt) mobPromoDiscountAmt.textContent = discountFormatted;
+          if (mobPromoDiscountAmt) mobPromoDiscountAmt.textContent = discountText;
         } else {
           if (promoDiscountRow) promoDiscountRow.style.display = "none";
           if (mobPromoDiscountRow) mobPromoDiscountRow.style.display = "none";
         }
 
-        // Mobile panel updates
-        if (mobOcBasePrice) mobOcBasePrice.textContent = baseFormatted;
-        if (mobOcBillingCycle) mobOcBillingCycle.textContent = isAnnual ? "Billed annually" : "Billed monthly";
-        if (mobSubtotalAmt) mobSubtotalAmt.textContent = subtotalFormatted;
-        if (mobVatAmt) mobVatAmt.textContent = vatFormatted;
-        if (mobTotalAmt) mobTotalAmt.textContent = totalFormatted;
+        if (mobOcBasePrice) mobOcBasePrice.textContent = subtotalText;
+        if (mobOcBillingCycle) mobOcBillingCycle.textContent = cycle;
+        if (mobSubtotalAmt) mobSubtotalAmt.textContent = subtotalText;
+        if (mobTotalAmt) mobTotalAmt.textContent = totalText;
 
-        if (currency === "TRY") {
-          rateSubtext.textContent = "1 USD = 49.8001 TRY. Charges will vary based on exchange rates.";
-          btnTRY.classList.add("active");
-          btnUSD.classList.remove("active");
-        } else {
-          rateSubtext.textContent = "Exchange rate and fees of your bank may apply";
-          btnUSD.classList.add("active");
-          btnTRY.classList.remove("active");
+        // Only offer a currency this plan has a price in.
+        var available = currenciesFor(interval);
+        if (btnTRY) btnTRY.style.display = available.indexOf("try") >= 0 ? "" : "none";
+        if (btnUSD) btnUSD.style.display = available.indexOf("usd") >= 0 ? "" : "none";
+        if (btnTRY) btnTRY.classList.toggle("active", currency === "try");
+        if (btnUSD) btnUSD.classList.toggle("active", currency === "usd");
+
+        // No invented exchange rate: one price, in the currency it is in.
+        rateSubtext.textContent = "Billed in " + String(currency).toUpperCase()
+          + ". Your bank may add its own conversion fee.";
+      }
+
+      /* ---- boot ------------------------------------------------------ */
+
+      function mountElements() {
+        var root = getComputedStyle(document.documentElement);
+        function token(name, fallback) {
+          var v = root.getPropertyValue(name).trim();
+          return v || fallback;
+        }
+        // Stripe styles its iframes from a style object, not from this
+        // page's CSS — it cannot see across the frame boundary. Feeding it
+        // the same tokens is what keeps the fields looking like the inputs
+        // around them, in either theme.
+        var base = {
+          color: token("--ink", "#18181b"),
+          fontFamily: "Inter, system-ui, -apple-system, sans-serif",
+          fontSize: "14px",
+          fontSmoothing: "antialiased",
+          "::placeholder": { color: token("--mut", "#71717a") }
+        };
+        var style = { base: base, invalid: { color: "#dc2626", iconColor: "#dc2626" } };
+
+        var elements = stripe.elements();
+        cardNumber = elements.create("cardNumber", { style: style, placeholder: "1234 1234 1234 1234" });
+        cardExpiry = elements.create("cardExpiry", { style: style });
+        cardCvc = elements.create("cardCvc", { style: style });
+        cardNumber.mount("#cardNumberEl");
+        cardExpiry.mount("#cardExpEl");
+        cardCvc.mount("#cardCvcEl");
+
+        // The brand badges were driven by a prefix check on a card number
+        // this page no longer sees. Stripe reports the brand it detected,
+        // which is both more accurate and the only option left.
+        var badges = { visa: $("bVisa"), mastercard: $("bMc"), amex: $("bAmex"), jcb: $("bJcb") };
+        cardNumber.on("change", function (ev) {
+          Object.keys(badges).forEach(function (k) {
+            if (badges[k]) badges[k].style.opacity = (ev.brand === k) ? "1" : "0.4";
+          });
+          if (ev.error) showError(ev.error.message); else clearError();
+        });
+      }
+
+      async function boot() {
+        var res, data;
+        try {
+          res = await fetch("/api/billing/config", { credentials: "same-origin" });
+          data = await res.json();
+        } catch (e) {
+          disableCheckout("Could not reach the server to load plans. Please reload.");
+          return;
+        }
+        config = data;
+
+        if (!data.configured) {
+          disableCheckout(data.reason || "Subscriptions are not available on this server yet.");
+          return;
+        }
+        if (!data.signedIn) {
+          // A subscription with no account to attach it to would take money
+          // and entitle nobody, so this is a hard stop rather than a warning.
+          disableCheckout("Please sign in first — a subscription has to belong to an account.");
+          setTimeout(function () { location.href = "/login"; }, 1200);
+          return;
+        }
+        if (!data.plans[planKey]) {
+          disableCheckout("That plan is not for sale on this server.");
+          return;
+        }
+
+        if (emailInput && data.email) emailInput.value = data.email;
+
+        // Start on a currency and interval this plan actually has.
+        var monthCurrencies = currenciesFor("month");
+        if (monthCurrencies.length && monthCurrencies.indexOf(currency) < 0) currency = monthCurrencies[0];
+        if (!priceFor("month", currency) && priceFor("year", currency)) {
+          interval = "year";
+          if (annualToggle) annualToggle.checked = true;
+        }
+        if (annualToggle && !priceFor("year", currency)) annualToggle.disabled = true;
+
+        try {
+          stripe = window.Stripe(data.publishableKey);
+          mountElements();
+        } catch (e) {
+          disableCheckout("Could not load the card fields. Check that js.stripe.com is reachable.");
+          return;
+        }
+
+        resetOrderToken();
+        updateCheckout();
+      }
+
+      /* ---- the charge ------------------------------------------------ */
+
+      async function subscribe() {
+        if (submitting) return;
+        if (!stripe || !cardNumber) { showError("The card fields have not loaded yet."); return; }
+
+        clearError();
+        submitting = true;
+        var original = paySubmitBtn.innerHTML;
+        paySubmitBtn.disabled = true;
+        paySubmitBtn.innerHTML = "Processing…";
+
+        try {
+          var res = await fetch("/api/billing/subscribe", {
+            method: "POST",
+            credentials: "same-origin",
+            headers: { "Content-Type": "application/json", "Idempotency-Key": orderToken },
+            // A plan name, an interval and a currency. Never an amount, and
+            // never a price id — the server owns both.
+            body: JSON.stringify({
+              plan: planKey, interval: interval, currency: currency,
+              promoCode: promo ? promo.code : null
+            })
+          });
+          var data = await res.json();
+          if (!res.ok) throw new Error(data.error || "Could not start the subscription.");
+
+          // Null when a full-discount code or a trial leaves nothing to pay
+          // today. There is no PaymentIntent to confirm in that case, and
+          // treating it as a failure would refuse a legitimate subscription.
+          if (data.clientSecret) {
+            var confirmed = await stripe.confirmCardPayment(data.clientSecret, {
+              payment_method: {
+                card: cardNumber,
+                billing_details: {
+                  name: ($("cardNameInput") && $("cardNameInput").value) || undefined,
+                  email: (emailInput && emailInput.value) || undefined,
+                  address: {
+                    country: ($("countrySelect") && $("countrySelect").value) || undefined,
+                    line1: ($("addr1Input") && $("addr1Input").value) || undefined,
+                    line2: ($("addr2Input") && $("addr2Input").value) || undefined,
+                    city: ($("cityInput") && $("cityInput").value) || undefined,
+                    postal_code: ($("postalInput") && $("postalInput").value) || undefined
+                  }
+                }
+              }
+            });
+            // A decline, an expired card or an abandoned 3-D Secure step all
+            // arrive here. The subscription stays incomplete and the same
+            // idempotency key lets them try the same order again.
+            if (confirmed.error) throw new Error(confirmed.error.message || "The card was declined.");
+          }
+
+          /* The webhook is the durable record, but it races the browser and
+             usually loses. Asking the server to re-read the subscription
+             from Stripe means the plan is live before the next page paints,
+             rather than a few seconds later. A failure here is not worth
+             blocking on: the payment already succeeded, and the webhook
+             will still arrive. */
+          try {
+            await fetch("/api/billing/sync", {
+              method: "POST", credentials: "same-origin",
+              headers: { "Content-Type": "application/json" }, body: "{}"
+            });
+          } catch (e) { /* webhook will catch up */ }
+
+          paySubmitBtn.style.background = "#16a34a";
+          paySubmitBtn.innerHTML = "✓ Subscribed";
+          setTimeout(function () { location.href = "/pay/success"; }, 700);
+          return;
+        } catch (e) {
+          showError(e.message || "Something went wrong taking the payment.");
+          paySubmitBtn.disabled = false;
+          paySubmitBtn.innerHTML = original;
+          submitting = false;
         }
       }
 
-      // Mobile Details Toggle
+      paySubmitBtn.addEventListener("click", subscribe);
+
+      /* ---- controls -------------------------------------------------- */
+
+      if (btnTRY) btnTRY.addEventListener("click", function () {
+        currency = "try"; promo = null; resetOrderToken(); updateCheckout();
+      });
+      if (btnUSD) btnUSD.addEventListener("click", function () {
+        currency = "usd"; promo = null; resetOrderToken(); updateCheckout();
+      });
+      if (annualToggle) annualToggle.addEventListener("change", function () {
+        interval = annualToggle.checked ? "year" : "month";
+        resetOrderToken();
+        updateCheckout();
+      });
+
       if (mobileDetailsBtn) {
-        mobileDetailsBtn.addEventListener("click", function() {
+        mobileDetailsBtn.addEventListener("click", function () {
           var isOpen = mobileDetailsPanel.classList.contains("open");
           if (isOpen) {
             mobileDetailsPanel.classList.remove("open");
@@ -764,161 +1107,154 @@
         });
       }
 
-      btnTRY.addEventListener("click", function() { currency = "TRY"; updateCheckout(); });
-      btnUSD.addEventListener("click", function() { currency = "USD"; updateCheckout(); });
-      annualToggle.addEventListener("change", function() { isAnnual = annualToggle.checked; updateCheckout(); });
-
-      // Add Code Drawer Toggle
-      if (addCodeBtn) {
-        addCodeBtn.addEventListener("click", function() {
-          promoDrawer.style.display = promoDrawer.style.display === "none" ? "block" : "none";
+      promoToggles.forEach(function (pair) {
+        var toggle = pair[0], drawer = pair[1];
+        if (!toggle || !drawer) return;
+        toggle.addEventListener("click", function () {
+          drawer.style.display = drawer.style.display === "none" ? "block" : "none";
         });
-      }
-
-      if (applyPromoBtn) {
-        applyPromoBtn.addEventListener("click", function() {
-          var code = (promoInput.value || "").trim().toUpperCase();
-          if (code === "SOUQI10" || code === "REPLIT" || code === "PROMO10") {
-            hasPromo = true;
-            promoMsg.style.color = "#16a34a";
-            promoMsg.textContent = "✓ Promo code applied! 10% discount added.";
-            updateCheckout();
-          } else {
-            promoMsg.style.color = "#dc2626";
-            promoMsg.textContent = "Invalid promo code. Try SOUQI10";
-          }
-        });
-      }
-
-      // Card Brand Auto Detection & Formatting
-      var cardNumberInput = document.getElementById("cardNumberInput");
-      var bVisa = document.getElementById("bVisa");
-      var bMc = document.getElementById("bMc");
-      var bAmex = document.getElementById("bAmex");
-      var bJcb = document.getElementById("bJcb");
-
-      cardNumberInput.addEventListener("input", function(e) {
-        var v = e.target.value.replace(/\D/g, '').substring(0, 16);
-        e.target.value = v.replace(/(.{4})/g, '$1 ').trim();
-
-        bVisa.style.opacity = "0.4"; bMc.style.opacity = "0.4";
-        bAmex.style.opacity = "0.4"; bJcb.style.opacity = "0.4";
-
-        if (v.startsWith("4")) bVisa.style.opacity = "1";
-        else if (v.startsWith("5")) bMc.style.opacity = "1";
-        else if (v.startsWith("34") || v.startsWith("37")) bAmex.style.opacity = "1";
-        else if (v.startsWith("35")) bJcb.style.opacity = "1";
       });
 
-      // Expiry & CVC formatting
-      var cardExpInput = document.getElementById("cardExpInput");
-      cardExpInput.addEventListener("input", function(e) {
-        var v = e.target.value.replace(/\D/g, '').substring(0, 4);
-        if (v.length >= 3) e.target.value = v.substring(0, 2) + " / " + v.substring(2);
-        else e.target.value = v;
-      });
-
-      // Manual Address Drawer Toggle
-      var toggleManualAddress = document.getElementById("toggleManualAddress");
-      var manualAddressDrawer = document.getElementById("manualAddressDrawer");
-      toggleManualAddress.addEventListener("click", function() {
-        manualAddressDrawer.style.display = manualAddressDrawer.style.display === "none" ? "flex" : "none";
-      });
-
-      // Interactive Payment Processing
-      function processPayment(btnEl) {
-        btnEl.disabled = true;
-        btnEl.innerHTML = '⚡ Processing...';
-        setTimeout(function() {
-          btnEl.style.background = "#16a34a";
-          btnEl.innerHTML = '✓ Subscription Confirmed!';
-          setTimeout(function() {
-            window.location.href = "/agent";
-          }, 800);
-        }, 1000);
+      function setPromoMsg(text, color) {
+        promoMsgs.forEach(function (el) { el.textContent = text; el.style.color = color; });
       }
 
-      var paySubmitBtn = document.getElementById("paySubmitBtn");
-      var applePayBtn = document.getElementById("applePayBtn");
-      var applePayDivider = document.getElementById("applePayDivider");
-
-      paySubmitBtn.addEventListener("click", function() { processPayment(paySubmitBtn); });
-
-      /* Apple Pay is WebKit-only, and showing its button on a browser that
-         cannot complete the payment is both broken UX and against Apple's
-         guidelines — so the button and the "OR" divider that separates it
-         from the card form are both hidden unless the API is actually
-         present and the device can pay. Without this the divider would be
-         left stranded above the card form on every non-Safari browser.
-
-         NOTE: this is a real Apple Pay session, not the placeholder the
-         old button used (it called processPayment() directly, which meant
-         an Apple-branded button that never touched Apple Pay). It cannot
-         complete until three things exist:
-           1. a merchant identifier registered with Apple,
-           2. the domain-association file served from
-              /.well-known/apple-developer-merchantid-domain-association,
-           3. a server endpoint that performs merchant validation and
-              returns the session payload for onvalidatemerchant.
-         Until then canMakePayments() is the only gate that passes and the
-         session will fail at validation, which is why the handler surfaces
-         the error rather than pretending the charge went through. */
-      (function initApplePay() {
-        if (!applePayBtn) return;
-        var canUse = false;
+      /* A promotion code is checked against Stripe, not against a list of
+         three strings in this file — and the discount shown is the one the
+         coupon actually carries. Stripe applies it again at subscribe time
+         from the same code, so this preview cannot disagree with the
+         charge. */
+      async function applyPromo(code, button) {
+        if (!code) return;
+        if (button) button.disabled = true;
+        setPromoMsg("Checking…", "var(--mut)");
         try {
-          canUse = !!(window.ApplePaySession &&
-                      window.ApplePaySession.canMakePayments &&
-                      window.ApplePaySession.canMakePayments());
-        } catch (err) { canUse = false; }
-
-        // The button is shown on every browser by choice, but Apple Pay
-        // itself is Safari/WebKit-only — everywhere else there is no
-        // ApplePaySession to construct, so fall through to the same flow
-        // the Subscribe button uses rather than throwing on click.
-        if (!canUse) {
-          applePayBtn.addEventListener("click", function() { processPayment(applePayBtn); });
-          return;
+          var res = await fetch("/api/billing/promo", {
+            method: "POST", credentials: "same-origin",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ code: code })
+          });
+          var data = await res.json();
+          if (!res.ok) throw new Error(data.error || "That code is not valid.");
+          promo = data;
+          // Both drawers show the same code, so opening the other one
+          // does not look like nothing was applied.
+          promoInputs.forEach(function (el) { el.value = data.code; });
+          setPromoMsg("✓ " + data.code + " applied.", "#16a34a");
+        } catch (e) {
+          promo = null;
+          setPromoMsg(e.message, "#dc2626");
+        } finally {
+          if (button) button.disabled = false;
+          resetOrderToken();
+          updateCheckout();
         }
+      }
 
-        applePayBtn.addEventListener("click", function() {
-          var session = new window.ApplePaySession(3, {
-            countryCode: "TR",
-            currencyCode: "USD",
-            supportedNetworks: ["visa", "masterCard", "amex"],
-            merchantCapabilities: ["supports3DS"],
-            total: { label: "Souqi", amount: currentTotalUSD.toFixed(2) }
+      Array.prototype.slice.call(document.querySelectorAll(".promo-apply")).forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          var drawer = btn.closest(".promo-drawer");
+          var input = drawer ? drawer.querySelector(".promo-input") : null;
+          applyPromo(input ? (input.value || "").trim() : "", btn);
+        });
+      });
+
+      var toggleManualAddress = $("toggleManualAddress");
+      var manualAddressDrawer = $("manualAddressDrawer");
+      if (toggleManualAddress) {
+        toggleManualAddress.addEventListener("click", function () {
+          manualAddressDrawer.style.display =
+            manualAddressDrawer.style.display === "none" ? "flex" : "none";
+        });
+      }
+
+      /* Apple Pay used to be an Apple-branded button that called the fake
+         processPayment(), and before that a real ApplePaySession pointed at
+         a merchant-validation endpoint that does not exist. Neither could
+         ever take money. Stripe can, through the same PaymentRequest API
+         that backs Apple Pay and Google Pay — but only once the domain is
+         registered with Stripe, which cannot happen on localhost. So the
+         button asks Stripe whether it can pay, and hides itself when the
+         answer is no instead of pretending. */
+      (function initWalletButton() {
+        var applePayBtn = $("applePayBtn");
+        var applePayDivider = $("applePayDivider");
+        function hide() {
+          if (applePayBtn) applePayBtn.style.display = "none";
+          if (applePayDivider) applePayDivider.style.display = "none";
+        }
+        hide();
+
+        var tries = 0;
+        var poll = setInterval(function () {
+          if (++tries > 40) { clearInterval(poll); return; }
+          if (!stripe || !config || !config.configured) return;
+          clearInterval(poll);
+
+          var price = priceFor(interval, currency);
+          if (!price) return;
+
+          var pr = stripe.paymentRequest({
+            country: (($("countrySelect") && $("countrySelect").value) || "US").toUpperCase(),
+            currency: currency,
+            total: { label: "Souqi", amount: price.amountMinor },
+            requestPayerName: true,
+            requestPayerEmail: true
           });
 
-          session.onvalidatemerchant = function(event) {
-            // TODO: POST event.validationURL to a server endpoint that
-            // performs merchant validation, then session.completeMerchantValidation(payload).
-            fetch("/api/payments/apple-pay/validate", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ validationURL: event.validationURL, domain: location.hostname })
-            })
-              .then(function(r) { if (!r.ok) throw new Error("merchant validation failed"); return r.json(); })
-              .then(function(payload) { session.completeMerchantValidation(payload); })
-              .catch(function(err) {
-                console.error("Apple Pay merchant validation failed:", err);
-                session.abort();
-              });
-          };
+          pr.canMakePayment().then(function (result) {
+            if (!result) return; // no wallet, or the domain is not registered
+            if (applePayBtn) applePayBtn.style.display = "";
+            if (applePayDivider) applePayDivider.style.display = "";
+            if (applePayBtn) {
+              applePayBtn.addEventListener("click", function () { pr.show(); });
+            }
 
-          session.onpaymentauthorized = function(event) {
-            // TODO: send event.payment.token to the server to capture the
-            // charge, and only then report success.
-            session.completePayment(window.ApplePaySession.STATUS_FAILURE);
-            console.error("Apple Pay capture is not implemented yet.");
-          };
+            pr.on("paymentmethod", async function (ev) {
+              try {
+                var res = await fetch("/api/billing/subscribe", {
+                  method: "POST", credentials: "same-origin",
+                  headers: { "Content-Type": "application/json", "Idempotency-Key": orderToken },
+                  body: JSON.stringify({
+                    plan: planKey, interval: interval, currency: currency,
+                    promoCode: promo ? promo.code : null
+                  })
+                });
+                var data = await res.json();
+                if (!res.ok) throw new Error(data.error || "Could not start the subscription.");
 
-          session.oncancel = function() { /* user dismissed the sheet */ };
-          session.begin();
-        });
+                if (data.clientSecret) {
+                  var confirmed = await stripe.confirmCardPayment(
+                    data.clientSecret, { payment_method: ev.paymentMethod.id }, { handleActions: false });
+                  if (confirmed.error) throw new Error(confirmed.error.message);
+                  ev.complete("success");
+                  // A wallet payment can still need a 3-D Secure step, and
+                  // it can only run after the sheet has closed.
+                  if (confirmed.paymentIntent && confirmed.paymentIntent.status === "requires_action") {
+                    var done = await stripe.confirmCardPayment(data.clientSecret);
+                    if (done.error) throw new Error(done.error.message);
+                  }
+                } else {
+                  ev.complete("success");
+                }
+
+                try {
+                  await fetch("/api/billing/sync", {
+                    method: "POST", credentials: "same-origin",
+                    headers: { "Content-Type": "application/json" }, body: "{}"
+                  });
+                } catch (e) { /* webhook will catch up */ }
+                location.href = "/pay/success";
+              } catch (e) {
+                ev.complete("fail");
+                showError(e.message || "The wallet payment did not go through.");
+              }
+            });
+          }).catch(hide);
+        }, 100);
       })();
 
-      updateCheckout();
+      boot();
     })();
   </script>
 <script src="js/nav-loading.js?v=1"></script>

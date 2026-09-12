@@ -1,0 +1,1494 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#faf7f2">
+<meta name="robots" content="noindex">
+<link rel="icon" type="image/png" href="/assets/logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Jost:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<title>Security — Souqi</title>
+<script>
+(function(){var k="souqi-theme";try{var t=localStorage.getItem(k)||"light";document.documentElement.setAttribute("data-theme",t)}catch(e){}})();
+</script>
+<style>
+  *,*::before,*::after{box-sizing:border-box}
+  *[hidden], [hidden]{display:none !important;pointer-events:none !important;visibility:hidden !important}
+  :root{
+    --dur-snappy:.12s; --dur-chill:.3s;
+    --ease-snappy:ease-out; --ease-chill:ease-in-out;
+    --sh-subtle:0px 1px 2px #00000008,0px 4px 8px -2px #0000000a;
+    --sh-raised:0px 2px 4px #0000000a,0px 8px 16px -4px #0000000f;
+    --sh-floating:0px 4px 6px -2px #0000000d,0px 12px 24px -6px #00000012;
+    --sh-overlay:0px 8px 16px -4px #00000014,0px 24px 48px -12px #0000001a;
+    --fade-subtle:color-mix(in srgb,currentColor 10%,transparent);
+    --fade-regular:color-mix(in srgb,currentColor 20%,transparent);
+    --fade-strong:color-mix(in srgb,currentColor 30%,transparent);
+    --fade-up-shift:10px; --fade-up-gap:50ms;
+    --line-hover:#bdb7b1;
+    --wash-rgb:18,32,46;
+    --paper:#f6f5f4; --paper-2:#ebeced; --card:#fcfcfc;
+    --ink:#1b252b; --ink-2:#5c6062; --mut:#8a8f91;
+    --accent:#1aa6df; --accent-2:#0f8ec4;
+    --tint-2:#e7f5fd; --line:#cfc9c3;
+    --ok:#22a565; --warn:#e0a11a; --danger:#d92d20;
+    --disp:'Jost','Century Gothic',system-ui,sans-serif;
+    --body:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+    --ease:cubic-bezier(.16,1,.3,1);
+    --card-surface:linear-gradient(180deg,#ffffff,#fbfbfa);
+    --card-sheen:#ffffff;
+    --hair:#eceae8;
+    --card-tray:rgba(246,245,244,.72);
+    --card-rest-shadow:0px 1px 2px #00000008,0px 4px 8px -2px #0000000a;
+    --card-hover-border:#bdb7b1;
+    --card-hover-shadow:0px 2px 4px #0000000a,0px 8px 16px -4px #0000000f;
+    --rail:44px; --sb-w:238px; --sb-pad:6px; --ease-sb:cubic-bezier(.32,.72,0,1);
+    --scrim: color-mix(in srgb, var(--paper) 52%, transparent);
+    --scrim-blur: blur(5px) saturate(105%);
+  }
+  :root[data-theme="dark"]{
+    --line-hover:rgba(255,255,255,.22);
+    --wash-rgb:255,255,255;
+    --paper:#18191b; --paper-2:#212225; --card:#26282b;
+    --card-surface:linear-gradient(180deg,#2b2d31,#232528);
+    --card-sheen:rgba(255,255,255,.055);
+    --hair:rgba(255,255,255,.06);
+    --card-tray:rgba(0,0,0,.16);
+    --card-rest-shadow:0 1px 2px rgba(0,0,0,.45);
+    --card-hover-border:rgba(255,255,255,.15);
+    --card-hover-shadow:0 2px 6px rgba(0,0,0,.35),0 16px 34px -16px rgba(0,0,0,.8);
+    --ink:#f5f9fc; --ink-2:#9ea3a6; --mut:#7a7f82;
+    --tint:#3d3428; --tint-2:#2d2420;
+    --stone:#2a2c2f; --dark:#0a0908; --line:#33363a; --navy-800:#0d0b0a;
+    --accent:#1aa6df; --accent-2:#118cc0; --accent-ink:#e6edf3;
+  }
+
+  @keyframes sqFadeUp{from{opacity:0;transform:translateY(var(--fade-up-shift))}to{opacity:1;transform:none}}
+  .fade-up{animation:sqFadeUp var(--dur-chill) var(--ease-snappy) both}
+  .fade-in{animation:sqFadeUp var(--dur-chill) var(--ease-snappy) both;--fade-up-shift:0px}
+  .stagger > *{animation:sqFadeUp var(--dur-chill) var(--ease-snappy) both}
+  .stagger > :nth-child(1){animation-delay:0ms}
+  .stagger > :nth-child(2){animation-delay:50ms}
+  .stagger > :nth-child(3){animation-delay:100ms}
+  .stagger > :nth-child(4){animation-delay:150ms}
+  .stagger > :nth-child(5){animation-delay:200ms}
+  .stagger > :nth-child(6){animation-delay:250ms}
+  .stagger > :nth-child(n+7){animation-delay:300ms}
+  @media (prefers-reduced-motion:reduce){
+    .fade-up,.fade-in,.stagger > *{animation-duration:1ms;animation-delay:0ms;--fade-up-shift:0px}
+  }
+
+  html, body {
+    background: var(--paper);
+    overscroll-behavior-x: none;
+    overflow-x: clip;
+  }
+  .ag-main, .wrap {
+    overflow-x: hidden;
+  }
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--body);-webkit-font-smoothing:antialiased;display:flex;min-height:100vh}
+  a{color:inherit;text-decoration:none}
+  button{font:inherit;color:inherit}
+  button:focus, button:focus-visible, a:focus, a:focus-visible { outline: none !important; box-shadow: none !important; }
+  h1,h2{font-family:var(--disp);font-weight:700;letter-spacing:-.02em;margin:0}
+
+  .ag-main{flex:1;min-width:0;display:flex;flex-direction:column}
+  html::-webkit-scrollbar{width:10px;height:10px}
+  html::-webkit-scrollbar-track{background:transparent}
+  html::-webkit-scrollbar-thumb{background:rgba(128,128,128,.32);border-radius:99px;
+    border:2px solid transparent;background-clip:content-box}
+  html::-webkit-scrollbar-thumb:hover{background:rgba(128,128,128,.55);
+    border:2px solid transparent;background-clip:content-box}
+  @supports (-moz-appearance:none){
+    html{scrollbar-width:thin;scrollbar-color:rgba(128,128,128,.35) transparent}
+  }
+
+  /* ---- sidebar (same as projects.html / deployments.html) ---- */
+  .ag-history::-webkit-scrollbar{width:0;height:0}
+  @supports (-moz-appearance:none){ .ag-history{scrollbar-width:none} }
+  .ag-history{position:sticky !important;top:0;align-self:flex-start;height:100vh;flex:0 0 0px;
+    width:0;min-width:0;max-width:var(--sb-w);overflow:hidden;
+    background:var(--paper);border-right:0 solid var(--line);box-sizing:border-box;
+    transition:width .26s var(--ease),flex-basis .26s var(--ease),border-color .26s var(--ease);
+    display:flex;flex-direction:column;z-index:100}
+  .ag-history.on{width:var(--sb-w) !important;flex:0 0 var(--sb-w) !important;min-width:var(--sb-w) !important;border-right:1px solid var(--line);overflow:visible !important}
+  .ag-hist-head,.ag-hist-tabs,.ag-hist-foot{width:100%;box-sizing:border-box}
+  .ag-hist-head{display:flex;align-items:center;gap:8px;padding:10px 10px 12px 12px;width:100%;box-sizing:border-box}
+  .ag-hist-mark{width:28px;height:28px;display:grid;place-items:center;flex:none}
+  .ag-hist-mark img{width:23px;height:23px;display:block;object-fit:contain;border-radius:5px}
+  /* The logo IS the toggle on this page — the floating button that used to
+     do it is gone. It only ever appeared on hover, sat outside the rail it
+     controlled, and was the thing that flickered. */
+  .ag-hist-mark{cursor:pointer}
+  .ag-hist-mark:hover{opacity:.82}
+  .ag-hist-mark:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:8px}
+  /* On a desktop the logo is the only control and the floating button is
+     gone — it was the thing that flickered. On a phone the rail collapses to
+     icons with no room for a close affordance inside it, so the button comes
+     back there, and only while the panel is open. */
+  @media (min-width:901px){
+    /* Hidden only while the panel is CLOSED. Collapsed, the rail is a strip
+       of icons and the logo in it is what opens the panel -- a second control
+       floating outside the rail was the thing that flickered, so it stays
+       gone there. Open, the logo has moved to the right of the head and the
+       panel needs a way to close: that is this button, top-left, exactly
+       where projects and deployments put it.
+
+       This was a blanket display:none, which read as "the logo is the only
+       control" -- true when collapsed, but it also took away the close
+       button from an open panel on any desktop-width window. */
+    #agDeskSidebarToggle:not(.on){display:none !important}
+  }
+
+  .ag-hist-search{margin-left:auto;margin-right:38px;flex:none;width:30px;height:30px;
+    display:grid;place-items:center;border:1px solid transparent;border-radius:9px;
+    background:none;color:var(--ink-2);cursor:pointer;transition:background .15s ease,color .15s ease}
+  .ag-hist-search:hover{background:var(--paper-2);color:var(--ink)}
+  .ag-hist-search svg{width:16px;height:16px}
+  .ag-hist-brand-text{display:none;flex-direction:column;line-height:1.05;font-family:var(--disp);font-weight:800;font-size:.88rem;color:var(--ink);letter-spacing:-.01em;margin-left:6px}
+  .ag-hist-brand-text span{display:block}
+  .ag-ws-wrap{position:relative}
+  .ag-ws{display:flex;align-items:center;gap:9px;border:1px solid var(--line);background:var(--card);color:var(--ink) !important;border-radius:999px;padding:6px 10px 6px 6px;margin:8px 10px 8px;width:calc(100% - 20px);cursor:pointer;text-align:left;box-sizing:border-box}
+  .ag-ws .av svg,.ag-user-main .av svg{width:13px;height:13px;color:#fff}
+  .ag-ws .av{flex:none;width:26px;height:26px;border-radius:50%;display:grid;place-items:center;color:#fff;background:linear-gradient(135deg,var(--accent),var(--accent-2));font-weight:600;font-size:.8rem}
+  .ag-ws .nm{color:var(--ink) !important;flex:1;min-width:0;font-size:.9rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ag-ws svg{width:16px;height:16px;flex:none;color:var(--ink-2)}
+  .ag-ws .chev{transition:transform .16s var(--ease)}
+  .ag-ws.open .chev{transform:rotate(180deg)}
+  .ag-ws-menu{position:absolute;left:10px;right:10px;top:calc(100% - 2px);z-index:60;
+    background:var(--card);border:1px solid var(--line);border-radius:14px;padding:8px;
+    box-shadow:0 16px 40px -10px rgba(11,22,38,.32);
+    opacity:0;visibility:hidden;transform:translateY(-4px);
+    transition:opacity .16s ease,transform .16s ease,visibility .16s ease}
+  .ag-ws-menu.open{opacity:1;visibility:visible;transform:none}
+  .ag-ws-signed{padding:8px 10px 10px;font-size:.78rem;color:var(--mut);border-bottom:1px solid var(--line);margin-bottom:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .ag-ws-item{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:9px;font-size:.88rem;color:var(--ink);transition:.13s;text-decoration:none;border:0;background:none;width:100%;text-align:left;cursor:pointer}
+  .ag-ws-item:hover{background:var(--paper-2)}
+  .ag-ws-item svg{width:15px;height:15px;flex:none}
+  .ag-hist-tabs{display:flex;flex-direction:column;gap:2px;padding:2px var(--sb-pad) 4px;width:100%;box-sizing:border-box;flex:0 0 auto;overflow:visible !important}
+  .ag-hist-tab{width:100%;box-sizing:border-box;display:flex;align-items:center;gap:10px;border:0;background:none;color:var(--ink);cursor:pointer;
+    padding:7px 6px;border-radius:8px;font-size:.75rem;font-weight:450;text-align:left;transition:background .14s,color .14s;text-decoration:none}
+  .ag-hist-tab .tab-ic{flex:none;width:18px;height:18px;display:grid;place-items:center;color:var(--ink-2)}
+  .ag-hist-tab .tab-ic svg{width:16px;height:16px}
+  .ag-hist-tab .tab-ic.ring{border:1px solid var(--line);border-radius:50%;background:var(--paper-2)}
+  .ag-hist-tab:hover{background:var(--paper-2)}
+  .ag-hist-tab.on{background:var(--paper-2);font-weight:600}
+  .ag-hist-tab.on .tab-ic,.ag-hist-tab:hover .tab-ic{color:var(--ink)}
+  .ag-hist-tab .lbl,.ag-user-main .nm,.ag-ws .nm,.ag-hist-brand-text{
+    max-width:190px;opacity:1;overflow:hidden;white-space:nowrap;
+    transition:max-width .26s var(--ease-sb),opacity .18s ease .06s}
+  .ag-tab-new{background:var(--card);box-shadow:0 1px 2px rgba(0,0,0,.05)}
+  .ag-tab-new:hover{background:var(--card);filter:brightness(1.06)}
+  .ag-tab-new .tab-ic.ring{color:var(--ink);background:var(--paper-2)}
+  .ag-hist-chats{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;padding:2px 0 4px}
+  .ag-chats-ttl{font-size:.655rem;font-weight:450;color:var(--mut);padding:10px 10px 4px;flex:0 0 auto}
+  .ag-chats-list{flex:1 1 auto;min-height:0;overflow-y:auto;padding:0 var(--sb-pad) 4px;display:flex;flex-direction:column;gap:2px}
+  .ag-chats-list::-webkit-scrollbar{width:6px;height:6px}
+  .ag-chats-list::-webkit-scrollbar-track{background:transparent}
+  .ag-chats-list::-webkit-scrollbar-thumb{background:transparent;border-radius:99px}
+  .ag-history:hover .ag-chats-list::-webkit-scrollbar-thumb{background:var(--line)}
+  .ag-chats-list::-webkit-scrollbar-thumb:hover{background:var(--mut)}
+  @supports (-moz-appearance:none){ .ag-chats-list{scrollbar-width:thin;scrollbar-color:var(--line) transparent} }
+  .ag-chats-list > *{flex:0 0 auto}
+  .ag-chat-item{display:flex;align-items:center;gap:10px;width:100%;box-sizing:border-box;
+    padding:7px 6px;border-radius:8px;color:var(--ink-2);text-decoration:none;font-size:.75rem;
+    white-space:nowrap;overflow:hidden;transition:background .14s,color .14s;border:0;background:none;cursor:pointer;text-align:left;font-family:inherit}
+  .ag-chat-item:hover{background:var(--paper-2);color:var(--ink)}
+  .ag-chat-item i{flex:none;width:18px;height:18px;display:grid;place-items:center;color:var(--ink-2);opacity:.95}
+  .ag-chat-item i svg{width:16px;height:16px}
+  .ag-chat-item span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis}
+  .ag-chat-item .sdot{width:6px;height:6px;border-radius:50%;background:var(--mut);flex:none;margin:0 6px}
+  .ag-chats-empty{padding:14px;color:var(--mut);font-size:.8rem;line-height:1.5;text-align:center}
+  .ag-hist-foot{flex:0 0 auto;padding:8px 10px 8px;border-top:1px solid var(--line);background:var(--paper);width:100%;box-sizing:border-box}
+  .ag-hist-foot .ttl{font-size:.84rem;font-weight:600;padding:0 2px;margin-bottom:4px;color:var(--ink)}
+  .ag-plan-alert{background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.25);color:#f87171;font-size:.76rem;
+    font-weight:500;padding:4px 8px;border-radius:6px;margin-bottom:6px;text-align:center;width:100%;box-sizing:border-box}
+  .ag-meter-row{display:flex;align-items:center;gap:7px;padding:2px 0;width:100%;box-sizing:border-box}
+  .ag-meter-row svg{width:14px;height:14px;flex:none;color:var(--ink-2)}
+  .ag-meter-row .lab{flex:1;min-width:0;font-size:.78rem;color:var(--ink);font-weight:500}
+  .ag-meter-row .lab i{display:block;font-style:normal;color:var(--mut);font-size:.70rem;font-weight:400;margin-top:0}
+  .ag-meter{width:54px;height:5px;border-radius:999px;background:rgba(128,128,128,.18);overflow:hidden;flex:none}
+  .ag-meter i{display:block;height:100%;border-radius:999px;background:#3b82f6;transition:width .4s var(--ease)}
+  .ag-meter i.warn{background:var(--warn)}
+  .ag-meter i.hot{background:var(--danger)}
+  .ag-upgrade{display:flex;align-items:center;justify-content:center;gap:7px;margin-top:8px;padding:9px 12px;
+    border:0;border-radius:9px;background:#0077ff;color:#fff;font-size:.9rem;font-weight:600;
+    cursor:pointer;width:100%;box-sizing:border-box;text-decoration:none;transition:.15s}
+  .ag-upgrade:hover{background:#0062cc}
+  .ag-hist-install{display:flex;align-items:center;justify-content:center;gap:5px;margin-top:6px;font-size:.72rem;color:var(--mut);width:100%;box-sizing:border-box}
+  .ag-hist-install svg{width:13px;height:13px;color:var(--ink-2);flex:none;transition:color .15s ease,transform .15s ease;cursor:pointer}
+  .ag-hist-install svg:hover{color:#0077ff !important;transform:scale(1.15)}
+  .ag-hist-install a:hover{color:var(--ink)}
+  .ag-hist-links{display:flex;gap:8px;justify-content:center;margin-top:5px;font-size:.71rem;color:var(--mut);width:100%;box-sizing:border-box}
+  .ag-hist-links a:hover{color:var(--ink)}
+  @media (min-height:660px){ .ag-hist-chats{min-height:clamp(96px,18vh,260px)} }
+  @media (min-height:560px) and (max-height:659px){ .ag-hist-chats{min-height:76px} }
+  /* Compressed, not deleted.
+
+     These two rows were display:none below 700px, and 700px of viewport is
+     more than a laptop usually has once the browser's own chrome is taken
+     off the screen — so "Install Souqi on ... Changelog" and the
+     Terms / Privacy / Plans line were simply absent for most people, on
+     every page with this rail. They are two 14px rows: the room comes from
+     tightening what sits around them and letting the chat list give up a
+     little more of its minimum, which it can afford because it scrolls. */
+  @media (max-height:700px){
+    .ag-hist-install{font-size:.68rem;gap:4px;margin-top:5px}
+    .ag-hist-install svg{width:12px;height:12px}
+    .ag-hist-links{font-size:.67rem;gap:7px;margin-top:4px}
+    .ag-hist-chats{min-height:56px}
+    .ag-hist-foot{padding-top:8px;padding-bottom:8px}
+    .ag-meter-row{padding:2px 0}
+  }
+  @media (max-height:620px){
+    .ag-meter-row .lab i{display:inline;margin-left:6px}
+    .ag-meter-row{padding:1px 0}
+    .ag-upgrade{margin-top:6px;padding:7px 12px}
+    .ag-hist-foot{padding-top:6px;padding-bottom:6px}
+  }
+  .ag-hist-user{flex:0 0 auto;display:flex;align-items:center;gap:2px;padding:5px var(--sb-pad) 8px;
+    background:var(--paper-2);width:100%;box-sizing:border-box}
+  .ag-user-main{flex:1;min-width:0;display:flex;align-items:center;gap:8px;border:0;background:none;
+    color:var(--ink);cursor:pointer;padding:5px 6px;border-radius:9px;font:inherit;text-align:left;transition:.14s}
+  .ag-user-main:hover{background:var(--paper)}
+  .ag-user-main .av{flex:none;width:22px;height:22px;border-radius:50%;display:grid;place-items:center;
+    background:linear-gradient(135deg,var(--accent),var(--accent-2));color:#fff;font-size:.76rem;font-weight:700}
+  .ag-user-main .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.72rem;font-weight:500}
+  .ag-user-gear{flex:none;width:24px;height:24px;display:grid;place-items:center;border:0;background:none;
+    color:var(--mut);cursor:pointer;border-radius:9px;transition:.14s}
+  .ag-user-gear:hover{background:var(--paper);color:var(--ink)}
+  .ag-user-gear svg{width:14px;height:14px}
+  .ag-pv-toggle-btn{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line);background:var(--card);color:var(--ink);
+    border-radius:9px;padding:6px 14px;height:34px;font-size:.85rem;font-weight:600;cursor:pointer;
+    transition:all .2s var(--ease);box-shadow:0 2px 6px rgba(0,0,0,.03);outline:none !important}
+  #agDeskSidebarToggle{position:fixed !important;top:10px !important;left:10px !important;z-index:999999 !important;
+    padding:5px 10px !important;height:32px !important;font-size:.82rem !important}
+  .ag-pv-toggle-btn:hover{border-color:#cbd5e1;background:var(--paper-2);color:var(--ink)}
+  .ag-pv-toggle-btn.on{background:var(--card);color:var(--ink)}
+  .ag-pv-toggle-btn .pane-left{transition:fill .2s ease;fill:transparent}
+  .ag-pv-toggle-btn.on .pane-left{fill:var(--accent)}
+  .ag-pv-toggle-btn svg{width:16px;height:16px;flex:none}
+
+  /* ---- desktop sidebar rail (copied from projects.html) ---- */
+  @media (min-width:901px){
+    .ag-history{flex:0 0 var(--rail) !important;width:var(--rail) !important;min-width:var(--rail) !important;
+      border-right:1px solid var(--line);overflow:hidden;
+      transition:width .34s var(--ease-sb),flex-basis .34s var(--ease-sb),margin-right .34s var(--ease-sb);
+      transition-delay:.16s;will-change:width;z-index:100}
+    .ag-history.on{width:var(--sb-w) !important;flex:0 0 var(--sb-w) !important;min-width:var(--sb-w) !important;
+      overflow:visible !important;box-shadow:none;margin-right:0}
+    @media (hover:hover) and (pointer:fine){
+      .ag-history:not(.on):not(.hover-suppressed):hover,
+      .ag-history.hover-open:not(.on):not(.hover-suppressed){
+        width:var(--sb-w) !important;flex-basis:var(--sb-w) !important;
+        margin-right:calc(var(--rail) - var(--sb-w));
+        overflow:visible !important;z-index:400 !important;transition-delay:0s;
+        box-shadow:6px 0 28px -8px rgba(11,22,38,.28)}
+    }
+    .ag-history:not(.on):not(:hover):not(.hover-open) .lbl,
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-hist-brand-text,
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-user-main .nm,
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-ws .nm{max-width:0 !important;opacity:0 !important;transition-delay:0s}
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-ws .chev,
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-chats-ttl,
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-hist-foot{display:none !important}
+
+    /* This page still carried the old rule that hid Settings on the collapsed
+       rail, and none of the layout that goes with keeping it: stacked under
+       the avatar, both centred, and the name's flex gap zeroed so the circle
+       does not sit off-centre. Same treatment as deployments/projects/code. */
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-hist-user{
+      flex-direction:column;align-items:center;gap:4px;
+      padding-left:0 !important;padding-right:0 !important}
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-user-main{
+      flex:none;width:32px;padding:5px 0;justify-content:center;gap:0}
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-user-gear{
+      display:grid !important;flex:none;width:30px;height:24px}
+    .ag-history:not(.on) .ag-ws-menu{display:none !important}
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-hist-chats{border-top:1px solid var(--line);margin:5px 9px 0;padding-top:6px}
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-chats-list{padding:0;overflow:hidden}
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-chat-item{width:100%;margin:0;padding:7px 0;justify-content:center;gap:0}
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-chat-item span{display:none}
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-chats-empty{display:none}
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-hist-head{padding:8px 0 4px !important;height:44px !important;flex:0 0 44px !important;overflow:hidden;justify-content:center}
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-hist-mark{margin:0 auto}
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-hist-search{display:none !important}
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-hist-tabs{padding:4px 0 6px !important;align-items:center}
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-hist-tab{width:32px;padding:7px 0;justify-content:center;gap:0}
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-tab-new{background:transparent;box-shadow:none}
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-tab-new .tab-ic.ring{background:var(--card);border-color:var(--line);box-shadow:0 1px 2px rgba(0,0,0,.06)}
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-hist-user{background:transparent;justify-content:center}
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-ws-wrap{padding:0 !important;display:flex;justify-content:center}
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-ws{width:32px;margin:6px auto;padding:3px;justify-content:center;gap:0;background:transparent;border-color:transparent}
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-chat-item .sdot{margin:0}
+    #agDeskSidebarToggle:not(.on) span{display:none !important}
+    #agDeskSidebarToggle:not(.on){padding:4px !important;width:30px !important;height:30px !important;
+      left:calc(var(--sb-w) - 40px) !important;justify-content:center !important}
+    .ag-history:not(.on) ~ #agDeskSidebarToggle,
+    .ag-history:not(.on) ~ * #agDeskSidebarToggle{opacity:0;pointer-events:none;transition:opacity .18s ease}
+    .ag-history:not(.on):hover ~ #agDeskSidebarToggle,
+    .ag-history:not(.on):hover ~ * #agDeskSidebarToggle,
+    .ag-history:not(.on).hover-open ~ #agDeskSidebarToggle,
+    .ag-history:not(.on).hover-open ~ * #agDeskSidebarToggle{opacity:1;pointer-events:auto}
+    #agDeskSidebarToggle.on span{display:none !important}
+    #agDeskSidebarToggle.on{padding:4px !important;width:30px !important;height:30px !important;
+      justify-content:center !important;left:calc(var(--sb-w) - 40px) !important}
+    .ag-history.on .ag-hist-search{order:2;margin-left:auto;margin-right:0}
+    .ag-history.on .ag-hist-mark{order:3;margin-left:0}
+    .ag-history:hover .ag-hist-search,.ag-history.hover-open .ag-hist-search{order:2;margin-left:auto;margin-right:0}
+    /* Collapsed, the head is centre-justified with no side padding and the
+       28px logo lands at x=8. Hover-expanded it picks up the panel padding
+       and lands at 12. Four pixels is not much, but it is the control moving
+       under a cursor already resting on it, and this page has had enough of
+       that. Pinned, so nothing shifts until the panel is genuinely open. */
+    .ag-history:not(.on):hover .ag-hist-head{padding-left:8px !important}
+    .ag-history:not(.on):hover .ag-hist-mark{margin-left:0 !important}
+
+    /* NOT on :hover. On this page the logo is the control that opens the
+       rail, so it must not move while the rail is merely hover-expanded:
+       pointing at it slid it from x=8 to the far end of the widened panel,
+       out from under the cursor, leaving you clicking the empty space where
+       the only opener used to be. It moves right only when the panel is
+       actually open (.on, the rule above), and at that moment the close
+       button takes its place at x=7 — a handover, not a disappearance.
+
+       .hover-open went with the script that set it; nothing adds it now. */
+    #agDeskSidebarToggle:not(.on){left:7px !important}
+    #agDeskSidebarToggle.on{left:7px !important}
+    .ag-main .nav{padding-left:96px}
+    .ag-history.on ~ .ag-main .nav{padding-left:clamp(18px,4vw,40px)}
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-user-main{gap:0 !important;justify-content:center}
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-user-main .av{width:26px;height:26px;font-size:.82rem}
+  }
+  @media (max-width:900px){
+    .ag-history{position:fixed !important;top:0 !important;left:0 !important;bottom:0 !important;
+      height:100vh !important;width:240px !important;max-width:80vw !important;z-index:999999 !important;
+      transform:translateX(-100%) !important;transition:transform .28s var(--ease) !important;box-shadow:4px 0 24px rgba(0,0,0,.5)}
+    .ag-history.on{transform:translateX(0) !important}
+    .ag-history:not(.on){
+      width:var(--rail) !important;min-width:var(--rail) !important;max-width:var(--rail) !important;
+      transform:translateX(0) !important;box-shadow:none !important;overflow:hidden !important;
+      transition:width .28s var(--ease),transform .28s var(--ease) !important;
+      /* 0, not 44px. That reservation held a gap at the top of the collapsed
+         rail for the floating toggle that used to sit over it. The toggle is
+         hidden while the rail is collapsed now — the logo opens it — so the
+         gap was just pushing that logo 44px below where it sits on every
+         other page. */
+      padding-top:0 !important}
+    .ag-main{padding-left:var(--rail)}
+    .ag-history:not(.on) .lbl,
+    .ag-history:not(.on) .ag-hist-brand-text,
+    .ag-history:not(.on) .ag-user-main .nm,
+    .ag-history:not(.on) .ag-ws .nm{max-width:0 !important;opacity:0 !important;overflow:hidden !important}
+    .ag-history:not(.on) .ag-ws .chev,
+    .ag-history:not(.on) .ag-hist-view,
+    .ag-history:not(.on) .ag-chats-ttl,
+    .ag-history:not(.on) .ag-hist-search,
+    .ag-history:not(.on) .ag-ws-menu{display:none !important}
+    .ag-history:not(.on) .ag-hist-chats{border-top:1px solid var(--line);margin:5px 6px 0;padding-top:6px}
+    .ag-history:not(.on) .ag-hist-chats.is-empty{border-top:0;margin:0;padding-top:0}
+    .ag-history:not(.on) .ag-chats-list{padding:0;overflow:hidden}
+    .ag-history:not(.on) .ag-chat-item{width:32px;margin:0 auto;padding:7px 0;justify-content:center;gap:0}
+    .ag-history:not(.on) .ag-chat-item .sdot{margin:0}
+    .ag-history:not(.on) .ag-chat-item span{display:none}
+    .ag-history:not(.on) .ag-chats-empty{display:none}
+    .ag-history:not(.on) .ag-hist-head{padding:8px 0 4px !important;height:44px !important;flex:0 0 44px !important;overflow:hidden;justify-content:center}
+    .ag-history:not(.on) .ag-hist-mark{margin:0 auto}
+    .ag-history:not(.on) .ag-ws-wrap{padding:0 !important;display:flex;justify-content:center}
+    .ag-history:not(.on) .ag-ws{width:32px !important;margin:0 !important;padding:5px 0 !important;
+      justify-content:center;gap:0;background:transparent !important;border-color:transparent !important}
+    .ag-history:not(.on) .ag-hist-tabs{padding:4px 0 6px !important;align-items:center}
+    .ag-history:not(.on) .ag-hist-tab{width:32px;padding:7px 0;justify-content:center;gap:0}
+    .ag-history:not(.on) .ag-tab-new{background:transparent;box-shadow:none}
+    .ag-history:not(.on) .ag-hist-user{background:transparent}
+    .ag-history:not(.on) .ag-hist-user{flex-direction:column;gap:3px;padding-left:0;padding-right:0}
+    .ag-history:not(.on) .ag-user-main{flex:none;width:32px;padding:5px 0;justify-content:center}
+    .ag-history:not(.on) .ag-user-main{gap:0 !important;justify-content:center}
+    .ag-history:not(.on) .ag-user-main .av{width:26px;height:26px;font-size:.82rem}
+    .ag-history:not(.on) .ag-user-gear{display:grid !important;flex:none;width:30px;height:24px}
+    .ag-history:not(.on) .ag-hist-foot{display:none !important}
+    /* Open, the head reads: [close button] … [search] [logo]. The button
+       takes the left, so the search and the mark are pushed to the right end
+       rather than sitting under it — the same order deployments, projects and
+       code use, so the rail is the same object on every page.
+
+       Closed, there is no button at all: the rail is 44px of icons and the
+       logo at the top of it is what opens the panel. A floating button over
+       a rail that is already one tap wide is one control too many. */
+    .ag-history.on .ag-hist-head{flex:0 0 42px !important;
+      padding-top:6px !important;padding-bottom:4px !important}
+    .ag-history.on .ag-hist-search{order:2;margin-left:auto;margin-right:0}
+    .ag-history.on .ag-hist-mark{order:3;margin-left:0}
+    #agDeskSidebarToggle:not(.on){display:none !important}
+    #agDeskSidebarToggle.on{left:7px !important}
+
+    #agDeskSidebarToggle{position:fixed !important;top:10px !important;left:7px !important;
+      z-index:999999 !important;padding:4px !important;width:30px !important;height:30px !important;
+      justify-content:center !important}
+    #agDeskSidebarToggle span{display:none !important}
+    /* 7px, not the panel edge. The logo now sits at the right of the open
+       head (see above), so parking the close button there put the two on top
+       of each other. Left, like every other page. */
+    #agDeskSidebarToggle.on{left:7px !important}
+    .ag-history:not(.on){border-right:1px solid var(--line) !important}
+    .ag-history.on{box-shadow:6px 0 28px -10px rgba(11,22,38,.28) !important}
+    .ag-hist-backdrop{display:block !important;position:fixed !important;top:0 !important;right:0 !important;bottom:0 !important;left:min(var(--sb-w),80vw) !important;
+      background:var(--scrim) !important;
+      backdrop-filter:var(--scrim-blur) !important;z-index:999998 !important;opacity:0 !important;pointer-events:none !important;transition:opacity .28s ease !important}
+    .ag-hist-backdrop.on{opacity:1 !important;pointer-events:auto !important}
+  }
+
+  /* ---- page header ---- */
+  .nav{display:flex;align-items:center;gap:16px;padding:14px clamp(18px,4vw,40px) 14px 114px;border-bottom:none;background:var(--paper);transition:padding-left .26s var(--ease)}
+  .ag-history.on ~ .ag-main .nav{padding-left:clamp(18px,4vw,40px)}
+  .nav .sp{margin-left:auto}
+  .btn-g{padding:9px 15px;border:1px solid var(--line);border-radius:10px;font-size:.86rem;font-weight:600;transition:.16s;background:var(--card)}
+  .btn-g:hover{border-color:var(--line-hover)}
+  .btn-d{padding:9px 17px;border-radius:10px;background:var(--accent);color:#fff;font-size:.86rem;font-weight:600;transition:.16s}
+  .btn-d:hover{background:var(--accent-2)}
+  .btn-g,.btn-d{white-space:nowrap}
+  @media (max-width:900px){
+    .nav{display:none}
+    .wrap{padding-top:14px}
+  }
+
+  /* ---- main content ---- */
+  .wrap{max-width:1180px;margin:0 auto;padding:clamp(26px,5vw,46px) clamp(18px,4vw,40px) 80px;width:100%}
+  .phead{display:flex;align-items:center;gap:10px;margin-bottom:20px}
+  .phead svg.ic{width:22px;height:22px;color:var(--ink)}
+  .phead h1{font-size:clamp(1.5rem,3vw,1.9rem)}
+
+  /* ---- security banner ---- */
+  .sec-banner{display:flex;align-items:center;justify-content:center;gap:14px;padding:16px 20px;border-radius:12px;margin-bottom:24px;
+    transition:background .3s ease, border-color .3s ease}
+  .sec-banner.clean{background:rgba(34,165,101,.08);border:1px solid rgba(34,165,101,.22)}
+  .sec-banner.warn{background:rgba(217,45,32,.06);border:1px solid rgba(217,45,32,.2)}
+  .sec-banner svg{width:28px;height:28px;flex:none}
+  .sec-banner.clean svg{color:var(--ok)}
+  .sec-banner.warn svg{color:var(--danger)}
+  /* flex:1 made the text block eat the whole row, which pinned the shield to
+     the far left with the headline floating a third of the way in. flex:none
+     keeps shield and text as one group, and justify-content centres that
+     group — the same treatment the deployment danger box and the preview
+     placeholder get. */
+  /* flex:none centres the shield-and-text group instead of stretching it —
+     but with nothing allowed to shrink, a 352px phone pushed the sentence
+     straight out of the box. It may shrink; it just may not grow. */
+  .sec-banner .sec-banner-text{flex:0 1 auto;min-width:0;text-align:center}
+  .sec-banner .sec-banner-text b{display:block;font-size:.95rem;font-weight:600;margin-bottom:2px}
+  .sec-banner.clean .sec-banner-text b{color:var(--ok)}
+  .sec-banner.warn .sec-banner-text b{color:var(--danger)}
+  .sec-banner .sec-banner-text span{display:block;font-size:.82rem;color:var(--ink-2)}
+  @media (max-width:560px){
+    /* Stacked once the row no longer fits: shield over text, both centred,
+       rather than a shrinking column that ends in an ellipsis. */
+    .sec-banner{flex-direction:column;gap:9px;padding:14px 16px;text-align:center}
+    .sec-banner .sec-banner-text{flex:1 1 auto;width:100%}
+  }
+
+  /* ---- scan overview ---- */
+  .sec-head{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+  .sec-head h2{font-size:1.05rem;flex:1}
+  .sec-head .btn-scan{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border:1px solid var(--line);
+    border-radius:9px;font-size:.82rem;font-weight:600;background:var(--card);color:var(--ink);cursor:pointer;transition:.15s}
+  .sec-head .btn-scan:hover{border-color:var(--line-hover);background:var(--paper-2)}
+  .sec-head .btn-scan svg{width:14px;height:14px}
+  .sec-desc{font-size:.84rem;color:var(--ink-2);margin-bottom:20px;line-height:1.5}
+
+  /* ---- toolbar (search + filters) ---- */
+  .toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:22px}
+  .search{position:relative;width:min(300px,100%)}
+  .search svg{position:absolute;left:12px;top:50%;transform:translateY(-50%);width:16px;height:16px;color:var(--mut)}
+  .search input{width:100%;border:1px solid var(--line);border-radius:10px;padding:9px 12px 9px 34px;
+    font:inherit;font-size:.9rem;background:var(--card);color:var(--ink)}
+  .search input:focus{outline:none;border-color:var(--accent)}
+  .fsel{border:1px solid var(--line);border-radius:10px;padding:9px 12px;font:inherit;font-size:.87rem;
+    background:var(--card);color:var(--ink);cursor:pointer}
+  .fsel:focus{outline:none;border-color:var(--accent)}
+  .toolbar .sp{margin-left:auto}
+
+  /* ---- projects table ---- */
+  .sec-count{font-size:.82rem;color:var(--mut);margin-bottom:12px}
+  .sec-table{width:100%;border-collapse:collapse}
+  .sec-table th{text-align:left;font-size:.76rem;font-weight:500;color:var(--mut);padding:10px 12px;
+    border-bottom:1px solid var(--line);white-space:nowrap}
+  .sec-table td{padding:12px;font-size:.88rem;border-bottom:1px solid var(--hair);vertical-align:middle}
+  .sec-table tbody tr{transition:background .12s ease}
+  .sec-table tbody tr:hover{background:var(--paper-2)}
+  .sec-table .proj-name{font-weight:600;color:var(--ink)}
+  .sec-table .proj-name a{color:inherit;text-decoration:none}
+  .sec-table .proj-name a:hover{text-decoration:underline}
+
+  /* vulnerability badges */
+  .vuln-badge{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:999px;font-size:.76rem;font-weight:600}
+  .vuln-badge.none{background:rgba(34,165,101,.1);color:var(--ok)}
+  .vuln-badge.low{background:rgba(59,130,246,.1);color:#3b82f6}
+  .vuln-badge.moderate{background:rgba(224,161,26,.12);color:var(--warn)}
+  .vuln-badge.high{background:rgba(234,88,12,.12);color:#ea580c}
+  .vuln-badge.critical{background:rgba(217,45,32,.1);color:var(--danger)}
+
+  /* status dot */
+  .status-dot{width:8px;height:8px;border-radius:50%;display:inline-block;vertical-align:middle;margin-right:6px}
+  .status-dot.live{background:var(--ok)}
+  .status-dot.draft{background:var(--mut)}
+
+  /* actions */
+  .act-btn{border:1px solid var(--line);background:var(--card);border-radius:8px;padding:5px 12px;
+    font-size:.78rem;font-weight:500;cursor:pointer;transition:.15s;color:var(--ink)}
+  .act-btn:hover{border-color:var(--line-hover);background:var(--paper-2)}
+
+  /* ---- empty state / replit-style secure illustration ---- */
+  .sec-empty{display:flex;flex-direction:column;align-items:center;padding:60px 20px;text-align:center}
+  .sec-empty svg{width:80px;height:80px;color:var(--ok);margin-bottom:16px;opacity:.7}
+  .sec-empty b{font-size:1.05rem;font-weight:600;margin-bottom:4px}
+  .sec-empty span{font-size:.85rem;color:var(--mut)}
+
+  .sec-secure-wrap{display:flex;flex-direction:column;align-items:center;padding:54px 20px 48px;text-align:center}
+  .sec-secure-ill{display:flex;align-items:center;justify-content:center;margin-bottom:8px;position:relative;overflow:visible;width:184px;height:120px;margin-left:auto;margin-right:auto}
+  .sec-secure-ill svg{display:block;max-width:100%;height:auto}
+  .sec-secure-title{font-size:1.18rem;font-weight:600;color:var(--ink);margin:18px 0 6px;letter-spacing:-.015em}
+  .sec-secure-sub{font-size:.92rem;color:var(--ink-2);margin:0;line-height:1.5}
+
+  /* ---- Fancy scanning animations ---- */
+  @keyframes spinContinuous {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+  @keyframes scanGlowPulse {
+    0%, 100% {
+      box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.45), 0 2px 8px rgba(0, 0, 0, 0.06);
+      border-color: rgba(34, 197, 94, 0.55);
+    }
+    50% {
+      box-shadow: 0 0 0 5px rgba(34, 197, 94, 0.2), 0 0 20px rgba(34, 197, 94, 0.4);
+      border-color: var(--ok);
+    }
+  }
+  @keyframes scanShimmerWave {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+  .btn-scan.scanning, .act-btn.scanning {
+    pointer-events: none;
+    background: linear-gradient(90deg, var(--card) 0%, rgba(34, 197, 94, 0.16) 50%, var(--card) 100%);
+    background-size: 200% 100%;
+    animation: scanGlowPulse 1.6s ease-in-out infinite, scanShimmerWave 1.8s linear infinite !important;
+    border-color: var(--ok) !important;
+    color: var(--ok) !important;
+  }
+  .btn-scan.scanning svg, .act-btn.scanning svg {
+    animation: spinContinuous 0.75s linear infinite !important;
+    color: var(--ok) !important;
+  }
+
+  /* Laser Beam & Radar Pulse in Illustration */
+  .laser-beam {
+    display: none;
+    position: absolute;
+    left: 12px;
+    width: 160px;
+    height: 2.5px;
+    border-radius: 99px;
+    background: linear-gradient(90deg, transparent, #22c55e 20%, #86efac 50%, #22c55e 80%, transparent);
+    box-shadow: 0 0 8px #22c55e, 0 0 16px #22c55e, 0 2px 6px rgba(34, 197, 94, 0.9);
+    pointer-events: none;
+    z-index: 10;
+  }
+  .sec-secure-ill.scanning .laser-beam {
+    display: block;
+    animation: laserScanMotion 1.5s ease-in-out infinite alternate;
+  }
+  @keyframes laserScanMotion {
+    0% { top: 12px; opacity: 0.3; }
+    20% { opacity: 1; }
+    80% { opacity: 1; }
+    100% { top: 104px; opacity: 0.3; }
+  }
+
+  .sec-radar-ring {
+    transform-origin: 92px 56px;
+    opacity: 0;
+  }
+  .sec-secure-ill.scanning .sec-radar-ring {
+    animation: radarSonar 1.8s cubic-bezier(0.1, 0.8, 0.3, 1) infinite;
+  }
+  .sec-secure-ill.scanning .sec-radar-ring:nth-child(2) {
+    animation-delay: 0.6s;
+  }
+  @keyframes radarSonar {
+    0% { transform: scale(0.6); opacity: 0.85; stroke-width: 2.5px; }
+    70% { opacity: 0.35; }
+    100% { transform: scale(1.6); opacity: 0; stroke-width: 0.5px; }
+  }
+
+  .sec-secure-ill.scanning .code-line {
+    animation: codeLineGaze 1.4s ease-in-out infinite;
+  }
+  .sec-secure-ill.scanning .code-line:nth-child(even) {
+    animation-delay: 0.25s;
+  }
+  @keyframes codeLineGaze {
+    0%, 100% { fill: rgba(34, 197, 94, 0.22); }
+    50% { fill: rgba(34, 197, 94, 0.55); filter: drop-shadow(0 0 3px rgba(34, 197, 94, 0.7)); }
+  }
+
+  .sec-scan-ticker {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 14px;
+    padding: 6px 16px;
+    border-radius: 999px;
+    background: rgba(34, 197, 94, 0.08);
+    border: 1px solid rgba(34, 197, 94, 0.25);
+    color: var(--ok);
+    font-size: .84rem;
+    font-weight: 500;
+    letter-spacing: -.01em;
+    transition: all 0.3s ease;
+  }
+
+  .sec-banner.is-scanning {
+    border-color: rgba(34, 197, 94, 0.55) !important;
+    box-shadow: 0 0 20px -4px rgba(34, 197, 94, 0.3) !important;
+    transition: all 0.3s ease;
+  }
+
+  /* ---- upload panel ---- */
+  .upload-panel{border:1px solid var(--line);border-radius:14px;background:var(--card);
+    padding:24px;margin-top:32px;transition:border-color .15s}
+  .upload-panel h2{font-size:1.1rem;margin-bottom:6px}
+  .upload-panel .desc{font-size:.84rem;color:var(--ink-2);margin-bottom:18px;line-height:1.5}
+  .drop-zone{border:2px dashed var(--line);border-radius:12px;padding:40px 20px;text-align:center;
+    cursor:pointer;transition:border-color .2s,background .2s;position:relative}
+  .drop-zone:hover,.drop-zone.over{border-color:var(--accent);background:rgba(26,166,223,.04)}
+  .drop-zone svg{width:36px;height:36px;color:var(--mut);margin-bottom:10px}
+  .drop-zone b{display:block;font-size:.92rem;font-weight:600;margin-bottom:4px}
+  .drop-zone span{display:block;font-size:.82rem;color:var(--mut)}
+  .drop-zone input{position:absolute;inset:0;opacity:0;cursor:pointer}
+  .upload-results{margin-top:18px}
+  .upload-results .result-card{border:1px solid var(--line);border-radius:10px;padding:16px;margin-top:10px;background:var(--paper)}
+  .upload-results .result-card h3{font-size:.9rem;font-weight:600;margin:0 0 8px;font-family:var(--disp)}
+  .finding-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--hair);font-size:.82rem}
+  .finding-row:last-child{border-bottom:0}
+  .finding-row .f-sev{width:70px;flex:none;font-weight:600;text-transform:uppercase;font-size:.72rem}
+  .finding-row .f-sev.high,.finding-row .f-sev.critical{color:var(--danger)}
+  .finding-row .f-sev.moderate{color:var(--warn)}
+  .finding-row .f-sev.medium{color:var(--warn)}
+  .finding-row .f-sev.low{color:#3b82f6}
+  .finding-row .f-desc{flex:1;min-width:0}
+  .finding-row .f-path{color:var(--mut);font-size:.78rem}
+
+  /* ---- skeleton / loading ---- */
+  @keyframes sweep{to{transform:translateX(100%)}}
+  .sk-row{display:flex;align-items:center;gap:10px;padding:7px 6px;border-radius:8px;position:relative;overflow:hidden}
+  .sk-row::after{content:"";position:absolute;inset:0;transform:translateX(-100%);
+    background:linear-gradient(90deg,transparent,rgba(139,152,165,.13),transparent);
+    animation:sweep 1.4s var(--ease) infinite}
+  .sk-row i{width:6px;height:6px;border-radius:50%;flex:none;background:var(--line)}
+  .sk-row b{height:8px;border-radius:99px;background:var(--line);display:block}
+  .sk-row:nth-child(1) b{width:74%}
+  .sk-row:nth-child(2) b{width:58%}
+  .sk-row:nth-child(3) b{width:66%}
+  .sk-row:nth-child(4) b{width:47%}
+  @media (prefers-reduced-motion:reduce){ .sk-row::after{animation:none} }
+
+  /* table skeleton */
+  .sk-table{width:100%}
+  .sk-table-row{display:flex;align-items:center;gap:16px;padding:14px 12px;border-bottom:1px solid var(--hair);position:relative;overflow:hidden}
+  .sk-table-row::after{content:"";position:absolute;inset:0;transform:translateX(-100%);
+    background:linear-gradient(90deg,transparent,rgba(139,152,165,.13),transparent);
+    animation:sweep 1.4s var(--ease) infinite}
+  .sk-table-row span{height:10px;border-radius:99px;background:var(--line);display:block}
+  .sk-table-row span:nth-child(1){width:28%}
+  .sk-table-row span:nth-child(2){width:14%}
+  .sk-table-row span:nth-child(3){width:18%}
+  .sk-table-row span:nth-child(4){width:10%}
+
+  /* settings overlay - identical geometry and animations as code.html, projects.html, deployments.html */
+  .ag-set-overlay{position:fixed;inset:0;z-index:9999999 !important;background:var(--scrim);
+    display:flex;align-items:center;justify-content:center;padding:clamp(8px,3.5vh,40px);
+    -webkit-backdrop-filter:var(--scrim-blur);backdrop-filter:var(--scrim-blur)}
+  .ag-set-overlay[hidden]{display:none !important;pointer-events:none !important;visibility:hidden !important}
+  .ag-set-overlay iframe{width:min(1393px,92vw);height:min(700px,80vh);border:0;border-radius:13px;
+    background:var(--card);box-shadow:0 30px 90px -28px rgba(0,0,0,.55);
+    animation:sqSettingsIn var(--dur-chill,.3s) var(--ease-snappy,ease-out) both}
+  @keyframes sqSettingsIn{from{opacity:0;transform:translateY(10px) scale(.985)}to{opacity:1;transform:none}}
+  .ag-set-overlay.closing iframe{animation:sqSettingsOut var(--dur-snappy,.12s) var(--ease-snappy,ease-out) both}
+  @keyframes sqSettingsOut{from{opacity:1;transform:none}to{opacity:0;transform:translateY(6px) scale(.99)}}
+  @media (prefers-reduced-motion:reduce){
+    .ag-set-overlay iframe{animation-duration:1ms;animation-name:none;opacity:1}
+    .ag-set-overlay.closing iframe{animation-name:none;opacity:0}
+  }
+  @media (max-width:900px){
+    .ag-set-overlay{padding:0}
+    .ag-set-overlay iframe{width:100%;height:100%;border-radius:0}
+  }
+
+  @media (max-width:640px){
+    .sec-table th:nth-child(3),.sec-table td:nth-child(3),
+    .sec-table th:nth-child(4),.sec-table td:nth-child(4){display:none}
+    .toolbar{flex-direction:column;align-items:stretch}
+    .search{width:100%}
+  }
+</style>
+<link rel="stylesheet" href="/css/upgrade-modal.css">
+</head>
+<body><div class="ag-hist-backdrop" id="agHistBackdrop"></div>
+<aside class="ag-history" id="agHistory" aria-label="Your account">
+  <div class="ag-hist-head">
+    <span class="ag-hist-mark"><img src="/assets/logo.png" alt="" aria-hidden="true"></span><button type="button" class="ag-hist-search" id="agHistSearch" title="Search" aria-label="Search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.6-3.6"/></svg></button>
+    <b class="ag-hist-brand-text"><span>Souqi</span><span>Code</span></b>
+  </div>
+
+  <div class="ag-ws-wrap">
+    <button type="button" class="ag-ws" id="agWs">
+      <span class="av" id="agWsAv"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span>
+      <span class="nm" id="agWsNm">Your Workspace</span>
+      <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg>
+    </button>
+    <div class="ag-ws-menu" id="agWsMenu">
+      <div class="ag-ws-signed" id="agWsSigned">Not signed in</div>
+      <a class="ag-ws-item" href="/settings">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        Settings
+      </a>
+      <a class="ag-ws-item" href="/pricing">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2l2.4 6.4L21 10l-5.2 4.2L17.2 21 12 17.3 6.8 21l1.4-6.8L3 10l6.6-1.6z"/></svg>
+        Plans &amp; pricing
+      </a>
+      <a class="ag-ws-item" href="/login" id="agWsSignIn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><path d="M10 17l5-5-5-5"/><path d="M15 12H3"/></svg>
+        Sign in
+      </a>
+    </div>
+  </div>
+
+  <div class="ag-hist-tabs" id="agHistTabs" role="tablist">
+    <a class="ag-hist-tab ag-tab-new" href="/agent" title="New chat">
+      <i class="tab-ic ring"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></i><span class="lbl">New</span></a>
+
+    <a class="ag-hist-tab" href="/projects" title="Projects">
+      <i class="tab-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M8 4h9a2 2 0 0 1 2 2v11"/><rect x="4" y="7" width="12" height="13" rx="2"/></svg></i><span class="lbl">Projects</span></a>
+
+    <a class="ag-hist-tab" href="/deployments" title="Deployments">
+      <i class="tab-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="m3.3 7 8.7 5 8.7-5M12 22V12"/></svg></i><span class="lbl">Deployments</span></a>
+
+    <a class="ag-hist-tab" href="/agent#favorites" title="Favorites">
+      <i class="tab-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8L3.5 9.7l5.9-.9z"/></svg></i><span class="lbl">Favorites</span></a>
+
+    <a class="ag-hist-tab" href="/settings#integrations" title="Integrations">
+      <i class="tab-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="m12 3 9 5-9 5-9-5 9-5z"/><path d="m3 12 9 5 9-5"/><path d="m3 17 9 5 9-5"/></svg></i><span class="lbl">Integrations</span></a>
+
+    <a class="ag-hist-tab on" href="/security" title="Security">
+      <i class="tab-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/></svg></i><span class="lbl">Security</span></a>
+  </div>
+
+  <div class="ag-hist-chats">
+    <div class="ag-chats-ttl">Recent</div>
+    <div class="ag-chats-list" id="agProjList"><div class="sk-row"><i></i><b></b></div><div class="sk-row"><i></i><b></b></div><div class="sk-row"><i></i><b></b></div><div class="sk-row"><i></i><b></b></div></div>
+  </div>
+
+  <div class="ag-hist-foot">
+    <div class="ttl" id="agPlanTtl">Your Free Plan</div>
+    <div class="ag-plan-alert" id="agPlanAlert" hidden>You've reached your usage limit</div>
+    <div class="ag-meter-row">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m16 18 6-6-6-6M8 6l-6 6 6 6"/></svg>
+      <span class="lab">Free Apps<i id="agEditsUsed">—</i></span>
+      <span class="ag-meter"><i id="agEditsBar" style="width:0%"></i></span>
+    </div>
+    <div class="ag-meter-row">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.5" cy="8.5" r="2.5"/><circle cx="16.5" cy="8.5" r="2.5"/><circle cx="12" cy="6" r="3"/><path d="M12 13c-2.8 0-6 1.4-6 3.5V18h12v-1.5c0-2.1-3.2-3.5-6-3.5z"/></svg>
+      <span class="lab">Agent credits<i id="agAgentCredits">—</i></span>
+      <span class="ag-meter"><i id="agAgentBar" style="width:0%"></i></span>
+    </div>
+    <div class="ag-meter-row">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 10a4 4 0 0 0-7.8-1.2A3.5 3.5 0 1 0 7 16h10.5a3.5 3.5 0 0 0 .5-6z"/></svg>
+      <span class="lab">Cloud credits<i id="agSpendUsed">—</i></span>
+      <span class="ag-meter"><i id="agSpendBar" style="width:0%"></i></span>
+    </div>
+    <a class="ag-upgrade" href="/pricing">✦ Upgrade</a>
+    <div class="ag-hist-links">
+      <a href="/terms" target="_blank" rel="noopener">Terms</a><span>·</span>
+      <a href="/privacy" target="_blank" rel="noopener">Privacy</a><span>·</span>
+      <a href="/pricing">Plans</a>
+    </div>
+  </div>
+
+  <div class="ag-hist-user">
+    <button type="button" class="ag-user-main" id="agUserMain" title="Account settings">
+      <span class="av" id="agUserAv"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span>
+      <span class="nm" id="agUserNm">Sign in</span>
+    </button>
+    <button type="button" class="ag-user-gear" id="agUserGear" title="Settings" aria-label="Settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
+  </div>
+</aside>
+
+<div class="ag-set-overlay" id="agSetOverlay" hidden>
+  <iframe id="agSetFrame" title="Panel" src="about:blank"></iframe>
+</div>
+
+<button type="button" class="ag-pv-toggle-btn on" id="agDeskSidebarToggle" title="Toggle Sidebar">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="3" y="3" width="18" height="18" rx="3.5"/>
+    <path d="M9 3v18"/>
+    <rect class="pane-left" x="3.8" y="3.8" width="5.2" height="16.4" rx="1" fill="transparent" stroke="none"/>
+  </svg>
+  <span>Sidebar</span>
+</button>
+
+<div class="ag-main">
+  <header class="nav">
+    <span class="sp"></span>
+    <a class="btn-g" href="/agent">Back to builder</a>
+  </header>
+
+  <div class="wrap">
+    <!-- Page heading -->
+    <div class="phead fade-up">
+      <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/></svg>
+      <h1>Security</h1>
+    </div>
+
+    <!-- Scan overview heading -->
+    <div class="sec-head fade-up" style="animation-delay:50ms">
+      <h2>Dependency scan overview</h2>
+      <button type="button" class="btn-scan" id="btnScanAll" title="Scan all projects">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-6.22-8.56"/><path d="M21 3v6h-6"/></svg>
+        Scan all
+      </button>
+    </div>
+    <p class="sec-desc fade-up" style="animation-delay:100ms">Dependency scans run automatically on every deploy and catch security issues with third-party packages in your projects. You can also scan external projects below.</p>
+
+    <!-- Security banner (filled by JS) -->
+    <div id="secBanner" class="sec-banner clean fade-up" style="animation-delay:150ms">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="m9 12 2 2 4-4"/></svg>
+      <div class="sec-banner-text">
+        <b>No vulnerabilities detected</b>
+        <span>Your workspace is clean. No security findings were found.</span>
+      </div>
+    </div>
+
+    <!-- Toolbar -->
+    <div class="toolbar fade-up" style="animation-delay:200ms">
+      <div class="search">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+        <input type="search" id="q" placeholder="Search by project name or CVE…" aria-label="Search security findings">
+      </div>
+      <select class="fsel" id="fSeverity" aria-label="Severity level">
+        <option value="">Any severity</option>
+        <option value="critical">Critical</option>
+        <option value="high">High</option>
+        <option value="moderate">Moderate</option>
+        <option value="low">Low</option>
+      </select>
+      <select class="fsel" id="fStatus" aria-label="Deploy status">
+        <option value="">Any status</option>
+        <option value="deployed">Deployed</option>
+        <option value="draft">Draft</option>
+      </select>
+    </div>
+
+    <!-- Projects security table -->
+    <div id="secBody">
+      <!-- Skeleton while loading -->
+      <div class="sk-table" id="secSkeleton">
+        <div class="sk-table-row"><span></span><span></span><span></span><span></span></div>
+        <div class="sk-table-row"><span></span><span></span><span></span><span></span></div>
+        <div class="sk-table-row"><span></span><span></span><span></span><span></span></div>
+        <div class="sk-table-row"><span></span><span></span><span></span><span></span></div>
+      </div>
+    </div>
+
+    <!-- Upload external project section -->
+    <div class="upload-panel fade-up" style="animation-delay:250ms">
+      <h2>Scan an external project</h2>
+      <p class="desc">Upload files from any project on your machine to scan for leaked credentials and known dependency vulnerabilities — even if it wasn't built on Souqi.</p>
+      <div class="drop-zone" id="dropZone">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m17 8-5-5-5 5"/><path d="M12 3v12"/></svg>
+        <b>Drop files here or click to browse</b>
+        <span>Accepts individual files or folders. Max 50 MB total.</span>
+        <input type="file" id="fileInput" multiple webkitdirectory>
+      </div>
+      <div class="upload-results" id="uploadResults" hidden></div>
+    </div>
+  </div>
+</div><!-- /.ag-main -->
+
+<script>
+(function () {
+  "use strict";
+  var $ = function (id) { return document.getElementById(id); };
+  function esc(t) { var d = document.createElement("span"); d.textContent = t == null ? "" : t; return d.innerHTML; }
+
+  /* ---- in-place settings panel ---- */
+  var SETTINGS_CLOSE_MS = 150;
+  var settingsCloseTimer = 0;
+  function openPanel(src) {
+    clearTimeout(settingsCloseTimer);
+    $("agSetOverlay").classList.remove("closing");
+    var f = $("agSetFrame");
+    if (f.getAttribute("src") !== src) f.setAttribute("src", src);
+    $("agSetOverlay").hidden = false;
+  }
+  function closePanel() {
+    var o = $("agSetOverlay");
+    if (o.hidden) return;
+    clearTimeout(settingsCloseTimer);
+    o.classList.add("closing");
+    settingsCloseTimer = setTimeout(function () {
+      o.classList.remove("closing");
+      o.hidden = true;
+    }, SETTINGS_CLOSE_MS);
+  }
+  $("agSetOverlay").addEventListener("click", function (e) { if (e.target === $("agSetOverlay")) closePanel(); });
+  window.addEventListener("message", function (e) { if (e.data === "souqi:settings:close") closePanel(); });
+  document.addEventListener("keydown", function (e) {
+    if (e.key !== "Escape") return;
+    if (window.isUpgradeModalOpen && window.isUpgradeModalOpen()) { window.closeUpgradeModal(); return; }
+    if (!$("agSetOverlay").hidden) closePanel();
+  });
+  document.addEventListener("click", function (e) {
+    if (e.target.closest("#agUserMain")) {
+      e.preventDefault();
+      if (!document.body.dataset.signedIn) { location.href = "/login"; return; }
+      openPanel("/settings"); return;
+    }
+    if (e.target.closest("#agUserGear")) { e.preventDefault(); openPanel("/settings"); return; }
+    var a = e.target.closest('a[href^="/settings"], a[href^="/pricing"], .ag-upgrade');
+    if (!a || e.metaKey || e.ctrlKey || e.shiftKey || a.target === "_blank") return;
+    if (a.hasAttribute("data-nav")) return;
+    e.preventDefault();
+    var href = a.getAttribute("href") || "";
+    if (a.classList.contains("ag-upgrade") || href.indexOf("/pricing") === 0) {
+      if (window.openUpgradeModal) window.openUpgradeModal(e); else location.href = "/pricing";
+    } else openPanel(href);
+  });
+
+  /* ---- sidebar toggle ---- */
+  var sb = $("agHistory"), bd = $("agHistBackdrop");
+  var deskSbBtn = $("agDeskSidebarToggle");
+  window.toggleSidebar = function(forceState) {
+    var isShowing = typeof forceState === "boolean" ? forceState : !sb.classList.contains("on");
+    if (sb) sb.classList.toggle("on", isShowing);
+    if (deskSbBtn) deskSbBtn.classList.toggle("on", isShowing);
+    if (bd) bd.classList.toggle("on", isShowing);
+  };
+  if (deskSbBtn) deskSbBtn.addEventListener("click", function(e) { if (e) e.preventDefault(); window.toggleSidebar(); });
+
+  /* The logo opens and closes the rail. stopPropagation matters: the rail's
+     own click handler below opens it whenever it is collapsed, so without
+     this the logo would open it and then immediately be re-opened by the
+     same click — and never close it. */
+  var histMark = document.querySelector(".ag-hist-mark");
+  if (histMark) {
+    histMark.setAttribute("role", "button");
+    histMark.setAttribute("tabindex", "0");
+    histMark.setAttribute("title", "Toggle sidebar");
+    histMark.setAttribute("aria-label", "Toggle sidebar");
+    histMark.addEventListener("click", function (e) {
+      e.preventDefault(); e.stopPropagation(); window.toggleSidebar();
+    });
+    histMark.addEventListener("keydown", function (e) {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); window.toggleSidebar(); }
+    });
+  }
+  if (bd) bd.addEventListener("click", function() { window.toggleSidebar(false); });
+  if (sb) sb.addEventListener("click", function(e) {
+    if (!sb.classList.contains("on")) { e.preventDefault(); e.stopPropagation(); window.toggleSidebar(true); }
+  });
+  if (window.innerWidth <= 900) window.toggleSidebar(false);
+
+  /* ---- workspace menu ---- */
+  var agWs = $("agWs"), agWsMenu = $("agWsMenu");
+  if (agWs && agWsMenu) {
+    agWs.addEventListener("click", function (e) { e.stopPropagation(); agWs.classList.toggle("open"); agWsMenu.classList.toggle("open"); });
+    document.addEventListener("click", function (e) {
+      if (!agWs.contains(e.target) && !agWsMenu.contains(e.target)) { agWs.classList.remove("open"); agWsMenu.classList.remove("open"); }
+    });
+  }
+
+  /* ---- security data ---- */
+  var projects = [];
+  var SHIELD_OK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="m9 12 2 2 4-4"/></svg>';
+  var SHIELD_WARN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M12 9v4M12 17h.01"/></svg>';
+
+  function sevLabel(sev) {
+    if (sev === "critical") return '<span class="vuln-badge critical">Critical</span>';
+    if (sev === "high") return '<span class="vuln-badge high">High</span>';
+    if (sev === "moderate") return '<span class="vuln-badge moderate">Moderate</span>';
+    if (sev === "low") return '<span class="vuln-badge low">Low</span>';
+    return '<span class="vuln-badge none">Clean</span>';
+  }
+
+  function filtered() {
+    var q = $("q").value.trim().toLowerCase();
+    var sev = $("fSeverity").value;
+    var st = $("fStatus").value;
+    return projects.filter(function (p) {
+      if (q && (p.title || "").toLowerCase().indexOf(q) < 0) return false;
+      if (sev && p.severity !== sev) return false;
+      if (st === "deployed" && !p.deployed) return false;
+      if (st === "draft" && p.deployed) return false;
+      return true;
+    });
+  }
+
+  var showCleanTable = false;
+
+  function secureIllustrationHtml() {
+    return '<div class="sec-secure-wrap fade-in">'
+      + '<div class="sec-secure-ill" id="secSecureIll">'
+      + '  <div class="laser-beam"></div>'
+      + '  <svg width="184" height="120" viewBox="0 0 184 120" fill="none" xmlns="http://www.w3.org/2000/svg">'
+      + '    <rect x="12" y="8" width="160" height="104" rx="11" fill="var(--card)" stroke="rgba(34, 197, 94, 0.28)" stroke-width="1.5"/>'
+      + '    <path d="M12 19C12 12.9249 16.9249 8 23 8H161C167.075 8 172 12.9249 172 19V26H12V19Z" fill="rgba(34, 197, 94, 0.14)"/>'
+      + '    <rect class="code-line" x="25" y="40" width="44" height="5" rx="2.5" fill="rgba(34, 197, 94, 0.22)"/>'
+      + '    <rect class="code-line" x="115" y="40" width="44" height="5" rx="2.5" fill="rgba(34, 197, 94, 0.22)"/>'
+      + '    <rect class="code-line" x="25" y="54" width="44" height="5" rx="2.5" fill="rgba(34, 197, 94, 0.22)"/>'
+      + '    <rect class="code-line" x="115" y="54" width="44" height="5" rx="2.5" fill="rgba(34, 197, 94, 0.22)"/>'
+      + '    <rect class="code-line" x="25" y="68" width="44" height="5" rx="2.5" fill="rgba(34, 197, 94, 0.22)"/>'
+      + '    <rect class="code-line" x="115" y="68" width="44" height="5" rx="2.5" fill="rgba(34, 197, 94, 0.22)"/>'
+      + '    <rect class="code-line" x="25" y="82" width="44" height="5" rx="2.5" fill="rgba(34, 197, 94, 0.22)"/>'
+      + '    <rect class="code-line" x="115" y="82" width="44" height="5" rx="2.5" fill="rgba(34, 197, 94, 0.22)"/>'
+      + '    <circle class="sec-radar-ring" cx="92" cy="56" r="26" stroke="#22c55e" fill="none"/>'
+      + '    <circle class="sec-radar-ring" cx="92" cy="56" r="26" stroke="#22c55e" fill="none"/>'
+      + '    <g filter="url(#secBadgeSh)">'
+      + '      <rect x="69" y="32" width="46" height="48" rx="12" fill="var(--card)" stroke="rgba(34, 197, 94, 0.35)" stroke-width="1.5"/>'
+      + '      <path d="M92 44L101 47.5V53C101 58.5 97.5 62 92 64C86.5 62 83 58.5 83 53V47.5L92 44Z" stroke="#16a34a" stroke-width="2" stroke-linejoin="round" fill="rgba(34, 197, 94, 0.08)"/>'
+      + '      <path d="M89 54.5L91.2 56.7L95.5 52" stroke="#16a34a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>'
+      + '    </g>'
+      + '    <defs>'
+      + '      <filter id="secBadgeSh" x="61" y="26" width="62" height="64" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">'
+      + '        <feDropShadow dx="0" dy="4" stdDeviation="4" flood-color="rgba(34, 197, 94, 0.16)"/>'
+      + '      </filter>'
+      + '    </defs>'
+      + '  </svg>'
+      + '</div>'
+      + '<h3 class="sec-secure-title" id="secSecureTitle">Your workspace is secure</h3>'
+      + '<p class="sec-secure-sub" id="secSecureSub">No project dependency vulnerabilities found.</p>'
+      + '<div class="sec-scan-ticker" id="secScanTicker" hidden>'
+      + '  <span class="ticker-text" id="secScanTickerText">Scanning workspace…</span>'
+      + '</div>'
+      + '</div>';
+  }
+
+  function renderTable() {
+    var list = filtered();
+    var body = $("secBody");
+
+    var hasVulns = list.some(function (p) { return p.vulnerabilities > 0; });
+
+    // When there are no vulnerabilities found across the filtered projects
+    if (!hasVulns && !showCleanTable) {
+      var html = secureIllustrationHtml();
+      if (list.length > 0) {
+        html += '<div style="display:flex;justify-content:center;margin-top:16px">'
+          + '<button type="button" class="act-btn" id="btnToggleClean">View clean projects (' + list.length + ')</button>'
+          + '</div>';
+      }
+      body.innerHTML = html;
+
+      var toggleBtn = $("btnToggleClean");
+      if (toggleBtn) {
+        toggleBtn.addEventListener("click", function () {
+          showCleanTable = true;
+          renderTable();
+        });
+      }
+      return;
+    }
+
+    if (!list.length) {
+      body.innerHTML = secureIllustrationHtml();
+      return;
+    }
+
+    var html = '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">'
+      + '<div class="sec-count">Showing ' + list.length + ' project' + (list.length !== 1 ? "s" : "") + '</div>';
+    
+    if (!hasVulns) {
+      html += '<button type="button" class="act-btn" id="btnHideClean">Show secure overview</button>';
+    }
+    html += '</div>';
+
+    html += '<table class="sec-table"><thead><tr>'
+      + '<th>Project</th><th>Vulnerabilities</th><th>Published</th><th>Status</th><th>Actions</th>'
+      + '</tr></thead><tbody>';
+
+    for (var i = 0; i < list.length; i++) {
+      var p = list[i];
+      html += '<tr>'
+        + '<td class="proj-name"><a href="/agent/' + esc(p.key) + '">' + esc(p.title) + '</a></td>'
+        + '<td>' + (p.vulnerabilities > 0
+            ? sevLabel(p.severity) + ' <span style="font-size:.78rem;color:var(--mut);margin-left:4px">' + p.vulnerabilities + ' found</span>'
+            : sevLabel("none"))
+        + '</td>'
+        + '<td>' + (p.published ? "Yes" : "No") + '</td>'
+        + '<td><span class="status-dot ' + (p.deployed ? "live" : "draft") + '"></span>' + (p.deployed ? "Deployed" : "Draft") + '</td>'
+        + '<td><button type="button" class="act-btn" data-scan="' + esc(p.key) + '">Scan</button></td>'
+        + '</tr>';
+    }
+    html += '</tbody></table>';
+    body.innerHTML = html;
+
+    var hideBtn = $("btnHideClean");
+    if (hideBtn) {
+      hideBtn.addEventListener("click", function () {
+        showCleanTable = false;
+        renderTable();
+      });
+    }
+
+    // Bind scan buttons
+    body.querySelectorAll("[data-scan]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var key = btn.dataset.scan;
+        btn.classList.add("scanning");
+        btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="width:13px;height:13px;display:inline-block;vertical-align:middle;margin-right:4px"><path d="M21 12a9 9 0 1 1-6.22-8.56"/><path d="M21 3v6h-6"/></svg> Scanning…';
+        btn.disabled = true;
+
+        fetch("/api/security/scan/" + encodeURIComponent(key), {
+          method: "POST", credentials: "same-origin"
+        }).then(function (r) { return r.json(); }).then(function (d) {
+          setTimeout(function () {
+            btn.classList.remove("scanning");
+            var total = (d.secrets ? d.secrets.findings.length : 0) + (d.dependencies ? d.dependencies.total : 0);
+            btn.textContent = total > 0 ? total + " found" : "Clean ✓";
+            btn.disabled = false;
+            loadOverview();
+          }, 1400);
+        }).catch(function () {
+          btn.classList.remove("scanning");
+          btn.textContent = "Error";
+          btn.disabled = false;
+        });
+      });
+    });
+  }
+
+  function updateBanner(data) {
+    var banner = $("secBanner");
+    var total = (data.totalVulnerabilities.critical || 0) + (data.totalVulnerabilities.high || 0)
+      + (data.totalVulnerabilities.moderate || 0) + (data.totalVulnerabilities.low || 0);
+
+    if (total === 0) {
+      banner.className = "sec-banner clean fade-in";
+      banner.innerHTML = SHIELD_OK
+        + '<div class="sec-banner-text"><b>No vulnerabilities detected</b>'
+        + '<span>Your workspace is clean. No security findings were found.</span></div>';
+    } else {
+      banner.className = "sec-banner warn fade-in";
+      var parts = [];
+      if (data.totalVulnerabilities.critical) parts.push(data.totalVulnerabilities.critical + " critical");
+      if (data.totalVulnerabilities.high) parts.push(data.totalVulnerabilities.high + " high");
+      if (data.totalVulnerabilities.moderate) parts.push(data.totalVulnerabilities.moderate + " moderate");
+      if (data.totalVulnerabilities.low) parts.push(data.totalVulnerabilities.low + " low");
+      banner.innerHTML = SHIELD_WARN
+        + '<div class="sec-banner-text"><b>' + total + ' vulnerabilit' + (total === 1 ? "y" : "ies") + ' detected</b>'
+        + '<span>' + parts.join(", ") + ' across ' + data.totalProjects + ' project' + (data.totalProjects !== 1 ? "s" : "") + '.</span></div>';
+    }
+  }
+
+  function loadOverview() {
+    fetch("/api/security/overview", { credentials: "same-origin" })
+      .then(function (r) {
+        return r.text().then(function (txt) {
+          var d = null;
+          try { d = txt ? JSON.parse(txt) : null; } catch (e) {}
+          if (!r.ok || !d) {
+            var msg = (d && (typeof d.error === "string" ? d.error : (d.error && d.error.message))) || ("Request failed (" + r.status + ")");
+            throw new Error(msg);
+          }
+          return d;
+        });
+      })
+      .then(function (d) {
+        projects = d.projects || [];
+        updateBanner(d);
+        renderTable();
+      })
+      .catch(function (err) {
+        $("secBody").innerHTML = '<div class="sec-empty"><b>Could not load</b><span>' + esc(err && err.message ? err.message : "Something went wrong. Try refreshing.") + '</span>'
+          + '<button type="button" class="btn-scan" style="margin-top:14px" onclick="window.loadOverview && window.loadOverview()">Retry</button></div>';
+      });
+  }
+  window.loadOverview = loadOverview;
+
+  $("q").addEventListener("input", renderTable);
+  $("fSeverity").addEventListener("change", renderTable);
+  $("fStatus").addEventListener("change", renderTable);
+
+  var isScanningAll = false;
+  function runFancyScanAll() {
+    if (isScanningAll) return;
+    isScanningAll = true;
+
+    var btn = $("btnScanAll");
+    btn.classList.add("scanning");
+    btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-6.22-8.56"/><path d="M21 3v6h-6"/></svg> Scanning workspace…';
+    btn.disabled = true;
+
+    var banner = $("secBanner");
+    if (banner) banner.classList.add("is-scanning");
+
+    var ill = $("secSecureIll");
+    if (ill) ill.classList.add("scanning");
+
+    var ticker = $("secScanTicker");
+    var tickerText = $("secScanTickerText");
+    if (ticker && tickerText) {
+      ticker.hidden = false;
+      tickerText.textContent = "Inspecting dependency manifests…";
+    }
+
+    var phases = [
+      "Inspecting dependency manifests…",
+      "Analyzing CVE vulnerability databases…",
+      "Scanning source files for credentials…",
+      "Finalizing security analysis…"
+    ];
+    var phaseIndex = 0;
+    var phaseTimer = setInterval(function () {
+      phaseIndex = (phaseIndex + 1) % phases.length;
+      if (tickerText) tickerText.textContent = phases[phaseIndex];
+    }, 550);
+
+    fetch("/api/security/overview", { credentials: "same-origin" })
+      .then(function (r) {
+        return r.text().then(function (txt) {
+          var d = null;
+          try { d = txt ? JSON.parse(txt) : null; } catch (e) {}
+          if (!r.ok || !d) {
+            var msg = (d && (typeof d.error === "string" ? d.error : (d.error && d.error.message))) || ("Request failed (" + r.status + ")");
+            throw new Error(msg);
+          }
+          return d;
+        });
+      })
+      .then(function (d) {
+        setTimeout(function () {
+          clearInterval(phaseTimer);
+          isScanningAll = false;
+          if (ticker) ticker.hidden = true;
+          if (banner) banner.classList.remove("is-scanning");
+          if (ill) ill.classList.remove("scanning");
+
+          btn.classList.remove("scanning");
+          btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20 6L9 17l-5-5"/></svg> Scan complete';
+
+          projects = d.projects || [];
+          updateBanner(d);
+          renderTable();
+
+          setTimeout(function () {
+            btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-6.22-8.56"/><path d="M21 3v6h-6"/></svg> Scan all';
+            btn.disabled = false;
+          }, 2000);
+        }, 2200);
+      })
+      .catch(function (err) {
+        clearInterval(phaseTimer);
+        isScanningAll = false;
+        if (ticker) ticker.hidden = true;
+        if (banner) banner.classList.remove("is-scanning");
+        if (ill) ill.classList.remove("scanning");
+        btn.classList.remove("scanning");
+        btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-6.22-8.56"/><path d="M21 3v6h-6"/></svg> Scan all';
+        btn.disabled = false;
+        $("secBody").innerHTML = '<div class="sec-empty"><b>Scan failed</b><span>' + esc(err.message) + '</span></div>';
+      });
+  }
+
+  $("btnScanAll").addEventListener("click", runFancyScanAll);
+
+  /* ---- external project upload ---- */
+  var dropZone = $("dropZone");
+  var fileInput = $("fileInput");
+
+  dropZone.addEventListener("dragover", function (e) { e.preventDefault(); dropZone.classList.add("over"); });
+  dropZone.addEventListener("dragleave", function () { dropZone.classList.remove("over"); });
+  dropZone.addEventListener("drop", function (e) {
+    e.preventDefault();
+    dropZone.classList.remove("over");
+    handleFiles(e.dataTransfer.files);
+  });
+  fileInput.addEventListener("change", function () { handleFiles(fileInput.files); });
+
+  function handleFiles(fileList) {
+    if (!fileList || !fileList.length) return;
+    var files = {};
+    var pending = fileList.length;
+    var totalSize = 0;
+
+    for (var i = 0; i < fileList.length; i++) {
+      (function (file) {
+        // Skip binary files by extension
+        if (/\.(png|jpe?g|gif|webp|ico|svg|woff2?|ttf|eot|mp[34]|webm|pdf|zip|gz|wasm)$/i.test(file.name)) {
+          pending--;
+          if (pending === 0) submitUpload(files);
+          return;
+        }
+        totalSize += file.size;
+        if (totalSize > 50 * 1024 * 1024) {
+          $("uploadResults").hidden = false;
+          $("uploadResults").innerHTML = '<div class="result-card"><h3>Upload too large</h3><p>Total size exceeds 50 MB.</p></div>';
+          return;
+        }
+        var reader = new FileReader();
+        reader.onload = function () {
+          var path = file.webkitRelativePath || file.name;
+          files[path] = reader.result;
+          pending--;
+          if (pending === 0) submitUpload(files);
+        };
+        reader.onerror = function () { pending--; if (pending === 0) submitUpload(files); };
+        reader.readAsText(file);
+      })(fileList[i]);
+    }
+  }
+
+  function submitUpload(files) {
+    var results = $("uploadResults");
+    results.hidden = false;
+    results.innerHTML = '<div class="result-card"><h3>Scanning…</h3><p>Checking ' + Object.keys(files).length + ' files for secrets and vulnerable dependencies.</p></div>';
+
+    fetch("/api/security/scan/upload", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ files: files })
+    })
+    .then(function (r) { return r.json(); })
+    .then(function (d) {
+      if (d.error) { results.innerHTML = '<div class="result-card"><h3>Error</h3><p>' + esc(d.error) + '</p></div>'; return; }
+
+      var html = '';
+      var secretCount = d.secrets ? d.secrets.findings.length : 0;
+      var depCount = d.dependencies ? d.dependencies.total : 0;
+      var total = secretCount + depCount;
+
+      if (total === 0) {
+        html += '<div class="result-card"><h3>✓ No issues found</h3>'
+          + '<p>Scanned ' + (d.filesScanned || 0) + ' files. No leaked credentials or known vulnerable dependencies detected.</p></div>';
+      } else {
+        html += '<div class="result-card"><h3>' + total + ' issue' + (total !== 1 ? "s" : "") + ' found</h3>';
+
+        if (secretCount > 0) {
+          html += '<p style="font-weight:600;margin:12px 0 6px">Leaked Credentials (' + secretCount + ')</p>';
+          d.secrets.findings.forEach(function (f) {
+            html += '<div class="finding-row">'
+              + '<span class="f-sev ' + f.severity + '">' + esc(f.severity) + '</span>'
+              + '<span class="f-desc">' + esc(f.what) + ' <span class="f-path">' + esc(f.path) + ':' + f.line + '</span></span>'
+              + '</div>';
+          });
+        }
+        if (depCount > 0) {
+          html += '<p style="font-weight:600;margin:12px 0 6px">Vulnerable Dependencies (' + depCount + ')</p>';
+          d.dependencies.findings.forEach(function (f) {
+            html += '<div class="finding-row">'
+              + '<span class="f-sev ' + f.severity + '">' + esc(f.severity) + '</span>'
+              + '<span class="f-desc"><b>' + esc(f.package) + '</b> ' + esc(f.version || "") + ' — ' + esc(f.advisory) + (f.cve ? ' <span class="f-path">' + esc(f.cve) + '</span>' : '') + '</span>'
+              + '</div>';
+          });
+        }
+        html += '</div>';
+      }
+      results.innerHTML = html;
+    })
+    .catch(function () {
+      results.innerHTML = '<div class="result-card"><h3>Scan failed</h3><p>Could not complete the scan. Try again.</p></div>';
+    });
+  }
+
+  /* ---- sidebar recent projects & plan meters ---- */
+  var account = null;
+  var allProjects = [];
+
+  function renderRail(list) {
+    var el = $("agProjList");
+    if (!el) return;
+    if (!list || !list.length) { el.innerHTML = '<div class="ag-chats-empty">Nothing built yet</div>'; return; }
+    el.innerHTML = list.slice(0, 12).map(function (p) {
+      return '<a class="ag-chat-item" href="/agent/' + esc(p.slug) + '" title="' + esc(p.title || "") + '">' +
+        '<i class="sdot ' + (p.deployed ? "run" : "") + '"></i>' +
+        "<span>" + esc(p.title || "Untitled") + "</span></a>";
+    }).join("");
+  }
+
+  function meter(barId, labId, pct, text) {
+    var bar = $(barId), lab = $(labId);
+    if (!bar || !lab) return;
+    pct = Math.max(0, Math.min(100, Math.round(pct)));
+    bar.style.width = pct + "%";
+    bar.style.background = pct >= 90 ? "#d92d20" : pct >= 70 ? "#e0a11a" : "#3b82f6";
+    lab.textContent = text;
+  }
+
+  function renderPlan() {
+    var plan = account ? String(account.plan || "free") : "Free";
+    var planTtl = $("agPlanTtl");
+    if (planTtl) planTtl.textContent = "Your " + plan.charAt(0).toUpperCase() + plan.slice(1) + " Plan";
+
+    var cap = Number((account && account.freeEdits) || 5);
+    var used = allProjects.length;
+    meter("agEditsBar", "agEditsUsed", cap ? (used / cap) * 100 : 0, used + "/" + cap + " created");
+
+    var budget = Number((account && account.budgetUsd) || 0);
+    var spent = Number((account && account.spentUsd) || 0);
+    var agentPct = budget ? (spent / budget) * 100 : 0;
+    meter("agAgentBar", "agAgentCredits", agentPct, budget ? Math.round(agentPct) + "% used" : "0 / 100");
+
+    meter("agSpendBar", "agSpendUsed", 0, "0%");
+  }
+
+  // Load sidebar projects
+  fetch("/api/projects?limit=12", { credentials: "same-origin" })
+    .then(function (r) { return r.ok ? r.json() : { projects: [] }; })
+    .then(function (d) {
+      allProjects = (d && d.projects) || [];
+      renderRail(allProjects);
+      renderPlan();
+    })
+    .catch(function () {
+      var el = $("agProjList");
+      if (el) el.innerHTML = '<div class="ag-chats-empty">Nothing built yet</div>';
+      renderPlan();
+    });
+
+  /* ---- auth + load ---- */
+  fetch("/api/account/me", { credentials: "same-origin" })
+    .then(function (r) { return r.json(); })
+    .then(function (d) {
+      if (!d || !d.signedIn) {
+        $("agWsNm").textContent = "Sign in";
+        renderPlan();
+        return;
+      }
+      document.body.dataset.signedIn = "1";
+      account = d;
+      var who = d.company || d.email || "Your Workspace";
+      $("agWsSigned").textContent = d.email || "Signed in";
+      $("agWsNm").textContent = who;
+      $("agWsAv").textContent = String(who).charAt(0).toUpperCase();
+      if ($("agWsSignIn")) $("agWsSignIn").hidden = true;
+      if ($("agUserNm")) $("agUserNm").textContent = d.email || who;
+      if ($("agUserAv")) $("agUserAv").textContent = String(who).charAt(0).toUpperCase();
+      renderPlan();
+    }).catch(function () { renderPlan(); });
+
+  // Load security overview immediately on page load
+  loadOverview();
+
+})();
+
+  /* The hover-open/hover-suppressed script that stood here existed only to
+     stop the floating toggle flickering as you reached for it. That button is
+     gone — the logo inside the rail does its job — so there is no sibling to
+     hold open and nothing to suppress. */
+</script>
+</body>
+</html>

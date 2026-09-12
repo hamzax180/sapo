@@ -2,10 +2,17 @@
   "cleanUrls": true,
   "trailingSlash": false,
   "rewrites": [
-    { "source": "/portal/**", "destination": "/portal.html" },
-    { "source": "/portal", "destination": "/portal.html" },
-    { "source": "/agent", "destination": "/code.html" },
-    { "source": "/agent/**", "destination": "/code.html" },
-    { "source": "/build", "destination": "/home.html" }
+    {
+      "source": "/agent",
+      "destination": "/code.html"
+    },
+    {
+      "source": "/agent/**",
+      "destination": "/code.html"
+    },
+    {
+      "source": "/build",
+      "destination": "/home.html"
+    }
   ]
 }

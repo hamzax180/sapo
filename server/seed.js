@@ -1,6 +1,6 @@
 /* =================================================================
    MERVEKS SAP — seed MongoDB from the front-end demo data
-   Reuses ../js/seed.js (the single source of truth) so the live DB
+   Reuses ./seed-data.js (the single source of truth) so the live DB
    starts with the exact same realistic, fully-linked records as the
    demo. User passwords are hashed on the way in.
 
@@ -8,22 +8,13 @@
          node seed.js --force  (wipes and re-seeds every collection)
    ================================================================= */
 require("dotenv").config();
-const fs = require("fs");
-const path = require("path");
 const bcrypt = require("bcryptjs");
 const { connect, close } = require("./db");
-
-// Load window.SEED_DATA() from the browser seed file without a browser.
-function loadSeedData() {
-  const code = fs.readFileSync(path.join(__dirname, "..", "public", "js", "seed.js"), "utf8");
-  const sandbox = { window: {} };
-  // eslint-disable-next-line no-new-func
-  new Function("window", code)(sandbox.window);
-  if (typeof sandbox.window.SEED_DATA !== "function") {
-    throw new Error("Could not load SEED_DATA from ../public/js/seed.js");
-  }
-  return sandbox.window.SEED_DATA();
-}
+/* Was public/js/seed.js, read as SOURCE and run through `new Function` to
+   recover a window global — an indirection that existed only because the old
+   demo console loaded the same file in a browser. Nothing does now, so it is
+   a plain module here, and the eval (and its eslint-disable) went with it. */
+const loadSeedData = require("./seed-data");
 
 // "sap_users" -> "users"
 const collName = (k) => k.replace(/^sap_/, "");

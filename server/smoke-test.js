@@ -150,6 +150,37 @@ const { spawnSync, spawn } = require("child_process");
       pass(`GET ${route} → 200 OK`);
     }
 
+    /* Stripe webhook: the signature is an HMAC over the RAW bytes, so the
+       body must reach express.raw() unread. A global JSON parser upstream
+       used to consume it first, which set req._body, made body-parser skip
+       the raw parser, and left verifyWebhook hashing "[object Object]" —
+       so no genuine Stripe event could ever verify, on Connect payments or
+       subscriptions alike. Both halves are checked below: a wrong secret
+       must still be rejected, or this would pass by accepting everything.
+
+       The server under test has no STRIPE_WEBHOOK_SECRET, so verification
+       stops at "not configured" before it ever compares bytes. What is
+       provable here is the parser wiring: a rejection that names the
+       signature means the raw body arrived, and any other message means it
+       did not. */
+    {
+      const evt = JSON.stringify({ type: "customer.subscription.updated", data: { object: {} } });
+      r = await fetch(base.replace(/\/api$/, "") + "/api/stripe/webhook", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Stripe-Signature": "t=1,v1=" + "0".repeat(64) },
+        body: evt
+      });
+      const body = await r.json().catch(() => ({}));
+      const reason = String((body && body.error) || "");
+      if (r.status !== 400) await fail(`POST /api/stripe/webhook → ${r.status} (expected 400)`);
+      // Whatever the reason, it must be about the signature or the config —
+      // never a parse error, which is what a swallowed body produces.
+      if (/JSON|body|parse/i.test(reason)) {
+        await fail("webhook did not receive the raw body: " + reason);
+      }
+      pass("POST /api/stripe/webhook reaches express.raw with the body intact");
+    }
+
     console.log("\nALL SMOKE TESTS PASSED ✓");
     await cleanup(0);
   } catch (e) {

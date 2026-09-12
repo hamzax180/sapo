@@ -1,15 +1,15 @@
 /* =================================================================
-   MERVEKS SAP — demo seed data
-   Realistic, fully-linked operational records for a Mersin/Istanbul
-   logistics & trading company. The records reference each other so the
-   whole chain works in order:
-     Quote → Order → Shipment + Invoice → Payment
-     Purchase Order → Receive → Supplier Bill → Payment
-   Used only in DEMO mode (no backend connected).
+   Seed data for a fresh database.
+
+   This lived at public/js/seed.js and was written as a browser file —
+   it assigned window.SEED_DATA, and server/seed.js loaded it by reading
+   the source and running it through `new Function` to get the global back.
+   That indirection existed only because the old demo console read the same
+   file in the browser. Nothing does any more, so it is a plain module in
+   the directory that actually uses it, and the eval is gone with it.
    ================================================================= */
-window.SEED_DATA = function () {
+module.exports = function () {
   const today = new Date();
-  const SEED_VER = "7"; // bump when the demo schema changes to force a re-seed
   const d = (offset) => { const x = new Date(today); x.setDate(x.getDate() + offset); return x.toISOString().slice(0, 10); };
   const ts = (daysAgo, h) => { const x = new Date(today); x.setDate(x.getDate() - daysAgo); x.setHours(h || 9, (h ? 12 : 30), 0, 0); return x.toISOString(); };
 

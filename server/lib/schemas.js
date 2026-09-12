@@ -73,6 +73,12 @@ const microClaimSchema = {
 // project and is deliberately low-friction, whereas this is the front door.
 const signupSchema = {
   fields: {
+    /* Required, because it is what every screen calls the person. Without it
+       the signup route fell back to the email's local part, so an account
+       opened with hamza1tot@gmail.com was greeted as "hamza1tot" — a
+       username, not a name, and one that also leaked half an email address
+       into every workspace member list. */
+    name: { type: "string", required: true, min: 1, max: 80 },
     email: { type: "email", required: true },
     password: { type: "string", required: true, min: 8, max: 200 },
     company: { type: "string", max: 120 },
