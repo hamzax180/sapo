@@ -43,7 +43,8 @@
     "test:scope": "node scope-test.js",
     "test:session": "node session-test.js",
     "test:domain": "node domain-test.js",
-    "test:delete": "node delete-test.js"
+    "test:delete": "node delete-test.js",
+    "test:claim": "node claim-test.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.122.0",
