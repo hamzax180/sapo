@@ -428,8 +428,6 @@ const PLANS = ["free", "pro", "business", "max", "team", "enterprise"];
 let PLAN_PRICES = { free: 0, pro: 29, business: 79, max: 149, team: 199, enterprise: 499 };
 try { if (process.env.PLAN_PRICES) PLAN_PRICES = Object.assign(PLAN_PRICES, JSON.parse(process.env.PLAN_PRICES)); } catch (e) { /* keep defaults */ }
 
-const GEMINI_KEY = (process.env.GEMINI_API_KEY || "").trim();
-const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.0-flash";
 
 // Only these collections may be read/written through the generic CRUD API.
 const COLLECTIONS = ["users", "clients", "suppliers", "products", "quotes", "orders", "shipments", "invoices", "purchaseorders", "bills", "payments", "notifications", "audit"];
@@ -959,64 +957,34 @@ app.get("/api/ws/:id/config", async (req, res) => {
   }
 });
 
-/**
- * POST /api/ws
- * Provisions (or updates) the master-DB workspace record, establishing
- * ownership. Unauthenticated by design — mirrors /api/db/seed and
- * /api/db/test, which also run pre-login during signup. Ownership is
- * anchored on the email the signup form collected; anyone authenticating
- * later with a JWT for that same email is treated as the owner.
- */
-app.post("/api/ws", async (req, res, next) => {
-  try {
-    const masterDb = getMasterDb();
-    if (!masterDb) return res.status(503).json({ error: "Master DB not available" });
+/* POST /api/ws is gone.
 
-    const { id, company, industry, country, ownerEmail, dbType, dbUri, logo, tagline } = req.body || {};
-    if (!id || !ownerEmail) return res.status(400).json({ error: "id and ownerEmail are required" });
-    if (!/^ws_[A-Za-z0-9]{4,}$/.test(id)) return res.status(400).json({ error: "invalid workspace id" });
-    const email = String(ownerEmail).toLowerCase();
+   It provisioned a workspace record, unauthenticated, from a body that
+   named the id, the owner's email, and the DATABASE URI. Its comment
+   justified that by saying it mirrored /api/db/seed and /api/db/test,
+   which also ran pre-login — and both of those have required a session
+   for a long time, so the justification had quietly stopped being true.
+   Nothing in public/ called it. Nothing in server/ called it. No test
+   named it.
 
-    const existing = await masterDb.collection("workspaces").findOne({ id });
-    if (existing) {
-      // Takeover guard: an existing workspace's ownership and database are
-      // immutable through this unauthenticated signup endpoint. Only the
-      // recorded owner may re-post it, and only display fields update.
-      if (existing.ownerEmail && existing.ownerEmail !== email) {
-        return next(httpError(403, "forbidden", "workspace already owned by another account"));
-      }
-      await masterDb.collection("workspaces").updateOne(
-        { id },
-        { $set: {
-          company: company || existing.company,
-          industry: industry || existing.industry,
-          country: country || existing.country,
-          logo: logo != null ? logo : existing.logo,
-          tagline: tagline || existing.tagline
-        } }
-      );
-      return res.status(200).json({ ok: true, updated: true });
-    }
+   What it did allow, measured against a running server:
 
-    await masterDb.collection("workspaces").insertOne({
-      id,
-      company: company || "My Company",
-      industry: industry || "logistics",
-      country: country || "",
-      ownerEmail: email,
-      dbType: dbType || "local",
-      dbUri: encryptSecret(dbUri || ""),
-      logo: logo || null,
-      tagline: tagline || "",
-      storefrontEnabled: true,
-      plan: PLANS.includes(String(req.body && req.body.plan)) ? req.body.plan : "free",
-      createdAt: new Date().toISOString()
-    });
-    res.status(201).json({ ok: true, created: true });
-  } catch (e) {
-    next(e);
-  }
-});
+     1. A stranger POSTs { id: "ws_anything", ownerEmail: "you@" }  -> 201
+     2. You try to sign up                                          -> 409
+        "an account with this email already exists — sign in instead"
+     3. You try to sign in, as instructed                           -> 500
+
+   Any address could be locked out of the product permanently, by anyone,
+   with a message telling the victim to do the one thing that then fails.
+   Scriptable against a list.
+
+   And the dbUri in that body is stored and later decrypted and CONNECTED
+   TO by resolveWsContext — so it also let an unauthenticated caller put a
+   connection string of their choosing into the master registry.
+
+   /auth/signup is the provisioning path and has been for a while: it
+   creates the workspace itself, always with dbType local and an empty
+   dbUri, behind a captcha and two rate limits. */
 
 /**
  * POST /api/ws/:id/domain
@@ -1557,32 +1525,26 @@ app.post("/auth/logout", (req, res) => {
   res.json({ ok: true });
 });
 
-/* ---- AI proxy: keep the Gemini key on the server ---- */
-app.post("/ai/chat", aiLimiter, async (req, res) => {
-  if (!GEMINI_KEY) return res.status(503).json({ error: "no-key", message: "AI proxy not configured" });
-  try {
-    const { prompt, contents, generationConfig } = req.body || {};
-    const body = {
-      contents: contents || [{ parts: [{ text: String(prompt || "") }] }],
-      generationConfig: generationConfig || { temperature: 0.5, maxOutputTokens: 900 }
-    };
-    const url = "https://generativelanguage.googleapis.com/v1beta/models/" + GEMINI_MODEL + ":generateContent?key=" + encodeURIComponent(GEMINI_KEY);
-    const r = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-    if (!r.ok) {
-      let msg = "Gemini error " + r.status;
-      try { const e = await r.json(); if (e.error && e.error.message) msg = e.error.message; } catch (x) {}
-      return res.status(502).json({ error: msg });
-    }
-    const j = await r.json();
-    const text = j && j.candidates && j.candidates[0] && j.candidates[0].content && j.candidates[0].content.parts &&
-      j.candidates[0].content.parts.map((p) => p.text).join("");
-    if (!text) return res.status(502).json({ error: "Empty response from Gemini" });
-    res.json({ text });
-  } catch (e) {
-    console.error("ai proxy error:", e.message);
-    res.status(500).json({ error: "ai proxy failed" });
-  }
-});
+/* POST /ai/chat is gone.
+
+   An unauthenticated proxy that forwarded any prompt to Gemini on the
+   PLATFORM's key and returned the completion. No session, no owner, no
+   spend cap — only 30 requests a minute per address. A free LLM for the
+   internet, billed to whoever runs this.
+
+   It was dormant rather than harmless: GEMINI_API_KEY is unset, so it
+   answered 503, and production does not route /ai/* to the function at
+   all, so it answered 404 there. Both of those are conditions, not
+   defences. It arms itself on the day someone adds the key — which is a
+   stated plan — or adds /ai/* to the rewrites.
+
+   Nothing called it. It belonged to the retired storefront product; the
+   builder reaches models through lib/ai/client.js, which routes by task,
+   takes the user's OWN key when they have stored one, and is metered by
+   a per-owner spend cap and AI_MONTHLY_BUDGET_USD. That is where an AI
+   endpoint goes.
+
+   GEMINI_API_KEY and GEMINI_MODEL were read for this and nothing else. */
 
 /* =================================================================
    AI SITE BUILDER  ("what will you build?")

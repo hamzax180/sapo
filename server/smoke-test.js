@@ -169,9 +169,15 @@ const { spawnSync, spawn } = require("child_process");
       } finally { try { await probe.close(); } catch (e) {} }
     }
 
-    // AI guard (no key → 503)
+    /* The AI proxy is gone, not merely disabled.
+
+       This used to assert it answered 503 without a key, which was true
+       and was also the whole problem: an unauthenticated LLM proxy on
+       the platform's own key, one environment variable away from being
+       a free LLM for the internet. Asserting the safety catch holds is
+       weaker than asserting there is nothing to catch. */
     r = await fetch(base + "/ai/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ prompt: "hi" }) });
-    r.status === 503 ? pass("POST /ai/chat (no key) → 503") : await fail("AI guard failed");
+    r.status === 404 ? pass("POST /ai/chat -> 404 (the public LLM proxy is removed)") : await fail("/ai/chat answered " + r.status + " — the public AI proxy is back");
 
     // Collection allowlist
     r = await fetch(base + "/secrets");
