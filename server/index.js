@@ -4277,7 +4277,14 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
 
      Checked before any model or sandbox cost. An admin is exempt: the people
      who run this have to be able to use it. */
-  const quotaOwner = appOwnerOf(req, res);
+  /* The owner resolved at the top of this route, NOT a second appOwnerOf().
+
+     Resolving it writes the anon cookie for a first-time visitor, and by here
+     the SSE headers are long gone — so calling it again threw
+     ERR_HTTP_HEADERS_SENT out of res.cookie(), uncaught, taking the process
+     down. It only reached visitors with no anon cookie yet, which is to say
+     exactly the people this gate exists to let build once. */
+  const quotaOwner = owner;
   const quotaUser = codeAgentSessionUser(req);
   const quotaAdmin = quotaUser && isAdminEmail(quotaUser.email);
   const counts = quotaAdmin ? { builds: 0, edits: 0 } : await codeAgentUsage.monthCounts(quotaOwner);
@@ -4344,11 +4351,12 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
     }
   }
 
-  /* Recorded once the request is past every gate and is going to do real
-     work. Before the model call, not after: a build that fails still used a
-     build, or a failing prompt is a free infinite loop. */
-  if (!quotaAdmin) {
-    await codeAgentUsage.recordAction(quotaOwner, isFollowUp ? "editCount" : "buildCount");
+  /* An EDIT is charged here: past the gates, and every follow-up that gets
+     this far is going to call the model.
+
+     A BUILD is not — see the note where it is charged instead. */
+  if (!quotaAdmin && isFollowUp) {
+    await codeAgentUsage.recordAction(quotaOwner, "editCount");
   }
 
   // Per-owner spend cap (§9 "Abuse") — checked AFTER the free chit-chat
@@ -4456,6 +4464,22 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
         sseFrame(res, "done", {});
         return res.end();
       }
+      /* The build is charged HERE, not at the gate.
+
+         assessPrompt answers a vague first prompt with a question rather than
+         an app — "what kind of work do you want to show?" — and charging
+         before that meant a visitor's one free build was spent on being asked
+         something. They would answer, hit the signup wall, and have never
+         seen the product do anything. The single free build has to BE a
+         build.
+
+         Still before the expensive call, not after: a build that fails has
+         used its slot, or a prompt that reliably fails is an unlimited
+         model budget. */
+      if (!quotaAdmin) {
+        await codeAgentUsage.recordAction(quotaOwner, "buildCount");
+      }
+
       /* What they said ACROSS the conversation, not just the line that tipped
          it into buildable. Without this, the answers given to the agent's own
          questions never reach the thing doing the building. */
