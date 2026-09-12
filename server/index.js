@@ -669,12 +669,47 @@ app.post("/api/db/seed", requireSession, async (req, res) => {
  * never carries a workspace id.
  */
 async function assertOwnsWorkspace(req, wsId) {
-  const token = (req.headers.authorization || "").replace("Bearer ", "").trim();
-  if (!token) { const e = new Error("unauthorized"); e.status = 401; throw e; }
+  /* TWO TRANSPORTS, ONE TOKEN. The Authorization header is what a CLI or
+     a server-to-server caller sends; the sq_session cookie is what a
+     browser sends, because /auth/login sets it httpOnly on purpose so no
+     page can keep the token where script can read it. Same signature,
+     same secret, same expiry — accepting the cookie proves exactly as
+     much as accepting the header, and refusing it meant the dashboard
+     got 401 from operations it is the only caller of. */
+  const header = (req.headers.authorization || "").replace("Bearer ", "").trim();
+  let decoded = null;
+  if (header) {
+    try { decoded = jwt.verify(header, JWT_SECRET); }
+    catch (e2) { const e = new Error("invalid or expired token"); e.status = 401; throw e; }
+  } else {
+    decoded = codeAgentSessionUser(req);   // verifies sq_session, or null
+  }
+  if (!decoded) { const e = new Error("unauthorized"); e.status = 401; throw e; }
 
-  let decoded;
-  try { decoded = jwt.verify(token, JWT_SECRET); }
-  catch (e2) { const e = new Error("invalid or expired token"); e.status = 401; throw e; }
+  /* A SCOPED TOKEN IS NOT WORKSPACE AUTHORITY.
+     This is the check that was missing, and it was worth more than the
+     one above. A portal-edit token is a narrow grant: fifteen minutes,
+     for editing one storefront, handed to a PAGE rather than kept
+     httpOnly, and rotatable indefinitely through /edit-token/refresh. It
+     also carries { wsId, email } — and email is half of the ownership
+     test below, so it matched. A token meant to let someone move a
+     heading around therefore satisfied every gate in this function:
+     GET /api/ws/:id/export (all thirteen collections, the users table and
+     its password hashes among them), POST /api/ws/:id/domain, and
+     DELETE /api/ws/:id, which erases the workspace.
+
+     Confirmed against the running server before this line existed: an
+     edit token exported the whole tenant. Nothing in public/ mints or
+     sends one any more — the live storefront editor it was built for is
+     gone — so this refuses a capability that had no remaining legitimate
+     caller and one very illegitimate one.
+
+     403, not 401: the token is genuine and the holder is authenticated.
+     They are simply not carrying authority over this workspace. */
+  if (decoded.scope) {
+    const e = new Error("forbidden — this token does not carry workspace authority");
+    e.status = 403; throw e;
+  }
 
   const masterDb = getMasterDb();
   if (!masterDb) { const e = new Error("Master DB not available"); e.status = 503; throw e; }
@@ -1634,7 +1669,7 @@ app.get("/api/codeagent/stats", async (req, res, next) => {
 /** GET /api/projects/:idOrSlug — the project, its transcript and head config. */
 app.get("/api/projects/:key", async (req, res, next) => {
   try {
-    const owner = anon.ownerOf(req, res);
+    const owner = appOwnerOf(req, res);
     const project = await resolveProject(req.params.key, owner);
     if (!project) return res.status(404).json({ error: "project not found" });
     if (!projects.owns(project, owner)) return res.status(403).json({ error: "not your project" });
@@ -1721,7 +1756,7 @@ async function attemptPatch(project, message, onStage) {
 
 app.post("/api/projects/:key/turns", projectLimiter, async (req, res, next) => {
   try {
-    const owner = anon.ownerOf(req, res);
+    const owner = appOwnerOf(req, res);
     const project = await resolveProject(req.params.key, owner);
     if (!project) return res.status(404).json({ error: "project not found" });
     if (!projects.owns(project, owner)) return res.status(403).json({ error: "not your project" });
@@ -1812,7 +1847,7 @@ app.post("/api/projects/:key/turns", projectLimiter, async (req, res, next) => {
  */
 app.get("/api/projects/:key/preview", async (req, res, next) => {
   try {
-    const owner = anon.ownerOf(req, res);
+    const owner = appOwnerOf(req, res);
     const project = await resolveProject(req.params.key, owner);
     if (!project) return res.status(404).json({ error: "project not found" });
     if (!projects.owns(project, owner)) return res.status(403).json({ error: "not your project" });
@@ -1882,7 +1917,7 @@ app.get("/api/projects/:key/thumb", async (req, res, next) => {
 /** POST /api/projects/:key/restore — go back to a revision, without losing it. */
 app.post("/api/projects/:key/restore", async (req, res, next) => {
   try {
-    const owner = anon.ownerOf(req, res);
+    const owner = appOwnerOf(req, res);
     const project = await resolveProject(req.params.key, owner);
     if (!project) return res.status(404).json({ error: "project not found" });
     if (!projects.owns(project, owner)) return res.status(403).json({ error: "not your project" });
@@ -1913,7 +1948,7 @@ app.post("/api/projects/:key/restore", async (req, res, next) => {
     nothing. Title is what people read; slug is what machines follow. */
 app.patch("/api/projects/:key", async (req, res, next) => {
   try {
-    const owner = anon.ownerOf(req, res);
+    const owner = appOwnerOf(req, res);
     const project = await resolveProject(req.params.key, owner);
     if (!project) return res.status(404).json({ error: "project not found" });
     if (!projects.owns(project, owner)) return res.status(403).json({ error: "not your project" });
@@ -1928,7 +1963,7 @@ app.patch("/api/projects/:key", async (req, res, next) => {
 
 app.delete("/api/projects/:key", async (req, res, next) => {
   try {
-    const owner = anon.ownerOf(req, res);
+    const owner = appOwnerOf(req, res);
     const project = await resolveProject(req.params.key, owner);
     if (!project) return res.status(404).json({ error: "project not found" });
     if (!projects.owns(project, owner)) return res.status(403).json({ error: "not your project" });
@@ -2081,7 +2116,7 @@ app.post("/api/projects/:key/claim", async (req, res, next) => {
  */
 app.post("/api/projects/:key/publish", async (req, res, next) => {
   try {
-    const owner = anon.ownerOf(req, res);
+    const owner = appOwnerOf(req, res);
     const project = await resolveProject(req.params.key, owner);
     if (!project) return res.status(404).json({ error: "project not found" });
     if (!projects.owns(project, owner)) return res.status(403).json({ error: "not your project" });
@@ -3703,7 +3738,7 @@ function techOf(files) {
  */
 app.get("/api/projects/:key/details", async (req, res, next) => {
   try {
-    const owner = anon.ownerOf(req, res);
+    const owner = appOwnerOf(req, res);
     const project = await resolveProject(req.params.key, owner);
     if (!project) return res.status(404).json({ error: "project not found" });
     if (!projects.owns(project, owner)) return res.status(403).json({ error: "not your project" });
@@ -3753,7 +3788,7 @@ app.post("/api/projects/:key/github", async (req, res, next) => {
       return res.status(503).json({ error: "GitHub is not configured on this server." });
     }
 
-    const owner = anon.ownerOf(req, res);
+    const owner = appOwnerOf(req, res);
     const project = await resolveProject(req.params.key, owner);
     if (!project) return res.status(404).json({ error: "project not found" });
     if (!projects.owns(project, owner)) return res.status(403).json({ error: "not your project" });
@@ -3813,7 +3848,7 @@ app.post("/api/projects/:key/github", async (req, res, next) => {
 /** Unlink the repository from the project. The repository itself stays. */
 app.delete("/api/projects/:key/github", async (req, res, next) => {
   try {
-    const owner = anon.ownerOf(req, res);
+    const owner = appOwnerOf(req, res);
     const project = await resolveProject(req.params.key, owner);
     if (!project) return res.status(404).json({ error: "project not found" });
     if (!projects.owns(project, owner)) return res.status(403).json({ error: "not your project" });
@@ -5014,10 +5049,29 @@ const deployLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 20, key: (req) 
  * the alternative fix, having the page hold the token and send the header,
  * is the thing that comment exists to prevent.
  *
- * Scope is deliberately narrow. The /api/projects/* routes keep
- * anon.ownerOf(), because microclaim-test.js holds a real property there:
- * after a claim, a cookie-only read of /api/projects/:key is refused. This
- * only covers the routes Code itself calls.
+ * The /api/projects/* routes used to be left out of this, on the grounds
+ * that microclaim-test.js held a real property there: after a claim, a
+ * cookie-only read of /api/projects/:key is refused. It did not hold that
+ * property. Its browser jar keeps EVERY Set-Cookie, sq_session included,
+ * so the request it called "cookie-only" was carrying a valid session and
+ * was refused because anon.ownerOf ignores the session cookie — the very
+ * thing being tested, asserted as if it were the finding.
+ *
+ * What that cost: the dashboard sends no Authorization header (no page in
+ * public/ sets one), so once a project was claimed its owner got 403 — or
+ * 404, from a browser whose anon id had moved on — from their own
+ * Rename, Delete, Details and Connect-GitHub. Measured against the
+ * running server, not inferred.
+ *
+ * So those routes resolve through here now, and the test was rewritten to
+ * hold the property it meant: a request carrying the anon cookie AND NO
+ * SESSION must still be refused. That is strictly stronger, and it is the
+ * one this function preserves — sq_anon can never fill in userId, only a
+ * scope-free token this server signed can.
+ *
+ * Claiming stays on anon.ownerOf: /claim and /micro-claim exist to ask
+ * "is this the visitor who built it", which is a question about the
+ * anonymous identity and nothing else.
  */
 function appOwnerOf(req, res) {
   const owner = anon.ownerOf(req, res);

@@ -54,7 +54,7 @@ const bcrypt = require("bcryptjs");
      anon cookie that made the project claimable in the first place. */
   function browser() {
     const jar = new Map();
-    return async (path, opts = {}) => {
+    const send = async (path, opts = {}) => {
       opts.headers = Object.assign({ "Content-Type": "application/json" }, opts.headers);
       if (jar.size) opts.headers.Cookie = [...jar].map(([k, v]) => k + "=" + v).join("; ");
       if (opts.body && typeof opts.body === "object") opts.body = JSON.stringify(opts.body);
@@ -67,6 +67,17 @@ const bcrypt = require("bcryptjs");
       });
       return { status: r.status, data: await r.json().catch(() => null) };
     };
+    /* One request carrying a hand-picked subset of the jar. A browser that
+       has claimed holds sq_anon AND sq_session, so "with only the anon
+       cookie" is a thing you have to ask for explicitly — see the publish
+       check below, which used to believe it was asking. */
+    send.withOnly = async (names, path, opts = {}) => {
+      const picked = names.filter((n) => jar.has(n)).map((n) => n + "=" + jar.get(n)).join("; ");
+      const headers = Object.assign({ "Content-Type": "application/json" }, opts.headers, picked ? { Cookie: picked } : {});
+      const r = await fetch(base + path, Object.assign({}, opts, { headers }));
+      return { status: r.status, data: await r.json().catch(() => null) };
+    };
+    return send;
   }
 
   try {
@@ -227,15 +238,20 @@ const bcrypt = require("bcryptjs");
     assert.notDeepStrictEqual(wsRow.storefrontConfig.theme, patchedTheme, "the live site changed WITHOUT a publish — that is the exact bug this endpoint exists to prevent");
     pass("a post-claim follow-up creates a new revision but does NOT touch the live storefrontConfig — divergence is real, not theoretical");
 
-    // publishing with only the anon cookie (no session token) must fail —
-    // projects.owns() is checked BEFORE assertOwnsWorkspace, and it's
-    // asymmetric on a claimed project (same property microclaim-test.js
-    // proves for GET/turns): the cookie alone no longer owns it, so this
-    // is a 403 from the ownership check, never reaching the workspace-auth
-    // check that would otherwise 401.
-    res = await alice("/api/projects/" + slug + "/publish", { method: "POST" });
-    assert.strictEqual(res.status, 403, "publish succeeded with no owner token at all");
-    pass("publish with no Authorization header -> 403 (the anon cookie no longer owns a claimed project)");
+    // Publishing with only the ANON cookie must fail — projects.owns() is
+    // checked BEFORE assertOwnsWorkspace, and it is asymmetric on a claimed
+    // project (the same property microclaim-test.js proves for GET/turns):
+    // the anon id alone no longer owns it, so this is a 403 from the
+    // ownership check and never reaches the workspace-auth check.
+    //
+    // withOnly, because alice's jar has held a valid sq_session ever since
+    // the claim. This line used to send it and read the resulting refusal
+    // as proof of the asymmetry, when it was really proof that the route
+    // ignored session cookies — which is why a signed-in owner could not
+    // publish from the dashboard, the only place that calls this.
+    res = await alice.withOnly(["sq_anon"], "/api/projects/" + slug + "/publish", { method: "POST" });
+    assert.strictEqual(res.status, 403, "the anon cookie alone published a claimed project");
+    pass("publish with the anon cookie alone -> 403 (it no longer owns a claimed project)");
 
     res = await alice("/api/projects/" + slug + "/publish", { method: "POST", headers: aliceAuth });
     assert.strictEqual(res.status, 200, "the rightful publish failed: " + JSON.stringify(res.data));
@@ -248,11 +264,16 @@ const bcrypt = require("bcryptjs");
     assert.strictEqual(proj2.publishedRevisionId, revisionAfterPatch, "publishedRevisionId did not move to the newly published revision");
     pass("the live storefrontConfig and the project's publishedRevisionId both now reflect the follow-up");
 
-    // publishing again with nothing new to publish is a clean no-op, not an error
-    res = await alice("/api/projects/" + slug + "/publish", { method: "POST", headers: aliceAuth });
-    assert.strictEqual(res.status, 200);
+    // Publishing again with nothing new is a clean no-op, not an error —
+    // and it is sent the way the DASHBOARD sends it, session cookie only,
+    // no Authorization header, because no page in public/ sets one. A
+    // no-op is the safe place to prove the browser's transport reaches the
+    // publish logic at all: it asserts the path works without depending on
+    // it to change anything.
+    res = await alice.withOnly(["sq_session"], "/api/projects/" + slug + "/publish", { method: "POST" });
+    assert.strictEqual(res.status, 200, "the session cookie alone could not publish — this is what the dashboard sends");
     assert.strictEqual(res.data.alreadyPublished, true, "re-publishing an unchanged head should say so, not silently rewrite again");
-    pass("publishing with nothing new -> alreadyPublished:true, not a second write");
+    pass("publishing with nothing new, cookie-only -> alreadyPublished:true, not a second write");
 
     /* ---- an unclaimed project has nothing to publish to ---- */
     res = await alice("/api/projects", { method: "POST", body: { prompt: "a storefront for my Izmir bicycle shop called Tekerlek", industry: "retail" } });

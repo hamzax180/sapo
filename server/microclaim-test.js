@@ -52,7 +52,12 @@ const bcrypt = require("bcryptjs");
 
   function browser() {
     const jar = new Map();
-    return async (path, opts = {}) => {
+    /* The jar is exposed because one assertion below needs to send PART of
+       it. A browser that has micro-claimed holds two cookies — sq_anon from
+       its first visit and sq_session from the claim — and the question
+       "is the anon cookie alone still an answer" can only be asked by
+       sending the anon cookie alone. */
+    const send = async (path, opts = {}) => {
       opts.headers = Object.assign({ "Content-Type": "application/json" }, opts.headers);
       if (jar.size) opts.headers.Cookie = [...jar].map(([k, v]) => k + "=" + v).join("; ");
       if (opts.body && typeof opts.body === "object") opts.body = JSON.stringify(opts.body);
@@ -65,6 +70,15 @@ const bcrypt = require("bcryptjs");
       });
       return { status: r.status, data: await r.json().catch(() => null) };
     };
+    send.jar = jar;
+    /* One request with a hand-picked subset of the cookies. */
+    send.withOnly = async (names, path, opts = {}) => {
+      const picked = names.filter((n) => jar.has(n)).map((n) => n + "=" + jar.get(n)).join("; ");
+      const headers = Object.assign({ "Content-Type": "application/json" }, opts.headers, picked ? { Cookie: picked } : {});
+      const r = await fetch(base + path, Object.assign({}, opts, { headers }));
+      return { status: r.status, data: await r.json().catch(() => null) };
+    };
+    return send;
   }
 
   try {
@@ -155,15 +169,32 @@ const bcrypt = require("bcryptjs");
 
     /* ---- THE regression this file exists to hold ----
        Claiming re-points ownership from the anon cookie to the user, and
-       projects.owns() is asymmetric on purpose — so from the moment of claim
-       the cookie ALONE is no longer an answer. The agent page must send the
-       session token it was handed, or the owner's own project reads as gone
-       and the conversation dies at the exact moment they became a customer.
-       (docs/AGENT-GAP-AUDIT.md §1.1 + §1.2 — this shipped broken once.) */
-    res = await alice("/api/projects/" + slug);
+       projects.owns() is asymmetric on purpose — so from the moment of
+       claim the ANON cookie alone is no longer an answer. Whoever still
+       holds an anon id that once built this project is not, from here on,
+       the person who owns it.
+       (docs/AGENT-GAP-AUDIT.md §1.1 + §1.2 — this shipped broken once.)
+
+       Asked with sq_anon and NOTHING ELSE, which is the only way to ask it.
+       This used to be a plain alice(...) call, and alice's jar keeps every
+       Set-Cookie — so the "cookie-only" request carried the sq_session the
+       micro-claim had just issued, and the 403 it asserted was the server
+       ignoring a valid session rather than refusing a stale identity. The
+       assertion passed while the property went untested, and meanwhile every
+       signed-in owner got 403 from their own Rename and Delete, because the
+       dashboard has no Bearer token to fall back on. */
+    res = await alice.withOnly(["sq_anon"], "/api/projects/" + slug);
     assert.strictEqual(res.status, 403,
-      "cookie-only read of a CLAIMED project should be refused — if this is 200 the asymmetry is gone");
+      "the anon cookie ALONE opened a claimed project — the asymmetry is gone");
     pass("after claim, the anon cookie alone no longer opens the project -> 403");
+
+    /* And the other half, which is the part that was broken in production:
+       the session cookie on its own — no Authorization header, exactly what
+       a browser sends — DOES open it. */
+    res = await alice.withOnly(["sq_session"], "/api/projects/" + slug);
+    assert.strictEqual(res.status, 200,
+      "the session cookie alone did not open the owner's project — this is what the dashboard sends");
+    pass("the session cookie alone reopens it -> 200 (what the dashboard sends)");
 
     const auth = { Authorization: "Bearer " + claimToken };
 
