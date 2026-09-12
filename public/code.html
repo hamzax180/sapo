@@ -1204,8 +1204,22 @@
      viewport and the two visibly collide. */
   /* perspective is what makes the desktop frame's lid-open rotateX read
      as a hinge instead of a vertical squash — see @keyframes macEnter. */
+  /* container-type:size is what lets every mockup below size itself
+     against THIS BOX in both axes — 100cqw/100cqh are the stage's content
+     width and height, padding already subtracted.
+
+     It is needed because a device has one dimension and a ratio, and the
+     limit that binds is usually on the OTHER axis: the iPad is sized by
+     height, but what clipped it was the pane being too narrow, and a
+     percentage inside a height property can only ever see the parent's
+     height. Container units cross the axes, so "as tall as this box
+     allows, but no taller than its width can carry" is one min(). The
+     stage's own size never came from its contents (it is flex:1 in a
+     column with a definite height, or a min-height below 901px), so size
+     containment changes nothing about how big it is. */
   .ag-pv-stage{position:relative;flex:1;min-height:0;display:flex;align-items:center;justify-content:center;
     padding:clamp(12px,2.5vw,24px);padding-top:64px;overflow:hidden;background:var(--paper);
+    container-type:size;
     perspective:1600px}
   .ag-pv-frame{
     position:relative;
@@ -1297,7 +1311,15 @@
      on that rule for why the markup kept its old class names.
      ═══════════════════════════════════════════════════════════════════ */
   .ag-pv-frame.desktop {
-    width: min(800px, calc(100% - 48px)); height: auto; max-height: calc(100% - 80px);
+    /* Width drives the lid and 16/9 derives the height, so BOTH limits
+       have to be written as widths. max-height could not be one: with a
+       definite width and an auto height, clamping the height does not
+       send the browser back to recompute the width, so a short pane
+       squashed the lid out of 16/9 instead of standing a smaller machine
+       in it. The 44px is the base — .mac-stand hangs 21px below the lid
+       and is 15px tall — plus a little for its cast shadow. */
+    width: min(800px, calc(100cqw - 16px), calc((100cqh - 44px) * 16 / 9));
+    height: auto; max-height: none;
     aspect-ratio: 16 / 9;
     overflow: visible;
     /* A real MacBook reads as a BLACK bezel with only a thin silver
@@ -1419,7 +1441,16 @@
      2. TABLET — Photorealistic iPad Pro 12.9" (Space Gray)
      ═══════════════════════════════════════════════════════════════════ */
   .ag-pv-frame.tablet {
-    height: min(580px, calc(100% - 60px)); max-height: 580px;
+    /* The third term is a width limit this frame never had. It is sized
+       by height with 3/4 deriving the width, and nothing checked that the
+       derived width fit: at an iPad-sized window with the sidebar open
+       the preview column is ~417px and this came out 435px, so the stage
+       (overflow:hidden) cut the mockup down both edges — no right bezel,
+       no left one, just the app running off the pane. Expressed as the
+       height the stage's width can carry, it makes the iPad smaller
+       instead of clipped. */
+    height: min(580px, 100cqh, calc((100cqw - 16px) * 4 / 3));
+    max-height: none;
     width: auto; aspect-ratio: 3 / 4;
     /* Space Gray aluminum — smooth metallic gradient */
     background: linear-gradient(
@@ -1489,8 +1520,14 @@
   /* 3. MOBILE — iPhone 15 Pro Natural Titanium */
   .ag-pv-frame.mobile {
     overflow: visible; /* side buttons extend outside */
-    height: min(580px, calc(100% - 24px));
-    max-height: 580px;
+    /* Same pair of limits as the iPad above. The phone is narrow enough
+       that it rarely binds, but "rarely" was three pixels: in a 274px
+       preview column the 268px body plus its side buttons filled the
+       stage edge to edge. 8px, not the 16 the other two take: this frame
+       is overflow:visible and what hangs outside it is 3px of buttons,
+       not a 70px shadow. */
+    height: min(580px, 100cqh, calc((100cqw - 8px) * 19.5 / 9));
+    max-height: none;
     aspect-ratio: 9 / 19.5;
     width: auto;
     border: none;
@@ -1997,12 +2034,39 @@
     .ag:not(.is-new) .ag-hero,
     .ag.has-convo .ag-hero,
     .ag:has(#agLog > *:not(.ag-empty)) .ag-hero{display:contents !important}
-    /* The device-size picker only means something once there's room to
-       switch between iPhone/iPad/monitor shapes side by side — desktop
-       only. #agDeskPreviewToggle stays visible here: it's the ONLY way
-       to switch panes on mobile now (see its click handler), not a
-       desktop-only control. */
-    #agPvDevices{display:none !important}
+    /* The device-size picker needs room to be worth having, and a phone
+       has none — but 900px was the wrong line to draw it at. An iPad in
+       portrait is 768 or 820 and lands in here, where the preview takes
+       the WHOLE screen: there is more room for a mockup than on any
+       laptop. Hiding the picker there did not simplify anything, it took
+       the only control away and left whatever frame was already on — pick
+       iPad on a laptop, rotate an iPad into portrait, and the preview was
+       stuck on a shape with no way back.
+
+       650 is the line the JS already draws (see applyDeviceFrame, which
+       forces the phone frame below it). The two disagreeing is what
+       created the 650-900px gap where a frame could be set and not
+       unset. #agDeskPreviewToggle stays visible at every width here:
+       it's the ONLY way to switch panes on mobile now (see its click
+       handler), not a desktop-only control. */
+    @media (max-width:649px){
+      #agPvDevices{display:none !important}
+    }
+    /* BELOW the band, not on it.
+
+       .ag-main::before (see its rule above) paints a solid 52px strip of
+       paper right across the top of the screen so chat text scrolling
+       under the fixed Sidebar/Preview buttons cannot show through between
+       them. The picker's own top:6px puts it inside that strip, where it
+       was drawn but never seen — laid out, hit-testable, and painting
+       nothing. Raising its z-index above the band's does not fix it: the
+       band is a fixed-position layer and wins the paint whatever the two
+       numbers say. So the control moves out from under it instead, and
+       the stage reserves the matching room below (see its padding-top). */
+    .ag-pv-devices{top:58px}
+    /* Centred over the STAGE, which is inset by the icon rail — the same
+       22px correction the stage comment below explains for the mockup. */
+    body.preview-mode .ag-pv-devices{left:calc(50% + 22px)}
     /* One scroll on mobile (.ag's), not a nested one — but overflow:visible
        alone was not enough. .ag-log kept flex:1 + min-height:0, so its BOX
        stayed short while its content spilled out and painted straight over
@@ -2018,23 +2082,45 @@
       box-sizing: border-box !important;
     }
     .ag-pv-stage {
-      padding: 12px 0 16px !important;
+      /* 52px top: the device picker sits at top:58px, just clear of the
+         band above it, and this is what keeps the mockup from starting
+         underneath it. The frames measure this box (100cqh), so they take
+         the room out of their own height without any further arithmetic. */
+      padding: 52px 0 16px !important;
       min-height: calc(100svh - 110px) !important;
       display: flex; align-items: center; justify-content: center;
     }
+    /* One column, so the device fills the screen: the 580px cap the base
+       rules carry is lifted and the stage's own box becomes the limit.
+       Everything else — the ratio, and fitting the axis that is NOT
+       driving — is already right up there, so these only drop the cap. */
     .ag-pv-frame.mobile {
-      height: calc(100svh - 110px) !important;
+      height: min(100cqh, calc((100cqw - 8px) * 19.5 / 9)) !important;
       max-height: none;
       width: auto;
-      max-width: calc(100vw - 20px);
+      max-width: none;
       aspect-ratio: 9 / 19.5;
       padding: 9px;
       border-radius: 46px;
     }
     .ag-pv-frame.mobile .ip-screen{border-radius:36px}
     .ag-pv-frame.mobile .ip-screen::before{width:100px;height:28px;top:10px}
-    .ag-pv-frame.tablet{width:100%;height:calc(100svh - 110px);max-height:none}
-    .ag-pv-frame.desktop{width:100%;height:calc(100svh - 110px);max-height:none}
+    /* FILL THE STAGE, BUT STAY A DEVICE.
+
+       These two were width:100% with an explicit height — which is both
+       axes pinned, so aspect-ratio had nothing left to do. On an iPad the
+       iPad mockup came out as a full-bleed rounded slab: no bezel down
+       either side, the home bar off the bottom edge, the camera the only
+       thing left of the frame. The MacBook came out worse — a lid taller
+       than it is wide, portrait, with a base under it.
+
+       Same shape as the phone rule above instead: one axis is the lesser
+       of what the stage's height and its width allow, and aspect-ratio
+       derives the other. */
+    .ag-pv-frame.tablet{width:auto;max-width:none;max-height:none;
+      height:min(100cqh, calc((100cqw - 16px) * 4 / 3))}
+    .ag-pv-frame.desktop{height:auto;max-height:none;
+      width:min(calc(100cqw - 16px), calc((100cqh - 44px) * 16 / 9))}
     body.preview-mode{height:100dvh;overflow:hidden !important}
     body.preview-mode .ag-main{height:100dvh;overflow:hidden !important}
     body.preview-mode .ag-preview{position:fixed !important;inset:0 !important;width:100% !important;height:100dvh !important;
@@ -2046,24 +2132,22 @@
        parked the phone half a rail to the left of the space anyone can
        actually see. Measured: frame centre 390, visible centre 412. */
     body.preview-mode .ag-pv-stage{height:calc(100dvh - 52px) !important;min-height:0 !important;max-height:none !important;
-      padding:10px 0 12px !important;overflow:hidden !important;
+      padding:52px 0 12px !important;overflow:hidden !important;
       margin-left:44px !important;width:calc(100% - 44px) !important}
 
-    /* Fill the stage rather than the viewport. The frame was sized
-       calc(100svh - 110px) while its container is (100dvh - 52px) less
-       padding, so it left ~30px of height unused and came out smaller
-       than the room it had.
+    /* No frame overrides here any more, and that is the fix.
 
-       Height drives the phone and aspect-ratio derives the width from
-       it, so the height has to respect BOTH limits: the lesser of the
-       stage's height and the height the remaining width can support.
-       Without the second, a narrow screen gets a phone whose implied
-       width overflows and is clipped by the stage's own overflow. */
-    body.preview-mode .ag-pv-frame.mobile{
-      height:min(100%, calc((100vw - 44px) * 19.5 / 9)) !important;
-      max-height:100% !important}
-    body.preview-mode .ag-pv-frame.tablet,
-    body.preview-mode .ag-pv-frame.desktop{height:100% !important;max-height:100% !important}
+       This block used to re-state each frame's size against the VIEWPORT
+       — height:calc(100svh - 110px) out of preview mode, height:100% and
+       (100vw - 44px) in it — because the stage is a different box in the
+       two modes and percentages could only see one axis of it. Every one
+       of those numbers is now a container unit read off the stage itself,
+       so the rules above are already correct in both modes.
+
+       Restating them here is what broke the iPad: height:100% pinned the
+       second axis again and put the slab back the moment the preview took
+       over the screen. The frames fill this stage because it is the stage
+       they measure, not because anything here says so. */
   }
   @media (max-width:640px){
     .ag-say,.ag-card{padding-inline-start:0;margin-inline-start:0}
@@ -4832,7 +4916,21 @@
 
   function applyDeviceFrame() {
     if (!agPvDevices || !agPvFrame) return;
-    if (window.innerWidth < 650 || !window.__wcSupported) {
+    /* Narrow screens only. This used to force the phone frame whenever
+       `!window.__wcSupported` as well, and that test is a UA match on
+       /iPhone|iPad|iPod|Android/ — so it was true on EVERY iPad, at any
+       size, including a 12.9" one in landscape with the picker sitting
+       right there. Tapping iPad worked for exactly as long as it took
+       anything to call this again: starting a build, finishing one, or
+       reopening a project each snapped the preview back to an iPhone.
+
+       The two have nothing to do with each other. WebContainer support
+       decides whether the app inside is served by a dev server in the
+       browser or by the CDN srcdoc fallback; the fallback renders into
+       the same iframe, laid out at the same --pv-w and scaled the same
+       way. Which machine is drawn around it is presentation, and the
+       only thing it should answer to is whether there is room. */
+    if (window.innerWidth < 650) {
       agPvDevices.querySelectorAll("button").forEach((b) => b.classList.remove("on"));
       const mobBtn = agPvDevices.querySelector('button[data-size="mobile"]');
       if (mobBtn) mobBtn.classList.add("on");

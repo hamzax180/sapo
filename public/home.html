@@ -882,8 +882,46 @@
     .bh-plus{width:42px;height:42px}
     .bh-send{height:44px;min-width:44px}
   }
-  /* keyboard-safe composer on iOS: dvh, never vh */
-  @supports (height:100dvh){.bh-hero{min-height:auto}}
+  /* THE FIRST SCREEN IS THE HERO, ALL OF IT.
+
+     The hero is sized by its content — headline, composer, mode rail,
+     examples — which comes to about 620px however big the screen is. On a
+     laptop that already left the dark industries strip showing above the
+     fold; on an iPad it was half the screen. Measured on an iPad Pro in
+     portrait: paper ended at 660px of a 1366px viewport, so the page
+     opened half warm white and half dark band, with nothing having been
+     scrolled.
+
+     min-height, so it can only ever GROW to the screen — a short window,
+     or a phone where the content is already taller, is untouched.
+
+     svh, and only where svh exists. 100vh on iOS is the LARGE viewport
+     (toolbars collapsed), so a vh hero is taller than the screen it is
+     meant to fit and pushes its own composer under the keyboard — that is
+     what the rule this replaces was written to undo, and why there is no
+     vh fallback here: a browser too old for svh keeps the content-sized
+     hero it has today. 100svh is the viewport with the toolbars OUT, so
+     it fits on arrival and does not resize under the scroll.
+
+     The nav above is in flow, static and ~78px, so paper covers the fold
+     with the nav's height to spare — which is the point. The dark strip
+     starts just under it, and you have to scroll to reach it. */
+  @supports (height:100svh){
+    .bh-hero{
+      min-height:100svh;
+      /* Centred rather than parked at the top: on a portrait tablet the
+         extra room is ~700px, and all of it piling up under the examples
+         reads as a page that failed to load its next section. The padding
+         stays as the minimum, so nothing moves on screens that were
+         already full. */
+      display:flex;flex-direction:column;justify-content:center;
+      /* Optically centred, which is a little above the middle — the eye
+         reads a dead-centred block as sagging. The extra room goes under
+         the content as padding, so the centring does the shifting; max()
+         means a short window keeps exactly the padding it has now. */
+      padding-bottom:max(clamp(30px,5vw,60px),12svh);
+    }
+  }
   /* Smaller on a phone. 250px of panel plus two paddings is most of a
      351px screen, and the descriptions do not need that much room to be
      readable at this size. */
