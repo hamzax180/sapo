@@ -151,4 +151,50 @@ async function recordSpend(owner, usd) {
   } catch (e) { console.error("codeagent usage window record failed:", e.message); }
 }
 
-module.exports = { init, ensureIndexes, monthSpend, windowSpend, recordSpend, monthKey, ownerKey };
+/* ---- how many times, not how much ----------------------------------------
+   monthSpend answers "what has this owner cost us", which is the right
+   question for a budget and the wrong one for an allowance. A plan that says
+   "3 builds a month" has to count builds, and a cheap build and an expensive
+   one are the same single build.
+
+   Kept on the SAME monthly document as the spend, so one read answers both
+   and there is no second collection to keep in step. The existing `builds`
+   field is left alone: it counts spend events, which is not the same thing —
+   an edit that calls the model is a spend event and is not a build. */
+async function recordAction(owner, kind) {
+  const key = ownerKey(owner);
+  if (!key || (kind !== "buildCount" && kind !== "editCount")) return;
+  const month = monthKey();
+  try {
+    const c = col();
+    if (c) {
+      await c.updateOne(
+        { owner: key, month },
+        { $inc: { [kind]: 1 }, $set: { updatedAt: new Date().toISOString() } },
+        { upsert: true }
+      );
+    } else {
+      const k = key + ":" + month;
+      const row = mem.get(k) || { costUsd: 0, builds: 0 };
+      row[kind] = (row[kind] || 0) + 1;
+      mem.set(k, row);
+    }
+  } catch (e) { console.error("codeagent action record failed:", e.message); }
+}
+
+/** { builds, edits } for the current calendar month. Zero for a caller with
+    no identity at all, which is the safe answer — a gate reading 0 lets the
+    first action through and the recordAction that follows creates the row. */
+async function monthCounts(owner) {
+  const key = ownerKey(owner);
+  if (!key) return { builds: 0, edits: 0 };
+  const month = monthKey();
+  const c = col();
+  const row = c ? await c.findOne({ owner: key, month }) : mem.get(key + ":" + month);
+  return { builds: (row && row.buildCount) || 0, edits: (row && row.editCount) || 0 };
+}
+
+module.exports = {
+  init, ensureIndexes, monthSpend, windowSpend, recordSpend,
+  recordAction, monthCounts, monthKey, ownerKey
+};

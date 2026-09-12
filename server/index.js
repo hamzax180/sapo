@@ -1584,6 +1584,8 @@ app.get("/api/codeagent/usage", async (req, res, next) => {
     // figure from the one being enforced is how a credit system stops
     // being believed.
     const win = await codeAgentUsage.windowSpend(owner, CODEAGENT_WINDOW_HOURS);
+    const counts = await codeAgentUsage.monthCounts(owner);
+    const liveDeploys = (await projects.list(owner, 200)).filter((p) => p.deploymentId).length;
     res.json({
       spentUsd, plan: plan,
       budgetUsd: CODEAGENT_PLAN_BUDGET_USD[plan] || CODEAGENT_PLAN_BUDGET_USD.free,
@@ -1593,7 +1595,21 @@ app.get("/api/codeagent/usage", async (req, res, next) => {
       windowResetAt: win.resetAt,
       promptChars: CODEAGENT_PLAN_PROMPT_CHARS[plan] || CODEAGENT_PLAN_PROMPT_CHARS.free,
       promptCharsMax: MAX_PROMPT_CHARS,
-      freeEdits: CODEAGENT_FREE_EDITS, signedIn: !!codeAgentSessionUser(req)
+      freeEdits: CODEAGENT_FREE_EDITS,
+      signedIn: !!codeAgentSessionUser(req),
+      /* The allowance the gate actually enforces, so the meters in the rail
+         cannot promise something the wall then refuses. Same reasoning as the
+         spend figures above: a credit system stops being believed the moment
+         the number shown and the number enforced disagree. */
+      builds: counts.builds,
+      edits: counts.edits,
+      buildLimit: codeAgentSessionUser(req)
+        ? (isPaidPlan(plan) ? null : CODEAGENT_FREE_BUILDS)
+        : CODEAGENT_ANON_BUILDS,
+      editLimit: isPaidPlan(plan) ? null : CODEAGENT_FREE_EDITS,
+      deployLimit: isPaidPlan(plan) ? DEPLOY_PAID_LIMIT : DEPLOY_FREE_LIMIT,
+      deploysLive: liveDeploys,
+      billingConfigured: stripeLib.isBillingConfigured()
     });
   } catch (e) { next(e); }
 });
@@ -2309,6 +2325,61 @@ const CODEAGENT_PLAN_PROMPT_CHARS = {
 
 function isPaidPlan(plan) { return plan === "pro" || plan === "max"; }
 
+/**
+ * May this owner put another app on the air?
+ *
+ * Deployments are the paid line: a free account gets DEPLOY_FREE_LIMIT (0),
+ * a subscriber DEPLOY_PAID_LIMIT live at once. The cap is on what is RUNNING
+ * rather than on how many times someone presses deploy, because a container
+ * that stays up is the thing that costs money — and re-deploying an app that
+ * is already live has to stay free, or fixing a bug would count against you.
+ *
+ * FAILS OPEN when billing is not configured. A server that cannot sell a
+ * subscription must not punish people for not having one: with no Stripe
+ * keys set, /api/billing/config already answers "not available here", and
+ * gating on a plan nobody can buy would take deployment away from everyone
+ * with no route back. The moment real keys exist the gate is real.
+ *
+ * Returns null to allow, or {status, body} to refuse.
+ */
+async function deployAllowance(req, project) {
+  if (!stripeLib.isBillingConfigured()) return null;
+
+  const sessionUser = codeAgentSessionUser(req);
+  if (sessionUser && isAdminEmail(sessionUser.email)) return null;
+
+  const plan = await planOfRequest(req);
+  const cap = isPaidPlan(plan) ? DEPLOY_PAID_LIMIT : DEPLOY_FREE_LIMIT;
+
+  if (cap <= 0) {
+    return { status: 402, body: {
+      error: "Deploying is part of a paid plan — subscribe to put your app on the internet.",
+      reason: "subscription_required",
+      pricingUrl: "/pricing"
+    } };
+  }
+
+  /* Already live counts once. Re-deploying an app that is on the air is a
+     replacement, not a new slot, so it is never refused. */
+  if (project.deploymentId) return null;
+
+  const owner = appOwnerOf(req, res0(req));
+  const mine = await projects.list(owner, 200);
+  const live = mine.filter((p) => p.deploymentId && p.id !== project.id).length;
+  if (live >= cap) {
+    return { status: 402, body: {
+      error: "Your plan runs " + cap + " app" + (cap === 1 ? "" : "s") +
+        " at a time, and you have " + live + " live. Stop one, or upgrade for more.",
+      reason: "deploy_limit", live: live, limit: cap, pricingUrl: "/pricing"
+    } };
+  }
+  return null;
+}
+
+/* appOwnerOf wants a response to write an anon cookie onto; a plan check
+   never should. A throwaway stands in so the ownership read stays read-only. */
+function res0() { return { cookie: function () {}, setHeader: function () {} }; }
+
 /* One place that answers "what plan is this request on".
  *
  * The same workspace lookup was written inline in two separate gates
@@ -2381,7 +2452,31 @@ async function spendGate(owner, plan) {
 // where the product asks for something: sign in for the first few free
 // edits, then a paid plan to keep going. Both gates apply ONLY to
 // follow-ups, never the first message.
-const CODEAGENT_FREE_EDITS = Number(process.env.CODEAGENT_FREE_EDITS || 3);
+const CODEAGENT_FREE_EDITS = Number(process.env.CODEAGENT_FREE_EDITS || 10);
+
+/* ---- the free allowance, in whole actions --------------------------------
+
+   The spend budget above answers "what has this owner cost us". That is the
+   right question for abuse and the wrong one for a plan: "3 builds a month"
+   has to count builds, and a cheap build and an expensive one are one build
+   each.
+
+   Anonymous gets exactly one. It is enough to see the product do the thing
+   it claims — which is the whole argument for not putting a signup wall in
+   front of it — and not enough to live here for free.
+
+   Every number is env-tunable because the right values are a pricing
+   decision, not an engineering one, and changing them should not need a
+   deploy of new code. */
+const CODEAGENT_ANON_BUILDS = Number(process.env.CODEAGENT_ANON_BUILDS || 1);
+const CODEAGENT_FREE_BUILDS = Number(process.env.CODEAGENT_FREE_BUILDS || 3);
+
+/* Deployments are the paid line. FREE_DEPLOYS is 0 and PAID_DEPLOYS is the
+   number of apps a subscriber may have live at once — a cap on what is
+   RUNNING, not on how many times they press the button, because what costs
+   us money is a container that stays up. */
+const DEPLOY_FREE_LIMIT = Number(process.env.DEPLOY_FREE_LIMIT || 0);
+const DEPLOY_PAID_LIMIT = Number(process.env.DEPLOY_PAID_LIMIT || 2);
 
 /** Reads the sq_session cookie directly, scoped to this file rather than
     anon.js's shared userOf() — that one is Authorization-header-only on
@@ -4174,13 +4269,49 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
   //     separate personal-account concept to check a plan against.
   // Loaded once: the free-edit count needs it, and so does the model —
   // the conversation is context, not just a billing counter.
+  /* ---- the monthly allowance ---------------------------------------------
+
+     Counted per calendar month against the same owner identity projects.js
+     uses, so signing in carries an anonymous visitor's history forward
+     rather than handing them a fresh allowance.
+
+     Checked before any model or sandbox cost. An admin is exempt: the people
+     who run this have to be able to use it. */
+  const quotaOwner = appOwnerOf(req, res);
+  const quotaUser = codeAgentSessionUser(req);
+  const quotaAdmin = quotaUser && isAdminEmail(quotaUser.email);
+  const counts = quotaAdmin ? { builds: 0, edits: 0 } : await codeAgentUsage.monthCounts(quotaOwner);
+
+  if (!isFollowUp && !quotaAdmin) {
+    const plan = await planOfRequest(req);
+    if (!quotaUser) {
+      // Anonymous: one build, then the wall. Not a signup wall in front of
+      // the product — a wall after it has already shown what it does.
+      if (counts.builds >= CODEAGENT_ANON_BUILDS) {
+        sseFrame(res, "authRequired", {
+          message: "That's your free build. Sign in (it's free) to build more — your app is saved and comes with you.",
+          loginUrl: "/login", signupUrl: "/signup"
+        });
+        sseFrame(res, "done", {});
+        return res.end();
+      }
+    } else if (!isPaidPlan(plan) && counts.builds >= CODEAGENT_FREE_BUILDS) {
+      sseFrame(res, "subscribeRequired", {
+        message: "You've used your " + CODEAGENT_FREE_BUILDS + " builds this month. Subscribe to keep building.",
+        pricingUrl: "/pricing"
+      });
+      sseFrame(res, "done", {});
+      return res.end();
+    }
+  }
+
   let priorTurns = [];
   if (isFollowUp) {
-    const sessionUser = codeAgentSessionUser(req);
+    const sessionUser = quotaUser;
     if (!sessionUser) {
       sseFrame(res, "authRequired", {
         message: "Sign in (it's free) to keep editing this build.",
-        loginUrl: "/login", signupUrl: "/login"
+        loginUrl: "/login", signupUrl: "/signup"
       });
       sseFrame(res, "done", {});
       return res.end();
@@ -4190,20 +4321,34 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
        which is the point of starting a new one. The edit COUNT stays
        project-wide though - that is a billing limit on the app, and
        resetting it by opening a new chat would be a way around it. */
+    /* Scoped to the conversation, not the project: a project can hold
+       several, and they differ only in what has been said. */
     priorTurns = await projects.listTurns(project.id, chatId);
-    const allTurns = chatId ? await projects.listTurns(project.id) : priorTurns;
-    const editsUsed = Math.max(0, allTurns.filter((t) => t.role === "user").length - 1);
-    if (editsUsed >= CODEAGENT_FREE_EDITS && !isAdminEmail(sessionUser.email)) {
+
+    /* The edit allowance is MONTHLY and account-wide, not per project.
+
+       It used to count the turns on this one app, which meant the limit
+       reset itself every time you started a new app — three edits each,
+       forever. Counting the month against the account is the number the
+       plan actually promises. */
+    if (!quotaAdmin) {
       const plan = await planOfRequest(req);
-      if (!isPaidPlan(plan)) {
+      if (!isPaidPlan(plan) && counts.edits >= CODEAGENT_FREE_EDITS) {
         sseFrame(res, "subscribeRequired", {
-          message: "You've used your " + CODEAGENT_FREE_EDITS + " free edits. Subscribe to keep editing this build.",
+          message: "You've used your " + CODEAGENT_FREE_EDITS + " edits this month. Subscribe to keep editing.",
           pricingUrl: "/pricing"
         });
         sseFrame(res, "done", {});
         return res.end();
       }
     }
+  }
+
+  /* Recorded once the request is past every gate and is going to do real
+     work. Before the model call, not after: a build that fails still used a
+     build, or a failing prompt is a free infinite loop. */
+  if (!quotaAdmin) {
+    await codeAgentUsage.recordAction(quotaOwner, isFollowUp ? "editCount" : "buildCount");
   }
 
   // Per-owner spend cap (§9 "Abuse") — checked AFTER the free chit-chat
@@ -4910,6 +5055,11 @@ app.post("/api/deploy/:key/deploy", deployLimiter, async (req, res, next) => {
       return res.status(503).json({ error: "deployments are not available in this environment" });
     }
     const project = await ownedProjectOr404(req, res); if (!project) return;
+
+    // Before any work on the deploy plane: a refusal after createProject()
+    // would leave an orphan project there for an app that never shipped.
+    const refused = await deployAllowance(req, project);
+    if (refused) return res.status(refused.status).json(refused.body);
     const cookie = cookieOf(req);
 
     // The source is the head revision's file map, which is already
