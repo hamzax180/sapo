@@ -420,7 +420,44 @@
     @keyframes agSent{from{opacity:0}to{opacity:1}}
   }
 
-  .ag-say{padding:6px 2px 14px 35px;font-size:1rem;line-height:1.62;color:var(--ink);opacity:0;animation:agIn .35s var(--ease) forwards}
+  .ag-say{position:relative;padding:6px 2px 14px 38px;font-size:1rem;line-height:1.62;color:var(--ink);opacity:0;animation:agIn .35s var(--ease) forwards}
+
+  /* The agent gets a face.
+
+     .ag-say already reserved a 35px gutter for one and nothing was ever
+     drawn in it, so every reply began with an empty column — the user side
+     has a bubble, this side had a blank. It is the Souqi bag on a chip: a
+     dark tile, a hairline of light along its top edge, and a cool halo
+     underneath, so it reads as hardware the reply came out of rather than
+     as a sticker.
+
+     A ::before rather than an element in every row: it is decoration, it
+     must never be selected with the reply text, and it costs nothing per
+     message. */
+  .ag-say::before{
+    content:"";position:absolute;left:0;top:8px;width:27px;height:27px;
+    border-radius:9px;box-sizing:border-box;
+    background:
+      url("/assets/logo.png") center / 15px 15px no-repeat,
+      linear-gradient(155deg,#1b2430 0%,#0e141c 100%);
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,.16),
+      inset 0 0 0 1px rgba(255,255,255,.07),
+      0 4px 14px -6px rgba(26,166,223,.55);
+  }
+  /* The halo. Separate layer so it can glow without the chip edge blurring,
+     and behind the tile so the logo stays crisp. */
+  .ag-say::after{
+    content:"";position:absolute;left:-3px;top:5px;width:33px;height:33px;
+    border-radius:12px;pointer-events:none;z-index:-1;
+    background:radial-gradient(circle at 50% 45%,rgba(26,166,223,.30),transparent 70%);
+  }
+  @media (max-width:900px){
+    .ag-say{padding-left:34px}
+    .ag-say::before{width:24px;height:24px;border-radius:8px;background-size:auto,auto;
+      background-size:13px 13px,auto}
+    .ag-say::after{width:30px;height:30px}
+  }
   /* Per-word reveal for the agent's own text (see revealWords()) — .ag-say
      itself still fades in as a block via agIn above; this staggers the
      WORDS inside it a beat apart on top of that, which is what actually
@@ -533,19 +570,31 @@
      composer goes down. pointer-events:none because it is a picture of
      something that has already gone. */
   .ag-hero-ghost{
-    pointer-events:none;z-index:6;opacity:1;filter:blur(0px);
+    pointer-events:none;z-index:6;opacity:1;
     transform:translateY(0) scale(1);transform-origin:50% 50%;
-    transition:opacity .40s ease-out,
-               transform .60s cubic-bezier(.16,1,.3,1),
-               filter .40s ease-out}
-  .ag-hero-ghost.out{opacity:0;filter:blur(7px);transform:translateY(-22px) scale(.97)}
+    /* opacity and transform only — both composited. The blur that was here
+       ran a filter over three full-width clones every frame, which is the
+       most expensive thing a phone could have been asked to do during the
+       one moment the composer needs a clear 60fps. A slightly larger rise
+       and a scale down read as depth without it. */
+    transition:opacity .44s ease-out,
+               transform .66s cubic-bezier(.32,.72,0,1)}
+  .ag-hero-ghost.out{opacity:0;transform:translateY(-30px) scale(.965)}
+  /* Staggered: the greeting goes first, the tiles behind it, the examples
+     last. Three things leaving on the same frame is a flicker; leaving in
+     the order you read them is a movement. */
+  .ag-hero-ghost:nth-of-type(2){transition-delay:.05s}
+  .ag-hero-ghost:nth-of-type(3){transition-delay:.10s}
 
   /* The first line of the conversation, arriving under the composer tail. */
   @keyframes agFirstIn{
-    from{opacity:0;transform:translateY(14px) scale(.985);filter:blur(3px)}
-    to{opacity:1;transform:none;filter:blur(0)}
+    from{opacity:0;transform:translateY(16px)}
+    to{opacity:1;transform:none}
   }
-  .ag-user.ag-first-in{animation:agFirstIn .46s cubic-bezier(.16,1,.3,1) .08s both}
+  /* Same curve and a delay that puts it mid-flight, so it is already settling
+     as the composer lands rather than starting afterwards. No blur here
+     either: it sits directly behind the bar that has to stay smooth. */
+  .ag-user.ag-first-in{animation:agFirstIn .5s cubic-bezier(.32,.72,0,1) .14s both}
   @media (prefers-reduced-motion:reduce){
     .ag-hero-ghost{display:none}
     .ag-user.ag-first-in{animation:none}
@@ -553,8 +602,24 @@
 
   .ag-composer.ag-flipping{
     will-change:transform;
-    box-shadow:0 26px 60px -28px rgba(0,0,0,.55);
-    transition:transform .52s cubic-bezier(.16,1,.3,1),box-shadow .52s ease-out}
+    /* The shadow is STATIC for the length of the flight, and the transition
+       lists transform only.
+
+       It used to animate box-shadow alongside it, and a moving shadow is a
+       repaint of the blurred area on every single frame — the one thing in
+       here that could not run on the compositor, and the reason a 0.5s move
+       could drop frames on a phone. Painted once into the layer that
+       will-change already creates, it costs nothing to carry along.
+
+       The curve is gentler than the expo-out it replaces: that one spent
+       most of its distance in the first few frames and then crawled, which
+       reads as a lurch followed by a wait rather than as one movement. */
+    box-shadow:0 22px 50px -26px rgba(0,0,0,.45);
+    transition:transform .62s cubic-bezier(.32,.72,0,1)}
+  .ag-composer.ag-flipping .ag-box{
+    /* The glow the box carries is also a shadow; holding it still while the
+       bar travels keeps the whole thing to one composited layer. */
+    transition:none !important}
   @media (prefers-reduced-motion:reduce){
     .ag-composer.ag-flipping{transition:none;box-shadow:none}
   }
@@ -3988,7 +4053,7 @@
     el.classList.add("ag-flipping");
 
     requestAnimationFrame(function () {
-      el.style.transition = "transform .52s cubic-bezier(.16,1,.3,1)";
+      el.style.transition = "transform .62s cubic-bezier(.32,.72,0,1)";
       el.style.transform = "translate(0,0) scale(1,1)";
     });
 
@@ -3999,7 +4064,11 @@
       el.classList.remove("ag-flipping");
       el.removeEventListener("transitionend", onEnd);
     };
-    const onEnd = function (e) { if (e.propertyName === "transform") clean(); };
+    /* e.target === el matters: transitionend BUBBLES. Any descendant of the
+       composer finishing a transform — a button settling, the box's own
+       glow — reached this listener and tore the flight down one frame in,
+       which is why the bar appeared to teleport again. */
+    const onEnd = function (e) { if (e.target === el && e.propertyName === "transform") clean(); };
     el.addEventListener("transitionend", onEnd);
     // transitionend does not fire if the element is re-laid-out mid-flight.
     setTimeout(clean, 900);
