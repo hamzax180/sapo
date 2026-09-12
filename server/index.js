@@ -4739,22 +4739,6 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
         sseFrame(res, "done", {});
         return res.end();
       }
-      /* The build is charged HERE, not at the gate.
-
-         assessPrompt answers a vague first prompt with a question rather than
-         an app — "what kind of work do you want to show?" — and charging
-         before that meant a visitor's one free build was spent on being asked
-         something. They would answer, hit the signup wall, and have never
-         seen the product do anything. The single free build has to BE a
-         build.
-
-         Still before the expensive call, not after: a build that fails has
-         used its slot, or a prompt that reliably fails is an unlimited
-         model budget. */
-      if (!quotaAdmin) {
-        await codeAgentUsage.recordAction(quotaOwner, "buildCount");
-      }
-
       /* What they said ACROSS the conversation, not just the line that tipped
          it into buildable. Without this, the answers given to the agent's own
          questions never reach the thing doing the building. */
@@ -4793,6 +4777,31 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
         return res.end();
       }
     }
+  }
+
+  /* THE BUILD IS CHARGED HERE: past the confirm step, on a request that is
+     going to build.
+
+     It used to be charged the moment assessPrompt decided the prompt was
+     clear — which was right when that was the last gate, and became wrong
+     the day the confirm step was added after it. A first-time visitor typed
+     a prompt, the server spent their one free build, showed them a PLAN, and
+     ended the stream. They pressed "Build it", the re-POST arrived with the
+     counter already at its limit, and they got the signup wall having never
+     seen the product build anything at all.
+
+     Which is the exact failure the note in the old position was written to
+     prevent — it said the single free build has to BE a build — reintroduced
+     one layer further up. Reproduced against production before this line
+     moved, and after it: confirm, then build, then the second build is the
+     one that hits the wall.
+
+     Still BEFORE the expensive call, not after. A build that fails has used
+     its slot; otherwise a prompt that reliably fails is an unlimited model
+     budget. And still only for a fresh build — a follow-up is charged as an
+     edit, further up, for the same reason and at the same moment. */
+  if (!isFollowUp && !quotaAdmin) {
+    await codeAgentUsage.recordAction(quotaOwner, "buildCount");
   }
 
   // ---- WebContainers flow: server proposes files, client builds ----
