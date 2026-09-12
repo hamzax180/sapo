@@ -302,43 +302,31 @@ initIdempotency({ getMasterDb });
    before: every other gate still applies, and refusing everyone because
    Mongo blinked is a worse outage than the window it closes.
    ================================================================= */
-const WS_TTL_MS = 5 * 60 * 1000;
-const WS_MAX = 2000;
-const wsCache = new Map();   // wsId -> { ws, at }
+/* THE EPOCH LIVES IN THE MASTER DATABASE, mirrored from the user row.
 
-async function cachedWsContext(wsId) {
-  const key = String(wsId || "");
-  const hit = wsCache.get(key);
-  if (hit && Date.now() - hit.at < WS_TTL_MS) return hit.ws;
-  const ws = await resolveWsContext(wsId);
-  if (wsCache.size >= WS_MAX) wsCache.clear();
-  wsCache.set(key, { ws: ws, at: Date.now() });
-  return ws;
-}
+   The first version read the user's own row, which is where the value
+   belongs — and cost 195ms per authenticated request in production,
+   measured. Not because the query is slow: the row is in the TENANT
+   database, which means resolving the workspace and then opening a
+   SECOND MongoClient to it. On serverless every cold instance pays that
+   handshake, and cold instances are most of them.
 
-/* users.id had no index. The collections are small enough that a scan is
-   not what costs anything today, but this read now happens on every
-   authenticated request, and "small enough" is a property of this month.
-   Created once per workspace per process, and a failure is ignored: an
-   index is an optimisation, and not having one must never refuse a
-   request. */
-const indexed = new Set();
-function ensureUserIndex(ws) {
-  const key = ws && ws.workspaceId;
-  if (!key || indexed.has(key)) return;
-  indexed.add(key);
-  Promise.resolve()
-    .then(() => dbAdapter.ensureIndex && dbAdapter.ensureIndex(ws, "users", { id: 1 }))
-    .catch(() => {});
-}
+   The master connection is already open on every request that does
+   anything. So revocation writes to both places — the user row, which
+   other code reads, and a master document keyed by user id, which is
+   what this reads. One findOne on _id, on a pooled connection, indexed
+   by definition.
+
+   Absent means never revoked, which is correct because revoke always
+   writes it, and nothing in this database carries a bumped epoch from
+   before the mirror existed — checked rather than assumed. */
+const REVOCATIONS = "session_epochs";
 
 async function liveSessionEpoch(wsId, userId) {
-  const ws = await cachedWsContext(wsId);
-  ensureUserIndex(ws);
-  const user = await dbAdapter.findOne(ws, "users", userId);
-  // No row, or a deactivated one, is not "epoch 0" — it is "no session".
-  if (!user || user.active === false) return null;
-  return user.sessionEpoch || 0;
+  const db = getMasterDb();
+  if (!db) return null;                 // caller treats a throw/null as "cannot check"
+  const row = await db.collection(REVOCATIONS).findOne({ _id: userId }, { projection: { epoch: 1 } });
+  return row ? (row.epoch || 0) : 0;
 }
 
 /** Strip the credentials off the REQUEST, not just the response. Clearing
@@ -369,7 +357,9 @@ app.use(async (req, res, next) => {
   try {
     const mine = d.sessionEpoch || 0;
     const live = await liveSessionEpoch(d.wsId, d.id);
-    if (live === mine) return next();
+    // null = the database is not reachable, which is not evidence of a
+    // revocation. Fail open, as every other level here does.
+    if (live === null || live === mine) return next();
 
     stripSession(req);
     res.clearCookie("sq_session", { path: "/" });
@@ -3011,6 +3001,21 @@ app.post("/api/account/sessions/revoke", async (req, res, next) => {
     const epoch = Date.now();
     const updated = await dbAdapter.updateOne(ws, "users", sessionUser.id, { sessionEpoch: epoch });
     if (!updated) return res.status(404).json({ error: "account not found" });
+
+    /* Mirrored into the master database, which is what the per-request
+       check reads — see liveSessionEpoch. Written AFTER the user row and
+       before the new cookie goes out, so the window where a revoked token
+       still works is the width of one await rather than anything a person
+       could use. If this write fails the revoke fails with it: reporting
+       success for a sign-out that did not take is the whole bug this
+       feature was found to have. */
+    const master = getMasterDb();
+    if (!master) return res.status(503).json({ error: "cannot sign other sessions out right now — try again in a moment" });
+    await master.collection(REVOCATIONS).updateOne(
+      { _id: sessionUser.id },
+      { $set: { epoch: epoch, at: new Date(), wsId: sessionUser.wsId || null } },
+      { upsert: true }
+    );
 
     const session = {
       id: sessionUser.id, name: sessionUser.name, email: sessionUser.email,
