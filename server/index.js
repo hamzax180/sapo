@@ -5338,14 +5338,33 @@ app.post("/api/codeagent/:key/publish", codeAgentLimiter, express.json({ limit: 
       return res.status(400).json({ error: "dist files required — build the project first" });
     }
 
-    const totalBytes = distFiles.reduce((n, f) => n + (f.size || 0), 0);
+    /* Measured from the PAYLOAD, not from what the payload says about
+       itself. This summed f.size — a number the client sends alongside
+       the content and can set to anything — so the cap it enforced was
+       whatever the uploader claimed, and the only real ceiling was
+       express's own 12mb body limit.
+
+       A limit computed from a value the thing being limited supplies is
+       not a limit. */
+    const totalBytes = distFiles.reduce(function (n, f) {
+      return n + (typeof f.base64 === "string" ? f.base64.length : 0);
+    }, 0);
     if (totalBytes > PUBLISH_MAX_BYTES) {
       return res.status(413).json({ error: "this app's build is too large to publish (" + (totalBytes / 1024 / 1024).toFixed(1) + " MB) — trim large assets and try again" });
     }
 
     const publicSlug = (project.published && project.published.publicSlug) || await projects.uniquePublicSlug(project.slug);
-    const filesMap = {};
-    for (const f of distFiles) filesMap[f.path] = f.base64;
+    /* A null prototype, because the keys are paths the client chose. On a
+       plain object a file called __proto__ assigns the prototype instead
+       of a property and vanishes; on this one it is simply a file called
+       __proto__. Nothing downstream can be reached either way —
+       servePublishedSite reads with hasOwnProperty — but a file that
+       disappears without a word is its own small bug. */
+    const filesMap = Object.create(null);
+    for (const f of distFiles) {
+      if (!f || typeof f.path !== "string" || typeof f.base64 !== "string") continue;
+      filesMap[f.path] = f.base64;
+    }
 
     await projects.patch(project.id, {
       published: { publicSlug, files: filesMap, publishedAt: new Date().toISOString(), revisionId: project.headRevision }
