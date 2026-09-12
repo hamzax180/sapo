@@ -6,9 +6,19 @@
 const { spawnSync, spawn } = require("child_process");
 
 (async () => {
-  // ── Choose MongoDB source ────────────────────────────────────────────
-  // CI provides MONGODB_URI via a service container (fast, no download).
-  // Locally, we fall back to MongoMemoryServer.
+  /* ── Choose MongoDB source ────────────────────────────────────────────
+     A real cluster if one is configured — CI provides MONGODB_URI through a
+     service container, and a developer's own .env names theirs. Otherwise
+     an in-memory mongod, which needs no setup but does need to download and
+     start a binary, and fails by TIMING OUT rather than by saying so: this
+     suite sat broken for a while behind a MongoNetworkTimeoutError to a
+     random localhost port, which reads like a bug in the app.
+
+     Reading .env is what makes `npm run smoke-test` work on a machine that
+     already has a database configured. It is safe on any of them because
+     DB_NAME below is overridden to a _test database — this suite seeds and
+     wipes, and must never be pointed at the one holding real rows. */
+  try { require("dotenv").config(); } catch (e) { /* optional */ }
   let mongod = null;
   let uri = process.env.MONGODB_URI || "";
 
@@ -17,7 +27,7 @@ const { spawnSync, spawn } = require("child_process");
     mongod = await MongoMemoryServer.create();
     uri = mongod.getUri();
   } else {
-    console.log("Using external MongoDB:", uri);
+    console.log("Using the configured MongoDB, in database " + "merveks_sap_test" + " (not the one in DB_NAME)");
   }
 
   const env = Object.assign({}, process.env, {
@@ -127,10 +137,37 @@ const { spawnSync, spawn } = require("child_process");
     r = await fetch(base + "/clients/" + cid, { method: "DELETE", headers: authHeaders }); del = await r.json();
     del.ok ? pass("DELETE /clients/:id → ok") : await fail("delete failed");
 
-    // Password auto-hashed on user insert
+    /* A password is hashed on the way in, and the hash does not come back.
+
+       This used to read the hash straight out of the RESPONSE — which was
+       the only way to see it, and also the bug: GET /users, GET /users/:id
+       and the workspace export all served every bcrypt hash in the
+       workspace to anyone holding a session. Credential fields are stripped
+       at every exit now, so the assertion moved to where the password
+       actually lives, and gained its other half: the row is hashed, AND the
+       response carries nothing. */
     r = await fetch(base + "/users", { method: "POST", headers: authHeaders, body: JSON.stringify({ id: "U-TEST", name: "T", email: "t@x.com", role: "Trade Specialist", active: true, password: "plain123" }) });
     nu = await r.json();
-    nu.password && nu.password.startsWith("$2") ? pass("POST /users → password auto-hashed") : await fail("password not hashed");
+    if (nu.password !== undefined) await fail("POST /users echoed a password field back");
+    pass("POST /users → the response carries no password");
+
+    {
+      const { MongoClient } = require("mongodb");
+      const probe = new MongoClient(uri);
+      try {
+        await probe.connect();
+        /* By the id the SERVER minted, not the one the body proposed:
+           POST /:c ignores a client-supplied id on purpose, so "U-TEST"
+           is never what got written. Falls back to the address when the
+           response carries no id. */
+        const row = await probe.db(env.DB_NAME).collection("users")
+          .findOne(nu.id ? { id: nu.id } : { email: "t@x.com" });
+        if (!row) await fail("the user was not written at all");
+        else if (row.password === "plain123") await fail("the password was stored in plaintext");
+        else if (!String(row.password || "").startsWith("$2")) await fail("the stored password is not a bcrypt hash: " + String(row.password).slice(0, 12));
+        else pass("POST /users → the stored password is a bcrypt hash");
+      } finally { try { await probe.close(); } catch (e) {} }
+    }
 
     // AI guard (no key → 503)
     r = await fetch(base + "/ai/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ prompt: "hi" }) });
