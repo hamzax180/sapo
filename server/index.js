@@ -1860,6 +1860,7 @@ app.get("/api/projects/:key/thumb", async (req, res, next) => {
     const owner = appOwnerOf(req, res);
     const project = await resolveProject(req.params.key, owner);
     if (!project) return res.status(404).json({ error: "project not found" });
+    if (!projects.owns(project, owner)) return res.status(403).json({ error: "not your project" });
 
     if (!project.deploymentId) return res.json({ mode: "none", reason: "not-deployed" });
     if (!deployplane.isConfigured()) return res.json({ mode: "none", reason: "deploy-plane-off" });
@@ -1937,10 +1938,33 @@ app.delete("/api/projects/:key", async (req, res, next) => {
 });
 
 /** Accept either a project id or a slug in the URL. */
+/**
+ * A project key is either its id or its slug, and the two are NOT equally
+ * safe to resolve.
+ *
+ * A slug is looked up THROUGH the owner: findBySlug filters on ownerUserId
+ * or ownerAnonId, so a slug you do not own simply does not exist for you.
+ * An id is not — projects.get() is a primary-key read with no owner in it
+ * at all, because several callers legitimately need the row before they can
+ * decide anything about it (the claim route has to see an unclaimed
+ * project in order to claim it).
+ *
+ * So this function answers "which project is this key" and NOT "may you
+ * have it". Every caller owes it a
+ *
+ *     if (!projects.owns(project, owner)) return res.status(403)...
+ *
+ * on the very next line. Three routes forgot — both /api/security/scan
+ * endpoints and /api/projects/:key/thumb — and with a project id alone, no
+ * cookie and no token, a stranger could read another account's title,
+ * deploy state, dependency advisories and secret-scan findings. There is a
+ * test that now walks every call site below and fails if one is missing;
+ * if you add a caller, it will tell you.
+ */
 async function resolveProject(key, owner) {
   const k = String(key || "");
-  if (/^pr_[A-Za-z0-9_-]{6,40}$/.test(k)) return projects.get(k);
-  return projects.findBySlug(k.toLowerCase(), owner);
+  if (/^pr_[A-Za-z0-9_-]{6,40}$/.test(k)) return projects.get(k);   // by id: UNSCOPED, caller must check owns()
+  return projects.findBySlug(k.toLowerCase(), owner);               // by slug: already scoped to the owner
 }
 
 /** One sentence about what was built, from the config itself. */
@@ -5927,6 +5951,7 @@ app.post("/api/security/scan/:projectKey", async (req, res, next) => {
     const owner = appOwnerOf(req, res);
     const project = await resolveProject(req.params.projectKey, owner);
     if (!project) return res.status(404).json({ error: "project not found" });
+    if (!projects.owns(project, owner)) return res.status(403).json({ error: "not your project" });
     
     let source = {};
     try {
@@ -5982,6 +6007,7 @@ app.get("/api/security/scan/:projectKey/details", async (req, res, next) => {
     const owner = appOwnerOf(req, res);
     const project = await resolveProject(req.params.projectKey, owner);
     if (!project) return res.status(404).json({ error: "project not found" });
+    if (!projects.owns(project, owner)) return res.status(403).json({ error: "not your project" });
     
     let source = {};
     try {
