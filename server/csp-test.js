@@ -219,5 +219,38 @@ check("the allowance is mounted before the global cors()", () => {
     "cors() is mounted first, so it answers the preflight for these paths without an Access-Control-Allow-Origin, and the POST that follows never runs");
 });
 
+/* ---- the fallback preview is not the platform either ----------------
+
+   The builder's preview has two paths. The WebContainer one is served
+   from webcontainer-api.io and is a foreign origin already. The fallback
+   is a srcdoc document — and srcdoc inherits the embedding page's origin,
+   so model-written code, eval'd, ran as souqi.site with the builder's own
+   session cookie one fetch away.
+
+   Usually that is a person's own app from their own prompt, which is only
+   a way to attack yourself. It stops being that the moment the prompt came
+   from somebody else. */
+
+const codeHtml = fs.readFileSync(path.join(__dirname, "..", "public", "code.html"), "utf8");
+
+check("the srcdoc preview is sandboxed, and before it navigates", () => {
+  const i = codeHtml.indexOf("agPvIframe.srcdoc = html;");
+  assert.ok(i > 0, "the srcdoc preview is gone");
+  const before = codeHtml.slice(Math.max(0, i - 1200), i);
+  const tag = 'setAttribute("sandbox", "';
+  const k = before.indexOf(tag);
+  assert.ok(k >= 0, "no sandbox is set before srcdoc is assigned — a sandbox attribute only takes effect on the next navigation, and assigning srcdoc IS it");
+  const flags = before.slice(k + tag.length, before.indexOf('"', k + tag.length));
+  assert.ok(flags.indexOf("allow-same-origin") < 0, "allow-same-origin is set on the preview, which hands model-written code the platform origin back");
+  assert.ok(flags.indexOf("allow-scripts") >= 0, "the preview lost allow-scripts and will render nothing");
+});
+
+check("the WebContainer preview is left alone", () => {
+  const i = codeHtml.indexOf("agPvIframe.src = url;");
+  assert.ok(i > 0, "the WebContainer preview is gone");
+  const before = codeHtml.slice(Math.max(0, i - 600), i);
+  assert.ok(before.indexOf('removeAttribute("sandbox")') >= 0, "the sandbox is not cleared before the WebContainer URL loads — the same element may have just held a sandboxed srcdoc, and an opaque origin costs that dev server the storage it runs on");
+});
+
 if (failures) { console.log("\n✗ " + failures + " CSP CHECK(S) FAILED\n"); process.exit(1); }
-console.log("\n✓ ALL CSP TESTS PASSED (11)\n");
+console.log("\n✓ ALL CSP TESTS PASSED (13)\n");

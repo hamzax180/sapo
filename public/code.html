@@ -5378,6 +5378,33 @@
         '}catch(e){' +
         'document.getElementById("root").innerHTML="<pre style=\\"white-space:pre-wrap;padding:16px;color:#b3261e;font:12px monospace\\">Preview error: "+(e&&e.message?e.message:e)+"</pre>";' +
         '}<' + '/script></body></html>';
+      /* THE FALLBACK PREVIEW RUNS IN AN OPAQUE ORIGIN.
+
+         A srcdoc document inherits the embedding page's origin — the
+         comment further up says so, about relative links. The same
+         inheritance applies to everything else: this is model-written code,
+         eval'd, and without a sandbox it ran as souqi.site with the
+         builder's own session cookie one fetch away.
+
+         Normally it is the person's own app from their own prompt, which is
+         only a way to attack yourself. It stops being that the moment a
+         prompt is something they were handed — "try this one" — and the app
+         it generates quietly reads /api/projects on the way past.
+
+         allow-scripts without allow-same-origin is the whole point: React,
+         Babel and Tailwind still load and still run, eval still works
+         because a sandboxed frame inherits this page's CSP, and the click
+         and submit guards are inside the document rather than reached from
+         out here. What goes is the origin.
+
+         Set BEFORE the assignment, because a sandbox attribute only takes
+         effect on the next navigation — and assigning srcdoc is it.
+
+         The WebContainer path below deliberately does NOT get this: that
+         preview is served from webcontainer-api.io, already a different
+         origin, and it needs storage and a service worker of its own that
+         an opaque origin would take away. */
+      agPvIframe.setAttribute("sandbox", "allow-scripts allow-popups allow-modals allow-forms");
       agPvIframe.srcdoc = html;
     } else {
       /* No WebContainer, and no entry component to fall back to.
@@ -5465,6 +5492,11 @@
       renderAppPreview(fileContents);
     } else if (url) {
       // Legacy/reload preview URL
+      /* Not sandboxed — see the note on the srcdoc path. This URL is
+         already a foreign origin, and an opaque one would cost the dev
+         server the storage it runs on. Cleared explicitly because the
+         same element may have held a sandboxed srcdoc a moment ago. */
+      agPvIframe.removeAttribute("sandbox");
       agPvIframe.src = url;
     }
     const bootEl = $("agPvBoot");
