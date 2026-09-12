@@ -76,12 +76,44 @@ function makeAuth({ JWT_SECRET, getMasterDb }) {
     let token = (req.headers.authorization || "").replace(/^Bearer\s+/i, "").trim();
     if (!token) token = readCookie(req, "sq_session") || "";
     if (!token) return next(httpError(401, "unauthorized", "authentication required"));
+
+    let decoded;
     try {
-      req.session = jwt.verify(token, JWT_SECRET);
-      return next();
+      decoded = jwt.verify(token, JWT_SECRET);
     } catch (e) {
       return next(httpError(401, "invalid_token", "invalid or expired token"));
     }
+
+    /* A SCOPED TOKEN IS NOT A SESSION.
+       This server signs narrow grants with the same secret as sessions —
+       { anonId, scope:"anon" } for a visitor who has not signed up, and
+       { wsId, email, scope:"portal-edit" } for a fifteen-minute storefront
+       edit. Verifying the signature was the only check here, so both of
+       them arrived as req.session and every gate downstream read whatever
+       claims they happened to carry.
+
+       The anon grant was harmless: no email, no role, refused everywhere.
+       The edit grant was not. It carries the workspace owner's EMAIL, and
+       requireAdmin compares an email against ADMIN_EMAILS — so on any
+       deployment where an admin also owns a workspace, which is the normal
+       case and is the case here, a token minted to let someone drag a
+       heading around opened GET /api/admin/overview and
+       GET /api/admin/accounts: every account on the platform, its plan and
+       its revenue. Confirmed against the running server — 200 on both.
+
+       The tenant CRUD survived only by accident: a scoped token has no
+       role, and authorizeCrud refuses an unknown one. That is defence in
+       depth doing its job, not a reason to leave the front door open.
+
+       401 rather than 403, because the caller has presented something that
+       is not a session at all — the answer is "authenticate", not "you may
+       not". */
+    if (decoded && decoded.scope) {
+      return next(httpError(401, "invalid_token", "this token is not a session"));
+    }
+
+    req.session = decoded;
+    return next();
   }
 
   async function tenantScope(req, res, next) {

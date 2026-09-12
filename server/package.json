@@ -39,7 +39,8 @@
     "test:ratelimit": "node ratelimit-test.js",
     "test:ownership": "node ownership-test.js",
     "test:leak": "node leak-test.js",
-    "test:injection": "node injection-test.js"
+    "test:injection": "node injection-test.js",
+    "test:scope": "node scope-test.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.122.0",
