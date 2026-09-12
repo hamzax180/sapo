@@ -3170,11 +3170,52 @@ app.delete("/api/account", async (req, res, next) => {
     const ok = stored.startsWith("$2") ? await bcrypt.compare(password, stored) : false;
     if (!ok) return res.status(401).json({ error: "that password doesn't match" });
 
-    const owner = anon.ownerOf(req, res);
-    for (const p of await projects.list(owner, 500)) await projects.remove(p.id);
+    /* WHOSE projects — from the VERIFIED session, not anon.ownerOf.
+
+       anon.ownerOf reads the user only from an Authorization header, and
+       no page in this app sends one. So this listed by anon id alone:
+       projects built on another device were not matched and survived the
+       deletion, and for anyone with no sq_anon cookie at all — a fresh
+       browser, or one whose 30-day anon grant had lapsed — the filter
+       matched nothing and NONE of their projects were removed. Measured:
+       an account deleted this way left both of its projects behind.
+
+       The session is already verified above, so its id is the right
+       answer. The anon id stays in the owner alongside it, because
+       anything built before they signed up is theirs too. */
+    const owner = { userId: sessionUser.id, anonId: anon.anonIdOf(req) };
+
+    /* Until there are none left. list() is capped, and one capped pass is
+       a deletion that silently stops at the cap. */
+    for (let pass = 0; pass < 40; pass++) {
+      const batch = await projects.list(owner, 200);
+      if (!batch.length) break;
+      for (const p of batch) await projects.remove(p.id);
+    }
+
+    /* The account's OWN DATABASE, which this did not touch.
+
+       Deleting the user row and the workspace record left the tenant
+       database — clients, orders, invoices, audit, all of it — sitting
+       there with nothing pointing at it. DELETE /api/ws/:id, the other
+       way out of this product, has always purged it. "Delete my account"
+       has to mean the same thing, or it is not deletion. */
+    const masterDb = getMasterDb();
+    if (masterDb && sessionUser.wsId) {
+      /* Written BEFORE the purge and to the MASTER audit, which is not in
+         the database being erased — an audit of a deletion has to outlive
+         the deletion. Same shape the workspace-erasure route uses. */
+      try {
+        await writeMasterAudit(masterDb, {
+          requestId: req.id, actor: sessionUser.email, wsId: sessionUser.wsId,
+          action: "account.delete", entityId: sessionUser.id,
+          summary: "Account deleted by its owner"
+        });
+      } catch (e) { /* an audit must never block the erasure it describes */ }
+    }
 
     await dbAdapter.deleteOne(ws, "users", sessionUser.id);
-    const masterDb = getMasterDb();
+    try { await dbAdapter.purgeWorkspace(ws); } catch (e) { /* best effort; the records below still go */ }
     if (masterDb && sessionUser.wsId) await masterDb.collection("workspaces").deleteOne({ id: sessionUser.wsId });
 
     res.clearCookie("sq_session", { path: "/" });
