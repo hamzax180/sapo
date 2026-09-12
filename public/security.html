@@ -327,12 +327,30 @@
     #agDeskSidebarToggle:not(.on) span{display:none !important}
     #agDeskSidebarToggle:not(.on){padding:4px !important;width:30px !important;height:30px !important;
       left:calc(var(--sb-w) - 40px) !important;justify-content:center !important}
-    .ag-history:not(.on) ~ #agDeskSidebarToggle,
-    .ag-history:not(.on) ~ * #agDeskSidebarToggle{opacity:0;pointer-events:none;transition:opacity .18s ease}
-    .ag-history:not(.on):hover ~ #agDeskSidebarToggle,
-    .ag-history:not(.on):hover ~ * #agDeskSidebarToggle,
-    .ag-history:not(.on).hover-open ~ #agDeskSidebarToggle,
-    .ag-history:not(.on).hover-open ~ * #agDeskSidebarToggle{opacity:1;pointer-events:auto}
+    /* HIDING IT IS A HOVER FEATURE, SO IT IS SCOPED LIKE ONE.
+
+       Only a pointer that can hover can bring the button back, so on a
+       touch screen these two rules are a trapdoor: the toggle is
+       opacity:0 and pointer-events:none the moment the sidebar is
+       collapsed, and the hover that un-hides it never happens. On an
+       iPad the sidebar could not be opened at all — measured on
+       /projects, /deployments and /security, where the rail sits at 44px
+       and the only control that opens it is unreachable. (The builder
+       escaped it by opening the sidebar on a tap of the rail itself, and
+       by starting open; the same trapdoor is in its CSS.)
+
+       The guard is the one the hover-to-open rule above already uses, so
+       the two halves of the behaviour now appear and disappear together.
+       Without a hover pointer the toggle simply stays visible, which is
+       what every touch device needs anyway. */
+    @media (hover:hover) and (pointer:fine){
+      .ag-history:not(.on) ~ #agDeskSidebarToggle,
+      .ag-history:not(.on) ~ * #agDeskSidebarToggle{opacity:0;pointer-events:none;transition:opacity .18s ease}
+      .ag-history:not(.on):hover ~ #agDeskSidebarToggle,
+      .ag-history:not(.on):hover ~ * #agDeskSidebarToggle,
+      .ag-history:not(.on).hover-open ~ #agDeskSidebarToggle,
+      .ag-history:not(.on).hover-open ~ * #agDeskSidebarToggle{opacity:1;pointer-events:auto}
+    }
     #agDeskSidebarToggle.on span{display:none !important}
     #agDeskSidebarToggle.on{padding:4px !important;width:30px !important;height:30px !important;
       justify-content:center !important;left:calc(var(--sb-w) - 40px) !important}
