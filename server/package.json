@@ -35,7 +35,11 @@
     "test:stripe": "node stripe-test.js",
     "test:secrets": "node secretscan-test.js",
     "test:csp": "node csp-test.js",
-    "test:voice": "node voice-test.js"
+    "test:voice": "node voice-test.js",
+    "test:ratelimit": "node ratelimit-test.js",
+    "test:ownership": "node ownership-test.js",
+    "test:leak": "node leak-test.js",
+    "test:injection": "node injection-test.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.122.0",

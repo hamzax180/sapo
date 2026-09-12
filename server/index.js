@@ -150,7 +150,33 @@ app.use(securityHeaders);
 app.use(requestLog);
 
 // Reusable limiters for the abuse-prone endpoints.
-const loginLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 30, key: (req) => (req.ip || "") + ":" + ((req.body && req.body.email) || "") });
+/* TWO limits on the way in, because one of them answers a question the
+   other cannot.
+
+   Per (address, account) catches someone guessing ONE person's password:
+   thirty tries a quarter-hour against a bcrypt hash is nothing.
+
+   Per address catches the attack that actually happens. Credential
+   stuffing does not guess many passwords for one account, it tries ONE
+   leaked password against thousands of accounts — and under the first
+   key alone every new email address is a brand-new bucket with a fresh
+   thirty, so a stuffing run from a single host was never throttled at
+   all. The second limiter is the ceiling across every account that host
+   touches.
+
+   120 is deliberately loose. A household, an office or a phone network
+   behind one NAT address shares it, and locking out a whole office to
+   slow one attacker is a bad trade — the per-account limit is what
+   protects the individual, and this only has to make a run of thousands
+   of attempts impractical. */
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, max: 30, prefix: "rl-login-acct",
+  key: (req) => (req.ip || "") + ":" + String((req.body && req.body.email) || "").toLowerCase()
+});
+const loginIpLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, max: 120, prefix: "rl-login-ip",
+  key: (req) => req.ip || ""
+});
 const orderLimiter = rateLimit({ windowMs: 60 * 1000, max: 60, key: (req) => (req.ip || "") + ":" + req.params.wsId });
 const inquiryLimiter = rateLimit({ windowMs: 60 * 1000, max: 30, key: (req) => (req.ip || "") + ":" + req.params.wsId });
 const aiLimiter = rateLimit({ windowMs: 60 * 1000, max: 30 });
@@ -1193,7 +1219,7 @@ app.post("/api/portal/:wsId/inquiry",
 });
 
 /* ---- auth: verify a hashed password, return a token + safe profile ---- */
-app.post("/auth/login", loginLimiter, validateBody(loginSchema), async (req, res, next) => {
+app.post("/auth/login", loginIpLimiter, loginLimiter, validateBody(loginSchema), async (req, res, next) => {
   try {
     const { email, password } = req.valid;
 
@@ -1274,7 +1300,7 @@ app.post("/auth/login", loginLimiter, validateBody(loginSchema), async (req, res
  *    cookie as /auth/login, so a client can treat signup as "login that
  *    also provisions" and needs no second code path.
  */
-app.post("/auth/signup", loginLimiter, verifyCaptcha(), validateBody(signupSchema), async (req, res, next) => {
+app.post("/auth/signup", loginIpLimiter, loginLimiter, verifyCaptcha(), validateBody(signupSchema), async (req, res, next) => {
   try {
     const { name, email, password, company, country } = req.valid;
     const emailLower = String(email).toLowerCase();
