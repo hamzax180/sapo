@@ -13,7 +13,7 @@
 <script src="js/voice-input.js?v=1"></script>
 <meta name="description" content="Describe your business in one sentence and Souqi builds your storefront, then hands it to a live editor you can click and change.">
 <script>
-(function(){var k="souqi-theme";try{var t=localStorage.getItem(k)||"light";document.documentElement.setAttribute("data-theme",t)}catch(e){}})();
+(function(){var k="souqi-theme",p="light";try{p=localStorage.getItem(k)||"light"}catch(e){}var m=window.matchMedia&&window.matchMedia("(prefers-color-scheme:dark)");var r=function(){return (p==="dark"||p==="light")?p:((m&&m.matches)?"dark":"light")};document.documentElement.setAttribute("data-theme",r());if(m){var f=function(){try{p=localStorage.getItem(k)||"light"}catch(e){}if(p!=="dark"&&p!=="light")document.documentElement.setAttribute("data-theme",r())};m.addEventListener?m.addEventListener("change",f):m.addListener&&m.addListener(f)}})();
 </script>
 <style>
   *,*::before,*::after{box-sizing:border-box}

@@ -13,7 +13,7 @@
 <title>Souqi Code</title>
 <script src="/js/voice-input.js?v=1"></script>
 <script>
-(function(){var k="souqi-theme";try{var t=localStorage.getItem(k)||"light";document.documentElement.setAttribute("data-theme",t)}catch(e){}})();
+(function(){var k="souqi-theme",p="light";try{p=localStorage.getItem(k)||"light"}catch(e){}var m=window.matchMedia&&window.matchMedia("(prefers-color-scheme:dark)");var r=function(){return (p==="dark"||p==="light")?p:((m&&m.matches)?"dark":"light")};document.documentElement.setAttribute("data-theme",r());if(m){var f=function(){try{p=localStorage.getItem(k)||"light"}catch(e){}if(p!=="dark"&&p!=="light")document.documentElement.setAttribute("data-theme",r())};m.addEventListener?m.addEventListener("change",f):m.addListener&&m.addListener(f)}})();
 </script>
 <style>
   /* Same visual system as agent.html (docs/CODE-AGENT-PLAN.md Phase 6:
@@ -548,9 +548,12 @@
   .ag:not(.is-new) .ag-composer,
   .ag.has-convo .ag-composer,
   .ag:has(#agLog > *:not(.ag-empty)) .ag-composer{
-    background:color-mix(in srgb,var(--paper) 58%,transparent);
-    -webkit-backdrop-filter:blur(22px) saturate(1.6);
-    backdrop-filter:blur(22px) saturate(1.6);
+    /* 40%, not 58: the glass is meant to be seen through. The text on
+       top of it stays readable because .ag-box brings its own solid fill
+       — only the band AROUND the input is this thin. */
+    background:color-mix(in srgb,var(--paper) 40%,transparent);
+    -webkit-backdrop-filter:blur(20px) saturate(1.5);
+    backdrop-filter:blur(20px) saturate(1.5);
     border-top:0;
   }
   .ag:not(.is-new) .ag-composer::before,
@@ -558,7 +561,7 @@
   .ag:has(#agLog > *:not(.ag-empty)) .ag-composer::before{
     content:"";position:absolute;left:0;right:0;bottom:100%;height:38px;
     pointer-events:none;
-    background:linear-gradient(to top,color-mix(in srgb,var(--paper) 58%,transparent),transparent);
+    background:linear-gradient(to top,color-mix(in srgb,var(--paper) 40%,transparent),transparent);
   }
 
   /* Above 900 the bar is a flex item at the end of the column, so the log
@@ -579,7 +582,10 @@
     .ag.has-convo .ag-composer,
     .ag:has(#agLog > *:not(.ag-empty)) .ag-composer{
       position:absolute;inset-inline:clamp(20px,2.4vw,28px);
-      bottom:0;top:auto;width:auto;z-index:40;
+      /* Off the floor, not on it. The gap underneath is a strip of the
+         live log — text scrolls through it in the clear, under a bar that
+         is no longer the last thing on the screen. */
+      bottom:12px;top:auto;width:auto;z-index:40;
       /* Over-constrained on purpose: left, right AND a 720px max-width are
          all set, and the rule that resolves that drops `right` — which
          left-aligned the bar against the column edge while the messages
@@ -593,7 +599,7 @@
     .ag:not(.is-new) #agLog,
     .ag.has-convo #agLog,
     .ag:has(#agLog > *:not(.ag-empty)) #agLog{
-      padding-bottom:calc(var(--composer-h, 110px) + 12px);
+      padding-bottom:calc(var(--composer-h, 110px) + 26px);
     }
   }
   /* ---------------------------------------------------------------
@@ -2017,7 +2023,10 @@
       position: fixed;
       left: var(--rail);
       right: 0;
-      bottom: 0;
+      /* Lifted, like the desktop rule — plus the home-indicator inset, so
+         the gap is a real gap on a phone rather than one the system UI
+         sits in. */
+      bottom: calc(10px + env(safe-area-inset-bottom, 0px));
       top: auto;
       /* width:auto is load-bearing. .ag-composer shares a rule with .ag-log
          and .ag-head that sets width:100%, and on a FIXED element that
@@ -2031,7 +2040,10 @@
          with margin:0 the bar sat hard against the icon rail while the
          messages were centred in what was left. */
       margin: 0 auto;
-      padding: 8px 10px calc(10px + env(safe-area-inset-bottom, 0px));
+      /* The safe-area inset moved to `bottom` above, so it is not also
+         padded for here — it would be counted twice and leave a bar half
+         a home indicator too tall. */
+      padding: 8px 10px 8px;
       /* Fill and edge come from the floating-bar rules above — this was a
          solid var(--paper) and a 1px rule, which is exactly the floor the
          log is no longer supposed to hit. */
@@ -2047,7 +2059,7 @@
     .ag:not(.is-new) #agLog,
     .ag.has-convo #agLog,
     .ag:has(#agLog > *:not(.ag-empty)) #agLog {
-      padding-bottom: calc(var(--composer-h, 108px) + 10px);
+      padding-bottom: calc(var(--composer-h, 108px) + 26px + env(safe-area-inset-bottom, 0px));
     }
 
     /* Messages sit ON the composer, the way a chat does, instead of stacking
@@ -3074,9 +3086,27 @@
     .ag-set-overlay iframe{animation-duration:1ms;animation-name:none;opacity:1}
     .ag-set-overlay.closing iframe{animation-name:none;opacity:0}
   }
-  @media (max-width:900px){
+  /* (hover:none) and (pointer:coarse) is in here because an iPad is not a
+     narrow screen. In landscape it reports 1180 or 1366 CSS pixels — wider
+     than most laptops — so a width-only rule handed it the 1393px desktop
+     dialog with its 237px sidebar, on a device that has no mouse to hover
+     the thing with. The pointer is what actually distinguishes the two. */
+  @media (max-width:900px), (hover:none) and (pointer:coarse){
+    /* A SHEET, not a page. Full-bleed and square-cornered, Settings stopped
+       reading as something opened over the builder and started reading as
+       having navigated away from it — with no edge, no scrim and nothing to
+       tap beside it to get back. It is a centred card here, the shape the
+       same screen has on a phone and a tablet everywhere else: as wide as
+       it can be up to 520px, as tall as it can be up to 640, and on a
+       screen smaller than that it simply fills what there is. */
     .ag-set-overlay{padding:0}
-    .ag-set-overlay iframe{width:100%;height:100%;border-radius:0}
+    .ag-set-overlay iframe{
+      /* One size for both, and small: 420x560 is under half of an iPad's
+         screen and still the whole of a phone's width, so the sheet reads
+         the same on either — a panel over the app, not the app replaced.
+         The vw/dvh terms only bite on a screen smaller than the sheet. */
+      width:min(420px,92vw);height:min(560px,88dvh);
+      border-radius:22px;box-shadow:0 30px 80px -20px rgba(0,0,0,.55)}
   }
   @media (max-width: 650px) {
     .ag-tiles-track {

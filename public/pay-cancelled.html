@@ -14,7 +14,7 @@
      went dark on a dark-mode machine while everything around them stayed
      light. Runs before first paint, so there is no flash. -->
 <script>
-(function(){var k="souqi-theme";try{var t=localStorage.getItem(k)||"light";document.documentElement.setAttribute("data-theme",t)}catch(e){}})();
+(function(){var k="souqi-theme",p="light";try{p=localStorage.getItem(k)||"light"}catch(e){}var m=window.matchMedia&&window.matchMedia("(prefers-color-scheme:dark)");var r=function(){return (p==="dark"||p==="light")?p:((m&&m.matches)?"dark":"light")};document.documentElement.setAttribute("data-theme",r());if(m){var f=function(){try{p=localStorage.getItem(k)||"light"}catch(e){}if(p!=="dark"&&p!=="light")document.documentElement.setAttribute("data-theme",r())};m.addEventListener?m.addEventListener("change",f):m.addListener&&m.addListener(f)}})();
 </script>
 <style>
   :root{--bg:#faf7f2;--ink:#14171f;--mut:#5d6472;--line:#e6e1d8}
