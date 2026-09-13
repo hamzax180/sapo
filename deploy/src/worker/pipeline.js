@@ -591,7 +591,46 @@ async function restart(dep) {
 /** Full teardown, in the order the spec lays out. */
 async function destroy(dep) {
   for (const host of domains.hostnamesFor(dep)) await caddy.removeRoute(host);
-  await engine.removeContainer(dep.id);
+
+  /* DID THE SLOT ACTUALLY COME FREE?
+
+     This line used to be `await engine.removeContainer(dep.id);` with the
+     result dropped, and both halves of that were a decision.
+
+     When the rm genuinely failed, the row was still marked DELETED below and
+     the container stayed on the host, which splits the two capacity counts in
+     opposite directions: Docker counts it, the database no longer does. The
+     mirror image of the phantom-slot bug, and just as silent — no log line
+     anywhere said a container had been left behind.
+
+     The obvious worry about reading the result is a false alarm on
+     deployments that never had a container, and it turns out not to exist:
+     `docker rm --force` exits ZERO when there is no such container, with
+     empty stderr (checked on the host, Docker 29.7.2). --force makes "not
+     there" the success it ought to be, so every FAILED row passes straight
+     through and this needs no special case for them.
+
+     Which also means a non-zero exit is never routine — it is a real failure
+     or an unreachable daemon, and both deserve the same line: this host is
+     still holding something the database has stopped counting.
+
+     Deliberately NO inspectState() second opinion to confirm the container is
+     still there. It reports exists:false both when the container is gone and
+     when nobody could look, so using it to suppress this warning would mute
+     exactly the daemon-down case that most needs saying. That is the trap
+     listManaged() documents at the top of engine.js, and it is not worth
+     walking into for a tidier message.
+
+     The row is still marked DELETED afterwards, deliberately. The janitor
+     reaps a managed container whose row is gone or DELETED
+     (sweepOrphanContainers), so the host converges on its own; refusing to
+     delete the row would instead strand a deployment the UI can no longer
+     clear. What was missing was never the cleanup — it was anyone knowing. */
+  const leftBehind = [];
+  const rm = await engine.removeContainer(dep.id);
+  if (!rm.ok) {
+    leftBehind.push("container app-" + dep.id + " (" + (String(rm.stderr || "").trim() || "no reason given") + ")");
+  }
   await engine.removeImage(dep.id);
   /* The database container leaves this network, and NOTHING is dropped.
      Deleting one deployment is not deleting the project: a redeploy is a
@@ -621,8 +660,24 @@ async function destroy(dep) {
   }
   await cleanupBuildContext(dep.id);
   await setStatus(dep.id, "DELETED", { container_name: null, image_name: null });
+
+  /* Said twice, because the two readers are different people with different
+     problems. The deployment log is what the customer sees and explains why
+     their host still looks busy; the console is where an operator finds out
+     that a slot is being held by something the database has already
+     forgotten. The source-archive step above reports itself the same way. */
+  if (leftBehind.length) {
+    await log(dep.id, "system",
+      "WARNING: deleted, but this could not be removed from the host: " +
+      leftBehind.join("; ") + ". It should be cleaned up automatically within the hour.", "stderr");
+    console.error("[worker] destroy", dep.id, "left behind:", leftBehind.join("; "));
+  }
+
   await log(dep.id, "system", "Deleted");
-  return { ok: true };
+  // ok:true because the deletion DID happen — the row is gone and the janitor
+  // finishes the host. leftBehind carries what the host still holds, for a
+  // caller that wants to know rather than one that has to.
+  return { ok: true, leftBehind };
 }
 
 /* ---------- project-level database actions ----------
