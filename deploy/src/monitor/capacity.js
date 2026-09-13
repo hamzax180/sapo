@@ -68,11 +68,38 @@ async function snapshot() {
     };
   } else {
     from = "database";
+    /* NOT the same thing as "not deleted".
+
+       This counted `status <> 'DELETED'`, which is every row the host has
+       ever half-finished. A FAILED deployment holds no container — it
+       never got one, or its one was cleaned up — and a redeploy is a new
+       deployment id, so that row will never acquire one either. It is a
+       tombstone, and it was taking a slot.
+
+       Measured on the live host when this was found: docker reported 9 app
+       containers, this query reported 13, and MAX_CONTAINERS was 10. So
+       admission refused every new deployment while the host had a free
+       slot, and deleting a container could not fix it — the four phantoms
+       were FAILED rows, and deleting something else does not remove those.
+       The api is where this always bites: it has no Docker socket on
+       purpose, so it ALWAYS takes this branch and never sees the real
+       count that would have contradicted it.
+
+       Stated negatively on purpose, against the usual rule. The question
+       is "does this row hold a slot", and for admission the safe answer to
+       an unrecognised status is yes — a status added later should count
+       until someone decides it should not, rather than silently opening
+       the gate. FAILED and DELETED are the only two that provably hold
+       nothing.
+
+       This is now the same definition the committed-memory query below
+       already uses; the two were measuring different sets in one
+       function. */
     const row = await one(
       `SELECT COUNT(*)::int AS total,
               COUNT(*) FILTER (WHERE status = 'RUNNING')::int AS running
          FROM deployments
-        WHERE host_id = $1 AND status <> 'DELETED'`,
+        WHERE host_id = $1 AND status NOT IN ('FAILED','DELETED')`,
       [cfg.hostId]
     );
     counts = { total: row ? row.total : 0, running: row ? row.running : 0 };
