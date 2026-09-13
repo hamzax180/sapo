@@ -143,10 +143,17 @@
   /* The round header buttons. They only ever appear below 901px (the
      desktop header has a gear, a title and an X and needs neither), so
      they ship hidden and the breakpoint reveals them. */
+  /* No fill at rest. A close button and an info button are the two least
+     interesting things on a settings screen, and a filled grey circle
+     behind each one gave them the visual weight of the title between
+     them. The glyph alone is enough to tap; the circle comes back on
+     hover, where it is feedback rather than decoration. .mrt-done opts
+     back into a fill below — it is the one affirmative control here and
+     is supposed to carry weight. */
   .mrt-round{display:none;flex:none;width:34px;height:34px;border-radius:50%;border:0;
-    background:var(--paper-2);color:var(--ink);align-items:center;justify-content:center;
-    cursor:pointer;transition:background .15s ease}
-  .mrt-round:hover{background:var(--line)}
+    background:none;color:var(--ink-2);align-items:center;justify-content:center;
+    cursor:pointer;transition:background .15s ease,color .15s ease}
+  .mrt-round:hover{background:color-mix(in srgb,var(--ink) 8%,transparent);color:var(--ink)}
   .mrt-round svg{width:19px;height:19px}
   /* hidden is an ATTRIBUTE and the UA rule behind it is weaker than any
      class selector, so every display here has to say :not([hidden]) or
@@ -440,28 +447,60 @@
     /* Header: close left, title centred, info right — and the title is
        centred against the two buttons rather than the box, which is why
        both slots are the same width whether or not anything is in them. */
-    /* THE HEADER FLOATS OVER THE LIST.
+    /* THE HEADER IS GLASS, AND THE GLASS ITSELF FADES OUT.
 
-       Not a titlebar bolted on top of a box — the sheet is one surface,
-       and the list runs the whole height of it and passes UNDER the
-       title. Same frosted glass as the composer, for the same reason: the
-       rows stay visible as they go by, and the title stays readable on
-       top of them because the blur is doing the work a solid fill used to.
+       Two earlier attempts, and what was wrong with each:
 
-       position:absolute, so .mbody below gets the full height and the
-       scroll starts at the top of the sheet rather than under a 54px
-       header that had already eaten it. The scrollers pad themselves down
-       by that much (--mhead-h) so nothing STARTS underneath it. */
+       A flat frosted bar — one blur, one tint, a hard bottom edge. The
+       edge is the problem. A backdrop-filter stops dead at its boundary,
+       so a row crossing it snapped from sharp to frosted at a line, and
+       the line is the bar you were trying not to draw.
+
+       Then no bar at all, with the list masked away beneath it. That has
+       no edge, but it also has nothing to see: rows did not pass behind
+       the title, they stopped existing on the way up. Which is not
+       see-through, it is a trapdoor.
+
+       This is the third shape and the one the iPad settings actually use:
+       the blur is on a ::before layer, and that LAYER is masked rather
+       than the list. So the blur is at full strength behind the glyphs
+       and tapers to nothing 26px below them — a row does not cross a
+       boundary, it drifts progressively out of focus and comes back as it
+       leaves. The content never disappears, and there is no line anywhere
+       to find, because the thing with the hard edge is itself dissolving.
+
+       The mask is eased rather than linear. A straight ramp bands
+       visibly across a 26px run at these blur radii; the stops below are
+       a rough ease-out, which is smooth enough that the falloff has no
+       features to catch on.
+
+       ::before, not the element, because a mask on .mhead would take the
+       title and the two glyphs down with it. They stay fully opaque on
+       top of their own glass.
+
+       position:absolute is unchanged and still load-bearing, so .mbody
+       gets the full height and the scroll starts at the top of the sheet
+       rather than under a 54px header that had already eaten it. The
+       scrollers pad themselves down by that much (--mhead-h) so nothing
+       STARTS underneath it. */
     .mhead{position:absolute;top:0;left:0;right:0;z-index:6;flex:none;gap:8px;
-      padding:11px 12px 9px;border-bottom:0;
-      background:color-mix(in srgb,var(--card) 62%,transparent);
-      -webkit-backdrop-filter:blur(20px) saturate(1.6);
-      backdrop-filter:blur(20px) saturate(1.6)}
-    /* The blur has a hard bottom edge; this is the 14px a row gets to
-       dissolve in as it slides under, so text does not snap from sharp to
-       frosted at a line. */
-    .mhead::after{content:"";position:absolute;left:0;right:0;top:100%;height:14px;pointer-events:none;
-      background:linear-gradient(to bottom,color-mix(in srgb,var(--card) 62%,transparent),transparent)}
+      padding:11px 12px 9px;border-bottom:0;background:none;
+      -webkit-backdrop-filter:none;backdrop-filter:none}
+    .mhead::before{
+      content:"";position:absolute;left:0;right:0;top:0;bottom:-26px;
+      pointer-events:none;z-index:-1;
+      /* Thin enough to read the shape of a row through it. The tint is
+         what keeps the title legible over whatever is passing; the blur
+         is what stops it being readable competition. */
+      background:color-mix(in srgb,var(--card) 52%,transparent);
+      -webkit-backdrop-filter:blur(18px) saturate(1.5);
+      backdrop-filter:blur(18px) saturate(1.5);
+      -webkit-mask-image:linear-gradient(to bottom,#000 0,#000 52%,
+        rgba(0,0,0,.92) 64%,rgba(0,0,0,.73) 74%,rgba(0,0,0,.48) 83%,
+        rgba(0,0,0,.22) 92%,transparent 100%);
+      mask-image:linear-gradient(to bottom,#000 0,#000 52%,
+        rgba(0,0,0,.92) 64%,rgba(0,0,0,.73) 74%,rgba(0,0,0,.48) 83%,
+        rgba(0,0,0,.22) 92%,transparent 100%)}
     .mhead svg.gear{display:none}
     .mhead h1{order:2;flex:1;min-width:0;text-align:center;font-size:1.05rem;font-weight:700;
       letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -473,9 +512,13 @@
        than the plain grey circles either side of the title. */
     .mrt-done{background:var(--line);color:var(--ink)}
     .mrt-done:hover{background:var(--mut);color:var(--card)}
+    /* Matched to .mrt-round above: bare glyph, fill only on hover. The
+       border has to go too — it is set on the desktop rule and a 1px
+       ring is exactly the outline this is trying to lose. */
     .ag-modal-x-btn{order:1;margin-left:0;width:34px;height:34px;border-radius:50%;border:0;
-      background:var(--paper-2);color:var(--ink)}
-    .ag-modal-x-btn:hover{transform:none;background:var(--line)}
+      background:none;color:var(--ink-2)}
+    .ag-modal-x-btn:hover{transform:none;border-color:transparent;color:var(--ink);
+      background:color-mix(in srgb,var(--ink) 8%,transparent)}
     /* In a panel the back chevron replaces the close button outright, the
        way a pushed screen replaces the one under it. */
     body.mpanel .ag-modal-x-btn{display:none}
@@ -496,11 +539,22 @@
        visibility rather than display, and its transition delayed by the
        length of the slide, so the outgoing pane is still painted while it
        leaves and is out of the tab order the moment it has. */
+    /* No mask here. There was one — it cut the list off at 38px so rows
+       vanished before they reached the title, and that cut is precisely
+       what a see-through header is not. The row is supposed to still be
+       there, softened, behind its own glass. The dissolve lives on
+       .mhead::before now, where it fades the BLUR instead of the
+       content. */
     .mroot:not([hidden]),.content{
       position:absolute;inset:0;height:auto;max-height:none;overflow-y:auto;
       -webkit-overflow-scrolling:touch;
       transition:transform .3s cubic-bezier(.32,.72,0,1),opacity .22s ease,visibility 0s linear .3s}
-    .mroot:not([hidden]){display:block;background:var(--paper-2);
+    /* --card, which is what the group slabs used to be filled with. The
+       list and the panel it pushes to are now the same colour, so going
+       in and coming back out no longer changes the shade of the sheet
+       under your thumb — the panel slides over a surface it matches
+       instead of a darker one it doesn't. */
+    .mroot:not([hidden]){display:block;background:var(--card);
       padding:calc(var(--mhead-h) + 8px) 13px calc(22px + env(safe-area-inset-bottom,0px));
       transform:none;opacity:1;visibility:visible;transition-delay:0s,0s,0s}
     .content{display:block;background:var(--card);
@@ -519,21 +573,45 @@
        at the top of the panel is the same words twice. */
     body.mpanel .panel-head{display:none}
 
-    /* ---- grouped rows ---- */
-    .mrt-grp{font-size:.72rem;font-weight:700;letter-spacing:.02em;color:var(--ink-2);
-      margin:18px 4px 7px;text-transform:none}
+    /* ---- grouped rows ----
+
+       THE GROUPS ARE NOT OBJECTS.
+
+       They used to be: a --card fill on a --paper-2 sheet, a 14px radius
+       and a drop shadow, which is the iOS grouped-list shape — every
+       group a white slab floating on grey. It draws a box around each
+       set of rows and then asks you to read past the box to get to the
+       rows, and with seven of them stacked the screen is mostly edges.
+
+       The fill moved to the sheet instead (see .mroot below), so the
+       surface the cards used to have is now the surface everything sits
+       on, and the cards themselves have nothing left to be. What holds a
+       group together now is the label above it and the gap either side —
+       which is all that was ever doing the work; the slab was just the
+       part you could see. */
+    .mrt-grp{font-size:.71rem;font-weight:600;letter-spacing:.02em;color:var(--mut);
+      margin:22px 4px 6px;text-transform:none}
     .mrt-grp:first-child{margin-top:2px}
-    .mrt-card{background:var(--card);border-radius:14px;overflow:hidden;
-      box-shadow:0 1px 2px rgba(0,0,0,.04)}
+    .mrt-card{background:none;border-radius:0;overflow:visible;box-shadow:none}
     .mrt-row{display:flex;align-items:center;gap:12px;width:100%;border:0;background:none;
       color:var(--ink);text-align:left;font:inherit;font-size:.91rem;padding:11px 13px;
       cursor:pointer;position:relative;text-decoration:none}
     /* The divider starts where the label does, not at the card edge — an
        inset rule is what makes a list read as rows of one thing rather
        than a stack of separate bars. */
+    /* The hairline is the only thing left holding the rows apart, so it
+       is softer than the full --line it was: at full strength, with no
+       card edge to compete with, seven of them down the screen read as a
+       grid. 55% is enough to separate two rows and not enough to draw
+       attention to itself. */
     .mrt-row + .mrt-row::before{content:"";position:absolute;left:45px;right:0;top:0;height:1px;
-      background:var(--line)}
-    .mrt-row:active{background:var(--paper-2)}
+      background:color-mix(in srgb,var(--line) 55%,transparent)}
+    /* --paper-2 was a fill that matched the old sheet; against the new one
+       it is nearly invisible. A tint of the ink works in both themes
+       without naming a colour for either, and the radius is here because
+       the press no longer happens inside a clipped card. */
+    .mrt-row{border-radius:9px}
+    .mrt-row:active{background:color-mix(in srgb,var(--ink) 7%,transparent)}
     .mrt-row .ic{flex:none;width:22px;height:22px;display:grid;place-items:center;color:var(--ink-2)}
     .mrt-row .ic svg{width:20px;height:20px}
     .mrt-row .lb{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -554,8 +632,11 @@
     .mrt-row.acct .who .p svg{width:13px;height:13px}
 
     /* ---- appearance, inline at the foot of the list ---- */
+    /* The last slab on the screen, and it goes for the same reason the
+       others did. The theme mocks are already outlined objects — a box
+       around three boxes was the outline twice. */
     .mrt-themes{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;
-      background:var(--card);border-radius:14px;padding:12px}
+      background:none;border-radius:0;padding:12px 0 4px}
     .mrt-themes .theme{border:0;padding:0;background:none;box-shadow:none;transform:none;text-align:center}
     .mrt-themes .theme:hover{border:0;box-shadow:none;transform:none}
     .mrt-themes .theme .mock{height:74px;padding:8px;gap:5px;border-radius:9px;
