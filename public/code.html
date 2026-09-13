@@ -390,10 +390,18 @@
   .ag-think .ic{width:22px;height:22px;flex:none;border-radius:50%;border:1px solid var(--line);
     display:grid;place-items:center;color:var(--ink-2);background:var(--card);transition:box-shadow .25s var(--ease)}
   .ag-think .ic svg{width:13px;height:13px}
-  /* Small glowing chip, not just a bare spinner — the halo is what makes
-     an in-progress step read as "alive" at a glance. */
-  .ag-think.busy .ic{border-color:var(--accent);border-top-color:transparent;animation:spin .8s linear infinite;
-    box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 16%,transparent),0 0 10px 1px color-mix(in srgb,var(--accent) 45%,transparent)}
+  /* Half a beat, so it comes round twice per breath and lands WITH the two
+     dots instead of drifting against them. .8s was also simply faster than
+     the work it reports: a spinner that outruns its own step reads as
+     anxiety rather than progress.
+
+     The halo went from a 10px blur at 45% over a 3px ring down to the ring
+     alone. In a column of quiet circles the live one only has to be the lit
+     one — it does not have to shout, and at 22px that much glow was mostly
+     spill onto the text beside it. */
+  .ag-think.busy .ic{border-color:var(--accent);border-top-color:transparent;
+    animation:spin calc(var(--th-beat) / 2) linear infinite;
+    box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 13%,transparent)}
   .ag-think.busy .ic svg{display:none}
   /* Was opacity-only, which read as things blinking into place. A short
      rise gives each row a direction without becoming a slideshow —
@@ -454,27 +462,46 @@
      A browser without :has() gets no dot and no gutter — which is the
      resting state exactly, so the fallback is the finished look rather
      than a broken one. */
+  /* ONE TEMPO FOR THE WHOLE TURN.
+
+     Four things used to animate while a turn was in flight and every one of
+     them kept its own time: the step spinner at .8s, the header dot at 1.6,
+     the label shimmer at 2.4, this dot at 1.5. Nothing lined up with
+     anything, so the panel read as four separate pieces of machinery that
+     happened to be switched on together — busy rather than working.
+
+     --th-beat is the period all of them derive from now. This dot and the
+     header dot breathe on the beat; the shimmer takes the same beat; the
+     step spinner takes half of one, so it comes round twice per breath and
+     lands with it rather than drifting against it. Change the number and
+     the whole panel changes pace together, which is the point of there
+     being a number. */
+  :root{--th-beat:2.6s}
+
+  /* .7, not .62: at 11px a dot that shrinks to two-thirds is visibly
+     jumping. The bigger it is, the less distance it needs to read as
+     breathing. */
   @keyframes agBreathe{
-    0%,100%{transform:scale(.62);opacity:.3}
+    0%,100%{transform:scale(.7);opacity:.34}
     50%    {transform:scale(1);opacity:1}
   }
 
   #agLog:has(.ag-thinking:not(.done)) .ag-say:not(:has(~ .ag-say)){
-    padding-left:26px}
+    padding-left:29px}
   #agLog:has(.ag-thinking:not(.done)) .ag-say:not(:has(~ .ag-say))::before{
-    content:"";position:absolute;left:4px;top:14px;width:9px;height:9px;
+    content:"";position:absolute;left:4px;top:13px;width:11px;height:11px;
     border-radius:50%;background:var(--accent);
     /* The ring is a shadow rather than a second element, and it scales with
        the dot — so the glow breathes with it instead of sitting still
        around something that moves. */
-    box-shadow:0 0 0 4px color-mix(in srgb,var(--accent) 15%,transparent);
-    animation:agBreathe 1.5s cubic-bezier(.45,0,.55,1) infinite}
+    box-shadow:0 0 0 5px color-mix(in srgb,var(--accent) 14%,transparent);
+    animation:agBreathe var(--th-beat) cubic-bezier(.45,0,.55,1) infinite}
 
   @media (max-width:900px){
     #agLog:has(.ag-thinking:not(.done)) .ag-say:not(:has(~ .ag-say)){
-      padding-left:22px}
+      padding-left:25px}
     #agLog:has(.ag-thinking:not(.done)) .ag-say:not(:has(~ .ag-say))::before{
-      left:3px;top:13px;width:8px;height:8px;box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 15%,transparent)}
+      left:3px;top:13px;width:10px;height:10px;box-shadow:0 0 0 4px color-mix(in srgb,var(--accent) 14%,transparent)}
   }
 
   /* Reduced motion keeps the dot and stops it moving, held at the BRIGHT
@@ -511,14 +538,24 @@
   .ag-queue-banner button{border:0;background:none;color:#ef4444;font-size:.78rem;font-weight:700;cursor:pointer;text-decoration:underline;padding:0;margin-left:10px}
   /* A glowing halo, not a flat scale/opacity blink — this is the one
      signal that a real turn is in flight, so it earns a proper pulse. */
-  .ag-th-dot{width:8px;height:8px;border-radius:50%;background:var(--accent);flex:none;
+  /* Same size and same beat as the dot beside the reply, because they are
+     the same statement made in two places — one over the steps, one over
+     the words. They used to be 8px at 1.6s and 9px at 1.5s, close enough
+     to look like a mistake rather than a pair. */
+  .ag-th-dot{width:11px;height:11px;border-radius:50%;background:var(--accent);flex:none;
     box-shadow:0 0 0 0 color-mix(in srgb,var(--accent) 55%,transparent);
-    animation:thGlow 1.6s var(--ease) infinite}
-  .ag-thinking.done .ag-th-dot{animation:none;box-shadow:none;background:var(--mut);width:6px;height:6px}
+    animation:thGlow var(--th-beat) var(--ease) infinite}
+  .ag-thinking.done .ag-th-dot{animation:none;box-shadow:none;background:var(--mut);width:7px;height:7px;
+    /* Shrinking is the tell that it finished, so let it be seen happening
+       rather than swapping between frames. */
+    transition:width .3s var(--ease),height .3s var(--ease),background .3s var(--ease)}
+  /* The ring expands and fades over the whole beat instead of snapping back
+     at 70% — the old curve spent its last third doing nothing, which is
+     what made it read as a blink with a pause rather than a pulse. */
   @keyframes thGlow{
-    0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--accent) 55%,transparent);transform:scale(1)}
-    70%{box-shadow:0 0 0 7px color-mix(in srgb,var(--accent) 0%,transparent);transform:scale(1.15)}
-    100%{box-shadow:0 0 0 0 color-mix(in srgb,var(--accent) 0%,transparent);transform:scale(1)}
+    0%  {box-shadow:0 0 0 0 color-mix(in srgb,var(--accent) 50%,transparent);transform:scale(.92)}
+    45% {box-shadow:0 0 0 9px color-mix(in srgb,var(--accent) 0%,transparent);transform:scale(1.06)}
+    100%{box-shadow:0 0 0 0 color-mix(in srgb,var(--accent) 0%,transparent);transform:scale(.92)}
   }
   .ag-th-label{font-size:1.08rem;font-weight:600;color:var(--ink);
     overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:min(60vw,420px)}
@@ -533,7 +570,7 @@
       background-size:250% 100%;
       -webkit-background-clip:text;background-clip:text;
       -webkit-text-fill-color:transparent;color:transparent;
-      animation:thShimmer 2.4s linear infinite}
+      animation:thShimmer var(--th-beat) linear infinite}
   }
   @keyframes thShimmer{from{background-position:200% 0}to{background-position:-50% 0}}
 
@@ -572,6 +609,37 @@
   .ag-th-body::-webkit-scrollbar-thumb:hover{background:rgba(var(--wash-rgb),.24)}
   .ag-thinking.collapsed .ag-th-body{max-height:0;opacity:0;padding-top:0;padding-bottom:0}
   .ag-th-body .ag-think{padding:6px 2px;font-size:.93rem}
+
+  /* ONE THREAD, NOT A COLUMN OF RINGS.
+
+     Nine steps drew nine isolated circles, so the eye got nine objects
+     instead of one process — nothing on screen said the third thing
+     followed the second, and the file rows in between read as a different
+     widget that had wandered in. A 1px rail behind the icons is the whole
+     fix: the circles stop being a list and become stations on something
+     continuous.
+
+     The rail spans the FULL height of every row and the icons are opaque,
+     so each one punches its own gap in it. No per-row segment maths and
+     nothing to recompute when a step arrives mid-turn — a row added to the
+     middle brings its own piece of thread with it. First and last rows are
+     half-length, so the line begins and ends AT a node instead of running
+     past one into nothing.
+
+     File rows get a 22px icon BOX like every other row — the tick inside
+     stays 11px — purely so their centre sits on the same axis. Two centres
+     is what would turn the rail into a zigzag, and it is the only reason
+     the box is being resized at all. Their disc is --paper rather than
+     --card, so it reads as the thread passing behind a small mark instead
+     of another chip competing with the step circles above it. */
+  .ag-th-body .ag-think{position:relative}
+  .ag-th-body .ag-think::before{
+    content:"";position:absolute;left:12px;top:0;bottom:0;width:1px;
+    background:var(--line);pointer-events:none}
+  .ag-th-body .ag-think:first-child::before{top:50%}
+  .ag-th-body .ag-think:last-child::before{bottom:50%}
+  .ag-th-body .ag-think .ic{position:relative;z-index:1}
+  .ag-th-body .ag-think.is-file .ic{width:22px;height:22px;background:var(--paper)}
 
   .ag-worked{display:flex;align-items:center;gap:11px;padding:4px 2px 18px;font-size:.92rem;color:var(--mut);
     opacity:0;animation:agIn .35s var(--ease) forwards}
