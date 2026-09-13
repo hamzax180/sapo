@@ -5087,6 +5087,10 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
          invent a path for it. req.body.logo from an older tab is ignored. */
     }
     let hasExistingEntry = false;
+  /* The materialised src/ tree, hoisted out of the follow-up branch because
+     edit_file needs it at the proposeWithClientBuild call below. Empty on a
+     first build, where there is nothing to edit. */
+  let srcFilesForEdit = {};
     if (project) {
       // For follow-ups, give the model the FULL current project code so it
       // can make surgical edits. A one-file app gets its App.tsx; a multi-file
@@ -5103,6 +5107,9 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
       const files = (full && full.files) || {};
       const srcFiles = {};
       for (const [k, v] of Object.entries(files)) if (k.startsWith("src/")) srcFiles[k] = v;
+      // Same tree the prompt context is built from, so an exact-match anchor
+      // is matching the very text the model was shown.
+      srcFilesForEdit = srcFiles;
       /* Whether the project ALREADY has an entry file, which is the only
          thing that makes "this build wrote no App.tsx" safe to judge: a
          follow-up that edits one component legitimately never touches it.
@@ -5219,6 +5226,12 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
            torn-page icon on a customer's site, and neither tsc nor Vite
            objects to a string, so nothing else would catch it. */
         imageUrls: imageUrls,
+        /* What edit_file matches against. The edit path already materialises
+           this tree to build the prompt context, so the model is now editing
+           exactly the text it was shown — which is the only way an exact-match
+           anchor can be expected to hit. Empty on a first build, where there
+           is nothing to edit and the tool is unusable by construction. */
+        baseFiles: srcFilesForEdit,
         maxRounds: agentMode === "power" ? 3 : 2,
         onFiles: async (calls) => {
           /* The one phase with nothing to say for itself. The files have

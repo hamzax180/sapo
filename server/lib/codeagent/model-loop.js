@@ -549,6 +549,39 @@ const TOOLS_SCHEMA = [
       }
     }
   },
+  /* CHANGING ONE THING SHOULD COST ONE THING.
+
+     Until now the only way to alter an existing file was to rewrite it whole,
+     which is how "make the button blue" became a thousand output tokens and a
+     live chance of dropping the rest of the file. It is also the mechanism
+     behind most of "edits break things": a model reproducing 200 lines from
+     context in order to change one of them will eventually reproduce 199.
+
+     Exact match, and exactly once. Not a line number, which drifts the moment
+     anything above it moves; not a fuzzy match, which is how an edit lands
+     somewhere plausible but wrong. If `find` appears twice the call is refused
+     and the model is told to be more specific — being made to name a unique
+     anchor is the whole safety of this.
+
+     The result becomes a full-file write before it leaves this module, so
+     revisions, the files frame and the deploy archive still see
+     {path: complete contents} and nothing downstream learns a new format. */
+  {
+    type: "function",
+    function: {
+      name: "edit_file",
+      description: "Change part of an EXISTING file. Prefer this over write_file whenever you are modifying a file that already exists — it is faster and cannot accidentally drop the parts you are not changing. `find` must appear EXACTLY ONCE in the file: include enough surrounding context to make it unique. Use write_file for new files, or when you are genuinely rewriting most of one.",
+      parameters: {
+        type: "object",
+        properties: {
+          path: { type: "string", description: "Relative file path, e.g. src/components/Header.tsx" },
+          find: { type: "string", description: "The exact text to replace, copied verbatim from the file, unique within it." },
+          replace: { type: "string", description: "What to put there instead." }
+        },
+        required: ["path", "find", "replace"]
+      }
+    }
+  },
   /* Offered as a TOOL rather than asked for in the reply text, because a
      suggestion has to survive being turned into a button. Parsed out of
      prose it would arrive as whatever phrasing the model felt like that
@@ -599,7 +632,8 @@ You are not choosing the stack — it is fixed and already installed:
 - The app's entry point is src/main.tsx, which renders src/App.tsx — you only ever need to write/overwrite src/App.tsx and, optionally, new files under src/components/ that App.tsx imports
 
 Rules:
-- Call write_file for every file you create or change. One call per file. Always write at least one file unless you are asking a clarifying question.
+- Call write_file for every file you CREATE, and for a file you are genuinely rewriting most of. One call per file. Always write or edit at least one file unless you are asking a clarifying question.
+- To change part of a file that already exists, call edit_file rather than rewriting it. Its "find" must be text copied EXACTLY from the file and must appear exactly once — include the surrounding lines if a short snippet would be ambiguous. This is faster than a rewrite and, more importantly, it cannot drop the parts of the file you were not changing. Rewriting a 200-line component to change one line is how a working feature disappears.
 - After your writes, call suggest_next with 2-3 short ideas for what to improve next — things you could do immediately if they said yes. Make them specific to THIS app ("Add a filter by category", not "Improve the UI"), and never suggest something you just did. Skip the call entirely if you asked a clarifying question, or if nothing worthwhile is left.
 - src/App.tsx must have a default export and must compile under TypeScript strict mode.
 - DO NOT import 'lucide-react', 'heroicons', or any uninstalled packages. ONLY import from 'react' or 'react-dom'. Use inline SVG elements, emoji, or Tailwind styled elements for icons.
@@ -840,6 +874,62 @@ function validateWriteFileArgs(args, opts) {
   return { path: p, content: content };
 }
 
+/* The same path rules as a write, because an edit IS a write — it just
+   computes its content from what is already there. Split out so the two
+   cannot drift: a path that is unsafe to write is unsafe to edit. */
+function validateEditPath(path) {
+  if (typeof path !== "string" || !path.trim()) throw new Error("edit_file: \"path\" must be a non-empty string");
+  const p = path.trim().replace(/\\/g, "/");
+  if (p.startsWith("/") || p.includes("..")) throw new Error("edit_file: \"" + p + "\" is not a safe relative path");
+  if (!/^src\//.test(p)) throw new Error("edit_file: only files under src/ are allowed, got \"" + p + "\"");
+  if (PROTECTED_PATHS.has(p)) throw new Error("edit_file: \"" + p + "\" is part of the fixed scaffold and cannot be edited");
+  if (!/\.(tsx?|css)$/.test(p)) throw new Error("edit_file: \"" + p + "\" must be a .ts, .tsx or .css file");
+  return p;
+}
+
+/**
+ * Apply one edit and hand back a normal write.
+ *
+ * `current` is the file as it stands right now — which is the round's own
+ * accumulated writes first and the materialised project second, NOT the
+ * original on disk. Two edits to one file in a single turn have to compose,
+ * and an edit after a write in the same turn has to see that write.
+ *
+ * Throws with a message written FOR THE MODEL. Every failure here is
+ * recoverable by trying again with a better anchor, so the message says which
+ * anchor and why, and is fed back rather than ending the turn.
+ */
+function applyEditFileArgs(args, current, opts) {
+  if (!args || typeof args !== "object") throw new Error("edit_file: arguments were not an object");
+  const p = validateEditPath(args.path);
+  if (typeof args.find !== "string" || !args.find) throw new Error("edit_file: \"find\" must be a non-empty string");
+  if (typeof args.replace !== "string") throw new Error("edit_file: \"replace\" must be a string");
+
+  if (typeof current !== "string") {
+    throw new Error("edit_file: \"" + p + "\" does not exist yet — use write_file to create it.");
+  }
+
+  const count = current.split(args.find).length - 1;
+  if (count === 0) {
+    /* The likeliest cause by far is the model reconstructing the snippet from
+       memory instead of copying it, so say that rather than just "no match". */
+    throw new Error("edit_file: the text you gave for \"" + p + "\" is not in that file. " +
+      "Copy the anchor exactly as it appears, including whitespace and punctuation, " +
+      "or use write_file if you want to replace the whole file.");
+  }
+  if (count > 1) {
+    throw new Error("edit_file: that text appears " + count + " times in \"" + p + "\", " +
+      "so it is ambiguous which one to change. Include more of the surrounding lines to make it unique.");
+  }
+
+  let content = current.replace(args.find, args.replace);
+  // The same two rewrites a write gets. An edit can introduce a grid-cols-1
+  // or an invented image URL exactly as a write can.
+  content = twoUpOnMobile(content);
+  content = fixImageUrls(content, opts && opts.imageUrls);
+  return { path: p, content: content, edited: true };
+}
+
 /**
  * Splits a message's tool calls into project WRITES and MCP calls.
  *
@@ -861,6 +951,9 @@ function parseToolCalls(message, mcp, opts) {
   const writes = [];
   const mcpCalls = [];
   const suggestions = [];
+  // Edits that could not be applied. Recoverable, so they travel back to the
+  // model rather than failing the turn — see the edit_file branch below.
+  const editErrors = [];
   for (const c of calls) {
     const name = c.function && c.function.name;
     if (!name) return { ok: false, reason: "tool call had no function name" };
@@ -889,6 +982,31 @@ function parseToolCalls(message, mcp, opts) {
       continue;
     }
 
+    if (name === "edit_file") {
+      let args;
+      try { args = JSON.parse(c.function.arguments); }
+      catch (e) { return { ok: false, reason: "malformed JSON in tool call arguments: " + e.message, raw: c.function.arguments }; }
+      try {
+        /* Against the round's own writes first, then the project. Two edits to
+           one file in a turn have to compose, and an edit following a write in
+           the same turn has to see it. */
+        const p = String(args.path || "").trim().replace(/\\/g, "/");
+        const pending = writes.find((w) => w.path === p);
+        const current = pending ? pending.content : (opts && opts.files ? opts.files[p] : undefined);
+        const result = applyEditFileArgs(args, current, opts);
+        if (pending) pending.content = result.content;
+        else writes.push(result);
+      } catch (e) {
+        /* NOT fatal, unlike a bad write. A missed anchor is a recoverable
+           mistake with an obvious next move — try again with the real text —
+           so it is collected and handed back rather than ending the turn and
+           costing the person a whole build. Same policy parseToolCalls
+           already applies to a malformed MCP call. */
+        editErrors.push({ id: c.id, message: e.message });
+      }
+      continue;
+    }
+
     if (name !== "write_file") return { ok: false, reason: "unexpected tool call: " + name };
 
     let args;
@@ -901,8 +1019,15 @@ function parseToolCalls(message, mcp, opts) {
   // A turn that ONLY called MCP tools is valid and expected — the model is
   // gathering facts before it writes. The caller loops rather than failing.
   if (!writes.length && mcpCalls.length) return { ok: true, calls: [], mcpCalls: mcpCalls, toolsOnly: true, suggestions: suggestions };
+  /* Every edit missed and nothing was written. Not "no tool calls" — the model
+     tried and aimed badly — so the reason names the anchors it got wrong,
+     which is something it can act on, rather than a generic failure it
+     cannot. */
+  if (!writes.length && editErrors.length) {
+    return { ok: false, reason: editErrors.map((e) => e.message).join("\n"), editErrors: editErrors, recoverable: true };
+  }
   if (!writes.length) return { ok: false, reason: "model returned no write_file calls" };
-  return { ok: true, calls: writes, mcpCalls: mcpCalls, suggestions: suggestions };
+  return { ok: true, calls: writes, mcpCalls: mcpCalls, suggestions: suggestions, editErrors: editErrors };
 }
 
 // 8000, not an initial 3000: found live, not by estimate — a real
@@ -1188,6 +1313,14 @@ const retryTokensFor = (current) => Math.min(RETRY_TOKEN_CAP, (current || MAX_TO
 // truncate a real multi-file write set on its first try every time.
 const POWER_MAX_TOKENS = 16000;
 
+/* The model Power mode and the planner run on. Same provider, same key, same
+   base URL as the eco model — only the string differs, which is why this is a
+   model override rather than a second route.
+
+   Unset means "behave exactly as before": every caller falls through to the
+   route default, so a deployment without this variable is not broken by it. */
+const POWER_MODEL = process.env.AI_JSON_POWER_MODEL || "";
+
 // How many times the model may call MCP tools and come back before it has to
 // start writing files. Capped because each round is a full model call plus a
 // network round-trip the user is waiting through; three is enough to look
@@ -1204,6 +1337,18 @@ function callOptions(opts) {
   const tools = TOOLS_SCHEMA.concat((isPower && o.mcp) ? o.mcp.toolSchemas() : []);
   return {
     route: "json",
+    /* THE TIER, and it is the only thing that makes Power mean anything on
+       the default provider.
+
+       Power previously bought a longer prompt suffix, more tokens, one extra
+       repair round and MCP — while running the SAME model as eco. Its
+       advertised "deep reasoning" was inert, because `thinking` is read only
+       by the Anthropic adapter and the default route is DeepSeek.
+
+       Unset falls through to the route's own model, so a deployment that has
+       not set AI_JSON_POWER_MODEL simply behaves as it did before rather than
+       failing on a model name it does not have. */
+    model: (isPower && POWER_MODEL) ? POWER_MODEL : undefined,
     byok: o.byok || undefined,
     thinking: !!o.thinking,
     tools: tools,
@@ -1232,7 +1377,7 @@ async function runToolRounds(messages, opts, base) {
     if (!res.ok) return { res, convo, costUsd };
     costUsd += res.costUsd || 0;
 
-    const parsed = parseToolCalls(res.message, mcp, { imageUrls: opts.imageUrls });
+    const parsed = parseToolCalls(res.message, mcp, opts);
     if (!parsed.ok || !parsed.mcpCalls || !parsed.mcpCalls.length) {
       return { res, convo, costUsd, parsed };
     }
@@ -1285,7 +1430,7 @@ async function attemptOnce(messages, opts) {
     return { ok: false, reason: sanitized, disabled: res.disabled, breakerOpen: res.breakerOpen, budgetExceeded: res.budgetExceeded };
   }
 
-  const parsed = parseToolCalls(res.message, o.mcp, { imageUrls: o.imageUrls });
+  const parsed = parseToolCalls(res.message, o.mcp, o);
   // `note` is the model's own prose alongside its tool calls — what it
   // built and why, or a judgement call it made. It was being discarded
   // entirely (only .calls was ever read), which is why the agent could
@@ -1319,7 +1464,7 @@ async function attemptOnce(messages, opts) {
   const retryMessages = convo.concat([res.message], toolResponses, [{ role: "user", content: retryAsk }]);
   const retryRes = await client.chat(Object.assign({}, base, { messages: retryMessages, maxTokens: retryMaxTokens }));
   if (!retryRes.ok) return { ok: false, reason: retryRes.reason || "retry call failed" };
-  const retryParsed = parseToolCalls(retryRes.message, o.mcp, { imageUrls: o.imageUrls });
+  const retryParsed = parseToolCalls(retryRes.message, o.mcp, o);
   if (!retryParsed.ok || !retryParsed.calls.length) {
     const retryTruncated = retryRes.finishReason === "length";
     const reason = retryTruncated
@@ -1508,7 +1653,7 @@ async function proposeWithRepair({ userPrompt, tools, maxRounds, onRound, mode, 
  * @param {function} [opts.onRound] - (info) => void, same shape as proposeWithRepair
  * @returns {Promise<{ok, calls?, round?, rounds, repaired?, costUsd, reason?}>}
  */
-async function proposeWithClientBuild({ userPrompt, maxRounds, onFiles, onRound, onProposal, mode, byok, thinking, mcp, onToolCall, history, hasExistingEntry, imageUrls }) {
+async function proposeWithClientBuild({ userPrompt, maxRounds, onFiles, onRound, onProposal, mode, byok, thinking, mcp, onToolCall, history, hasExistingEntry, imageUrls, baseFiles }) {
   const cap = (maxRounds !== null && maxRounds !== undefined) ? maxRounds : 3;
   /* imageUrls has to be BOTH destructured above and carried in opts, and
      missing either one is silent. The caller passed it, this signature did not
@@ -1520,7 +1665,11 @@ async function proposeWithClientBuild({ userPrompt, maxRounds, onFiles, onRound,
      directly with an opts bag, which tests the function and not the wiring.
      See the round-trip test in images-prompt-test.js, which goes through this
      function precisely so a dropped key fails loudly. */
-  const opts = { mode, byok, thinking, mcp, onToolCall, imageUrls };
+  /* The tree an edit_file applies against. Rebuilt each round from the
+     project PLUS everything written so far this turn, so two edits to one file
+     compose and an edit after a write sees that write. */
+  const editBase = Object.assign({}, baseFiles || {});
+  const opts = { mode, byok, thinking, mcp, onToolCall, imageUrls, files: editBase };
   const hist = buildHistory(history);
   let messages = [
     { role: "system", content: systemPromptFor(mode) }
@@ -1568,7 +1717,14 @@ async function proposeWithClientBuild({ userPrompt, maxRounds, onFiles, onRound,
   // one left behind.
   const written = new Map();
   const collect = (calls) => {
-    for (const c of calls || []) written.set(c.path, c);
+    for (const c of calls || []) {
+      written.set(c.path, c);
+      /* Keep the edit base current. Without this, a repair round editing a
+         file this turn already wrote would be matching against the ORIGINAL
+         project copy — so its anchor would either miss, or worse, apply to
+         text the model had already replaced and silently undo the fix. */
+      editBase[c.path] = c.content;
+    }
     return Array.from(written.values());
   };
 
@@ -1790,10 +1946,20 @@ async function buildPlan(prompt, buildType) {
   if (cached) return Object.assign({}, cached, { cached: true, costUsd: 0 });
 
   const res = await client.chat({
-    // The plan is JSON, but it is JSON the USER reads and confirms — the
-    // title, summary and features are shown to them verbatim. That makes it
-    // prose-route work: it has to come back in the language they wrote in.
-    route: "prose",
+    /* THE PLANNER RUNS ON THE REASONING MODEL.
+
+       It used to route to prose for a good reason — the title, summary and
+       features are shown to the person verbatim, so the reply has to come
+       back in the language they wrote in. But deciding what to build is the
+       most reasoning-heavy call in the whole agent and the one whose mistakes
+       are most expensive: everything downstream is executed against this
+       plan, so a bad plan is a well-built wrong app.
+
+       assessPrompt deliberately stays on prose. That call produces the
+       clarifying QUESTION the person reads and answers, which is where
+       multilingual fluency actually matters; this one produces a structured
+       object that happens to contain prose. */
+    route: "json", model: POWER_MODEL || undefined,
     messages: [
       { role: "system", content: PLAN_SYSTEM_PROMPT },
       { role: "user", content: clean.slice(0, MAX_USER_PROMPT_CHARS) }

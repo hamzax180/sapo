@@ -253,7 +253,17 @@ async function chat(req) {
       method: "POST",
       headers: { "Content-Type": "application/json", "Authorization": "Bearer " + r.key },
       body: JSON.stringify({
-        model: r.model,
+        /* req.model overrides the route's default, which is how tiering works
+           without a second route: deepseek-chat and deepseek-reasoner share a
+           base URL and a key, so the only thing that differs between an eco
+           build and a power one is this string. Duplicating the whole route to
+           change one field would mean a second copy of the key and a second
+           breaker, both of which should stay per-PROVIDER rather than
+           per-tier — a reasoner outage and a chat outage are the same outage.
+
+           Falls back to the route default, so a caller that names no model
+           behaves exactly as before. */
+        model: req.model || r.model,
         messages: req.messages,
         tools: req.tools || undefined,
         response_format: req.responseFormat || undefined,

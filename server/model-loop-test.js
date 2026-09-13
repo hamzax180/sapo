@@ -357,7 +357,14 @@ const ROUTES = { prose: { baseUrl: "https://x.invalid/prose", model: "gemini-3.8
      not have to be revisited every time a harmless tool is added. */
   await check("only inert tools are offered — nothing that can execute", () => {
     const names = TOOLS_SCHEMA.map((s) => s.function.name).sort();
-    assert.deepStrictEqual(names, ["suggest_next", "write_file"]);
+    /* edit_file joins the list and the claim still holds: it changes text in
+       a file the model was already allowed to overwrite, through the same
+       path validation and the same PROTECTED_PATHS. It executes nothing.
+
+       This assertion is deliberately an exact set rather than a subset check,
+       so adding a tool to the model's surface cannot happen quietly — which
+       is why it caught this one. */
+    assert.deepStrictEqual(names, ["edit_file", "suggest_next", "write_file"]);
     for (const forbidden of ["run", "exec", "shell", "bash", "npm_install", "install", "fetch", "http"]) {
       assert.ok(!names.includes(forbidden), "a tool named " + forbidden + " is offered to the model");
     }
@@ -617,12 +624,26 @@ const ROUTES = { prose: { baseUrl: "https://x.invalid/prose", model: "gemini-3.8
     assert.ok(hitUrl.indexOf("/json") < 0, "assessPrompt must not fall back to the code model's route");
   });
 
-  await check("buildPlan also uses the prose route — the plan is read and confirmed by the user", async () => {
-    let hitUrl = "";
+  /* buildPlan moved to the reasoning tier, deliberately reversing what this
+     test used to assert. Deciding WHAT to build is the most reasoning-heavy
+     call in the agent and the one whose mistakes cost most — everything
+     downstream executes against the plan, so a bad plan is a well-built wrong
+     app.
+
+     The concern the old assertion protected is real and is not gone: the
+     title and summary are shown to the person verbatim, so a weaker
+     multilingual model writes a worse plan card for someone who asked in
+     Turkish or Arabic. That is the accepted trade. assessPrompt stays on
+     prose precisely because it carries the conversational half — the
+     clarifying question the person actually answers. */
+  await check("buildPlan uses the reasoning tier — planning is the expensive call to get wrong", async () => {
+    let hitUrl = "", sentModel = "";
     const plan = { title: "Bakery Site", summary: "A landing page for a bakery.", features: ["Menu section", "Opening hours", "Contact form"] };
-    client.init({ enabled: true, routes: ROUTES, fetchImpl: async (url) => { hitUrl = url; return (await jsonReplyFetch(plan)()); } });
+    client.init({ enabled: true, routes: ROUTES, fetchImpl: async (url, o) => {
+      hitUrl = url; sentModel = JSON.parse(o.body).model; return (await jsonReplyFetch(plan)()); } });
     const res = await buildPlan("a landing page for a bakery", "website");
-    assert.ok(hitUrl.indexOf("/prose") >= 0, "expected the prose-route baseUrl, got: " + hitUrl);
+    assert.ok(hitUrl.indexOf("/json") >= 0, "expected the code-model route, got: " + hitUrl);
+    assert.ok(sentModel, "a model must be named on the request");
     assert.strictEqual(res.title, "Bakery Site", "the model's plan should be used when the call succeeds");
   });
 
@@ -810,6 +831,114 @@ const ROUTES = { prose: { baseUrl: "https://x.invalid/prose", model: "gemini-3.8
      validateWriteFileArgs directly with an opts bag. That tests the function
      and not the wiring, and the wiring was the bug. These go through the real
      entry point instead. */
+  /* ---- edit_file --------------------------------------------------------
+     A surgical edit is only worth having if it is safe, so most of these are
+     about refusing rather than applying. An edit that lands in the wrong place
+     is worse than a rewrite, because a rewrite is at least visible. */
+  console.log("\n── edit_file ───────────────────────────────────────");
+
+  function editMsg(calls) {
+    return { role: "assistant", tool_calls: calls.map((c, i) => ({
+      id: "e_" + i, type: "function", function: { name: "edit_file", arguments: JSON.stringify(c) } })) };
+  }
+  const runEdit = (calls, files) => proposeWithClientBuild({
+    userPrompt: "change it", maxRounds: 0, baseFiles: files,
+    onFiles: async () => ({ ok: true, errors: [] })
+  });
+
+  await check("a unique anchor is replaced and the rest of the file survives", async () => {
+    const before = 'export default function App(){\n  const t = "Old Title";\n  return <h1>{t}</h1>;\n}\n';
+    client.init({ enabled: true, routes: ROUTES, fetchImpl: fetchReturning([
+      editMsg([{ path: "src/App.tsx", find: '"Old Title"', replace: '"New Title"' }]) ]) });
+    const res = await runEdit(null, { "src/App.tsx": before });
+    assert.ok(res.ok);
+    const out = res.calls.find((c) => c.path === "src/App.tsx").content;
+    assert.match(out, /New Title/);
+    assert.match(out, /export default function App/, "the untouched half must still be there");
+    assert.ok(!/Old Title/.test(out));
+  });
+
+  /* The refusals are asserted against parseToolCalls rather than the whole
+     loop, because that is where the decision is made. Driven through
+     proposeWithClientBuild they would be indistinguishable from any other
+     failed round: every edit missing means nothing was written, the round
+     fails, and at maxRounds:0 the loop correctly ships the fallback template —
+     so res.ok comes back TRUE and tells you nothing about whether the edit was
+     refused or wrongly applied. */
+  const parseEdits = (calls, files) => parseToolCalls(
+    { tool_calls: calls.map((c, i) => ({ id: "e_" + i, type: "function",
+      function: { name: "edit_file", arguments: JSON.stringify(c) } })) },
+    null, { files: files });
+
+  await check("an ambiguous anchor is refused, not guessed at", () => {
+    const r = parseEdits([{ path: "src/App.tsx", find: '"x"', replace: '"y"' }],
+      { "src/App.tsx": 'const a = "x";\nconst b = "x";\n' });
+    assert.ok(!r.ok, "two matches must not be applied to the first one");
+    assert.match(r.reason, /appears 2 times/);
+    assert.match(r.reason, /more of the surrounding lines/, "must say how to fix it");
+  });
+
+  await check("an anchor that is not there is refused with a usable message", () => {
+    const r = parseEdits([{ path: "src/App.tsx", find: "text the model imagined", replace: "z" }],
+      { "src/App.tsx": "real content" });
+    assert.ok(!r.ok);
+    assert.match(r.reason, /Copy the anchor exactly/);
+    assert.ok(r.recoverable, "a missed anchor is retryable, not a dead turn");
+  });
+
+  await check("editing a file that does not exist points at write_file", () => {
+    const r = parseEdits([{ path: "src/Nope.tsx", find: "a", replace: "b" }], { "src/App.tsx": "x" });
+    assert.ok(!r.ok);
+    assert.match(r.reason, /use write_file to create it/);
+  });
+
+  await check("the scaffold cannot be edited any more than it can be written", () => {
+    const r = parseEdits([{ path: "src/lib/payments.ts", find: "a", replace: "b" }],
+      { "src/lib/payments.ts": "abc" });
+    assert.ok(!r.ok, "PROTECTED_PATHS must hold for edits too");
+    assert.match(r.reason, /fixed scaffold/);
+  });
+
+  await check("an edit cannot escape src/ or reach a non-source file", () => {
+    for (const bad of ["../../etc/passwd", "/etc/passwd", "package.json", "src/x.json"]) {
+      const r = parseEdits([{ path: bad, find: "a", replace: "b" }], { [bad]: "a" });
+      assert.ok(!r.ok, bad + " should have been refused");
+    }
+  });
+
+  await check("two edits to one file compose instead of clobbering", async () => {
+    const before = "const a = 1;\nconst b = 2;\n";
+    client.init({ enabled: true, routes: ROUTES, fetchImpl: fetchReturning([
+      editMsg([
+        { path: "src/App.tsx", find: "const a = 1;", replace: "const a = 10;" },
+        { path: "src/App.tsx", find: "const b = 2;", replace: "const b = 20;" }
+      ]) ]) });
+    const res = await runEdit(null, { "src/App.tsx": before });
+    assert.ok(res.ok);
+    const out = res.calls.find((c) => c.path === "src/App.tsx").content;
+    assert.match(out, /const a = 10;/);
+    assert.match(out, /const b = 20;/, "the second edit must see the first one's result");
+  });
+
+  await check("an edit still gets the same rewrites a write does", async () => {
+    client.init({ enabled: true, routes: ROUTES, fetchImpl: fetchReturning([
+      editMsg([{ path: "src/App.tsx", find: "GRID", replace: 'className="grid grid-cols-1 md:grid-cols-3"' }]) ]) });
+    const res = await runEdit(null, { "src/App.tsx": "<div GRID></div>" });
+    assert.ok(res.ok);
+    assert.match(res.calls[0].content, /grid-cols-2/, "twoUpOnMobile must apply to edited content too");
+  });
+
+  await check("a failed edit alongside a good write does not lose the write", async () => {
+    client.init({ enabled: true, routes: ROUTES, fetchImpl: fetchReturning([{
+      role: "assistant", tool_calls: [
+        { id: "a", type: "function", function: { name: "edit_file", arguments: JSON.stringify({ path: "src/App.tsx", find: "nope", replace: "x" }) } },
+        { id: "b", type: "function", function: { name: "write_file", arguments: JSON.stringify({ path: "src/New.tsx", content: "export const N = 1;" }) } }
+      ] }]) });
+    const res = await runEdit(null, { "src/App.tsx": "real" });
+    assert.ok(res.ok, "one bad anchor must not discard the work that did land");
+    assert.ok(res.calls.some((c) => c.path === "src/New.tsx"));
+  });
+
   console.log("\n── caller options reach the write validator ────────");
 
   await check("proposeWithClientBuild carries imageUrls down to the file writer", async () => {
