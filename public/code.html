@@ -420,134 +420,71 @@
     @keyframes agSent{from{opacity:0}to{opacity:1}}
   }
 
-  .ag-say{position:relative;padding:6px 2px 14px 38px;font-size:1rem;line-height:1.62;color:var(--ink);opacity:0;animation:agIn .35s var(--ease) forwards}
+  /* No gutter at rest, so a finished reply starts where its text starts. */
+  .ag-say{position:relative;padding:6px 2px 14px 2px;font-size:1rem;line-height:1.62;color:var(--ink);opacity:0;
+    animation:agIn .35s var(--ease) forwards;
+    transition:padding-left .34s var(--ease)}
 
-  /* The agent gets a face.
+  /* THE AGENT'S FACE IS ONLY THERE WHILE THERE IS SOMETHING TO SAY WITH IT.
 
-     .ag-say already reserved a 35px gutter for one and nothing was ever
-     drawn in it, so every reply began with an empty column — the user side
-     has a bubble, this side had a blank. It is the Souqi bag on a chip: a
-     dark tile, a hairline of light along its top edge, and a cool halo
-     underneath, so it reads as hardware the reply came out of rather than
-     as a sticker.
+     What stood here: a chip on EVERY reply, permanently — a dark tile
+     carrying the logo, a circuit-trace mask cut from an inline SVG, a
+     specular highlight, a halo, and two infinite six-second animations
+     running for the life of the page on every message in the log.
 
-     A ::before rather than an element in every row: it is decoration, it
-     must never be selected with the reply text, and it costs nothing per
-     message. */
-  /* THE TILE — the die, and the bag lit from behind it.
+     Two things wrong with it, and the cheap one is the paint.
 
-     Four background layers, front to back: the mark, a pool of light
-     under it, a specular highlight raked from the top-left so the face
-     reads as glass rather than paint, and the substrate.
+     The real one is that a mark which is always on cannot say anything
+     about now. It was drawn as a status light — it even sped up mid-turn —
+     but a light that is lit before you ask, while you wait, and long after
+     it is done is furniture, not a signal. And at 27px the traces, the four
+     vias and the bag collapse into a smudge of dark pixels: detail that
+     resolves as noise at the only size it is ever drawn.
 
-     The pool is a radial gradient whose SIZE is animated rather than its
-     opacity, because a background layer has no opacity of its own.
-     Growing and shrinking it reads as the bag brightening and dimming. */
-  .ag-say::before{
-    content:"";position:absolute;left:0;top:8px;width:27px;height:27px;
-    border-radius:9px;box-sizing:border-box;
-    background:
-      url("/assets/logo-mark.png") center / 16px 16px no-repeat,
-      radial-gradient(circle at 50% 50%,rgba(150,228,255,.78),rgba(120,215,255,.30) 38%,rgba(120,215,255,0) 60%) center no-repeat,
-      radial-gradient(120% 90% at 22% -8%,rgba(255,255,255,.15),rgba(255,255,255,0) 58%) center / 100% 100% no-repeat,
-      linear-gradient(155deg,#1d2733 0%,#0c121a 100%);
-    background-size:16px 16px,115% 115%,100% 100%,auto;
-    box-shadow:
-      inset 0 1px 0 rgba(255,255,255,.16),
-      inset 0 0 0 1px rgba(255,255,255,.07),
-      0 4px 14px -6px rgba(26,166,223,.45);
-    animation:agChipCharge 6s cubic-bezier(.4,0,.2,1) infinite;
+     So the face is a STATUS now. It exists while a turn is in flight and is
+     gone the moment one lands. One dot, breathing — nothing to identify,
+     nothing to decode, just a sign that something is happening, which is
+     the only thing this gutter was ever able to say honestly.
+
+     Scoped to the LAST .ag-say rather than all of them:
+     :not(:has(~ .ag-say)) means "no later reply exists", so the dot sits
+     with the line being written instead of lighting up the whole history
+     at once.
+
+     A browser without :has() gets no dot and no gutter — which is the
+     resting state exactly, so the fallback is the finished look rather
+     than a broken one. */
+  @keyframes agBreathe{
+    0%,100%{transform:scale(.62);opacity:.3}
+    50%    {transform:scale(1);opacity:1}
   }
 
-  /* THE TRACES — pins running in from all four edges to four vias, and
-     nothing across the middle, because the bag is there.
-
-     The circuit is a MASK, not a picture: the paths are cut out of this
-     layer and whatever is painted underneath shows through only along
-     them. Underneath sits a dim cyan the traces rest at, and over it a
-     RING of light whose radius is animated — so the bright part is
-     wherever the ring currently is, and the mask turns that into light
-     running down the pins toward the centre.
-
-     A ring rather than the diagonal band this used to be, because a band
-     lights the whole chip at once and says nothing. A ring contracting
-     from the rim inward is current arriving: it enters at all eight pins
-     together, runs along them, and reaches the bag. Then it keeps
-     shrinking into the hollow middle where the mask has no circuit at
-     all, and disappears on its own — no fade to write, the artwork does
-     it. At the far end of the cycle the ring is bigger than the tile's
-     diagonal and equally invisible, so the loop point cannot flash. */
-  .ag-say::after{
-    content:"";position:absolute;left:0;top:8px;width:27px;height:27px;
-    border-radius:9px;pointer-events:none;
-    background:
-      radial-gradient(circle at 50% 50%,
-        rgba(200,248,255,0) 33%, rgba(200,248,255,.9) 43%,
-        #ffffff 50%, rgba(200,248,255,.9) 57%,
-        rgba(200,248,255,0) 67%),
-      linear-gradient(rgba(56,170,225,.32),rgba(56,170,225,.32));
-    background-position:center,0 0;
-    background-repeat:no-repeat;
-    background-size:340% 340%,100% 100%;
-    -webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Cg fill='none' stroke='%23fff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M1 14H8l5-5V1'/%3E%3Cpath d='M1 34H8l5 5v8'/%3E%3Cpath d='M47 14h-7l-5-5V1'/%3E%3Cpath d='M47 34h-7l-5 5v8'/%3E%3Cpath d='M1 24h9'/%3E%3Cpath d='M47 24h-9'/%3E%3Cpath d='M24 1v8'/%3E%3Cpath d='M24 47v-8'/%3E%3C/g%3E%3Cg fill='%23fff'%3E%3Ccircle cx='10' cy='24' r='2'/%3E%3Ccircle cx='38' cy='24' r='2'/%3E%3Ccircle cx='24' cy='9' r='2'/%3E%3Ccircle cx='24' cy='39' r='2'/%3E%3C/g%3E%3C/svg%3E") center / 100% 100% no-repeat;
-            mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Cg fill='none' stroke='%23fff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M1 14H8l5-5V1'/%3E%3Cpath d='M1 34H8l5 5v8'/%3E%3Cpath d='M47 14h-7l-5-5V1'/%3E%3Cpath d='M47 34h-7l-5 5v8'/%3E%3Cpath d='M1 24h9'/%3E%3Cpath d='M47 24h-9'/%3E%3Cpath d='M24 1v8'/%3E%3Cpath d='M24 47v-8'/%3E%3C/g%3E%3Cg fill='%23fff'%3E%3Ccircle cx='10' cy='24' r='2'/%3E%3Ccircle cx='38' cy='24' r='2'/%3E%3Ccircle cx='24' cy='9' r='2'/%3E%3Ccircle cx='24' cy='39' r='2'/%3E%3C/g%3E%3C/svg%3E") center / 100% 100% no-repeat;
-    animation:agChipInrush 6s cubic-bezier(.4,0,.2,1) infinite;
-  }
-
-  /* One period for both, so the flare lands ON the arrival rather than
-     drifting past it. The ring is inside the hollow by about 26% of the
-     cycle; that is where the bag peaks. Everything after is the chip
-     settling back, and then four seconds of rest — a pulse every six
-     seconds reads as something idling and alive, where a continuous loop
-     reads as a spinner, and a spinner tells the user to wait. */
-  @keyframes agChipInrush{
-    0%   {background-size:340% 340%,100% 100%}
-    26%  {background-size:64% 64%,100% 100%}
-    100% {background-size:64% 64%,100% 100%}
-  }
-  @keyframes agChipCharge{
-    0%,100%{background-size:16px 16px,112% 112%,100% 100%,auto;
-            box-shadow:inset 0 1px 0 rgba(255,255,255,.16),
-                       inset 0 0 0 1px rgba(255,255,255,.07),
-                       0 4px 14px -6px rgba(26,166,223,.40)}
-    18%    {background-size:16px 16px,118% 118%,100% 100%,auto}
-    28%    {background-size:16px 16px,150% 150%,100% 100%,auto;
-            box-shadow:inset 0 1px 0 rgba(255,255,255,.26),
-                       inset 0 0 0 1px rgba(255,255,255,.13),
-                       0 5px 22px -6px rgba(60,200,235,.95)}
-    52%    {background-size:16px 16px,124% 124%,100% 100%,auto}
-  }
-
-  /* WHILE A TURN IS ACTUALLY IN FLIGHT the chip stops idling: the ring
-     comes round more than twice as often and everything runs hotter. The
-     agent's face becomes the status light, which is a thing the interface
-     was paying for a row of animated dots to say separately.
-
-     :has() on the log, because the thinking block is a SIBLING of the
-     replies, and a browser too old for :has() simply keeps the calm
-     version — the chip is never wrong, only less talkative. */
-  #agLog:has(.ag-thinking:not(.done)) .ag-say::before{animation-duration:2.4s}
-  #agLog:has(.ag-thinking:not(.done)) .ag-say::after{
-    animation-duration:2.4s;filter:brightness(1.3) saturate(1.15)}
+  #agLog:has(.ag-thinking:not(.done)) .ag-say:not(:has(~ .ag-say)){
+    padding-left:26px}
+  #agLog:has(.ag-thinking:not(.done)) .ag-say:not(:has(~ .ag-say))::before{
+    content:"";position:absolute;left:4px;top:14px;width:9px;height:9px;
+    border-radius:50%;background:var(--accent);
+    /* The ring is a shadow rather than a second element, and it scales with
+       the dot — so the glow breathes with it instead of sitting still
+       around something that moves. */
+    box-shadow:0 0 0 4px color-mix(in srgb,var(--accent) 15%,transparent);
+    animation:agBreathe 1.5s cubic-bezier(.45,0,.55,1) infinite}
 
   @media (max-width:900px){
-    .ag-say{padding-left:34px}
-    .ag-say::before,.ag-say::after{width:24px;height:24px;border-radius:8px}
-    .ag-say::before{background-size:14px 14px,115% 115%,100% 100%,auto}
-    @keyframes agChipCharge{
-      0%,100%{background-size:14px 14px,112% 112%,100% 100%,auto}
-      18%    {background-size:14px 14px,118% 118%,100% 100%,auto}
-      28%    {background-size:14px 14px,150% 150%,100% 100%,auto}
-      52%    {background-size:14px 14px,124% 124%,100% 100%,auto}
-    }
+    #agLog:has(.ag-thinking:not(.done)) .ag-say:not(:has(~ .ag-say)){
+      padding-left:22px}
+    #agLog:has(.ag-thinking:not(.done)) .ag-say:not(:has(~ .ag-say))::before{
+      left:3px;top:13px;width:8px;height:8px;box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 15%,transparent)}
   }
 
-  /* Reduced motion keeps the chip — it is the agent's face, not an effect —
-     and simply stops it moving, holding the traces lit at their resting
-     glow with the ring parked outside the tile. */
+  /* Reduced motion keeps the dot and stops it moving, held at the BRIGHT
+     end: a pulse parked at its dim end reads as disabled, which is the one
+     thing a working indicator must never look like. The gutter still opens
+     and closes, so the arrival and departure are not lost either — that
+     transition is a layout change, not motion for its own sake. */
   @media (prefers-reduced-motion:reduce){
-    .ag-say::before,.ag-say::after{animation:none}
-    .ag-say::after{background-size:340% 340%,100% 100%;filter:none}
+    #agLog:has(.ag-thinking:not(.done)) .ag-say:not(:has(~ .ag-say))::before{
+      animation:none;opacity:1;transform:none}
   }
 
   /* Per-word reveal for the agent's own text (see revealWords()) — .ag-say
