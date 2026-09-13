@@ -4894,7 +4894,66 @@
     let userToggled = false;
     head.addEventListener("click", () => { userToggled = true; wrap.classList.toggle("collapsed"); });
 
-    think("Understanding “" + promptGist(promptText) + "”", bodyEl).done();
+    /* STEPS SETTLE ONE AT A TIME, EVEN WHEN THEY ARRIVE TOGETHER.
+
+       The opening stages are reported as facts, not as work in progress,
+       and the server says why: by the time it can speak, reading the
+       request and folding the conversation into a brief have both already
+       run. So `read` and `brief` arrive as `done` in the same tick as each
+       other, the client adds its own "Understanding …" beside them, and
+       three ticks used to paint on the same frame. That is a receipt, not
+       a process — nothing on screen showed one thing following another.
+
+       Nothing here invents a step or slows the build down. Every row still
+       appears the instant its event does; only the CHECK is queued, one
+       every 240ms, in arrival order. What changes is the reading, from
+       three things that were already true to three things becoming true.
+
+       Every completion goes through this queue, including genuinely
+       in-flight steps finishing for real, and that is the point: the queue
+       is what guarantees the order on screen is the order that happened. A
+       fast step that lands while the queue is draining takes its place at
+       the back instead of ticking ahead of something that finished before
+       it.
+
+       Flushed, never waited on, when the turn ends. A finished turn must
+       not sit there showing spinners because a cosmetic timer has 400ms
+       left to run — see done() below, which drains the queue in one go
+       before it finalises. */
+    const SETTLE_MS = 240;
+    let settleQueue = [], settleTimer = null;
+    function pumpSettles() {
+      settleTimer = null;
+      const next = settleQueue.shift();
+      if (!next) return;
+      next();
+      /* A backlog drains faster than it arrived. The pacing exists to make a
+         sequence legible, not to meter it out: three opening stages at 240ms
+         reads as one thing following another, but a model writing twelve
+         files in a burst would spend three seconds ticking them off long
+         after they were written, and the panel would be narrating the past.
+
+         Past three waiting, the interval drops to 90ms — still sequential,
+         still in order, just no longer pretending each one needs its own
+         beat. Also what keeps a backgrounded tab honest: setTimeout throttles
+         to about a second when the page is hidden, so a queue that built up
+         while the user was elsewhere catches up quickly instead of replaying
+         the whole build at them when they come back. */
+      if (settleQueue.length) {
+        settleTimer = setTimeout(pumpSettles, settleQueue.length > 3 ? 90 : SETTLE_MS);
+      }
+    }
+    function queueSettle(fn) {
+      settleQueue.push(fn);
+      if (!settleTimer) settleTimer = setTimeout(pumpSettles, SETTLE_MS);
+    }
+    function flushSettles() {
+      if (settleTimer) { clearTimeout(settleTimer); settleTimer = null; }
+      while (settleQueue.length) settleQueue.shift()();
+    }
+
+    const firstStep = think("Understanding “" + promptGist(promptText) + "”", bodyEl);
+    queueSettle(function () { firstStep.done(); });
 
     const t0 = Date.now();
     const clockTimer = setInterval(() => { timeEl.textContent = Math.round((Date.now() - t0) / 1000) + "s"; }, 500);
@@ -4909,9 +4968,15 @@
         // header: a file row says the path, the header says how many so far.
         const h = headerLabel === undefined ? label : headerLabel;
         if (h) labelEl.textContent = h;
-        return think(label, bodyEl, cls);
+        const handle = think(label, bodyEl, cls);
+        // The row is live immediately; only its check is paced. Wrapping the
+        // handle rather than the call site means every caller is queued by
+        // construction — a new one cannot forget to be.
+        return { done: function (next) { queueSettle(function () { handle.done(next); }); } };
       },
       done() {
+        // Before anything else: a turn that is over cannot still be ticking.
+        flushSettles();
         clearInterval(clockTimer);
         const secs = Math.max(1, Math.round((Date.now() - t0) / 1000));
         wrap.classList.add("done");
