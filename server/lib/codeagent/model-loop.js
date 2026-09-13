@@ -62,7 +62,11 @@ const client = require("../ai/client");
 // v7: one-response rule — v6 entries came from a model that had no
 // instruction to finish the app in a single turn, and routinely wrote the
 // leaf files and stopped before the entry point.
-const PROMPT_VERSION = "v7";
+// v8: pages. The model can write .html at the project root now, and the
+// prompt tells it when a request wants a site with real pages rather than
+// one React screen. A v7 entry was produced under a prompt that forbade
+// index.html outright, so every v7 design is single-page by construction.
+const PROMPT_VERSION = "v8";
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 
 // The Map was unbounded: entries expire only when something reads them again,
@@ -667,17 +671,17 @@ LANGUAGE: write this message in the SAME language and script the person wrote in
 You are not choosing the stack — it is fixed and already installed:
 - React 18 + TypeScript, function components with hooks only
 - Tailwind CSS utility classes for ALL styling — no separate .css files, no styled-components, no inline style objects
-- The app's entry point is src/main.tsx, which renders src/App.tsx — you only ever need to write/overwrite src/App.tsx and, optionally, new files under src/components/ that App.tsx imports
+- A React app's entry point is src/main.tsx, which renders src/App.tsx — for an app you only ever need to write/overwrite src/App.tsx and, optionally, new files under src/components/ that App.tsx imports. A site with pages does not use either: its pages are .html files at the project root. See PAGES OR ONE APP below.
 
 Rules:
 - Call write_file for every file you CREATE, and for a file you are genuinely rewriting most of. One call per file. Always write or edit at least one file unless you are asking a clarifying question.
-- YOUR WHOLE ANSWER IS ONE RESPONSE. There is no second turn to finish in — every file the app needs goes in this one. On a new app src/App.tsx is not optional and not something to leave until last: write it in the SAME batch as everything else, importing the files you are writing alongside it. Stopping after the types, helpers and data leaves src/main.tsx mounting the placeholder App.tsx the scaffold ships, so the app compiles cleanly and renders nothing.
+- YOUR WHOLE ANSWER IS ONE RESPONSE. There is no second turn to finish in — every file the app needs goes in this one. Write the entry point in the SAME batch as everything else, not last: src/App.tsx for a React app, index.html for a site with pages. Stopping after the types, helpers and data leaves src/main.tsx mounting the placeholder App.tsx the scaffold ships, so the thing compiles cleanly and renders nothing. A site that is missing a page its own nav links to is the same failure with a 404 instead of a blank screen — write every page you put in the menu.
 - To change part of a file that already exists, call edit_file rather than rewriting it. Its "find" must be text copied EXACTLY from the file and must appear exactly once — include the surrounding lines if a short snippet would be ambiguous. This is faster than a rewrite and, more importantly, it cannot drop the parts of the file you were not changing. Rewriting a 200-line component to change one line is how a working feature disappears.
 - If a file you need to change was listed as omitted, or you were shown only an excerpt of it, call read_file on it FIRST. Guessing at code you have not seen is how an edit_file anchor misses and how a rewrite deletes working features. Reading costs one round; both of those cost the whole build.
 - After your writes, call suggest_next with 2-3 short ideas for what to improve next — things you could do immediately if they said yes. Make them specific to THIS app ("Add a filter by category", not "Improve the UI"), and never suggest something you just did. Skip the call entirely if you asked a clarifying question, or if nothing worthwhile is left.
 - src/App.tsx must have a default export and must compile under TypeScript strict mode.
 - DO NOT import 'lucide-react', 'heroicons', or any uninstalled packages. ONLY import from 'react' or 'react-dom'. Use inline SVG elements, emoji, or Tailwind styled elements for icons.
-- Do not write index.html, package.json, vite.config.ts, tailwind.config.js, or tsconfig.json — those are fixed and already correct.
+- Do not write package.json, vite.config.ts, tailwind.config.js, postcss.config.js or tsconfig.json — those are fixed and already correct. index.html IS yours to write when you are building a site with pages; leave it alone when you are building a React app, where the scaffold's own copy mounts src/main.tsx.
 
 TAKING PAYMENTS. The scaffold ships src/lib/payments.ts, already written and already correct. Do not write, rewrite or reimplement that file. When the app should sell something — a shop, a booking fee, a paid plan, a donate button — import it:
 
@@ -704,6 +708,23 @@ UPLOADED IMAGES. When this request lists images under "UPLOADED IMAGES", those a
 - Place each one by what it IS, using the description provided and what the person asked for. A logo belongs in the header at a modest height with the name beside it, and in the footer if there is one. A wide photo of a place or a scene is a hero: full-bleed, with a dark overlay or a gradient scrim behind any text on top of it, because text directly on a photograph fails the contrast rule above more often than not. Square-ish photos of things are product or gallery images and belong in the grid, under the two-column rule.
 - Every <img> needs a real alt describing the picture, object-cover, and a fixed aspect ratio (aspect-square, aspect-[4/3], aspect-video). Without those, one portrait photo in a row of landscape ones stretches its cell and breaks the grid. Add loading="lazy" to anything below the first screen.
 - If a description mentions dominant colours, lean the palette toward them so the site looks like it belongs to the person who owns the photos.
+
+PAGES OR ONE APP — DECIDE THIS FIRST, IT CHANGES EVERYTHING YOU WRITE.
+
+A WEBSITE gets real, separate pages. A restaurant, a barber, a clinic, a law firm, a hotel, a portfolio, a shop front, a landing page with an About and a Contact — anything a visitor would expect to navigate, bookmark one page of, and find on Google. Write one .html file per page at the project root and link them with ordinary <a href="about.html">. Every .html at the root is built as its own page automatically; writing the file IS adding the page, and there is no router, no config and no route table involved.
+
+  index.html     the home page — always write this one
+  about.html     menu.html, services.html, gallery.html, contact.html, ...
+
+  Each page is a COMPLETE html document: <!doctype html>, <html lang="...">, <head> with <meta charset>, <meta name="viewport" content="width=device-width,initial-scale=1">, a <title> written for THAT page, a <meta name="description">, and <link rel="stylesheet" href="/src/index.css"> which is what gives you Tailwind. Then <body> with the markup.
+  The same header and footer markup goes on every page, so the site feels like one site. Mark the current page in the nav (aria-current="page" and a different colour) — a visitor who cannot tell which page they are on is lost.
+  Use Tailwind utility classes exactly as you would in a component. Plain HTML: no JSX, so class= not className=, and no {} expressions. A little inline <script> at the end of the body is fine for a mobile menu toggle or a form handler — keep it small and vanilla.
+
+AN APP gets one React page. A dashboard, a tracker, a calculator, a planner, a game, an editor — anything whose whole point is state that changes as you use it, where a page reload would lose your place. That is src/App.tsx and components under src/, exactly as described above, and you do not write any .html at all.
+
+If it is genuinely both — a salon site with a booking tool — build the site as pages and put the interactive part on its own page.
+
+When in doubt: if a visitor would expect to SEE it in a menu bar, it is a page. If they would expect to DO it, it is a component.
 
 STRUCTURE THE PROJECT INTO REAL FILES. Do not put an entire app in src/App.tsx because it is one call fewer. Someone is going to open this project and keep working in it, and a 900-line single file is a worse starting point than the same code split sensibly. Split by responsibility, using the layout the stack already expects:
 - src/App.tsx — composition and routing/layout only. It should read like a table of contents for the app.
@@ -902,9 +923,30 @@ function validateWriteFileArgs(args, opts) {
   if (typeof args.content !== "string") throw new Error("write_file: \"content\" must be a string");
   const p = args.path.trim().replace(/\\/g, "/");
   if (p.startsWith("/") || p.includes("..")) throw new Error("write_file: \"" + p + "\" is not a safe relative path");
-  if (!/^src\//.test(p)) throw new Error("write_file: only files under src/ are allowed, got \"" + p + "\"");
+  /* A PAGE IS A FILE AT THE ROOT. src/ is where an app lives; a website's
+     pages are about.html, menu.html, contact.html sitting next to
+     index.html, exactly as they would on any static site. vite.config.ts
+     discovers them and builds each one, so writing the file IS publishing
+     the page — no route table, no config to edit, nothing this validator
+     has to be taught about a particular site's shape.
+
+     Root only, because that is exactly what the config discovers: it reads
+     the project root, not a recursive glob, so a nested shop/item.html
+     would be written and then silently never built. Refusing it here is the
+     honest version of that — and one flat level is the shape a site of this
+     size wants anyway. */
+  const isRootPage = /^[A-Za-z0-9][A-Za-z0-9._-]*\.html$/.test(p);
+  const inSrc = /^src\//.test(p);
+  if (!isRootPage && !inSrc) {
+    throw new Error("write_file: only files under src/ or a .html page at the project root are allowed, got \"" + p + "\"");
+  }
   if (PROTECTED_PATHS.has(p)) throw new Error("write_file: \"" + p + "\" is part of the fixed scaffold and cannot be overwritten");
-  if (!/\.(tsx?|css)$/.test(p)) throw new Error("write_file: \"" + p + "\" must be a .ts, .tsx or .css file");
+  /* Scoped to src/, because isRootPage has already guaranteed .html for the
+     other branch — and src/page.html must NOT pass. A single whitelist
+     covering both let it through, and the config globs the project root
+     rather than recursing, so that file would have been written, reported as
+     written, and then never built into anything. */
+  if (inSrc && !/\.(tsx?|css)$/.test(p)) throw new Error("write_file: \"" + p + "\" must be a .ts, .tsx or .css file");
   /* Both rewrites are prompt rules the model mostly follows, applied here
      because "mostly" ships the exception to a customer. opts is optional so
      every existing caller — and the test suite — keeps working unchanged;
@@ -2122,7 +2164,12 @@ async function proposeWithClientBuild({ userPrompt, maxRounds, onFiles, onRound,
        mounted by the next round's build along with the App.tsx this asks for,
        and any type error in them surfaces then — one compile instead of two,
        and the model gets to fix everything in one pass. */
-    const missingEntry = !hasExistingEntry && !written.has("src/App.tsx");
+    /* Either kind of entry counts. A React app mounts through src/App.tsx;
+       a static site IS index.html and never has an App.tsx at all — judging
+       only the first would fire this guard on every multi-page site ever
+       built, and spend the run demanding a file that site has no use for. */
+    const wroteEntry = written.has("src/App.tsx") || written.has("index.html");
+    const missingEntry = !hasExistingEntry && !wroteEntry;
     let build;
     if (missingEntry) {
       if (entryRounds < MAX_ENTRY_ROUNDS) entryRounds++;
@@ -2130,8 +2177,10 @@ async function proposeWithClientBuild({ userPrompt, maxRounds, onFiles, onRound,
         ok: false,
         errors: [{
           file: "src/App.tsx", line: 1, col: 1, code: "NO_ENTRY",
-          message: "src/App.tsx is missing, so the app renders nothing. Write it now, " +
-            "with a default export that composes the files you have already written."
+          message: "There is no entry point, so nothing renders. Write one now: " +
+            "src/App.tsx with a default export composing the files you have already " +
+            "written, or — if you are building a static multi-page site — index.html " +
+            "as the home page."
         }]
       };
     } else {

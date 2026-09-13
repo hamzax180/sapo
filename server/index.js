@@ -5081,8 +5081,17 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
          comes to rewrite an app from the fraction it was shown. */
       const full = await projects.materialize(project.id);
       const files = (full && full.files) || {};
+      /* src/ AND the root .html pages, because both are now the model's to
+         write. A multi-page site keeps everything it built in about.html,
+         menu.html and the rest — filtering to src/ would show the model an
+         empty codebase for its own site and invite it to build the whole
+         thing again from the request text. The scaffold's own files are
+         still excluded: they are fixed, and validateWriteFileArgs refuses
+         them anyway. */
       const srcFiles = {};
-      for (const [k, v] of Object.entries(files)) if (k.startsWith("src/")) srcFiles[k] = v;
+      for (const [k, v] of Object.entries(files)) {
+        if (k.startsWith("src/") || /^[^/]+\.html$/.test(k)) srcFiles[k] = v;
+      }
       // Same tree the prompt context is built from, so an exact-match anchor
       // is matching the very text the model was shown.
       srcFilesForEdit = srcFiles;
@@ -5094,7 +5103,8 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
          absent, only that it could not be reached — and the two mistakes are
          not equal: a missed guard costs one unclear preview, a false one
          makes the model overwrite a working App.tsx it was never shown. */
-      hasExistingEntry = !!srcFiles["src/App.tsx"] || !(full && full.complete);
+      hasExistingEntry = !!srcFiles["src/App.tsx"] || !!srcFiles["index.html"] ||
+        !(full && full.complete);
 
       if (Object.keys(srcFiles).length) {
         // buildCodebaseContext fits whole files where it can, marks any

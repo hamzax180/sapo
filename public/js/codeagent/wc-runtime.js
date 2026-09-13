@@ -312,10 +312,32 @@ class WCRuntime {
        Rewritten from the template each time, not appended, so switching build
        type does not leave the previous build's font links behind. */
     if (typeof files.__souqi_fonts__ === "string") {
-      const html = indexHtml.replace("<title>", files.__souqi_fonts__ + "\n    <title>");
-      await webcontainerInstance.fs.writeFile("index.html", html);
+      const fontTag = files.__souqi_fonts__;
       files = Object.assign({}, files);
       delete files.__souqi_fonts__;
+
+      /* EVERY page gets the font links, not just index.html.
+         A multi-page site keeps its markup in about.html, menu.html and the
+         rest, and a typeface loaded on the home page alone is a site that
+         changes font as you walk through it. */
+      for (const key of Object.keys(files)) {
+        if (!/^[^/]+\.html$/.test(key)) continue;
+        if (files[key].indexOf(fontTag) >= 0) continue;
+        files[key] = files[key].indexOf("<title>") >= 0
+          ? files[key].replace("<title>", fontTag + "\n    <title>")
+          : files[key].replace(/<head([^>]*)>/i, "<head$1>\n    " + fontTag);
+      }
+
+      /* Only fall back to the scaffold document when the build did not write
+         its own. Writing it unconditionally was safe while index.html could
+         not be written at all; now that a static site supplies its own home
+         page, it would mount the React shell and the loop below would
+         overwrite it straight back — the file flipping twice a build and
+         landing correct by luck rather than by design. */
+      if (!Object.prototype.hasOwnProperty.call(files, "index.html")) {
+        await webcontainerInstance.fs.writeFile(
+          "index.html", indexHtml.replace("<title>", fontTag + "\n    <title>"));
+      }
     }
 
     for (const [path, content] of Object.entries(files)) {

@@ -96,7 +96,10 @@ function tailwindConfig(theme) {
  *  (contrast: ink/surface ${p.contrast.inkOnSurface}:1, label/accent ${p.contrast.onAccentOnAccent}:1).
  *  Do not hand-edit; write the token names instead. */
 export default {
-  content: ["./index.html", "./src/**/*.{js,ts,jsx,tsx}"],
+  // "./*.html" and not just index.html: a multi-page site keeps its markup
+  // in about.html, menu.html and the rest, and a class Tailwind never scans
+  // is a class that does not exist in the stylesheet.
+  content: ["./*.html", "./src/**/*.{js,ts,jsx,tsx}"],
   theme: {
     extend: {
       colors: {

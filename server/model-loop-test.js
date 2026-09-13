@@ -1063,6 +1063,73 @@ const ROUTES = { prose: { baseUrl: "https://x.invalid/prose", model: "gemini-3.8
      that stop it: the conversation reaches a steady size however many rounds
      run, and what gets dropped is never something the protocol or the model
      needs. */
+  /* ---- pages -------------------------------------------------------------
+     A site is .html files at the project root, one per page, discovered by
+     vite.config.ts rather than declared anywhere. These pin the boundary
+     that makes that safe, and the two places the entry guard had to learn
+     that an app is not the only thing this builds. */
+  console.log("\n── pages, not just one app ──────────────");
+
+  await check("a page at the root is writable; a nested one is not", () => {
+    for (const good of ["index.html", "about.html", "contact-us.html", "menu.html"]) {
+      assert.strictEqual(validateWriteFileArgs({ path: good, content: "<!doctype html>" }).path, good);
+    }
+    /* Nested is refused because vite.config.ts reads the project root, not a
+       recursive glob — shop/item.html would be written and then silently
+       never built, which is worse than being told no. */
+    for (const bad of ["shop/item.html", "src/page.html", "../escape.html", "/abs.html"]) {
+      assert.throws(() => validateWriteFileArgs({ path: bad, content: "x" }),
+        /not a safe relative path|only files under src\/|must be a \.ts/, bad + " was accepted");
+    }
+  });
+
+  await check("opening the root to .html did not open it to everything else", () => {
+    // The scaffold is still the scaffold. Widening the path rule for pages
+    // must not have made package.json or a config file writable.
+    for (const bad of ["package.json", "vite.config.ts", "tsconfig.json", "tailwind.config.js", "notes.txt", "evil.js"]) {
+      assert.throws(() => validateWriteFileArgs({ path: bad, content: "x" }), /write_file:/, bad + " became writable");
+    }
+    assert.throws(() => validateWriteFileArgs({ path: "src/main.tsx", content: "x" }), /fixed scaffold/);
+  });
+
+  await check("a site build is not asked for an App.tsx it has no use for", async () => {
+    /* The entry guard judged src/App.tsx alone. A static site never has one,
+       so every multi-page site would have burned a round being told to write
+       a file that belongs to the other kind of project entirely. */
+    const site = toolCallMsg([
+      { path: "index.html", content: "<!doctype html><html><head><title>Home</title></head><body><a href=\"about.html\">About</a></body></html>" },
+      { path: "about.html", content: "<!doctype html><html><head><title>About</title></head><body>Hi</body></html>" }
+    ]);
+    let modelCalls = 0;
+    const respond = fetchReturning([site]);
+    client.init({ enabled: true, routes: ROUTES, fetchImpl: async () => { modelCalls++; return respond(); } });
+
+    const res = await proposeWithClientBuild({
+      userPrompt: "a website for my barber shop with an about page",
+      hasExistingEntry: false,
+      onFiles: async () => ({ ok: true, errors: [] })
+    });
+    assert.strictEqual(res.ok, true, "a site with a home page was rejected for having no App.tsx");
+    assert.strictEqual(modelCalls, 1, "the guard forced a repair round on a complete site");
+    assert.ok(res.calls.some((c) => c.path === "about.html"), "the second page was dropped");
+  });
+
+  await check("a build with neither entry is still caught", async () => {
+    // The guard still has to fire. Widening it to accept index.html must not
+    // have turned it off for a run that wrote no entry point of either kind.
+    const partial = toolCallMsg([{ path: "src/lib/util.ts", content: "export const x = 1;" }]);
+    const withApp = toolCallMsg([{ path: "src/App.tsx", content: "export default function App(){return null}" }]);
+    client.init({ enabled: true, routes: ROUTES, fetchImpl: fetchReturning([partial, withApp]) });
+    const rounds = [];
+    await proposeWithClientBuild({
+      userPrompt: "a dashboard", hasExistingEntry: false,
+      onFiles: async () => ({ ok: true, errors: [] }),
+      onRound: (r) => rounds.push(r)
+    });
+    assert.strictEqual(rounds[0].ok, false, "a build with no entry of either kind was accepted");
+    assert.strictEqual(rounds[0].errors[0].code, "NO_ENTRY");
+  });
+
   console.log("\n── the context window ──────────────────────");
 
   const WINDOW = 65536;
