@@ -1024,6 +1024,24 @@
     border-radius:6px;display:grid;place-items:center;cursor:pointer;transition:.15s}
   .ag-attach:hover{border-color:var(--line-hover);color:var(--ink)}
   .ag-attach svg{width:16px;height:16px}
+  /* Chips wrap onto their own line rather than squeezing the composer's
+     button row — eight attachments is a legitimate thing to do and must not
+     push the send button off the end. */
+  /* Thumbnails on a message that carried photos. Fixed aspect and cover, so
+     a portrait photo beside a landscape one cannot make the row ragged. */
+  .ag-user-imgs{display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end;margin-bottom:6px}
+  .ag-user-imgs img{width:54px;height:54px;border-radius:9px;object-fit:cover;border:1px solid var(--line);background:var(--paper-2)}
+  /* Dragging a file over the composer. A visible target, because a drop that
+     misses navigates the page to the file and loses the conversation. */
+  .ag-composer.dropping .ag-box{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 18%,transparent)}
+  .ag-attach-row{display:contents}
+  .ag-attach-row:not(:empty){display:flex;flex-wrap:wrap;gap:6px;order:-1;width:100%;margin-bottom:6px}
+  /* Uploading: dimmed, and the remove button still works — a slow upload is
+     the moment you are most likely to change your mind. */
+  .ag-attach-chip.busy{opacity:.6}
+  .ag-attach-chip.busy img{filter:grayscale(1)}
+  .ag-attach-chip.failed{border-color:#d9382c;color:#d9382c}
+  .ag-attach-chip.failed img{opacity:.4}
   .ag-attach-chip[hidden]{display:none}
   .ag-attach-chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--paper-2);
     border-radius:999px;padding:3px 4px 3px 3px;font-size:.78rem;font-weight:600;color:var(--ink-2);max-width:160px}
@@ -3951,14 +3969,12 @@
           <button type="button" class="ag-attach" id="agAttach" aria-label="Attach a logo or image" title="Attach a logo or image">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
           </button>
-          <input type="file" id="agAttachInput" accept="image/png,image/jpeg,image/svg+xml,image/webp" hidden>
-          <span class="ag-attach-chip" id="agAttachChip" hidden>
-            <img id="agAttachThumb" alt="">
-            <span class="nm" id="agAttachName"></span>
-            <button type="button" id="agAttachRemove" aria-label="Remove attachment">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
-            </button>
-          </span>
+          <!-- multiple, and no SVG. The server refuses image/svg+xml because
+               the bucket is public-read, so an SVG there would run as a
+               document in the asset domain's origin; offering it in the
+               picker would only produce a rejection two steps later. -->
+          <input type="file" id="agAttachInput" accept="image/png,image/jpeg,image/webp,image/gif" multiple hidden>
+          <span class="ag-attach-row" id="agAttachRow"></span>
 
           <span class="ag-brow-sp"></span>
           <div class="ag-model-wrap" id="agModelWrap">
@@ -4343,30 +4359,182 @@
   // client-side as a data URL and sent alongside the FIRST build only
   // (see runTurn(); a follow-up edits an app that already exists, an
   // attachment at that point wouldn't mean anything server-side).
-  let attachedImage = null; // { name, dataUrl }
-  const agAttachInput = $("agAttachInput"), agAttachChip = $("agAttachChip"),
-    agAttachName = $("agAttachName"), agAttachThumb = $("agAttachThumb");
+  /* ATTACHED PHOTOS.
+
+     Uploaded when they are ATTACHED, not when the message is sent. By the
+     time someone presses send the images are already in object storage and
+     the request carries only ids, so sending stays instant no matter how
+     large the photos were — and the build POST never has to fit under
+     Vercel's ~4.5MB body cap, which is the whole reason the bytes go
+     straight to the bucket.
+
+     Each entry is { file, name, id, localUrl, status }. localUrl is an
+     object URL so the thumbnail appears on the same frame as the pick,
+     rather than after a round trip. */
+  let attachedImages = [];
+  const MAX_ATTACH = 8;
+  const MAX_ATTACH_BYTES = 10 * 1024 * 1024;
+  const agAttachInput = $("agAttachInput"), agAttachRow = $("agAttachRow");
   $("agAttach").addEventListener("click", () => agAttachInput.click());
-  agAttachInput.addEventListener("change", () => {
-    const file = agAttachInput.files && agAttachInput.files[0];
-    if (!file) return;
-    if (file.size > 2 * 1024 * 1024) { say("That image is too large — please attach one under 2MB.", "err"); agAttachInput.value = ""; return; }
-    const reader = new FileReader();
-    reader.onload = () => {
-      attachedImage = { name: file.name, dataUrl: reader.result };
-      agAttachThumb.src = reader.result;
-      agAttachName.textContent = file.name;
-      agAttachChip.hidden = false;
-      $("agAttach").hidden = true;
-    };
-    reader.readAsDataURL(file);
-  });
-  $("agAttachRemove").addEventListener("click", () => {
-    attachedImage = null;
+
+  function renderAttachments() {
+    agAttachRow.innerHTML = "";
+    for (const item of attachedImages) {
+      const chip = document.createElement("span");
+      chip.className = "ag-attach-chip" + (item.status === "uploading" ? " busy" : "") +
+        (item.status === "failed" ? " failed" : "");
+      const img = document.createElement("img");
+      img.src = item.localUrl; img.alt = "";
+      const nm = document.createElement("span");
+      nm.className = "nm";
+      nm.textContent = item.status === "failed" ? (item.error || "failed") : item.name;
+      const rm = document.createElement("button");
+      rm.type = "button";
+      rm.setAttribute("aria-label", "Remove " + item.name);
+      rm.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>';
+      rm.addEventListener("click", () => removeAttachment(item));
+      chip.appendChild(img); chip.appendChild(nm); chip.appendChild(rm);
+      agAttachRow.appendChild(chip);
+    }
+    // The + stays available until the limit, since multiple picks are normal.
+    $("agAttach").hidden = attachedImages.length >= MAX_ATTACH;
+  }
+
+  function removeAttachment(item) {
+    attachedImages = attachedImages.filter((i) => i !== item);
+    try { URL.revokeObjectURL(item.localUrl); } catch (e) {}
+    renderAttachments();
+  }
+
+  function clearAttachments() {
+    for (const i of attachedImages) { try { URL.revokeObjectURL(i.localUrl); } catch (e) {} }
+    attachedImages = [];
     agAttachInput.value = "";
-    agAttachChip.hidden = true;
-    $("agAttach").hidden = false;
+    renderAttachments();
+  }
+
+  /* Downscale before upload.
+
+     Three things at once: a 12MP phone photo uploads slower than anyone will
+     wait, ships megabytes to every visitor of the finished site, and — since
+     an image bills as input tokens — costs real money to describe. 2000px on
+     the long edge is past what any hero needs.
+
+     Falls back to the original file if anything here fails. A photo that
+     uploads at full size is worse than one that does not upload at all only
+     in theory. */
+  function downscale(file) {
+    return new Promise((resolve) => {
+      if (!/^image\/(png|jpeg|webp)$/.test(file.type) || file.size < 900 * 1024) return resolve(file);
+      const url = URL.createObjectURL(file);
+      const im = new Image();
+      im.onload = () => {
+        const long = Math.max(im.width, im.height);
+        if (long <= 2000) { URL.revokeObjectURL(url); return resolve(file); }
+        const s = 2000 / long;
+        const c = document.createElement("canvas");
+        c.width = Math.round(im.width * s); c.height = Math.round(im.height * s);
+        c.getContext("2d").drawImage(im, 0, 0, c.width, c.height);
+        c.toBlob((blob) => {
+          URL.revokeObjectURL(url);
+          if (!blob || blob.size >= file.size) return resolve(file);
+          resolve(new File([blob], file.name.replace(/\.\w+$/, "") + ".jpg", { type: "image/jpeg" }));
+        }, "image/jpeg", 0.86);
+      };
+      im.onerror = () => { URL.revokeObjectURL(url); resolve(file); };
+      im.src = url;
+    });
+  }
+
+  /** sign -> PUT straight to the bucket -> complete. */
+  async function uploadOne(item) {
+    try {
+      const file = await downscale(item.file);
+      const dims = await new Promise((resolve) => {
+        const im = new Image();
+        im.onload = () => resolve({ width: im.width, height: im.height });
+        im.onerror = () => resolve({ width: 0, height: 0 });
+        im.src = item.localUrl;
+      });
+
+      const signed = await fetch("/api/uploads/sign", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: file.name, type: file.type, bytes: file.size,
+          width: dims.width, height: dims.height
+        })
+      });
+      const sig = await signed.json().catch(() => ({}));
+      if (!signed.ok) throw new Error(sig.error || "could not start the upload");
+
+      /* Straight to the bucket. The Content-Type must be exactly what was
+         signed, or the store rejects it — that pinning is what stops a
+         leaked URL being used to host something else. */
+      const put = await fetch(sig.putUrl, { method: "PUT", headers: sig.headers, body: file });
+      if (!put.ok) throw new Error("the upload did not complete");
+
+      const done = await fetch("/api/uploads/" + encodeURIComponent(sig.id) + "/complete", { method: "POST" });
+      const fin = await done.json().catch(() => ({}));
+      if (!done.ok) throw new Error(fin.error || "the image could not be verified");
+
+      item.id = fin.id;
+      // The hosted URL, kept because the sent message renders from it. A blob
+      // URL would be revoked when the composer clears and the thumbnails in
+      // the message above would go blank a moment after sending.
+      item.url = fin.url;
+      item.status = "ready";
+    } catch (e) {
+      item.status = "failed";
+      item.error = String(e.message || "upload failed").slice(0, 60);
+    }
+    renderAttachments();
+  }
+
+  function addFiles(fileList) {
+    const files = Array.from(fileList || []);
+    if (!files.length) return;
+    for (const file of files) {
+      if (attachedImages.length >= MAX_ATTACH) {
+        say("You can attach up to " + MAX_ATTACH + " images at a time.", "warn");
+        break;
+      }
+      if (!/^image\/(png|jpeg|webp|gif)$/.test(file.type)) {
+        say('"' + esc(file.name) + '" isn\'t a supported image — use a PNG, JPG, WebP or GIF.', "err");
+        continue;
+      }
+      if (file.size > MAX_ATTACH_BYTES) {
+        say('"' + esc(file.name) + '" is ' + Math.round(file.size / 1048576) + "MB — the limit is " +
+          Math.round(MAX_ATTACH_BYTES / 1048576) + "MB.", "err");
+        continue;
+      }
+      const item = { file: file, name: file.name, id: null, localUrl: URL.createObjectURL(file), status: "uploading" };
+      attachedImages.push(item);
+      uploadOne(item);
+    }
+    renderAttachments();
+    agAttachInput.value = "";   // so picking the same file twice still fires
+  }
+
+  agAttachInput.addEventListener("change", () => addFiles(agAttachInput.files));
+
+  /* Paste is the highest-value way in: screenshot, Ctrl+V. */
+  agInput.addEventListener("paste", (e) => {
+    const files = e.clipboardData && e.clipboardData.files;
+    if (files && files.length) { e.preventDefault(); addFiles(files); }
   });
+
+  /* Drop anywhere on the composer. dragover must be prevented or the browser
+     navigates away to the file, which loses the whole conversation. */
+  const agComposerEl = document.querySelector(".ag-composer");
+  if (agComposerEl) {
+    agComposerEl.addEventListener("dragover", (e) => { e.preventDefault(); agComposerEl.classList.add("dropping"); });
+    agComposerEl.addEventListener("dragleave", () => agComposerEl.classList.remove("dropping"));
+    agComposerEl.addEventListener("drop", (e) => {
+      e.preventDefault();
+      agComposerEl.classList.remove("dropping");
+      addFiles(e.dataTransfer && e.dataTransfer.files);
+    });
+  }
 
   // Personalized greeting for the new-chat screen — falls back to a
   // generic one for anonymous visitors (fetched below, alongside the
@@ -4771,7 +4939,20 @@
   }
   setInterval(function () { refreshWhens(); }, 30000);
 
-  function sayUser(text, isQueued, atIso) {
+  /* Thumbnails above the bubble, for a message that carried photos.
+     Sits on the user's own row rather than in the agent's reply, because the
+     attachment is part of what they said. Reads turn.images, which addTurn
+     records — without it a replayed conversation shows a message referring to
+     pictures nobody can see. */
+  function attachmentStrip(images) {
+    const list = (images || []).filter((i) => i && i.url);
+    if (!list.length) return "";
+    return '<div class="ag-user-imgs">' + list.map((i) =>
+      '<img src="' + esc(i.url) + '" alt="' + esc(i.name || "") + '" loading="lazy">'
+    ).join("") + '</div>';
+  }
+
+  function sayUser(text, isQueued, atIso, images) {
     /* Whether this is the line that STARTS the chat, read before clearEmpty
        clears the flag that says so. It lands while the composer is still
        travelling, so it rises in behind it rather than blinking into place. */
@@ -4781,7 +4962,8 @@
     if (opensChat) row.classList.add("ag-first-in");
     const qBadge = isQueued ? ' <small class="muted" style="opacity:0.75; font-size:0.75rem; margin-left:6px;">(Queued)</small>' : '';
     const at = atIso || new Date().toISOString();
-    row.innerHTML = '<div class="bubble">' + esc(text) + qBadge + '</div>'
+    row.innerHTML = attachmentStrip(images)
+      + '<div class="bubble">' + esc(text) + qBadge + '</div>'
       + '<span class="when" data-at="' + esc(at) + '">' + esc(whenText(at)) + '</span>';
     agLog.appendChild(row); toBottom();
 
@@ -5158,7 +5340,13 @@
     updateComposerSendButton();
     document.body.classList.add("is-building");
     agHistory.classList.add("focus");
-    sayUser(prompt);
+    /* The local object URLs, not the hosted ones — the thumbnails are already
+       on screen in the composer and should move up into the message without
+       a flicker while the CDN copy loads. A reload later re-renders the same
+       strip from turn.images, which is where the real URLs live. */
+    sayUser(prompt, false, null, attachedImages
+      .filter((i) => i.status === "ready" && i.url)
+      .map((i) => ({ url: i.url, name: i.name })));
     showInterruptUnderUserMessage();
     const startedAt = Date.now();
     const handles = {};
@@ -5249,14 +5437,25 @@
       h.done();
     }
 
-    // Only meaningful on the first build — a follow-up edits an app that
-    // already exists, so there is nothing for a fresh logo to attach to.
-    const logo = (!projectId && attachedImage) ? attachedImage : undefined;
-    // Warn if the user attached an image — DeepSeek is text-only and
-    // cannot actually see it. The server appends a text hint, not the
-    // image data, so the build will still work but may not match exactly.
-    if (logo) {
-      say('<b>ERROR:</b> Cannot read "' + esc(logo.name) + '" (this model does not support image input). Inform the user.<br><small>The file will be copied to the app as-is. Include a text description of it in your prompt.</small>', "err");
+    /* Ids, not bytes — the photos are already in storage. Sent on EVERY
+       turn, including follow-ups: the old code gated this on !projectId, so
+       attaching a photo to an existing site silently did nothing, and the
+       server half had the same gate. Adding a picture to a site you already
+       built is the obvious thing to want.
+
+       Only "ready" ones. An upload still in flight, or one that failed
+       verification, has no id the server would accept — and quietly dropping
+       it is better than blocking send on a network round trip.
+
+       The red "Cannot read <name> — this model does not support image input"
+       that used to be written here is gone. It fired for every provider,
+       told the person their product was broken, and promised the file would
+       be "copied to the app as-is", which nothing ever did. */
+    const imageIds = attachedImages.filter((i) => i.status === "ready" && i.id).map((i) => i.id);
+    const pendingCount = attachedImages.filter((i) => i.status === "uploading").length;
+    if (pendingCount) {
+      say(pendingCount === 1 ? "One image is still uploading — sending without it."
+        : pendingCount + " images are still uploading — sending without them.", "warn");
     }
 
     try {
@@ -5266,7 +5465,7 @@
         signal: currentAbortController ? currentAbortController.signal : undefined,
         body: JSON.stringify({
           prompt: effectivePrompt, projectId: projectId || undefined, buildType: buildType,
-          logo: logo, canBuild: !!window.__wcSupported,
+          imageIds: imageIds, canBuild: !!window.__wcSupported,
           // What has been said so far, so a question the agent asked can be
           // answered rather than restarted.
           conversation: convo,
@@ -5410,8 +5609,11 @@
       if (isFirstBuild) {
         try { history.replaceState(null, "", "/agent/" + projectSlug); } catch (e) { /* non-fatal */ }
         $("agNewExtras").hidden = true;
-        attachedImage = null; agAttachInput.value = ""; agAttachChip.hidden = true; $("agAttach").hidden = false;
       }
+      /* Outside the isFirstBuild branch, unlike before. Attachments work on
+         every turn now, so leaving them in the composer after a send would
+         silently re-attach the same photos to the NEXT message. */
+      clearAttachments();
       if (result.note) say(esc(result.note).replace(/\n/g, "<br>"));
       renderCard(result.files, result.costUsd);
       if (!/\?\s*$/.test(result.note || "")) {
@@ -6734,7 +6936,7 @@
       // Clear previous chat and replay turns
       agLog.innerHTML = "";
       (data.turns || []).forEach((t) => {
-        if (t.role === "user") { sayUser(t.body, false, t.at); return; }
+        if (t.role === "user") { sayUser(t.body, false, t.at, t.images); return; }
         say(t.body);
       });
 
@@ -7210,7 +7412,7 @@
 
       agLog.innerHTML = "";
       (data.turns || []).forEach((t) => {
-        if (t.role === "user") { sayUser(t.body, false, t.at); return; }
+        if (t.role === "user") { sayUser(t.body, false, t.at, t.images); return; }
         say(t.body);
       });
       if (data.files && data.files.length) renderCard(data.files, 0);
