@@ -785,7 +785,26 @@
      gradient rather than a colour, a lit top edge, a tray under the hairline,
      and a tile that has depth instead of being a coloured square.
      =================================================================== */
-  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}
+  /* NEVER FEWER THAN TWO.
+
+     A flat minmax(300px,1fr) means two columns need 614px of ROW — 300
+     twice plus the gap — and below that auto-fill drops to one and the
+     card stretches the full width with its preview blown up to match.
+     The phone rule further down forces two back, but it starts at 640,
+     so between 641 and about 700 (the rail and the page padding eat the
+     rest) neither applied and the page showed a single enormous card.
+     A dead band that only exists because two rules were each right about
+     their own side of it.
+
+     The floor is a choice between two numbers now instead of one: the
+     300px a card wants, or exactly half a row, whichever is SMALLER.
+     Wide, half a row is the bigger of the two, so 300 wins and auto-fill
+     packs three or four across as before — nothing changes up there.
+     Narrow, half a row wins and lands on precisely two, at whatever
+     width that takes. The band cannot reopen because the breakpoint that
+     used to define it is no longer what decides. */
+  .grid{display:grid;gap:14px;
+    grid-template-columns:repeat(auto-fill,minmax(min(300px,(100% - 14px)/2),1fr))}
 
   .card{position:relative;isolation:isolate;display:flex;flex-direction:column;text-align:left;
     border:1px solid var(--line);border-radius:16px;background:var(--card-surface);
