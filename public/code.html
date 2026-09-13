@@ -1427,12 +1427,46 @@
     /* Collapsed until something's been built, so the new-chat screen is
        .ag alone rather than a wide empty pane beside a narrow chat — then
        expands in step with .ag narrowing (both flex-basis transitions
-       fire together). Scoped to desktop: below 901px the Chat/Preview
-       tabs already own showing and hiding this panel via .tab-hidden. */
+       fire together). Scoped to the SPLIT, which is a mouse shape: where
+       the panes swap instead of sitting side by side, .tab-hidden owns
+       showing and hiding this panel and the block below takes the
+       collapse back off. */
     .ag-preview{flex:0 0 0;width:0;overflow:hidden;opacity:0;
       transition:flex-basis .4s var(--ease),opacity .25s var(--ease)}
     .ag-split.has-preview .ag-preview{flex:1 1 auto;width:auto;opacity:1;
       transition:flex-basis .4s var(--ease),opacity .3s var(--ease) .1s}
+  }
+  /* THE PANE SWAP IS A TOUCH SHAPE, NOT A NARROW ONE.
+
+     Same reasoning as the settings overlay further down, and the same
+     device: an iPad in landscape reports 1180 or 1366 CSS pixels, wider
+     than most laptops. Every rule that decided this by width alone
+     handed a tablet the desktop split — so "Preview" opened a 340px
+     sidecar beside a chat column that stayed put, on a screen with no
+     mouse to justify either. The pointer is what separates them.
+
+     Two things have to move up here, because both were written for the
+     phone and stop at 900px:
+
+       - .tab-hidden has to actually hide. It does its hiding inside
+         max-width:900, so above that the class went on and nothing
+         happened — which is why the chat stayed on screen next to the
+         preview.
+
+       - .ag-preview has to come out of the collapse above. That rule
+         assumes the split and pins the pane to width:0 unless
+         .has-preview is set, so even with the chat gone the preview
+         would have opened to nothing. Here the preview IS the screen
+         rather than a column beside the chat, so being the pane that is
+         not hidden is the whole condition.
+
+     The toggle button itself is a child of .ag-main, a sibling of
+     .ag-split — so hiding .ag never takes "Back to chat" down with it
+     and there is always a way out. */
+  @media (hover:none) and (pointer:coarse){
+    .ag.tab-hidden,.ag-preview.tab-hidden{display:none !important}
+    .ag.tab-hidden .ag-composer{display:none !important}
+    .ag-preview:not(.tab-hidden){flex:1 1 auto;width:auto;opacity:1;overflow:visible}
   }
   .ag-topbar{display:flex;align-items:center;width:100%;border-bottom:1px solid var(--line);flex:none}
   /* A direct child of .ag-preview (position:relative), not of
@@ -5855,7 +5889,7 @@
     agPvGate.hidden = false;
     // On mobile the gate lives in the preview pane — switch to it so the
     // ask is actually visible instead of silently blocking Chat.
-    if (window.matchMedia("(max-width:900px)").matches) setMobilePane(true);
+    if (isPaneSwap()) setMobilePane(true);
   }
 
   agPvGateStart.addEventListener("click", () => {
@@ -5946,7 +5980,7 @@
     if (agHistCloseBtn) agHistCloseBtn.classList.toggle("on", isShowing);
     if (agHistBackdrop) agHistBackdrop.classList.toggle("on", isShowing);
 
-    if (agDeskPreviewToggle && window.matchMedia("(max-width:900px)").matches) {
+    if (agDeskPreviewToggle && isPaneSwap()) {
       agDeskPreviewToggle.style.display = isShowing ? "none" : "";
     }
 
@@ -6041,6 +6075,22 @@
   const agDeskPreviewToggleIcon = $("agDeskPreviewToggleIcon");
   const PANE_ICON = '<rect x="3" y="3" width="18" height="18" rx="3.5"/><path d="M15 3v18"/><rect class="pane-right" x="15" y="3.8" width="5.2" height="16.4" rx="1" fill="transparent" stroke="none"/>';
   const BACK_ICON = '<path d="m12 19-7-7 7-7"/><path d="M19 12H5"/>';
+  /* Are the panes swapped, or side by side?
+
+     Five places used to ask this and all five asked it as
+     max-width:900px, which is a question about screen WIDTH when the
+     thing being decided is whether there is a mouse. An iPad answered
+     "no" to all five and got the desktop split. One predicate now, in
+     one place, matching the CSS query exactly — the swap cannot be on
+     in the stylesheet and off in the script, and a sixth caller cannot
+     invent a sixth version of the rule.
+
+     A function declaration, not a const: it is called from handlers
+     defined above this line, and hoisting is what makes that safe. */
+  function isPaneSwap() {
+    return window.matchMedia("(max-width:900px), (hover:none) and (pointer:coarse)").matches;
+  }
+
   // The single mobile pane-switch button: shows "Preview" while on Chat,
   // "Back to chat" while on Preview — same on/off flag driving the label,
   // the icon content, the "lit up" active look, and which pane is
@@ -6049,6 +6099,25 @@
     agSection.classList.toggle("tab-hidden", showPreview);
     agPreview.classList.toggle("tab-hidden", !showPreview);
     document.body.classList.toggle("preview-mode", showPreview);
+    /* The device picker travels with the preview pane.
+
+       This path never revealed it. Showing the pane was the desktop
+       branch's job and loadProjectPreview's, so on a tablet the preview
+       opened full-screen with the picker still carrying the display:none
+       it ships with in the markup — a phone mockup and no way to ask for
+       anything else, on the one screen with room to show all three.
+
+       No width test here on purpose. Below 650 the stylesheet already
+       says #agPvDevices{display:none !important}, and !important beats an
+       inline style, so a phone stays hidden no matter what this sets —
+       and it stays hidden for the reason that actually matters, which is
+       that applyDeviceFrame() forces the phone frame below the same 650
+       and a picker whose answer is already decided is just a control that
+       lies. One line drawn once, in the place that draws it. */
+    if (agPvDevices) {
+      agPvDevices.style.display = showPreview ? "" : "none";
+      if (showPreview) agPvDevices.removeAttribute("aria-disabled");
+    }
     if (agDeskPreviewToggleLabel) agDeskPreviewToggleLabel.textContent = showPreview ? "Back to chat" : "Preview";
     if (agDeskPreviewToggleIcon) agDeskPreviewToggleIcon.innerHTML = showPreview ? BACK_ICON : PANE_ICON;
     if (agDeskPreviewToggle) {
@@ -6058,7 +6127,7 @@
   }
   if (agDeskPreviewToggle) {
     agDeskPreviewToggle.addEventListener("click", () => {
-      if (window.matchMedia("(max-width:900px)").matches) {
+      if (isPaneSwap()) {
         setMobilePane(!agSection.classList.contains("tab-hidden"));
         return;
       }
@@ -6551,7 +6620,7 @@
 
     // Show the preview panel
     $("agentView").classList.add("has-preview");
-    if (window.matchMedia("(max-width:900px)").matches) {
+    if (isPaneSwap()) {
       setMobilePane(true);
     } else {
       agSection.classList.remove("tab-hidden");
@@ -7078,7 +7147,7 @@
 
       // Show preview panel
       $("agentView").classList.add("has-preview");
-      if (window.matchMedia("(max-width:900px)").matches) {
+      if (isPaneSwap()) {
         setMobilePane(true);
       } else {
         agSection.classList.remove("tab-hidden");
