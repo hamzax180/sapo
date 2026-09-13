@@ -523,6 +523,79 @@
 
   ::-webkit-scrollbar-corner{background:transparent !important}
   .ag-composer{flex:0 0 auto;position:relative;bottom:0;z-index:10;background:var(--paper);padding:8px 0 calc(12px + env(safe-area-inset-bottom));overflow:visible}
+
+  /* ═══════ THE BAR FLOATS OVER THE CONVERSATION ═══════
+     A solid bar is a floor: the log stops dead at its top edge and the
+     conversation ends in a hard horizontal line, which is why the last
+     message always looked like the end of the page rather than the
+     newest thing said. The bar is frosted glass instead — the log runs
+     underneath it and you can read the message passing behind while you
+     scroll, the way a phone keyboard bar or Claude's own composer reads.
+
+     Three parts, and all three are needed:
+       - the log extends BEHIND the bar, so there is something to see
+         through it (the two positioning rules below);
+       - the bar's own fill is part paper, part nothing, over a
+         backdrop-filter — the blur is what keeps text legible on top of
+         moving content instead of turning the bar into a window;
+       - ::before feathers the top edge, because a backdrop-filter has a
+         hard boundary and a line of text crossing it snaps from sharp to
+         blurred. The gradient gives it 38px to dissolve in.
+
+     Only with a conversation on screen. The new-chat screen centres this
+     same form in the middle of the hero with nothing behind it, where
+     glass has nothing to be glass over. */
+  .ag:not(.is-new) .ag-composer,
+  .ag.has-convo .ag-composer,
+  .ag:has(#agLog > *:not(.ag-empty)) .ag-composer{
+    background:color-mix(in srgb,var(--paper) 58%,transparent);
+    -webkit-backdrop-filter:blur(22px) saturate(1.6);
+    backdrop-filter:blur(22px) saturate(1.6);
+    border-top:0;
+  }
+  .ag:not(.is-new) .ag-composer::before,
+  .ag.has-convo .ag-composer::before,
+  .ag:has(#agLog > *:not(.ag-empty)) .ag-composer::before{
+    content:"";position:absolute;left:0;right:0;bottom:100%;height:38px;
+    pointer-events:none;
+    background:linear-gradient(to top,color-mix(in srgb,var(--paper) 58%,transparent),transparent);
+  }
+
+  /* Above 900 the bar is a flex item at the end of the column, so the log
+     can only ever stop where it starts. Taking it out of flow is what
+     lets the log own the full height and scroll behind it — absolute
+     within .ag rather than fixed to the viewport, because at this width
+     .ag is one column of a split and a fixed bar would sit across the
+     preview too.
+
+     inset-inline repeats .ag's own side padding so the bar lines up with
+     the messages instead of the column edges, and width:auto is
+     load-bearing for the same reason it is in the phone rule below: the
+     shared width:100% would resolve against the padding box and hang the
+     send button off the right edge. */
+  @media (min-width:901px){
+    .ag{position:relative}
+    .ag:not(.is-new) .ag-composer,
+    .ag.has-convo .ag-composer,
+    .ag:has(#agLog > *:not(.ag-empty)) .ag-composer{
+      position:absolute;inset-inline:clamp(20px,2.4vw,28px);
+      bottom:0;top:auto;width:auto;z-index:40;
+      /* Over-constrained on purpose: left, right AND a 720px max-width are
+         all set, and the rule that resolves that drops `right` — which
+         left-aligned the bar against the column edge while the messages
+         above it stayed centred, 176px to its right. Auto margins split
+         the leftover instead, which is what centres it on them. */
+      margin-inline:auto;
+    }
+    /* The bar's measured height, so the last message can be scrolled out
+       from under it. --composer-h is kept current by the ResizeObserver
+       further down; the fallback only matters for the first paint. */
+    .ag:not(.is-new) #agLog,
+    .ag.has-convo #agLog,
+    .ag:has(#agLog > *:not(.ag-empty)) #agLog{
+      padding-bottom:calc(var(--composer-h, 110px) + 12px);
+    }
+  }
   /* ---------------------------------------------------------------
      Composer treatment: an aurora bloom (::before) behind the box and a
      travelling light beam (::after) around its rim.
@@ -1954,10 +2027,14 @@
          what sizes it. */
       width: auto;
       z-index: 40;
-      margin: 0;
+      /* auto, not 0: same over-constraint as the desktop rule above, and
+         with margin:0 the bar sat hard against the icon rail while the
+         messages were centred in what was left. */
+      margin: 0 auto;
       padding: 8px 10px calc(10px + env(safe-area-inset-bottom, 0px));
-      background: var(--paper);
-      border-top: 1px solid var(--line);
+      /* Fill and edge come from the floating-bar rules above — this was a
+         solid var(--paper) and a 1px rule, which is exactly the floor the
+         log is no longer supposed to hit. */
     }
     /* The preview takes the whole screen on a phone and the chat is hidden
        behind it — but a fixed element does not care that its ancestor is
