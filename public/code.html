@@ -312,7 +312,24 @@
   /* The one thing in the left column that scrolls. min-height:0 is what
      lets it actually shrink inside the flex column instead of pushing the
      composer off the bottom. */
-  .ag-log{flex:1 1 auto;min-height:0;overflow-y:auto !important;overflow-x:hidden;display:flex;flex-direction:column;gap:4px;padding-bottom:20px}
+  /* scrollbar-gutter reserves the scrollbar's width on BOTH sides, and it
+     is what lines the composer up with the words above it.
+
+     The log and the composer are the same 720px box, so the composer
+     centres its input inside that box — but on a platform with classic
+     scrollbars the rightmost ~10px of that box is the scrollbar, not text.
+     The input therefore sat flush against the scrollbar with a 10px gap on
+     its left: centred on the log's border box while the messages were
+     centred on its content box. It read as the composer being nudged right,
+     because it was.
+
+     `both-edges` rather than `stable`, because reserving on one side only
+     moves the asymmetry into the text instead of removing it. It also stops
+     the column shifting sideways the moment a conversation grows long enough
+     to scroll. Where it is unsupported nothing changes, and that is fine:
+     those are the platforms with overlay scrollbars, where the gutter is
+     0px and there was never an offset to correct. */
+  .ag-log{flex:1 1 auto;min-height:0;overflow-y:auto !important;overflow-x:hidden;scrollbar-gutter:stable both-edges;display:flex;flex-direction:column;gap:4px;padding-bottom:20px}
   /* The new-chat "hero": greeting + composer + tiles/examples centered as
      ONE group. Three earlier attempts tried to do this with
      justify-content on .ag-log alone and all of them clipped the
