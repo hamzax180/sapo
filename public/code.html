@@ -2947,33 +2947,104 @@
      recognisable underneath, and the blur (not the opacity) is what does
      the separating. */
   /* ---------- build confirmation card ---------- */
-  .ag-plan{margin:10px 0 14px;padding:16px 18px 14px;border:1px solid var(--line);border-radius:16px;
-    background:var(--card);box-shadow:0 1px 3px rgba(0,0,0,.05),0 10px 28px -14px rgba(0,0,0,.25);
+  /* ═══════ THE PLAN CARD ═══════
+     Plan mode's one piece of UI, and the only thing standing between
+     someone and their app, so it has to look like the moment it is: a
+     considered proposal, not a system dialog. It was a grey bordered box
+     with a flat list in it, which is what every confirm step has looked
+     like for fifteen years.
+
+     The lit rim is the composer's own treatment, reused deliberately —
+     the box you typed into glows cyan/violet/pink, and this is the answer
+     to what you typed. Two backgrounds with different clips is what draws
+     it: the fill is painted to the padding box and the gradient to the
+     border box, so the 1px border IS the gradient and nothing has to be
+     faked with a pseudo-element behind the card. */
+  .ag-plan{
+    --pl-a:34,211,238;    /* cyan   */
+    --pl-b:139,92,246;    /* violet */
+    --pl-c:236,72,153;    /* pink   */
+    position:relative;margin:12px 0 16px;padding:18px 20px 16px;
+    border:1px solid transparent;border-radius:20px;
+    background:
+      linear-gradient(var(--card),var(--card)) padding-box,
+      linear-gradient(135deg,rgba(var(--pl-a),.75),rgba(var(--pl-b),.55) 48%,rgba(var(--pl-c),.5)) border-box;
+    box-shadow:
+      0 1px 2px rgba(0,0,0,.04),
+      0 2px 10px -6px rgba(var(--pl-b),.35),
+      0 26px 50px -28px rgba(11,22,38,.55);
     max-width:560px;animation:agIn .35s var(--ease) forwards}
-  .ag-plan.done{opacity:.72}
-  .pl-head{display:flex;flex-direction:column;gap:2px;margin-bottom:8px}
-  .pl-kicker{font-size:.68rem;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--accent)}
-  .pl-title{font-family:var(--disp);font-size:1.12rem;font-weight:700;letter-spacing:-.01em;color:var(--ink)}
-  .pl-sum{margin:0 0 12px;font-size:.92rem;line-height:1.5;color:var(--ink-2)}
-  .pl-list{list-style:none;margin:0 0 12px;padding:0;display:flex;flex-direction:column;gap:7px}
-  .pl-list li{display:flex;align-items:flex-start;gap:9px;font-size:.9rem;color:var(--ink);line-height:1.45}
-  .pl-list svg{width:15px;height:15px;flex:none;margin-top:3px;color:#2ea87a}
-  .pl-assume{margin:0 0 14px;padding:10px 12px;border-radius:11px;background:var(--paper-2)}
-  .pl-assume-h{display:block;font-size:.7rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
-    color:var(--mut);margin-bottom:5px}
-  .pl-assume ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}
-  .pl-assume li{font-size:.85rem;color:var(--ink-2);line-height:1.45}
-  .pl-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
-  .pl-go,.pl-edit{border:0;border-radius:10px;padding:9px 16px;font:inherit;font-size:.88rem;
-    font-weight:600;cursor:pointer;transition:.15s}
-  .pl-go{background:var(--accent);color:#fff;box-shadow:0 3px 10px -3px rgba(26,166,223,.55)}
-  .pl-go:hover{background:var(--accent-2)}
-  .pl-edit{background:var(--paper-2);color:var(--ink-2);border:1px solid var(--line)}
-  .pl-edit:hover{color:var(--ink);border-color:var(--mut)}
-  .pl-chose{font-size:.85rem;color:var(--mut)}
+  /* A wash of the same three hues across the top, so the rim reads as
+     light falling on the card rather than a coloured outline drawn round
+     it. Behind the content, inside the radius, and it cannot intercept a
+     click on the buttons. */
+  .ag-plan::before{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;
+    background:
+      radial-gradient(120% 80% at 0% 0%,rgba(var(--pl-a),.10),transparent 60%),
+      radial-gradient(100% 70% at 100% 0%,rgba(var(--pl-c),.08),transparent 62%);
+    z-index:0}
+  .ag-plan>*{position:relative;z-index:1}
+  .ag-plan.done{opacity:.68;box-shadow:none}
+
+  .pl-head{display:flex;align-items:center;gap:11px;margin-bottom:11px}
+  /* The badge is what makes the card read as a proposal at a glance,
+     before a word of it is read. Shield-with-a-tick: this was checked. */
+  .pl-badge{flex:none;width:34px;height:34px;border-radius:11px;display:grid;place-items:center;
+    color:#fff;background:linear-gradient(140deg,rgb(var(--pl-a)),rgb(var(--pl-b)));
+    box-shadow:0 4px 12px -4px rgba(var(--pl-b),.6),inset 0 1px 0 rgba(255,255,255,.4)}
+  .pl-badge svg{width:18px;height:18px}
+  .pl-headtext{display:flex;flex-direction:column;gap:1px;min-width:0}
+  .pl-kicker{font-size:.66rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--accent)}
+  .pl-title{font-family:var(--disp);font-size:1.22rem;font-weight:800;letter-spacing:-.015em;color:var(--ink);
+    line-height:1.2;overflow-wrap:anywhere}
+  .pl-sum{margin:0 0 14px;font-size:.93rem;line-height:1.55;color:var(--ink-2)}
+
+  .pl-sec{margin:0 0 14px}
+  .pl-sec-h,.pl-assume-h{display:block;font-size:.67rem;font-weight:800;letter-spacing:.1em;
+    text-transform:uppercase;color:var(--mut);margin-bottom:8px}
+  .pl-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+  .pl-list li{display:flex;align-items:flex-start;gap:10px;font-size:.91rem;color:var(--ink);line-height:1.45}
+  /* A filled disc rather than a bare tick: at 15px a stroked check next to
+     text reads as a stray mark, and the list needs a left edge the eye can
+     run down. */
+  .pl-tick{flex:none;width:18px;height:18px;margin-top:1px;border-radius:50%;display:grid;place-items:center;
+    background:color-mix(in srgb,#2ea87a 18%,transparent);color:#2ea87a}
+  .pl-tick svg{width:11px;height:11px}
+
+  /* Quieter than the list above it, and marked as the soft half of the
+     plan: these are guesses, and the accent bar says so without a
+     sentence explaining it. */
+  .pl-assume{margin:0 0 16px;padding:11px 13px 11px 14px;border-radius:0 12px 12px 0;
+    background:color-mix(in srgb,var(--paper-2) 80%,transparent);
+    border-left:3px solid color-mix(in srgb,var(--accent) 45%,transparent)}
+  .pl-assume-h{margin-bottom:6px}
+  .pl-assume ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:5px}
+  .pl-assume li{font-size:.86rem;color:var(--ink-2);line-height:1.45;position:relative;padding-left:13px}
+  .pl-assume li::before{content:"";position:absolute;left:2px;top:.62em;width:4px;height:4px;border-radius:50%;
+    background:var(--mut);opacity:.6}
+
+  .pl-actions{display:flex;flex-wrap:wrap;gap:9px;align-items:center}
+  .pl-go,.pl-edit{border:0;border-radius:12px;padding:11px 18px;font:inherit;font-size:.89rem;
+    font-weight:700;cursor:pointer;transition:transform .15s var(--ease),box-shadow .15s,background .15s,color .15s,border-color .15s}
+  .pl-go{display:inline-flex;align-items:center;gap:8px;color:#fff;
+    background:linear-gradient(135deg,var(--accent),color-mix(in srgb,rgb(var(--pl-b)) 55%,var(--accent)));
+    box-shadow:0 6px 18px -6px rgba(var(--pl-b),.6),inset 0 1px 0 rgba(255,255,255,.28)}
+  .pl-go svg{width:15px;height:15px;transition:transform .15s var(--ease)}
+  .pl-go:hover{transform:translateY(-1px);box-shadow:0 10px 24px -8px rgba(var(--pl-b),.7),inset 0 1px 0 rgba(255,255,255,.32)}
+  .pl-go:hover svg{transform:translateX(3px)}
+  .pl-go:active{transform:translateY(0)}
+  .pl-edit{background:transparent;color:var(--ink-2);border:1px solid var(--line)}
+  .pl-edit:hover{color:var(--ink);border-color:var(--mut);background:var(--paper-2)}
+  .pl-chose{display:inline-flex;align-items:center;gap:7px;font-size:.85rem;font-weight:600;color:var(--mut)}
+  .pl-chose::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--accent);opacity:.7}
+  @media (prefers-reduced-motion:reduce){
+    .pl-go:hover{transform:none}
+    .pl-go:hover svg{transform:none}
+  }
   @media (max-width:640px){
-    .ag-plan{padding:14px 14px 12px;border-radius:14px}
-    .pl-go,.pl-edit{flex:1 1 auto;text-align:center}
+    .ag-plan{padding:15px 15px 13px;border-radius:17px}
+    .pl-title{font-size:1.1rem}
+    .pl-go,.pl-edit{flex:1 1 auto;justify-content:center;text-align:center}
   }
 
   .ag-set-overlay{position:fixed;inset:0;z-index:9999999 !important;background:var(--scrim);
@@ -3637,10 +3708,10 @@
             <div class="ag-model-popover" id="agModelPopover">
               <div class="pop-section-ttl">Mode</div>
               <button type="button" class="pop-option on" data-mode="auto" id="popModeAuto">
-                <span class="pop-text"><b>Auto</b><small>Answers, asks or builds — whichever the message calls for</small></span>
+                <span class="pop-text"><b>Auto</b><small>Answers, asks or builds it — no plan to approve first</small></span>
               </button>
               <button type="button" class="pop-option" data-mode="plan" id="popModePlan">
-                <span class="pop-text"><b>Plan</b><small>Always shows the plan first, edits included</small></span>
+                <span class="pop-text"><b>Plan</b><small>Shows the plan and waits for your yes, edits included</small></span>
               </button>
               <button type="button" class="pop-option" data-mode="power" id="popModePower">
                 <span class="pop-text"><b>Power</b><small>Deep reasoning, MCP tools, more repair passes</small></span>
@@ -4568,16 +4639,29 @@
     const plan = payload.plan || {};
     const card = el("ag-plan");
 
+    /* The badge and the section headings are the card's structure, not
+       decoration: a plan is a title, a shape, a list of what you get and a
+       list of what was guessed, and each of those should be findable at a
+       glance rather than run together as paragraphs. */
+    var MARK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" '
+      + 'stroke-linecap="round" stroke-linejoin="round">'
+      + '<path d="M12 3 4 7v6c0 4.4 3.4 7.6 8 8.5 4.6-.9 8-4.1 8-8.5V7z"/>'
+      + '<path d="m9 12 2 2 4-4"/></svg>';
+
     let html = '<div class="pl-head">'
+      + '<span class="pl-badge">' + MARK + '</span>'
+      + '<span class="pl-headtext">'
       + '<span class="pl-kicker">Here\u2019s the plan</span>'
       + '<b class="pl-title">' + esc(plan.title || "Your app") + '</b>'
+      + '</span>'
       + '</div>';
     if (plan.summary) html += '<p class="pl-sum">' + esc(plan.summary) + '</p>';
 
     if (plan.features && plan.features.length) {
-      html += '<ul class="pl-list">' + plan.features.map(function (f) {
-        return '<li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>' + esc(f) + '</li>';
-      }).join("") + '</ul>';
+      html += '<div class="pl-sec"><span class="pl-sec-h">What you\u2019ll get</span>'
+        + '<ul class="pl-list">' + plan.features.map(function (f) {
+        return '<li><i class="pl-tick"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></i><span>' + esc(f) + '</span></li>';
+      }).join("") + '</ul></div>';
     }
     if (plan.assumptions && plan.assumptions.length) {
       html += '<div class="pl-assume"><span class="pl-assume-h">I\u2019m assuming</span><ul>'
@@ -4585,7 +4669,9 @@
         + '</ul></div>';
     }
     html += '<div class="pl-actions">'
-      + '<button type="button" class="pl-go">Build it</button>'
+      + '<button type="button" class="pl-go">Build it'
+      + '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>'
+      + '</button>'
       + '<button type="button" class="pl-edit">Change something</button>'
       + '</div>';
 
