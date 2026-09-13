@@ -227,7 +227,21 @@
      without turning the hero into a scroll container. */
   .bh-hero{padding:clamp(48px,9vw,120px) 0 clamp(30px,5vw,60px);text-align:center;position:relative;background:var(--paper);overflow:hidden!important}
   .bh-hero::before{display:none!important}
-  .bh-hero .wrap{position:relative;z-index:5}
+  /* width:100% is load-bearing, and it is not the same as leaving it auto.
+
+     .bh-hero is flex-direction:column, so .wrap is a COLUMN flex item and
+     its width is the cross axis. Left at auto it sizes to its own
+     max-content rather than to the hero, and the widest thing inside is the
+     mode rail's eight fixed-width buttons — so on a 375px phone .wrap laid
+     itself out at 548px, centred, and .bh-hero's overflow-x:hidden cut the
+     overhang off. Nothing scrolled sideways to reveal it; the hero was
+     simply 173px wider than the screen and clipped, which is why the whole
+     landing page read as shifted rather than as overflowing.
+
+     Pinning the cross size to the container is what lets the rail below
+     shrink and start scrolling the way it was always built to. Same fix as
+     .langs .wrap further down, which hit this first. */
+  .bh-hero .wrap{position:relative;z-index:5;width:100%}
 
   /* 3D Flank Device Mockups */
   .bh-composer{display:block;max-width:720px;width:100%;margin:clamp(26px,4vw,42px) auto 0;position:relative;z-index:10;text-align:left}
@@ -454,8 +468,23 @@
   .bh-arrow{flex:none;width:34px;height:34px;border:0;background:none;color:var(--mut);cursor:pointer;border-radius:50%;
     display:grid;place-items:center;transition:.16s}
   .bh-arrow:hover{background:rgba(var(--wash-rgb),.06);color:var(--ink)}
+  /* min-width:0 is what makes the overflow-x above actually do anything.
+
+     This rail was already built to scroll — auto overflow, scroll snapping,
+     a hidden scrollbar, an arrow button either side. It never did. It is a
+     flex item of .bh-modes, flex items default to min-width:auto, and that
+     means "do not shrink below your content". The content is eight 78px
+     buttons at flex:none, so the rail sat at 512px however narrow the screen
+     was, the overflow never engaged because the box was never smaller than
+     what was in it, and .bh-hero's overflow-x:hidden clipped the result.
+
+     On a 375px phone that put the last three modes past the right edge with
+     no way to reach them — and it took the whole hero with it, because
+     .wrap is a flex item too and inherited the 548px floor through the same
+     rule. Everything looked shifted left because it was: the page was laid
+     out 173px wider than the screen and then cut off. */
   .bh-rail{display:flex;gap:8px;overflow-x:auto;scroll-behavior:smooth;scroll-snap-type:x mandatory;
-    scrollbar-width:none;padding:4px}
+    scrollbar-width:none;padding:4px;min-width:0}
   .bh-rail::-webkit-scrollbar{display:none}
   .bh-mode{scroll-snap-align:center;flex:none;width:86px;border:0;background:none;cursor:pointer;text-align:center;
     color:var(--ink-2);font-size:.8rem;font-weight:500;padding:0}
