@@ -380,4 +380,17 @@ function _debugState() {
   return { config: CONFIG, breakers: JSON.parse(JSON.stringify(breakers)), spend: JSON.parse(JSON.stringify(spend)) };
 }
 
-module.exports = { init, chat, monthSpend, budgetExceeded, _debugState };
+/**
+ * Is this route actually usable?
+ *
+ * Lets a caller skip work it would only throw away — vision.js uses it to
+ * avoid a storage round-trip fetching bytes for a model that is not there.
+ * Deliberately does NOT consider the breaker or the budget: those are
+ * transient and belong to the call, this answers the static question of
+ * whether the deployment has a provider for this at all.
+ */
+function routeConfigured(route) {
+  return !!(CONFIG && configured(CONFIG.routes[route]));
+}
+
+module.exports = { init, chat, routeConfigured, monthSpend, budgetExceeded, _debugState };
