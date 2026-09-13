@@ -30,6 +30,8 @@ With Souqi, businesses can instantly generate their own storefront, manage inven
 
 ## 🖥️ Architecture
 
+> **Working on the code agent?** [docs/HOW-IT-WORKS.md](docs/HOW-IT-WORKS.md) describes the system as built — the two deploy targets, the build pipeline, the context budget, the container plane and the constants that matter. The other files in `docs/` are plans, not descriptions.
+
 The architecture is built for maximum performance and multi-tenancy out of the box.
 
 ```text
