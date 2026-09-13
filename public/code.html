@@ -774,13 +774,16 @@
   .ag:not(.is-new) .ag-box,
   .ag.has-convo .ag-box,
   .ag:has(#agLog > *:not(.ag-empty)) .ag-box{
-    /* 66%, found by eye against real message text: enough body that a
-       placeholder and a typed line stay crisp, thin enough that you can
-       read a sentence passing underneath. Below ~55 the input text starts
-       competing with the words behind it. */
-    background:color-mix(in srgb,var(--paper) 66%,transparent);
-    -webkit-backdrop-filter:blur(24px) saturate(1.7);
-    backdrop-filter:blur(24px) saturate(1.7);
+    /* 54% fill over a 16px blur, and the blur being SMALLER is what makes
+       the effect read. At 24px a sentence passing underneath dissolves into
+       an even wash — technically transparent, visibly nothing. At 16 the
+       line keeps its shape: you can see words travelling under the glass,
+       which is the whole point of putting glass there.
+       54 is the floor. Below it the placeholder starts competing with the
+       text behind it, which costs legibility for no extra effect. */
+    background:color-mix(in srgb,var(--paper) 54%,transparent);
+    -webkit-backdrop-filter:blur(16px) saturate(1.8);
+    backdrop-filter:blur(16px) saturate(1.8);
     border:1px solid rgba(255,255,255,.7);
     /* Lighting, in the order it reads:
          1px hairline   — a defined edge against moving text, which a blur
@@ -818,7 +821,7 @@
   .ag:has(#agLog > *:not(.ag-empty)) .ag-box:focus-within{
     /* Focus thickens the light, not the geometry — same rule the hero
        state already follows, so nothing shifts under the cursor. */
-    background:color-mix(in srgb,var(--paper) 74%,transparent);
+    background:color-mix(in srgb,var(--paper) 64%,transparent);
     box-shadow:
       0 0 0 1px rgba(23,23,23,.07),
       0 16px 40px -14px rgba(23,23,23,.20),
@@ -836,7 +839,7 @@
   :root[data-theme="dark"] .ag:not(.is-new) .ag-box,
   :root[data-theme="dark"] .ag.has-convo .ag-box,
   :root[data-theme="dark"] .ag:has(#agLog > *:not(.ag-empty)) .ag-box{
-    background:color-mix(in srgb,#25262b 72%,transparent);
+    background:color-mix(in srgb,#25262b 62%,transparent);
     border:1px solid rgba(255,255,255,.10);
     box-shadow:
       0 0 0 1px rgba(0,0,0,.35),
@@ -848,7 +851,7 @@
   :root[data-theme="dark"] .ag:not(.is-new) .ag-box:focus-within,
   :root[data-theme="dark"] .ag.has-convo .ag-box:focus-within,
   :root[data-theme="dark"] .ag:has(#agLog > *:not(.ag-empty)) .ag-box:focus-within{
-    background:color-mix(in srgb,#25262b 80%,transparent);
+    background:color-mix(in srgb,#25262b 72%,transparent);
     box-shadow:
       0 0 0 1px rgba(0,0,0,.4),
       0 18px 44px -14px rgba(0,0,0,.7),
