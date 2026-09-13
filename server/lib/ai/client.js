@@ -148,6 +148,38 @@ function resolveRoute(route) {
   return configured(CONFIG.routes[alt]) ? alt : route;
 }
 
+/**
+ * Does this status mean the PROVIDER is in trouble, or that WE sent a bad
+ * request?
+ *
+ * The breaker exists to stop hammering a provider that is struggling, and to
+ * fail fast instead of making every user wait out a timeout. Neither purpose
+ * is served by a 400. A 400 is our own request being wrong — too many tokens,
+ * a malformed body, a parameter the model does not take — and it says nothing
+ * at all about whether the next, different request will succeed.
+ *
+ * Counting them was doing real damage. An oversized build request returns 400
+ * instantly, costs the provider nothing, and used to advance the same counter
+ * as an outage: five large projects in a row opened the json route's breaker
+ * for ten minutes FOR EVERY USER, and the builds that got turned away were
+ * turned away with "circuit breaker open" — a message about a provider that
+ * was, the whole time, perfectly healthy.
+ *
+ * 429 counts despite being a 4xx: rate limiting is the provider telling us to
+ * back off, and backing off is exactly what the breaker does.
+ *
+ * 401/403/404 do not count. They are configuration — a revoked key, a model
+ * that no longer exists — and they are cheap to receive and persistent, so
+ * there is no herd to protect anyone from. Letting the real status surface on
+ * every call keeps the error legible; behind an open breaker the operator
+ * reads "breaker open" and never learns the key was rejected.
+ */
+function countsAsProviderFailure(status) {
+  if (!status) return true;          // network error, abort, no response at all
+  if (status === 429) return true;   // "slow down" — the one 4xx worth backing off for
+  return status >= 500;
+}
+
 function recordFailure(route) {
   const b = breakers[route];
   b.failCount += 1;
@@ -275,10 +307,21 @@ async function chat(req) {
     clearTimeout(timer);
 
     if (!res.ok) {
-      recordFailure(route);
+      /* Only an outage advances the breaker — see countsAsProviderFailure.
+         A 400 is this process sending something the model would not take. */
+      const providerFault = countsAsProviderFailure(res.status);
+      if (providerFault) recordFailure(route);
       let detail = "";
       try { detail = JSON.stringify(await res.json()).slice(0, 300); } catch (e) { /* not JSON */ }
-      return { ok: false, error: true, status: res.status, reason: "provider returned " + res.status + (detail ? ": " + detail : ""), latencyMs: Date.now() - t0 };
+      return {
+        ok: false, error: true, status: res.status,
+        /* Lets a caller tell "try again later" from "this will fail the same
+           way forever". The build loop wants that distinction: retrying an
+           outage is reasonable, retrying a request the model rejected is not. */
+        badRequest: !providerFault,
+        reason: "provider returned " + res.status + (detail ? ": " + detail : ""),
+        latencyMs: Date.now() - t0
+      };
     }
 
     const json = await res.json();

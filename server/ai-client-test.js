@@ -157,6 +157,55 @@ const FULL_ROUTES = {
     assert.ok(jsonCalls >= 5 && proseCalls === 1);
   });
 
+  console.log("\n── what the breaker is allowed to count ───────");
+
+  await check("our own 400s never open the breaker, however many there are", async () => {
+    /* The case this was written for: a build whose prompt outgrew the model's
+       context window returns 400 instantly. Five of those in a row used to
+       take the json route down for ten minutes for EVERY user — an outage
+       invented by the client, while the provider was healthy throughout. */
+    let calls = 0;
+    client.init({ enabled: true, fetchImpl: async () => { calls++; return failFetch(400)(); }, routes: FULL_ROUTES });
+    for (let i = 0; i < 10; i++) await client.chat({ route: "json", messages: [] });
+    assert.strictEqual(calls, 10, "a 400 stopped reaching fetch — the breaker opened on our own bad request");
+
+    client.init({ enabled: true, fetchImpl: okFetch("fine"), routes: FULL_ROUTES });
+    const after = await client.chat({ route: "json", messages: [] });
+    assert.strictEqual(after.ok, true, "a good request was refused after a run of 400s");
+  });
+
+  await check("a 400 says so, and a 500 does not", async () => {
+    // The flag is what lets the build loop tell "try again later" from
+    // "this exact request will fail the same way forever".
+    client.init({ enabled: true, fetchImpl: failFetch(400), routes: FULL_ROUTES });
+    const bad = await client.chat({ route: "json", messages: [] });
+    assert.strictEqual(bad.badRequest, true);
+    assert.strictEqual(bad.status, 400);
+
+    client.init({ enabled: true, fetchImpl: failFetch(503), routes: FULL_ROUTES });
+    const down = await client.chat({ route: "json", messages: [] });
+    assert.strictEqual(down.badRequest, false, "a 503 is the provider, not us");
+  });
+
+  await check("429 still opens it — that 4xx is the one that means back off", async () => {
+    let calls = 0;
+    client.init({ enabled: true, fetchImpl: async () => { calls++; return failFetch(429)(); }, routes: FULL_ROUTES });
+    for (let i = 0; i < 6; i++) await client.chat({ route: "json", messages: [] });
+    assert.strictEqual(calls, 5, "rate limiting must still trip the breaker; made " + calls + " calls");
+  });
+
+  await check("a config error stays visible instead of hiding behind an open breaker", async () => {
+    /* 401 and 404 are persistent and cheap to receive, so there is no herd to
+       protect. Opening the breaker would replace "your key was rejected" with
+       "circuit breaker open" on every later call, which is the one message
+       that does not tell an operator what to fix. */
+    client.init({ enabled: true, fetchImpl: failFetch(401), routes: FULL_ROUTES });
+    let last;
+    for (let i = 0; i < 8; i++) last = await client.chat({ route: "json", messages: [] });
+    assert.strictEqual(last.breakerOpen, undefined, "the breaker swallowed a key error");
+    assert.strictEqual(last.status, 401, "the real status stopped surfacing");
+  });
+
   console.log("\n── the monthly budget guard ────────────────────────");
 
   await check("spend at/above the budget disables every route, not just the one that spent it", async () => {
