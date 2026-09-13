@@ -4986,13 +4986,28 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
     if (!project) {
       const buildType = String((req.body && req.body.buildType) || "");
       effectivePrompt = effectivePrompt + (CODEAGENT_TYPE_HINT[buildType] || "");
-      // Logo attachment: with WebContainers, the logo is written client-side.
-      // Append the hint if a logo was provided so the model references it.
-      const logo = req.body && req.body.logo;
-      if (logo && typeof logo.dataUrl === "string" && LOGO_MIME_RE.test(logo.dataUrl)) {
-        effectivePrompt += " An image has already been uploaded and saved at src/assets/logo.png" +
-          " — import and use it as the site's logo/brand mark (e.g. in the header) instead of inventing a placeholder.";
-      }
+      /* An attached logo used to append a sentence here telling the model the
+         file was "already uploaded and saved at src/assets/logo.png".
+
+         It never was. The comment that stood here said the logo is written
+         client-side; nothing in public/ writes it — `src/assets/logo` does not
+         appear anywhere in the client. The only function that would have,
+         attachLogoIfPresent(), was dead code with no caller, left behind by the
+         move to WebContainers along with runtime.writeBinaryFile(), which has
+         no client counterpart.
+
+         So this was not merely inert, it was load-bearing in the wrong
+         direction: the model dutifully imported a file that does not exist,
+         Vite failed to resolve it, and the repair loop then spent its two
+         rounds on an error no rewrite could fix — a build that could end at
+         getFallbackAppCode(), shipping a stock template because the prompt
+         lied to it.
+
+         Uploads are being rebuilt properly (images hosted in object storage and
+         referenced by URL, which is the only form that survives this
+         codebase's text-only revision/deploy contract). Until that lands, the
+         honest behaviour is to say nothing about an attachment rather than
+         invent a path for it. req.body.logo from an older tab is ignored. */
     }
     let hasExistingEntry = false;
     if (project) {
