@@ -376,24 +376,22 @@
      overshoot, while agent rows (agIn) drift in more quietly. Motion
      direction carries authorship without needing a label. */
   .ag-user{align-self:flex-end;max-width:min(86%,560px);margin:18px 0 2px;text-align:right}
-  /* Layered rather than a flat fill: a gradient down the bubble, a lit top
-     edge and a shadow in the accent's own hue, so it sits on the page
-     instead of being painted onto it. Same treatment as the app cards. */
+  /* A QUIET SURFACE, NOT A LIT ONE.
+     This was an accent gradient under an accent border under an accent-hued
+     glow. One of those reads as "you said this"; three read as a button, and
+     a column of them turns the transcript into a row of glowing lozenges
+     competing with the reply you are actually there to read. Position and
+     shape already carry authorship — right-aligned, with the corner clipped
+     on the side it came from — so the colour has no work left to do. */
   .ag-user .bubble{display:inline-block;color:var(--ink);
-    background-image:linear-gradient(165deg,
-      color-mix(in srgb,var(--tint-2) 92%,#fff),
-      color-mix(in srgb,var(--tint-2) 88%,var(--accent) 6%));
-    border:1px solid color-mix(in srgb,var(--accent) 24%,transparent);
-    box-shadow:inset 0 1px 0 rgba(255,255,255,.6),
-      0 1px 2px color-mix(in srgb,var(--accent) 10%,transparent),
-      0 8px 20px -12px color-mix(in srgb,var(--accent) 45%,transparent);
+    background:var(--paper-2);
+    border:1px solid var(--line);
     border-radius:16px 16px 5px 16px;padding:12px 16px;font-size:.98rem;line-height:1.5;
     text-align:left;white-space:pre-wrap;
     transform-origin:100% 100%;animation:agSent .42s var(--ease) both}
   :root[data-theme="dark"] .ag-user .bubble{
-    box-shadow:inset 0 1px 0 rgba(255,255,255,.08),
-      0 1px 2px rgba(0,0,0,.4),
-      0 10px 24px -12px color-mix(in srgb,var(--accent) 55%,transparent)}
+    background:color-mix(in srgb,var(--paper-2) 82%,#fff 4%);
+    border-color:rgba(255,255,255,.09)}
   .ag-user .when{display:block;font-size:.76rem;color:var(--mut);margin-top:6px;
     opacity:0;animation:agIn .3s var(--ease) .16s forwards}
   @keyframes agSent{
@@ -663,7 +661,7 @@
   .ag-worked .ic{width:22px;height:22px;flex:none;border-radius:50%;border:1px solid var(--line);display:grid;place-items:center;background:var(--card)}
   .ag-worked .ic svg{width:12px;height:12px}
 
-  .ag-card{margin:0 0 20px 35px;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:8px 8px 10px}
+  .ag-card{margin:0 0 20px 35px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:6px 6px 7px}
   /* ONE ROW PER FILE, WITH WHAT IT COST.
      These were pills carrying a path and nothing else, so a one-word copy
      fix and a rewritten component were the same object on screen — a wrapped
@@ -671,10 +669,10 @@
      anything in. A build is a list of changes, and the thing that makes a
      list of changes scannable is the number beside each line. */
   .ag-card .files{display:flex;flex-direction:column;gap:0;margin:0 0 4px}
-  .ag-file{display:flex;align-items:center;gap:10px;padding:6px 10px;border-radius:9px;
-    font-size:.8rem;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  .ag-file{display:flex;align-items:center;gap:8px;padding:2px 8px;border-radius:7px;
+    font-size:.735rem;line-height:1.75;
+    font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
     min-width:0}
-  .ag-file + .ag-file{margin-top:1px}
   .ag-file:hover{background:var(--paper-2)}
   /* The directory is context and the filename is the answer, so they are not
      the same colour. At a glance you read a column of filenames; the paths
@@ -683,17 +681,18 @@
   .ag-file .p b{font-weight:600;color:var(--ink-2)}
   /* Fixed width and tabular figures so the counts form a column that can be
      compared down the list rather than a ragged edge that cannot. */
-  .ag-file .d{flex:none;display:flex;gap:7px;font-variant-numeric:tabular-nums;font-size:.76rem;letter-spacing:-.01em}
+  .ag-file .d{flex:none;display:flex;gap:6px;font-variant-numeric:tabular-nums;font-size:.705rem;letter-spacing:-.01em}
   .ag-file .d i{font-style:normal;opacity:.92}
   .ag-file .add{color:var(--diff-add)}
   .ag-file .del{color:var(--diff-del)}
   /* A new file has nothing to compare against, so a "+N / -0" would be
      arithmetic pretending to be information. It gets a word instead. */
-  .ag-file .new{flex:none;font-family:var(--sans);font-size:.68rem;font-weight:600;
-    letter-spacing:.02em;text-transform:uppercase;color:var(--diff-add);
-    background:color-mix(in srgb,var(--diff-add) 13%,transparent);
-    border-radius:5px;padding:1px 5px}
-  .ag-card .cost{font-size:.78rem;color:var(--mut);padding:6px 10px 2px;border-top:1px solid var(--line);margin-top:5px}
+  /* A dot, not a badge. "NEW" in a green pill was the loudest thing in the
+     card, which is backwards — being new is the least surprising fact about
+     a file in a build that just created most of them. */
+  .ag-file .new{flex:none;width:5px;height:5px;border-radius:50%;
+    background:var(--diff-add);opacity:.75}
+  .ag-card .cost{font-size:.715rem;color:var(--mut);padding:5px 8px 1px;border-top:1px solid var(--line);margin-top:4px}
   /* Green and red that survive both themes. The light pair is darkened well
      past the usual UI green so it clears contrast on the card, and the dark
      pair is lifted for the same reason in the other direction — a diff you
@@ -5435,7 +5434,8 @@
       if (st && st.isNew) {
         const tag = document.createElement("span");
         tag.className = "new";
-        tag.textContent = "new";
+        // A dot carries this; the label was louder than the counts beside it.
+        tag.title = "new file";
         row.appendChild(tag);
       }
       if (st && (st.added || st.removed)) {
