@@ -5542,10 +5542,41 @@
             }
             await wc.writeFiles(payload.files);
             const buildResult = await wc.build();
-            const errors = buildResult.ok ? [] : window.__parseBuildErrors(buildResult.stdout + "\n" + buildResult.stderr);
+            let errors = buildResult.ok ? [] : window.__parseBuildErrors(buildResult.stdout + "\n" + buildResult.stderr);
+            let ok = buildResult.ok;
+
+            /* COMPILING IS NOT RENDERING.
+               Only worth asking when the build passed — a failed build has
+               nothing to render and the model already has real errors to fix.
+               A blank page is reported as a build failure so it re-enters the
+               repair loop exactly as NO_ENTRY does; there is no other
+               mechanism for "this is wrong" and inventing one would mean a
+               second path to the same place. */
+            if (ok) {
+              const render = await wc.verifyRender(agPvIframe);
+              if (render.known && render.errors.length) {
+                ok = false;
+                errors = render.errors.map((m) => ({
+                  file: "src/App.tsx", line: 1, col: 1, code: "RUNTIME",
+                  message: "The app compiled but threw when it loaded: " + m +
+                    " — fix the cause; the page renders nothing until you do."
+                }));
+              } else if (render.known && render.empty) {
+                ok = false;
+                errors = [{
+                  file: "src/App.tsx", line: 1, col: 1, code: "BLANK",
+                  message: "The app compiled but rendered an empty page. Check that App.tsx " +
+                    "actually returns visible markup, that main.tsx mounts it, and that nothing " +
+                    "returns null or an empty fragment before anything is drawn."
+                }];
+              }
+              // render.known === false means we could not tell. A build that
+              // works is not failed over a slow preview server.
+            }
+
             await fetch("/api/codeagent/build-feedback", {
               method: "POST", headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ buildId: payload.buildId, ok: buildResult.ok, errors: errors, raw: buildResult.ok ? "" : (buildResult.stdout + buildResult.stderr).slice(-4000) })
+              body: JSON.stringify({ buildId: payload.buildId, ok: ok, errors: errors, raw: buildResult.ok ? "" : (buildResult.stdout + buildResult.stderr).slice(-4000) })
             });
             continue;
           }

@@ -107,6 +107,62 @@ const indexHtml = `<!doctype html>
   </head>
   <body>
     <div id="root"></div>
+    <script>
+      /* DOES IT ACTUALLY RENDER?
+         ----------------------------------------------------------------
+         Until this existed the agent's only signal was "did it bundle",
+         which a component that throws at mount, returns null, or renders an
+         empty shell passes cleanly — shipping a white page reported as a
+         successful build. tsc closed the type half of that; this closes the
+         other half, because a correctly-typed component can still render
+         nothing.
+
+         It has to live HERE, inside the app's own document. The preview is
+         served from webcontainer-api.io, a different origin from the
+         builder, so the parent page cannot read this DOM or catch these
+         errors — every attempt to reach in is blocked, and the one place
+         that tried has a catch around it saying so. postMessage is the one
+         channel that does cross an origin, so the app reports on itself.
+
+         Errors are captured from the first line rather than at report time:
+         a throw during mount happens long before the timer below fires, and
+         by then the only trace left is an empty #root. */
+      (function () {
+        var errors = [];
+        var push = function (m) { if (m && errors.length < 5) errors.push(String(m).slice(0, 300)); };
+        window.addEventListener("error", function (e) {
+          push(e && e.message ? e.message : "script error");
+        });
+        window.addEventListener("unhandledrejection", function (e) {
+          push("unhandled promise rejection: " + ((e && e.reason && e.reason.message) || e.reason || "unknown"));
+        });
+
+        function report() {
+          var root = document.getElementById("root");
+          var text = (document.body.innerText || "").trim();
+          /* Two ways to look busy, and a real app passes both. Text alone
+             misses an app that is entirely images or canvas; element count
+             alone passes a root containing one empty wrapper div. */
+          var nodes = root ? root.querySelectorAll("*").length : 0;
+          try {
+            parent.postMessage({
+              source: "souqi:render",
+              empty: text.length === 0 && nodes < 3,
+              textLength: text.length,
+              nodes: nodes,
+              errors: errors
+            }, "*");
+          } catch (e) { /* nothing we can do from in here */ }
+        }
+
+        /* React mounts in a microtask after load, and an app that fetches on
+           mount paints its first real content a frame or two later. 600ms is
+           long enough to let that settle without becoming part of how long a
+           build takes. Reported once either way — a second report would race
+           the parent's own timeout. */
+        window.addEventListener("load", function () { setTimeout(report, 600); });
+      })();
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>`;
@@ -444,6 +500,46 @@ class WCRuntime {
 
   isBooted() {
     return webcontainerInstance !== null;
+  }
+
+  /**
+   * Did the built app actually put something on screen?
+   *
+   * Compiling is not rendering. A component that throws at mount, returns
+   * null, or renders an empty wrapper type-checks, bundles, and produces a
+   * white page — which the loop has always recorded as a success, because
+   * `npm run build` exiting 0 was the entire correctness signal.
+   *
+   * The answer has to come FROM the preview document (see the reporter in
+   * index.html): it is served from a different origin, so nothing out here
+   * can read its DOM. This starts the preview, listens for that one message,
+   * and gives up quietly if it never arrives.
+   *
+   * Never throws and never reports "broken" on its own uncertainty. A
+   * timeout means we could not tell, and a build that works must not be
+   * failed because a preview server was slow — so an unknown answer is
+   * treated as fine. The only thing this can do is turn a blank page into a
+   * repair round.
+   */
+  async verifyRender(iframeEl, timeoutMs) {
+    let onMsg = null;
+    try {
+      const started = await this.startPreview(iframeEl);
+      if (!started || started.ok === false) return { known: false, reason: "preview did not start" };
+
+      return await new Promise((resolve) => {
+        const done = (v) => { if (onMsg) window.removeEventListener("message", onMsg); clearTimeout(timer); resolve(v); };
+        const timer = setTimeout(() => done({ known: false, reason: "no report from the preview" }), timeoutMs || 9000);
+        onMsg = (e) => {
+          const d = e && e.data;
+          if (!d || d.source !== "souqi:render") return;
+          done({ known: true, empty: !!d.empty, errors: d.errors || [], textLength: d.textLength || 0, nodes: d.nodes || 0 });
+        };
+        window.addEventListener("message", onMsg);
+      });
+    } catch (e) {
+      return { known: false, reason: e && e.message ? e.message : "render check failed" };
+    }
   }
 }
 
