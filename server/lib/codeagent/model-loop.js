@@ -1174,7 +1174,20 @@ function parseToolCalls(message, mcp, opts) {
 // mandates 4-8 files. The mitigation was reactive, costing a whole extra call
 // to discover what was knowable up front. Paying for the headroom once beats
 // paying for a truncated call plus a retry.
-const MAX_TOKENS = 8000;
+//
+// 8000 -> 32000. THE PROVIDER WAS NEVER THE LIMIT.
+//
+// api.deepseek.com reports a valid max_tokens range of [1, 393216] for both
+// deepseek-flash and deepseek-v4-pro. 8000 was 1/49th of what it would accept,
+// and it was the real reason a build could not finish: writing a 14-file app
+// as write_file calls measures at 20,897 tokens, so eco could not emit one
+// even in principle. The model wrote the biggest file it could and stopped,
+// the entry guard fired, and the user read "Fixing App.tsx" on a build where
+// nothing was broken.
+//
+// A cap is a ceiling, not a spend: completion tokens are billed on what is
+// actually produced, so the headroom is free until it is used.
+const MAX_TOKENS = 32000;
 const TEMPERATURE = 0.3;
 const CALL_TIMEOUT_MS = 60000;
 
@@ -1199,7 +1212,12 @@ const CALL_TIMEOUT_MS = 60000;
    buildCodebaseContext does that, and it says out loud when it drops
    something. A silent .slice() here would undo that honesty, so it is
    kept comfortably above MAX_CODE_CONTEXT_CHARS. */
-const MAX_USER_PROMPT_CHARS = Number(process.env.CODEAGENT_MAX_PROMPT_CHARS || 140000);
+const MAX_USER_PROMPT_CHARS = Number(process.env.CODEAGENT_MAX_PROMPT_CHARS || 400000);
+/* Room inside that cap for everything which is NOT codebase: the palette
+   block, the images block, the request itself and the language footer. The
+   code budget is clamped to leave this much, so the invariant the comment
+   above states is enforced rather than remembered. */
+const NON_CODE_PROMPT_RESERVE = 40000;
 
 /* ---- conversation history ----------------------------------------
    The codebase goes into the user message; this is the talking that led
@@ -1447,14 +1465,21 @@ function historyKey(history) {
 // a second truncation and a wasted call. Doubling is the only thing that is
 // correct at every tier; the cap keeps a pathological loop from asking for a
 // budget no provider will honour.
-const RETRY_TOKEN_CAP = 32000;
+// Raised with the budgets below it. At 32000 this was BELOW power's own
+// doubling target (16000 x 2), so a truncated power call retried at exactly
+// the budget that had just failed — the precise bug the comment above says
+// doubling exists to prevent, reintroduced by the cap.
+const RETRY_TOKEN_CAP = 128000;
 const retryTokensFor = (current) => Math.min(RETRY_TOKEN_CAP, (current || MAX_TOKENS) * 2);
 
 // Powered Souqi gets a bigger budget by default: it is explicitly the
 // slower, more capable mode, and it is the one told to split into 4-8 files
 // — the same 4000-token ceiling that comfortably fits one App.tsx will
 // truncate a real multi-file write set on its first try every time.
-const POWER_MAX_TOKENS = 16000;
+// 16000 -> 64000, same measurement as MAX_TOKENS above. Power is the mode
+// told to prefer the fuller split, so it is the one that most needs room to
+// finish in a single pass.
+const POWER_MAX_TOKENS = 64000;
 
 /* The model Power mode and the planner run on. Same provider, same key, same
    base URL as the eco model — only the string differs, which is why this is a
@@ -1671,7 +1696,14 @@ function codeBudgetChars(opts) {
      unrecognised model id falling back to the pessimistic default — and the
      useful behaviour there is a small context and a build that probably still
      works, not an empty one that certainly does not. */
-  const chars = Math.max(MIN_CODE_CONTEXT_CHARS, Math.floor(forCode * perToken));
+  let chars = Math.max(MIN_CODE_CONTEXT_CHARS, Math.floor(forCode * perToken));
+  /* Never more than the user message can actually carry. proposeWithClientBuild
+     slices the prompt at MAX_USER_PROMPT_CHARS, and that slice is silent — it
+     would cut a file in half with no marker, which is the exact dishonesty
+     buildCodebaseContext exists to avoid. Correcting the context window to its
+     measured 400k made this reachable: the arithmetic happily produced a
+     978,000-char budget against a 400,000-char message. */
+  chars = Math.min(chars, MAX_USER_PROMPT_CHARS - NON_CODE_PROMPT_RESERVE);
   // An explicit CODEAGENT_MAX_CODE_CHARS still caps, but can no longer raise
   // the budget past what the window will hold.
   const ceiling = Number(process.env.CODEAGENT_MAX_CODE_CHARS || 0);

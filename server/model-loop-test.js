@@ -1154,6 +1154,13 @@ const ROUTES = { prose: { baseUrl: "https://x.invalid/prose", model: "gemini-3.8
 
   console.log("\n── the context window ──────────────────────");
 
+  /* A SMALL SYNTHETIC WINDOW, deliberately not the provider's.
+     fitConversation takes the window as an argument, so its correctness is
+     arithmetic and owes nothing to what DeepSeek happens to allow this month.
+     Pinning these cases to the real window made them vacuous the moment it was
+     corrected from 65,536 to its measured 400,000 — the head plus six repair
+     rounds no longer overflowed, so the trimmer was never exercised and every
+     assertion passed without testing anything. */
   const WINDOW = 65536;
   const fitOpts = (over) => Object.assign({ windowTokens: WINDOW, maxTokens: 16000, tools: TOOLS_SCHEMA, headLen: 2 }, over || {});
 
@@ -1250,16 +1257,29 @@ const ROUTES = { prose: { baseUrl: "https://x.invalid/prose", model: "gemini-3.8
        route would have this assert against the wrong number and pass for a
        reason that has nothing to do with the budget. */
     client.init({ enabled: true, routes: ROUTES });
-    assert.strictEqual(clientMod.windowFor("json", null), WINDOW, "test route is not the model this asserts against");
+    /* The REAL window, read from the client rather than assumed, because this
+       case is about the live budget and not about the trimmer's arithmetic.
+       Reply budgets are stated rather than imported: they are not exported,
+       and writing them down is what makes a change to them show up here. */
+    const realWindow = clientMod.windowFor("json", null);
+    assert.ok(realWindow >= 100000,
+      "the configured window is " + realWindow + " — if the provider table changed, these numbers need rechecking");
     for (const mode of ["economy", "power"]) {
       const budget = codeBudgetChars({ mode });
-      const reply = mode === "power" ? 16000 : 8000;
+      const reply = mode === "power" ? 64000 : 32000;
       const need = clientMod.estimateTokens([
         { role: "system", content: systemPromptFor(mode) },
         { role: "user", content: "x".repeat(budget) }
       ], TOOLS_SCHEMA) + reply * 2;
-      assert.ok(need <= WINDOW, mode + ": a full-budget request plus one repair round needs " + need +
-        " tokens, over the " + WINDOW + " window");
+      assert.ok(need <= realWindow, mode + ": a full-budget request plus one repair round needs " + need +
+        " tokens, over the " + realWindow + " window");
+      /* The budget must also fit the message that carries it. proposeWithClientBuild
+         slices at MAX_USER_PROMPT_CHARS and says nothing, so a budget above that
+         cap cuts a file in half with no marker — the one thing
+         buildCodebaseContext is built to never do. */
+      const promptCap = Number(process.env.CODEAGENT_MAX_PROMPT_CHARS || 400000);
+      assert.ok(budget < promptCap, mode + ": code budget " + budget +
+        " exceeds the " + promptCap + "-char prompt cap, so it would be silently truncated");
     }
   });
 

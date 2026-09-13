@@ -67,7 +67,15 @@ const PRICING = {
  * for the same reason.
  */
 const CONTEXT_WINDOWS = [
-  [/deepseek/i, 65536],
+  /* MEASURED, not looked up. A single request to api.deepseek.com was accepted
+     with prompt_tokens 400,031, and both deepseek-flash and deepseek-v4-pro
+     report a valid max_tokens range of [1, 393216]. The 65,536 that was here
+     was a remembered figure for deepseek-chat, and it was wrong by more than
+     6x — which made codeBudgetChars hand the model a fraction of the codebase
+     it could actually have read, on every single build.
+     Held at the measured floor rather than a guessed ceiling: 400k is proven,
+     anything above it is not, and this is the number a 400 depends on. */
+  [/deepseek/i, 400000],
   [/gemini/i, 1048576],
   [/gpt-4o|gpt-4\.1|o[34]-/i, 128000],
   [/claude/i, 200000]
