@@ -86,7 +86,29 @@ const FULL_ROUTES = {
 
   await check("unknown route throws — this is a caller bug, not an operational failure", async () => {
     client.init({ enabled: true, fetchImpl: okFetch(), routes: FULL_ROUTES });
-    await assert.rejects(() => client.chat({ route: "vision", messages: [] }), /unknown route/);
+    await assert.rejects(() => client.chat({ route: "typo", messages: [] }), /unknown route/);
+  });
+
+  /* "vision" used to be the example of an unknown route here. It is a real
+     one now, and these two cases are why it needed adding rather than
+     borrowing prose: both other routes in this deployment are text-only. */
+  await check("vision is a real route, and is NOT served by a text-only fallback", async () => {
+    client.init({
+      enabled: true, fetchImpl: okFetch("described"),
+      routes: { prose: FULL_ROUTES.prose, json: FULL_ROUTES.json, vision: { baseUrl: "", model: "", key: "" } }
+    });
+    const res = await client.chat({ route: "vision", messages: [{ role: "user", content: "x" }] });
+    assert.strictEqual(res.ok, false, "an unconfigured vision route must fail, not borrow a blind model");
+    assert.notStrictEqual(res.servedBy, "prose");
+  });
+
+  await check("vision serves itself when configured", async () => {
+    client.init({
+      enabled: true, fetchImpl: okFetch("a cafe interior"),
+      routes: { prose: FULL_ROUTES.prose, json: FULL_ROUTES.json, vision: FULL_ROUTES.prose }
+    });
+    const res = await client.chat({ route: "vision", messages: [{ role: "user", content: "x" }] });
+    assert.strictEqual(res.ok, true);
   });
 
   console.log("\n── the happy path is costed and recorded ───────────");

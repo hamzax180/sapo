@@ -44,7 +44,13 @@ const PRICING = {
   // has said doubles to $1.50/$7.50 on 2027-01-01 — revisit this line then,
   // or the budget guard will quietly undercount by 2× from that date.
   prose: { inputPerM: 0.75, outputPerM: 3.75 },                       // Gemini 3.8 Flash
-  json: { inputPerM: 0.27, inputCachedPerM: 0.07, outputPerM: 1.10 }  // DeepSeek chat
+  json: { inputPerM: 0.27, inputCachedPerM: 0.07, outputPerM: 1.10 }, // DeepSeek chat
+  /* Gemini Flash, the intended vision provider. An image is billed as input
+     tokens, so a photo is worth roughly a few hundred to a couple of thousand
+     of them depending on resolution — which is the real reason the client
+     downscales before upload, not just transfer time. Same caveat as the
+     lines above: verify against the current rate card. */
+  vision: { inputPerM: 0.30, outputPerM: 2.50 }
 };
 
 let CONFIG = null;
@@ -82,7 +88,16 @@ function init(overrides) {
     recordSpendHook: o.recordSpend || null,
     routes: {
       prose: (o.routes && o.routes.prose) || routeFromEnv(env, "AI_PROSE"),
-      json: (o.routes && o.routes.json) || routeFromEnv(env, "AI_JSON")
+      json: (o.routes && o.routes.json) || routeFromEnv(env, "AI_JSON"),
+      /* A third route, because seeing is a different capability from writing
+         and cannot borrow a model that lacks it.
+
+         Both of this deployment's other routes point at deepseek-chat, which
+         is text-only — dom-snapshot.js exists precisely because of that. So
+         "vision" is not a preference here, it is the only way an attached
+         photo is ever looked at. Unset is the normal state and is handled:
+         describe() degrades to filename-only. */
+      vision: (o.routes && o.routes.vision) || routeFromEnv(env, "AI_VISION")
     }
   };
   for (const r of Object.keys(CONFIG.routes)) breakers[r] = { failCount: 0, openUntil: 0 };
@@ -114,6 +129,21 @@ function configured(r) { return !!(r && r.key && r.baseUrl && r.model); }
  */
 function resolveRoute(route) {
   if (configured(CONFIG.routes[route])) return route;
+  /* VISION NEVER FALLS BACK, and it is the one exception to everything the
+     comment above argues.
+
+     That reasoning — answering from whichever route is configured beats not
+     answering — holds when the routes differ in cost and temperament but can
+     both do the job. Vision is not that. Both other routes are text-only
+     here, and a text-only model handed an image does not decline: it writes a
+     fluent description of a photo it never received, which is then cached on
+     the upload row and used to place that photo in someone's website. A
+     confident invention is far worse than an honest blank, and unlike a
+     missing plan card there is nothing downstream that could notice.
+
+     Returning the unconfigured route makes configured() fail below and the
+     caller degrade on purpose. */
+  if (route === "vision") return route;
   const alt = route === "prose" ? "json" : "prose";
   return configured(CONFIG.routes[alt]) ? alt : route;
 }
@@ -197,7 +227,7 @@ async function chat(req) {
     return chatByok(req);
   }
 
-  if (!CONFIG.routes[req.route]) throw new Error("ai/client: unknown route \"" + req.route + "\" (expected \"prose\" or \"json\")");
+  if (!CONFIG.routes[req.route]) throw new Error("ai/client: unknown route \"" + req.route + "\" (expected \"prose\", \"json\" or \"vision\")");
 
   if (!CONFIG.enabled) return { ok: false, disabled: true, reason: "AI_ENABLED is not set" };
 
