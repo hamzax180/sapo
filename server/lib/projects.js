@@ -488,6 +488,19 @@ async function addTurn(projectId, turn) {
     images: Array.isArray(turn.images) ? turn.images.slice(0, 8).map((i) => ({
       id: String(i && i.id || ""), url: String(i && i.url || ""), name: String(i && i.name || "").slice(0, 120)
     })).filter((i) => i.url) : [],
+    /* What this turn changed, per file. Same reasoning as `images` directly
+       above: this row is fixed-shape by design, so a field the caller passes
+       and this list does not name is dropped — and a replayed conversation
+       then shows a build's file list with no counts beside it, which is the
+       one thing that list is for. Recomputing on reload is not an option:
+       the diff is against the tree as it was BEFORE that turn, and by the
+       time anyone reopens the project that tree is several turns gone. */
+    fileStats: Array.isArray(turn.fileStats) ? turn.fileStats.slice(0, 60).map((f) => ({
+      path: String(f && f.path || "").slice(0, 200),
+      added: Number(f && f.added) || 0,
+      removed: Number(f && f.removed) || 0,
+      isNew: !!(f && f.isNew)
+    })).filter((f) => f.path) : [],
     at: new Date().toISOString()
   };
 

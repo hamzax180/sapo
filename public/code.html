@@ -661,7 +661,13 @@
   .ag-worked .ic{width:22px;height:22px;flex:none;border-radius:50%;border:1px solid var(--line);display:grid;place-items:center;background:var(--card)}
   .ag-worked .ic svg{width:12px;height:12px}
 
-  .ag-card{margin:0 0 20px 35px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:6px 6px 7px}
+  /* Sized to the list, not to the column. It was a full-width card with
+     roomy rows, so ten files became a slab bigger than the message that
+     explained them — and the list is a receipt, not the point of the turn.
+     max-content keeps it exactly as wide as its longest path. */
+  .ag-card{margin:0 0 16px 35px;background:var(--card);border:1px solid var(--line);
+    border-radius:12px;padding:4px 4px 5px;
+    width:max-content;max-width:100%}
   /* ONE ROW PER FILE, WITH WHAT IT COST.
      These were pills carrying a path and nothing else, so a one-word copy
      fix and a rewritten component were the same object on screen — a wrapped
@@ -669,8 +675,8 @@
      anything in. A build is a list of changes, and the thing that makes a
      list of changes scannable is the number beside each line. */
   .ag-card .files{display:flex;flex-direction:column;gap:0;margin:0 0 4px}
-  .ag-file{display:flex;align-items:center;gap:8px;padding:2px 8px;border-radius:7px;
-    font-size:.735rem;line-height:1.75;
+  .ag-file{display:flex;align-items:center;gap:14px;padding:1px 8px;border-radius:6px;
+    font-size:.7rem;line-height:1.62;
     font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
     min-width:0}
   .ag-file:hover{background:var(--paper-2)}
@@ -681,7 +687,8 @@
   .ag-file .p b{font-weight:600;color:var(--ink-2)}
   /* Fixed width and tabular figures so the counts form a column that can be
      compared down the list rather than a ragged edge that cannot. */
-  .ag-file .d{flex:none;display:flex;gap:6px;font-variant-numeric:tabular-nums;font-size:.705rem;letter-spacing:-.01em}
+  .ag-file .d{flex:none;display:flex;justify-content:flex-end;gap:6px;min-width:62px;
+    font-variant-numeric:tabular-nums;font-size:.685rem;letter-spacing:-.01em}
   .ag-file .d i{font-style:normal;opacity:.92}
   .ag-file .add{color:var(--diff-add)}
   .ag-file .del{color:var(--diff-del)}
@@ -692,7 +699,7 @@
      a file in a build that just created most of them. */
   .ag-file .new{flex:none;width:5px;height:5px;border-radius:50%;
     background:var(--diff-add);opacity:.75}
-  .ag-card .cost{font-size:.715rem;color:var(--mut);padding:5px 8px 1px;border-top:1px solid var(--line);margin-top:4px}
+  .ag-card .cost{font-size:.69rem;color:var(--mut);padding:4px 8px 1px;border-top:1px solid var(--line);margin-top:3px}
   /* Green and red that survive both themes. The light pair is darkened well
      past the usual UI green so it clears contrast on the card, and the dark
      pair is lifted for the same reason in the other direction — a diff you
@@ -7246,13 +7253,23 @@
 
       // Clear previous chat and replay turns
       agLog.innerHTML = "";
+      let renderedAnyCard = false;
       (data.turns || []).forEach((t) => {
         if (t.role === "user") { sayUser(t.body, false, t.at, t.images); return; }
         say(t.body);
+        /* Each build's own card, with its own numbers. One card at the end
+           could only ever carry the whole project's file list against the
+           last turn's counts — so a file changed three turns ago showed with
+           no +/- at all, which is most of them. */
+        if (t.fileStats && t.fileStats.length) {
+          renderCard(t.fileStats.map((f) => f.path), 0, t.fileStats);
+          renderedAnyCard = true;
+        }
       });
 
-      // Show file card if present
-      if (data.files && data.files.length) renderCard(data.files, 0);
+      // Older projects have turns with no stats on them. They still get the
+      // list they always got, once, rather than nothing.
+      if (!renderedAnyCard && data.files && data.files.length) renderCard(data.files, 0);
 
       // Render the real app through the same path a fresh build uses —
       // GET /api/projects/:key/preview is a placeholder ("hasn't been
@@ -7722,11 +7739,17 @@
       agSection.classList.remove("is-new");
 
       agLog.innerHTML = "";
+      let renderedAnyCard = false;
       (data.turns || []).forEach((t) => {
         if (t.role === "user") { sayUser(t.body, false, t.at, t.images); return; }
         say(t.body);
+        // Per build, with that build's own counts — see loadProjectPreview().
+        if (t.fileStats && t.fileStats.length) {
+          renderCard(t.fileStats.map((f) => f.path), 0, t.fileStats);
+          renderedAnyCard = true;
+        }
       });
-      if (data.files && data.files.length) renderCard(data.files, 0);
+      if (!renderedAnyCard && data.files && data.files.length) renderCard(data.files, 0);
 
       // Show preview panel
       $("agentView").classList.add("has-preview");

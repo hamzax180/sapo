@@ -5463,6 +5463,10 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
     await projects.addTurn(project.id, {
       role: "agent", kind: "result",
       body: result.note ? result.note + "\n\n" + buildSummary : buildSummary,
+      // Persisted, so the +/- beside each file survives a reload: the diff is
+      // against the tree as it was before THIS turn, and by the time anyone
+      // reopens the project that tree is several revisions gone.
+      fileStats: fileStats,
       revisionId: revision.id, chatId: chatId
     });
     try { await projects.ensureIndexes(); } catch(e) {}
