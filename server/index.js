@@ -38,6 +38,17 @@ const { rateLimit } = require("./middleware/rateLimit");
 const { encryptSecret, decryptSecret } = require("./lib/crypto");
 const aiProviders = require("./lib/ai/providers");
 const scaffoldFiles = require("./lib/codeagent/scaffold-files");
+/* Scaffold files the BROWSER's build container does not mount for itself and
+   the model is not allowed to write, so they have to travel with the files
+   frame or the build cannot resolve them.
+
+   Only src/ files belong here. index.html, package.json, vite.config.ts and
+   the rest are already in wc-runtime.js's own mount and are not things the
+   model imports; payments.ts is the one the prompt actively instructs it to
+   import. Keep this list minimal — everything on it is sent on every build
+   round. */
+const SCAFFOLD_RUNTIME_FILES = ["src/lib/payments.ts"];
+const scaffoldAll = scaffoldFiles.readScaffold();
 const secretscan = require("./lib/secretscan");
 const depscan = require("./lib/depscan");
 const stripeLib = require("./lib/stripe");
@@ -2558,7 +2569,7 @@ app.post("/api/projects/:key/micro-claim", microClaimLimiter, verifyCaptcha(), v
 const codeAgentRuntimeReg = require("./lib/codeagent/runtime");
 const daytonaRuntimeModule = require("./lib/codeagent/runtimes/daytona-runtime"); // registers "daytona"
 const { makeTools: makeCodeAgentTools } = require("./lib/codeagent/tools");
-const { proposeChanges, proposeWithRepair, proposeWithClientBuild, assessPrompt, buildPlan, buildCodebaseContext, buildImagesBlock } = require("./lib/codeagent/model-loop");
+const { proposeChanges, proposeWithRepair, proposeWithClientBuild, assessPrompt, buildPlan, buildCodebaseContext, buildImagesBlock, PROMPT_VERSION } = require("./lib/codeagent/model-loop");
 const codeAgentUsage = require("./lib/codeagent/usage");
 codeAgentUsage.init({ getMasterDb });
 
@@ -5210,6 +5221,31 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
           });
           // Send proposed files to the client for WebContainer build
           const filesObj = {};
+          /* THE ONE IMPORT THE PROMPT MANDATES HAS TO EXIST.
+
+             SYSTEM_PROMPT spends ~15 lines telling the model to import
+             ./lib/payments for anything that sells — and PROTECTED_PATHS
+             forbids it from writing that file, and wc-runtime.js never
+             mounted it. Its scaffold map has main.tsx, App.tsx and index.css
+             and nothing else, and the only other thing the container ever
+             receives is this frame.
+
+             So every shop, booking fee and donate button failed on
+             `Could not resolve "./lib/payments"`, and the repair loop could
+             not save it: the single fix is writing a file validation rejects,
+             so the model rewrote other things until the rounds ran out and it
+             shipped a starter template. build-parser-client.js already calls
+             this "the single most common way a generated app fails to build".
+
+             Sent from readScaffold() rather than inlined into wc-runtime.js,
+             because a third hand-maintained copy of the scaffold is what
+             caused this in the first place — scaffold-data.json stays the one
+             source of truth. Written before the model's files so a collision
+             still resolves the model's way, matching withScaffold(). */
+          for (const p of SCAFFOLD_RUNTIME_FILES) {
+            const content = scaffoldAll[p];
+            if (typeof content === "string") filesObj[p] = content;
+          }
           for (const c of calls) filesObj[c.path] = c.content;
           const buildId = crypto.randomBytes(16).toString("hex");
           return new Promise((resolve) => {
@@ -5256,10 +5292,31 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
         await writeMasterAudit(masterDbForAudit, {
           requestId: req.id, actor: owner.userId || owner.anonId || "anon",
           action: "codeagent.build", entityId: project ? project.id : null,
-          summary: (result.ok ? "Build" : "Failed build") + " — $" + (result.costUsd || 0).toFixed(4),
+          /* "Build" / "Fell back" / "Failed build", three states rather than
+             two. result.ok is TRUE when the loop gave up and shipped
+             getFallbackAppCode() — a canned starter template with an apology
+             attached — so on the old two-state summary a build that exhausted
+             every repair round was indistinguishable from one that worked
+             first try. That single conflation is why "what fraction of builds
+             succeed" had no answer. */
+          summary: (result.fellBack ? "Fell back" : result.ok ? "Build" : "Failed build") +
+            " — $" + (result.costUsd || 0).toFixed(4),
           meta: {
             costUsd: result.costUsd || 0, ok: result.ok, rounds: result.rounds, isFollowUp,
-            mode: agentMode, provider: byok ? byok.provider : "souqi", mcpTools: mcp.size
+            mode: agentMode, provider: byok ? byok.provider : "souqi", mcpTools: mcp.size,
+            /* fellBack was written twice in model-loop.js and read nowhere.
+               It is the difference between "worked" and "gave up politely",
+               and it belongs in every quality number computed from here on.
+
+               repaired/rounds say how hard it was; promptVersion is what makes
+               a prompt change attributable — without it there is no way to
+               compare before and after, which is the whole reason none of the
+               earlier prompt work could be evaluated. */
+            fellBack: !!result.fellBack,
+            repaired: !!result.repaired,
+            promptVersion: PROMPT_VERSION,
+            model: byok ? (byok.model || byok.provider) : (agentMode === "power" ? "souqi:power" : "souqi:eco"),
+            imagesAttached: attachedImages.length
           }
         });
       }

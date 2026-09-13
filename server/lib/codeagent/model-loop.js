@@ -2055,5 +2055,8 @@ async function assessPrompt(userPrompt, opts) {
 module.exports = {
   quickAssess, buildPlan, proposeChanges, proposeWithRepair, proposeWithClientBuild, assessPrompt, TOOLS_SCHEMA, SYSTEM_PROMPT,
   buildHistory, buildCodebaseContext, buildImagesBlock, fixImageUrls, MAX_CLARIFYING_QUESTIONS,
+  // Exported so a build outcome can record WHICH prompt produced it — without
+  // that, a prompt change cannot be attributed to a change in quality.
+  PROMPT_VERSION,
   systemPromptFor, parseToolCalls, validateWriteFileArgs, cacheKey, clearCache, cacheStatsSnapshot
 };

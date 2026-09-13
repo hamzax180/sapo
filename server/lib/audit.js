@@ -61,6 +61,21 @@ async function writeMasterAudit(masterDb, entry) {
       summary: entry.summary || "",
       source: "platform"
     };
+    /* Same line writeAudit has had all along (see above), and its absence here
+       was silently throwing away the only diagnostics this platform records.
+
+       The code-agent build route computes rounds, repaired, fellBack, mode,
+       provider and cost on every single build and passes them in as meta —
+       and they died at this boundary. The effect was not "less detail in the
+       logs": it was that no question about agent quality could be answered at
+       all. What fraction of builds succeed, does a prompt change help, how
+       often does a repair round save a build — every one of those needs a
+       field that was computed and dropped right here.
+
+       Before rec.hash, deliberately: the hash is the tamper-evidence for this
+       row, so meta has to be inside what it covers rather than bolted on
+       after. */
+    if (entry.meta) rec.meta = entry.meta;
     rec.hash = hashOf(rec);
     await masterDb.collection("platform_audit").insertOne(rec);
     return rec;
