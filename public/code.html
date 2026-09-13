@@ -745,20 +745,133 @@
   .ag:not(.is-new) .ag-composer,
   .ag.has-convo .ag-composer,
   .ag:has(#agLog > *:not(.ag-empty)) .ag-composer{
-    /* 40%, not 58: the glass is meant to be seen through. The text on
-       top of it stays readable because .ag-box brings its own solid fill
-       — only the band AROUND the input is this thin. */
-    background:color-mix(in srgb,var(--paper) 40%,transparent);
-    -webkit-backdrop-filter:blur(20px) saturate(1.5);
-    backdrop-filter:blur(20px) saturate(1.5);
+    /* THE BAND IS NOT THE GLASS ANY MORE — THE BOX IS.
+
+       This used to be a frosted bar with an opaque card sitting on it, and
+       the card is the part you actually look at. So the log dissolved into
+       the band around the input and then hit a hard white rectangle, which
+       is the "it looks bugged" of it: the one element with a visible edge
+       was the one element you could not see through.
+
+       Moving the blur onto .ag-box also removes a nested backdrop-filter.
+       An element with backdrop-filter becomes a backdrop root, so a child
+       that also has one filters its parent's output rather than the page —
+       the inner blur was doing nothing dependable. There is exactly one
+       blurring surface now, and it is the one with the rounded edge. */
+    background:transparent;
+    -webkit-backdrop-filter:none;
+    backdrop-filter:none;
     border-top:0;
   }
-  .ag:not(.is-new) .ag-composer::before,
-  .ag.has-convo .ag-composer::before,
-  .ag:has(#agLog > *:not(.ag-empty)) .ag-composer::before{
-    content:"";position:absolute;left:0;right:0;bottom:100%;height:38px;
-    pointer-events:none;
-    background:linear-gradient(to top,color-mix(in srgb,var(--paper) 40%,transparent),transparent);
+  /* The top feather went with the band. It existed to dissolve a hard
+     backdrop-filter boundary that no longer spans the column — the box has
+     its own rounded edge and its own falloff, and a gradient above a
+     floating card just dims the message behind it for no reason. */
+
+  /* The glass itself. Only when docked: the new-chat hero centres this same
+     box over empty paper, where transparency has nothing to reveal and the
+     aurora behind it is the whole point of the screen. */
+  .ag:not(.is-new) .ag-box,
+  .ag.has-convo .ag-box,
+  .ag:has(#agLog > *:not(.ag-empty)) .ag-box{
+    /* 66%, found by eye against real message text: enough body that a
+       placeholder and a typed line stay crisp, thin enough that you can
+       read a sentence passing underneath. Below ~55 the input text starts
+       competing with the words behind it. */
+    background:color-mix(in srgb,var(--paper) 66%,transparent);
+    -webkit-backdrop-filter:blur(24px) saturate(1.7);
+    backdrop-filter:blur(24px) saturate(1.7);
+    border:1px solid rgba(255,255,255,.7);
+    /* Lighting, in the order it reads:
+         1px hairline   — a defined edge against moving text, which a blur
+                          alone never gives you;
+         the two drops  — lift. Without them the box sits IN the text
+                          rather than over it, and the blur reads as a
+                          smudge on the page instead of a pane above it;
+         the cyan       — what is left of the aurora. Outer box-shadows are
+                          clipped to outside the border box, so this cannot
+                          bleed through a translucent fill the way the
+                          ::before bloom does;
+         inset top      — specular. The line where light catches the near
+                          edge of a piece of glass. */
+    box-shadow:
+      0 0 0 1px rgba(23,23,23,.055),
+      0 12px 32px -12px rgba(23,23,23,.16),
+      0 2px 8px -4px rgba(23,23,23,.10),
+      0 0 28px -6px rgba(var(--glow-a),.16),
+      inset 0 1px 0 rgba(255,255,255,.85),
+      inset 0 -1px 0 rgba(23,23,23,.03);
+  }
+  /* The bloom is a lamp behind an opaque card. Behind a translucent one it
+     is a coloured stain on the words underneath — ::before sits at
+     z-index:-1, so the moment the fill stops being opaque the gradient
+     paints straight through it. The hero keeps it; docked, the rim beam
+     (::after) and the cyan drop above carry the colour instead. */
+  .ag:not(.is-new) .ag-box::before,
+  .ag.has-convo .ag-box::before,
+  .ag:has(#agLog > *:not(.ag-empty)) .ag-box::before{
+    opacity:0;
+    animation:none;
+  }
+  .ag:not(.is-new) .ag-box:focus-within,
+  .ag.has-convo .ag-box:focus-within,
+  .ag:has(#agLog > *:not(.ag-empty)) .ag-box:focus-within{
+    /* Focus thickens the light, not the geometry — same rule the hero
+       state already follows, so nothing shifts under the cursor. */
+    background:color-mix(in srgb,var(--paper) 74%,transparent);
+    box-shadow:
+      0 0 0 1px rgba(23,23,23,.07),
+      0 16px 40px -14px rgba(23,23,23,.20),
+      0 2px 8px -4px rgba(23,23,23,.12),
+      0 0 34px -6px rgba(var(--glow-a),.26),
+      inset 0 1px 0 rgba(255,255,255,.9),
+      inset 0 -1px 0 rgba(23,23,23,.03);
+  }
+
+  /* Dark glass is not light glass with a dark fill. The specular rim has to
+     drop to a hint — a 85%-white line on a dark pane reads as a rendering
+     seam, the same reason the hero's dark rule already kills it — and the
+     drop shadows have to go nearly black, because a grey shadow over a dark
+     page is invisible and the box loses its lift entirely. */
+  :root[data-theme="dark"] .ag:not(.is-new) .ag-box,
+  :root[data-theme="dark"] .ag.has-convo .ag-box,
+  :root[data-theme="dark"] .ag:has(#agLog > *:not(.ag-empty)) .ag-box{
+    background:color-mix(in srgb,#25262b 72%,transparent);
+    border:1px solid rgba(255,255,255,.10);
+    box-shadow:
+      0 0 0 1px rgba(0,0,0,.35),
+      0 14px 36px -12px rgba(0,0,0,.62),
+      0 2px 10px -4px rgba(0,0,0,.45),
+      0 0 32px -6px rgba(var(--glow-a),.24),
+      inset 0 1px 0 rgba(255,255,255,.07);
+  }
+  :root[data-theme="dark"] .ag:not(.is-new) .ag-box:focus-within,
+  :root[data-theme="dark"] .ag.has-convo .ag-box:focus-within,
+  :root[data-theme="dark"] .ag:has(#agLog > *:not(.ag-empty)) .ag-box:focus-within{
+    background:color-mix(in srgb,#25262b 80%,transparent);
+    box-shadow:
+      0 0 0 1px rgba(0,0,0,.4),
+      0 18px 44px -14px rgba(0,0,0,.7),
+      0 2px 10px -4px rgba(0,0,0,.5),
+      0 0 38px -6px rgba(var(--glow-a),.36),
+      inset 0 1px 0 rgba(255,255,255,.09);
+  }
+
+  /* No backdrop-filter support (older Firefox with it disabled, some
+     embedded webviews): a 66%-transparent bar over live text is unreadable
+     without the blur, so those browsers get an opaque one. Progressive
+     enhancement rather than a fallback that ships broken. */
+  @supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
+    .ag:not(.is-new) .ag-box,
+    .ag.has-convo .ag-box,
+    .ag:has(#agLog > *:not(.ag-empty)) .ag-box{
+      background:var(--card);
+    }
+    :root[data-theme="dark"] .ag:not(.is-new) .ag-box,
+    :root[data-theme="dark"] .ag.has-convo .ag-box,
+    :root[data-theme="dark"] .ag:has(#agLog > *:not(.ag-empty)) .ag-box{
+      background:#25262b;
+    }
   }
 
   /* Above 900 the bar is a flex item at the end of the column, so the log
