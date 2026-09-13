@@ -2551,10 +2551,11 @@ app.post("/api/projects/:key/micro-claim", microClaimLimiter, verifyCaptcha(), v
    security model for free: `projects.owns()` gates every read and
    write here exactly as it does for the site builder.
 
-   Two lifetimes, deliberately not conflated:
-     - `codeBuilds` (in-memory) tracks a LIVE sandbox for the life of
-       this server process — what makes a follow-up fast (reuse, no
-       reinstall).
+   One lifetime now. There used to be two — an in-memory `codeBuilds`
+   cache of live Daytona sandboxes alongside the durable record — and
+   the sandbox half is gone with the move to WebContainers: the build
+   runs in the user's browser, so there is nothing server-side to keep
+   warm between turns.
      - `projects` (Mongo) durably stores full file contents per
        revision — what makes a build survive a reload or a server
        restart. If the sandbox is gone but the project isn't, a
@@ -2567,66 +2568,22 @@ app.post("/api/projects/:key/micro-claim", microClaimLimiter, verifyCaptcha(), v
    like everything else in it, which is why they are not the
    durability mechanism on their own.
    ================================================================= */
-const codeAgentRuntimeReg = require("./lib/codeagent/runtime");
-const daytonaRuntimeModule = require("./lib/codeagent/runtimes/daytona-runtime"); // registers "daytona"
-const { makeTools: makeCodeAgentTools } = require("./lib/codeagent/tools");
+/* The Daytona runtime, its registry and the seven-tool surface used to be
+   required here. They are gone with the sandbox they served: builds moved
+   into the browser, nothing has written a revision `sandboxId` since, and
+   the one function that consumed them could therefore never return a
+   handle. Requiring @daytona/sdk on every cold start to reach code that
+   could not run was 7.2MB of bundle for nothing.
+
+   lib/codeagent/tools.js and dom-snapshot.js stay ON DISK, unreferenced.
+   tools.js still holds the read_file and list_files implementations, which
+   are the next thing the model needs, and dom-snapshot.js is the original
+   blank-page check — the one just rebuilt in the browser. Deleting them
+   would mean writing them again. */
 const { proposeChanges, proposeWithRepair, proposeWithClientBuild, assessPrompt, buildPlan, buildCodebaseContext, buildImagesBlock, PROMPT_VERSION } = require("./lib/codeagent/model-loop");
 const codeAgentUsage = require("./lib/codeagent/usage");
 codeAgentUsage.init({ getMasterDb });
 
-// A per-instance CACHE of live sandbox handles, not the source of truth.
-// It used to be the source of truth, which made every follow-up edit and
-// every preview request depend on landing back on the same Node process
-// that ran the original build — fine for one long-lived server, fatal on
-// serverless (Vercel), where instances are created and discarded freely.
-// The durable record is `sandboxId` on each revision (persisted since the
-// first build); codeAgentLive() below rebuilds a handle from that when
-// this instance has never seen the project. Keeping the cache avoids a
-// Daytona API round-trip on the warm path.
-const codeBuilds = new Map(); // projectId -> { ws, runtime, tools, createdAt }
-
-/**
- * Resolves a project's LIVE sandbox on any instance, in three steps:
- *   1. this instance's cache (warm path, no network),
- *   2. otherwise re-attach by the sandboxId persisted on the head revision,
- *   3. and in both cases prove it's actually reachable before returning it.
- *
- * Returns null when there is no reachable sandbox — callers already handle
- * that (build resumes from persisted files, preview reports "not running").
- * Health-checking matters as much as the lookup: Daytona's autoStopInterval
- * can reap a sandbox with nothing notifying this process, and a stale handle
- * fails later and less clearly than a null does here.
- */
-async function codeAgentLive(project) {
-  if (!project) return null;
-
-  const cached = codeBuilds.get(project.id);
-  if (cached) {
-    try {
-      const health = await cached.runtime.run(cached.ws, ["echo", "ok"], 5000);
-      if (health.code === 0) return cached;
-    } catch (e) { /* fall through to re-attach */ }
-    codeBuilds.delete(project.id);
-  }
-
-  const head = await projects.head(project.id);
-  const sandboxId = head && head.config && head.config.sandboxId;
-  if (!sandboxId) return null;
-
-  const runtime = codeAgentRuntimeReg.createRuntime("daytona");
-  if (typeof runtime.attach !== "function") return null;
-  const ws = await runtime.attach(sandboxId);
-  if (!ws) return null;
-
-  try {
-    const health = await runtime.run(ws, ["echo", "ok"], 5000);
-    if (health.code !== 0) return null;
-  } catch (e) { return null; }
-
-  const live = { ws, runtime, tools: makeCodeAgentTools(runtime, ws), createdAt: Date.now() };
-  codeBuilds.set(project.id, live);
-  return live;
-}
 /* Ten per fifteen minutes PER ADDRESS was too tight for the thing it
    guards, and the counter it shares is the reason.
 
@@ -2886,7 +2843,7 @@ const DEPLOY_PAID_LIMIT = Number(process.env.DEPLOY_PAID_LIMIT || 2);
     logged in through the site's normal cookie-based flow, since code.html
     has no reason to duplicate Bearer-token plumbing the rest of the site
     doesn't use either. Used ONLY for the gate check, never for project
-    ownership — codeBuilds/projects.owns() keep working exactly as before. */
+    ownership — projects.owns() keeps working exactly as before. */
 function codeAgentSessionUser(req) {
   const raw = req.headers.cookie || "";
   const m = /(?:^|;\s*)sq_session=([^;]*)/.exec(raw);
@@ -5504,14 +5461,20 @@ app.get("/api/codeagent/:key", async (req, res, next) => {
       projects.listChats(project.id),
       projects.head(project.id)
     ]);
-    const live = await codeAgentLive(project);
-    let sandboxAlive = false;
-    if (live) {
-      try {
-        await live.runtime.getPublicPreviewUrl(live.ws, daytonaRuntimeModule.PREVIEW_PORT, 1800);
-        sandboxAlive = true;
-      } catch (e) { /* the sandbox died without telling this process — fall through as not-alive */ }
-    }
+    /* Always false since the move to WebContainers, and now honestly so.
+
+       This used to probe a Daytona sandbox. codeAgentLive() could only return
+       a handle when the head revision carried a `sandboxId`, and nothing has
+       written that field since builds moved into the browser — its cache was
+       populated only by the same function succeeding, so it could never warm
+       either. The probe was unreachable behind an `if (live)` that was never
+       true.
+
+       The field stays in the response rather than being dropped. Nothing in
+       public/ reads it, but removing a key from a JSON response is the kind
+       of change that breaks something you cannot see, and a hardcoded false
+       costs nothing. */
+    const sandboxAlive = false;
 
     const reopenSrc = await projects.materialize(project.id);
 
