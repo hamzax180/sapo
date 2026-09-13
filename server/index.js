@@ -4621,13 +4621,20 @@ app.post("/api/codeagent/:key/micro-claim", microClaimLimiter, verifyCaptcha(), 
  * Resolves the pending promise in the SSE handler's repair loop.
  */
 app.post("/api/codeagent/build-feedback", express.json({ limit: "1mb" }), (req, res) => {
-  const { buildId, ok, errors, raw } = req.body || {};
+  const { buildId, ok, errors, raw, infra, verified } = req.body || {};
   if (!buildId) return res.status(400).json({ error: "buildId required" });
   const pending = pendingBuildResults.get(buildId);
   if (!pending) return res.status(404).json({ error: "unknown or expired buildId" });
   pendingBuildResults.delete(buildId);
   clearTimeout(pending.timer);
-  pending.resolve({ ok: !!ok, errors: errors || [], raw: raw || "" });
+  /* infra and verified were both being dropped here, and each was a lie of a
+     different kind. infra:true means the BUILD never ran — a WebContainer that
+     would not boot, not a defect in the generated code. verified:false means
+     the device cannot build at all (no SharedArrayBuffer), so the ok:true that
+     accompanies it is a formality, not a compile. Passing them through lets
+     the loop stop asking the model to fix infrastructure, and lets the audit
+     record stop counting unverified builds as successes. */
+  pending.resolve({ ok: !!ok, errors: errors || [], raw: raw || "", infra: !!infra, verified: verified !== false });
   res.json({ received: true });
 });
 
@@ -5168,6 +5175,11 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
     const agentOpts = {
       mode: agentMode, byok: byok, thinking: thinking, mcp: mcp,
       hasExistingEntry: hasExistingEntry,
+      /* Here rather than only on the proposeWithClientBuild call, so the
+         mobile path gets it too — that branch runs proposeChanges, which
+         takes this whole bag. An invented image URL renders as a torn page
+         on a phone exactly as it does on a laptop. */
+      imageUrls: imageUrls,
       // What was said before this message. The codebase tells the model
       // WHAT the app is; this tells it what the user has been asking for,
       // so "now make it bigger" has something to refer to.
@@ -5251,7 +5263,7 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
           return new Promise((resolve) => {
             const timer = setTimeout(() => {
               pendingBuildResults.delete(buildId);
-              resolve({ ok: false, errors: [{ file: "", line: 0, col: 0, code: "", message: "build timed out (client did not respond in 3 minutes)" }], raw: "" });
+              resolve({ ok: false, infra: true, errors: [{ file: "", line: 0, col: 0, code: "INFRA", message: "build timed out (client did not respond in 3 minutes)" }], raw: "" });
             }, 180000);
             pendingBuildResults.set(buildId, { resolve, timer });
             sseFrame(res, "files", { buildId, files: filesObj });
@@ -5314,6 +5326,14 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
                earlier prompt work could be evaluated. */
             fellBack: !!result.fellBack,
             repaired: !!result.repaired,
+            /* Both keep the quality numbers honest. infra separates "our
+               sandbox died" from "the agent could not do it" — mixing them
+               makes every environment blip look like a model regression.
+               verified:false marks a device that cannot compile at all, whose
+               ok:true is a formality rather than a passing build; counting
+               those as successes would flatter every metric computed here. */
+            infra: !!result.infra,
+            verified: result.verified !== false,
             promptVersion: PROMPT_VERSION,
             model: byok ? (byok.model || byok.provider) : (agentMode === "power" ? "souqi:power" : "souqi:eco"),
             imagesAttached: attachedImages.length
@@ -5323,8 +5343,20 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
     } catch(e) {}
 
     if (!result.ok) {
-      sseFrame(res, "stage", { id: "propose", state: "done", detail: "Could not finish" });
-      sseFrame(res, "error", { error: result.reason || "the agent could not produce a working build" });
+      /* An environment failure is not the agent failing, and saying so
+         matters: "the agent could not produce a working build" sends someone
+         off to reword a prompt that was never the problem, when the honest
+         answer is that the sandbox in their browser did not start and the
+         same request will very likely work on a retry. */
+      const infra = !!result.infra;
+      sseFrame(res, "stage", { id: "propose", state: "done",
+        detail: infra ? "The build environment didn't start" : "Could not finish" });
+      sseFrame(res, "error", {
+        error: infra
+          ? "The build environment didn't start in your browser, so nothing was compiled — this is on our side, not your request. Try again."
+          : (result.reason || "the agent could not produce a working build"),
+        retryable: infra
+      });
       return res.end();
     }
     sseFrame(res, "stage", {

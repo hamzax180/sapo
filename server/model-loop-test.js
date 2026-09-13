@@ -800,6 +800,57 @@ const ROUTES = { prose: { baseUrl: "https://x.invalid/prose", model: "gemini-3.8
     assert.strictEqual(cacheStatsSnapshot().hits, before + 1, "a repeatedly-used entry should have survived eviction");
   });
 
+  /* ---- options survive the trip into the loop --------------------------
+     These exist because imageUrls did not. It was passed by index.js, never
+     named in proposeWithClientBuild's destructure, and therefore undefined by
+     the time validateWriteFileArgs looked for it — so the invented-image-URL
+     guard never ran on the path that serves every desktop user.
+
+     The unit tests passed throughout, because they called
+     validateWriteFileArgs directly with an opts bag. That tests the function
+     and not the wiring, and the wiring was the bug. These go through the real
+     entry point instead. */
+  console.log("\n── caller options reach the write validator ────────");
+
+  await check("proposeWithClientBuild carries imageUrls down to the file writer", async () => {
+    const real = "https://cdn.souqi.site/u/" + "ab".repeat(16) + ".jpg";
+    client.init({
+      enabled: true, routes: ROUTES,
+      fetchImpl: fetchReturning([toolCallMsg([{
+        path: "src/App.tsx",
+        content: 'export default function App(){return <img src="https://images.unsplash.com/fake.jpg" className="w-full" />}'
+      }])])
+    });
+    const res = await proposeWithClientBuild({
+      userPrompt: "a cafe site",
+      maxRounds: 0,
+      imageUrls: [real],
+      onFiles: async () => ({ ok: true, errors: [] })
+    });
+    assert.ok(res.ok, "expected the build to succeed");
+    const app = res.calls.find((c) => c.path === "src/App.tsx");
+    assert.ok(!/unsplash/.test(app.content),
+      "an invented image URL survived — imageUrls is not reaching validateWriteFileArgs");
+    assert.match(app.content, /bg-gradient-to-br/,
+      "the invented URL should have become a gradient placeholder");
+  });
+
+  await check("no imageUrls is still a clean pass-through", async () => {
+    client.init({
+      enabled: true, routes: ROUTES,
+      fetchImpl: fetchReturning([toolCallMsg([{
+        path: "src/App.tsx", content: '<img src="https://example.com/x.jpg" />'
+      }])])
+    });
+    const res = await proposeWithClientBuild({
+      userPrompt: "a site", maxRounds: 0,
+      onFiles: async () => ({ ok: true, errors: [] })
+    });
+    // Nothing was attached, so there is no way to tell a real URL from an
+    // invented one and the guard must not guess.
+    assert.match(res.calls[0].content, /example\.com/);
+  });
+
   console.log("\n" + (failed === 0 ? "✓ ALL MODEL-LOOP TESTS PASSED (" + passed + ")" : "✗ " + failed + " FAILED, " + passed + " passed"));
   process.exit(failed === 0 ? 0 : 1);
 })();

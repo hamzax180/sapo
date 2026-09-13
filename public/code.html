@@ -5535,7 +5535,7 @@
               if (window.__wcError || !window.__wcReady) {
                 await fetch("/api/codeagent/build-feedback", {
                   method: "POST", headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ buildId: payload.buildId, ok: false, errors: [{ file: "", line: 0, col: 0, code: "", message: "WebContainer failed to initialize: " + (window.__wcError || "timeout") }], raw: "" })
+                  body: JSON.stringify({ buildId: payload.buildId, ok: false, infra: true, errors: [{ file: "", line: 0, col: 0, code: "INFRA", message: "WebContainer failed to initialize: " + (window.__wcError || "timeout") }], raw: "" })
                 });
                 continue;
               }

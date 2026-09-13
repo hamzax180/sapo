@@ -912,7 +912,15 @@ function parseToolCalls(message, mcp, opts) {
 // indistinguishable from "malformed output" without this context). 8000 is
 // headroom, not the expected size — a real single-file page runs well
 // under it in practice.
-const MAX_TOKENS = 4000;
+//
+// The constant said 4000 while the comment above it argued for 8000, and the
+// comment was right: POWER_MAX_TOKENS's own note records that "the same
+// 4000-token ceiling that comfortably fits one App.tsx will truncate a real
+// multi-file write set on its first try every time" — against a prompt that
+// mandates 4-8 files. The mitigation was reactive, costing a whole extra call
+// to discover what was knowable up front. Paying for the headroom once beats
+// paying for a truncated call plus a retry.
+const MAX_TOKENS = 8000;
 const TEMPERATURE = 0.3;
 const CALL_TIMEOUT_MS = 60000;
 
@@ -1165,7 +1173,14 @@ function historyKey(history) {
 // identical doomed one; an actually-malformed completion (finishReason
 // "stop"/"tool_calls") still just retries once at the normal size, since
 // more tokens wouldn't fix a real syntax mistake.
-const RETRY_MAX_TOKENS = 8000;
+// A MULTIPLE of whatever just failed, not a fixed number. As a constant it
+// was 8000 while POWER_MAX_TOKENS is 16000, so a power-mode truncation
+// retried at HALF the budget that had just proved insufficient — guaranteeing
+// a second truncation and a wasted call. Doubling is the only thing that is
+// correct at every tier; the cap keeps a pathological loop from asking for a
+// budget no provider will honour.
+const RETRY_TOKEN_CAP = 32000;
+const retryTokensFor = (current) => Math.min(RETRY_TOKEN_CAP, (current || MAX_TOKENS) * 2);
 
 // Powered Souqi gets a bigger budget by default: it is explicitly the
 // slower, more capable mode, and it is the one told to split into 4-8 files
@@ -1286,7 +1301,7 @@ async function attemptOnce(messages, opts) {
   }
 
   const truncated = res.finishReason === "length";
-  const retryMaxTokens = truncated ? RETRY_MAX_TOKENS : base.maxTokens;
+  const retryMaxTokens = truncated ? retryTokensFor(base.maxTokens) : base.maxTokens;
   const retryReason = parsed.ok ? "you called tools but never wrote any files" : parsed.reason;
 
   // Protocol requirement, found live against the real API (a stub never
@@ -1493,9 +1508,19 @@ async function proposeWithRepair({ userPrompt, tools, maxRounds, onRound, mode, 
  * @param {function} [opts.onRound] - (info) => void, same shape as proposeWithRepair
  * @returns {Promise<{ok, calls?, round?, rounds, repaired?, costUsd, reason?}>}
  */
-async function proposeWithClientBuild({ userPrompt, maxRounds, onFiles, onRound, onProposal, mode, byok, thinking, mcp, onToolCall, history, hasExistingEntry }) {
+async function proposeWithClientBuild({ userPrompt, maxRounds, onFiles, onRound, onProposal, mode, byok, thinking, mcp, onToolCall, history, hasExistingEntry, imageUrls }) {
   const cap = (maxRounds !== null && maxRounds !== undefined) ? maxRounds : 3;
-  const opts = { mode, byok, thinking, mcp, onToolCall };
+  /* imageUrls has to be BOTH destructured above and carried in opts, and
+     missing either one is silent. The caller passed it, this signature did not
+     name it, so o.imageUrls was undefined all the way down and fixImageUrls
+     returned on its first line — the invented-image-URL guard never ran once
+     on the path that actually serves users.
+
+     Nothing caught it because the unit tests called validateWriteFileArgs
+     directly with an opts bag, which tests the function and not the wiring.
+     See the round-trip test in images-prompt-test.js, which goes through this
+     function precisely so a dropped key fails loudly. */
+  const opts = { mode, byok, thinking, mcp, onToolCall, imageUrls };
   const hist = buildHistory(history);
   let messages = [
     { role: "system", content: systemPromptFor(mode) }
@@ -1646,8 +1671,35 @@ async function proposeWithClientBuild({ userPrompt, maxRounds, onFiles, onRound,
 
     if (onRound) onRound({ round, ok: build.ok, calls: allCalls, errors: build.ok ? undefined : build.errors });
 
+    /* INFRASTRUCTURE IS NOT A CODE DEFECT.
+
+       A WebContainer that would not boot, and a client that never answered
+       inside three minutes, both arrived here as ordinary build failures — so
+       the model was handed "WebContainer failed to initialize: timeout" and
+       told to "fix them, call write_file again with the corrected file(s)".
+       There is no correction. It rewrote plausible-looking files against an
+       error about a sandbox, burned every repair round doing it, and then
+       shipped the starter template — the worst of both, because the person
+       waited through the whole loop AND lost their app.
+
+       Stop immediately and say what happened instead. The files written so far
+       still come back, so a retry resumes from real work rather than nothing,
+       and the reason names the cause rather than implying the request was at
+       fault. */
+    if (build.infra) {
+      return {
+        ok: false, infra: true, calls: allCalls, round, rounds: round + 1,
+        costUsd: totalCost, jsonRetries,
+        reason: (build.errors && build.errors[0] && build.errors[0].message) ||
+          "the build environment did not start"
+      };
+    }
+
     if (build.ok) {
-      return { ok: true, calls: allCalls, suggestions: attempt.suggestions || [], note: attempt.note, round, rounds: round + 1, repaired: round > 0, costUsd: totalCost, jsonRetries };
+      /* verified rides along so the audit can tell a real passing build from a
+         device that never compiled anything. build.verified is false only on
+         the no-SharedArrayBuffer path, where ok:true is a formality. */
+      return { ok: true, calls: allCalls, suggestions: attempt.suggestions || [], note: attempt.note, round, rounds: round + 1, repaired: round > 0, costUsd: totalCost, jsonRetries, verified: build.verified !== false };
     }
     if (round >= cap + entryRounds) {
       // Final Fallback if repair attempts failed: return guaranteed compiling fallback App.tsx
