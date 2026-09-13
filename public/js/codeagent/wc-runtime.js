@@ -302,7 +302,22 @@ class WCRuntime {
 
   async writeFiles(files) {
     if (!webcontainerInstance) throw new Error("WebContainer not booted");
-    
+
+    /* The build's typeface, which has to be fetched by the document itself —
+       a font cannot be delivered through the Tailwind config. The server
+       sends it as a pseudo-file rather than a rewritten index.html, so this
+       stays the only copy of that document and there is no third scaffold to
+       drift.
+
+       Rewritten from the template each time, not appended, so switching build
+       type does not leave the previous build's font links behind. */
+    if (typeof files.__souqi_fonts__ === "string") {
+      const html = indexHtml.replace("<title>", files.__souqi_fonts__ + "\n    <title>");
+      await webcontainerInstance.fs.writeFile("index.html", html);
+      files = Object.assign({}, files);
+      delete files.__souqi_fonts__;
+    }
+
     for (const [path, content] of Object.entries(files)) {
       const parts = path.split('/');
       for (let i = 1; i < parts.length; i++) {

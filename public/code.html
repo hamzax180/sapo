@@ -4446,6 +4446,61 @@
     });
   }
 
+  /* The logo's dominant colour, which becomes the whole site's palette.
+
+     Server-side, lib/design/palette.js turns one seed into a full OKLCH
+     system with the contrast pairings computed rather than guessed. It has
+     always taken a seed and never been given one — the field existed on the
+     upload record and on the route, with nothing writing it at either end.
+     This is that missing input.
+
+     The quantising is deliberately crude, because the answer only has to be
+     the right HUE: palette.js fixes lightness and chroma itself, so a seed
+     that is roughly the brand colour produces the same system as one that is
+     exactly it. What matters is skipping the pixels that would mislead —
+     transparent padding, the white card a logo sits on, and the black of its
+     outline are the majority of most logo files and none of them is the
+     brand. */
+  function dominantColour(file) {
+    return new Promise((resolve) => {
+      const url = URL.createObjectURL(file);
+      const im = new Image();
+      im.onload = () => {
+        try {
+          const N = 48;   // enough to find a hue, cheap enough to be free
+          const c = document.createElement("canvas");
+          c.width = N; c.height = N;
+          const ctx = c.getContext("2d", { willReadFrequently: true });
+          ctx.drawImage(im, 0, 0, N, N);
+          const d = ctx.getImageData(0, 0, N, N).data;
+          const buckets = new Map();
+          for (let i = 0; i < d.length; i += 4) {
+            const r = d[i], g = d[i + 1], b = d[i + 2], a = d[i + 3];
+            if (a < 128) continue;                                   // transparent padding
+            const max = Math.max(r, g, b), min = Math.min(r, g, b);
+            if (max > 240 && min > 240) continue;                    // the white it sits on
+            if (max < 32) continue;                                  // the black of an outline
+            if (max - min < 24) continue;                            // greys carry no hue
+            // 24-value buckets: same colour under compression noise.
+            const key = ((r >> 5) << 10) | ((g >> 5) << 5) | (b >> 5);
+            const cur = buckets.get(key) || { n: 0, r: 0, g: 0, b: 0 };
+            cur.n++; cur.r += r; cur.g += g; cur.b += b;
+            buckets.set(key, cur);
+          }
+          let best = null;
+          for (const v of buckets.values()) if (!best || v.n > best.n) best = v;
+          URL.revokeObjectURL(url);
+          if (!best || best.n < 8) return resolve("");   // a greyscale logo has no brand colour
+          const hex = "#" + [best.r, best.g, best.b]
+            .map((s) => Math.round(s / best.n).toString(16).padStart(2, "0")).join("");
+          resolve(hex);
+        } catch (e) { URL.revokeObjectURL(url); resolve(""); }
+      };
+      im.onerror = () => { URL.revokeObjectURL(url); resolve(""); };
+      im.src = url;
+    });
+  }
+
   /** sign -> PUT straight to the bucket -> complete. */
   async function uploadOne(item) {
     try {
@@ -4461,7 +4516,11 @@
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: file.name, type: file.type, bytes: file.size,
-          width: dims.width, height: dims.height
+          width: dims.width, height: dims.height,
+          // The seed for this site's palette, if the image has a brand colour
+          // in it. Advisory: an empty string just means the build falls back
+          // to its type's default, which is the behaviour up to now.
+          seedHex: await dominantColour(file)
         })
       });
       const sig = await signed.json().catch(() => ({}));

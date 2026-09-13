@@ -38,6 +38,7 @@ const { rateLimit } = require("./middleware/rateLimit");
 const { encryptSecret, decryptSecret } = require("./lib/crypto");
 const aiProviders = require("./lib/ai/providers");
 const scaffoldFiles = require("./lib/codeagent/scaffold-files");
+const theme = require("./lib/codeagent/theme");
 /* Scaffold files the BROWSER's build container does not mount for itself and
    the model is not allowed to write, so they have to travel with the files
    frame or the build cannot resolve them.
@@ -4917,6 +4918,19 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
   const attachedImages = await uploads.listForOwner(
     Array.isArray(req.body && req.body.imageIds) ? req.body.imageIds : [], owner
   );
+  /* This build's palette and typeface. Computed once, used three times: the
+     Tailwind config the container compiles against, the prompt block, and the
+     font link in index.html.
+
+     Seeded from the uploaded logo when there is one, so the site comes out in
+     the customer's own colours rather than a theme — otherwise from the build
+     type, so a dashboard and a game do not open looking like each other.
+     Costs no model call and is deterministic: the same request builds the
+     same palette every time. */
+  const buildTheme = theme.forBuild({
+    buildType: String((req.body && req.body.buildType) || ""),
+    seedHex: (attachedImages.find((i) => i.seedHex) || {}).seedHex || ""
+  });
   const imagesBlock = buildImagesBlock(attachedImages);
   const imageUrls = attachedImages.map((i) => i.url);
 
@@ -5060,6 +5074,11 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
        whole point: the old logo handling sat inside `if (!project)`, so
        attaching a photo to an existing site did nothing at all. */
     if (imagesBlock) effectivePrompt = imagesBlock + effectivePrompt;
+    /* The palette goes in front of the request on both paths. The model needs
+       to know what it is designing WITH before it is told what to design —
+       and a token list buried under thirty thousand characters of codebase
+       context reads as trivia rather than as the system to build in. */
+    effectivePrompt = theme.promptBlock(buildTheme) + effectivePrompt;
     if (!project) {
       const buildType = String((req.body && req.body.buildType) || "");
       effectivePrompt = effectivePrompt + (CODEAGENT_TYPE_HINT[buildType] || "");
@@ -5133,7 +5152,8 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
            the code and immediately before the change request, so the photos
            sit next to the instruction that refers to them rather than tens of
            thousands of characters of source away from it. */
-        effectivePrompt = "Here is the current codebase:\n\n" + ctx.text +
+        effectivePrompt = theme.promptBlock(buildTheme) +
+          "Here is the current codebase:\n\n" + ctx.text +
           imagesBlock + "Change request: " + prompt;
         if (ctx.excerpted.length || ctx.omitted.length) {
           console.warn("[codeagent] context budget hit for " + project.id +
@@ -5141,8 +5161,8 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
         }
       } else {
         // An existing project with nothing under src/ yet. Same reassignment
-        // trap as the branch above — keep the images.
-        effectivePrompt = imagesBlock + prompt;
+        // trap as the branch above — keep the images and the palette.
+        effectivePrompt = theme.promptBlock(buildTheme) + imagesBlock + prompt;
       }
     }
 
@@ -5271,6 +5291,21 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
             const content = scaffoldAll[p];
             if (typeof content === "string") filesObj[p] = content;
           }
+          /* This build's palette and typeface, as a real config the container
+             compiles against — not advice in a prompt.
+
+             A token is enforced in a way a hex value in a sentence is not:
+             the model writes bg-accent and gets the contrast-checked colour,
+             and cannot drift a shade over six files the way it does copying
+             hex by hand. It lives outside src/, so the model cannot overwrite
+             the palette halfway through its own build. */
+          filesObj["tailwind.config.js"] = theme.tailwindConfig(buildTheme);
+          /* The typeface has to be fetched by the DOCUMENT, so it cannot ride
+             in the Tailwind config — index.html needs the link tag. Sent as a
+             marker the client substitutes rather than a whole index.html,
+             because that file is the container's own and rewriting it here
+             would put a third copy of the scaffold in play. */
+          filesObj["__souqi_fonts__"] = theme.fontLinkTag(buildTheme);
           for (const c of calls) filesObj[c.path] = c.content;
           const buildId = crypto.randomBytes(16).toString("hex");
           return new Promise((resolve) => {
