@@ -1068,6 +1068,28 @@ const ROUTES = { prose: { baseUrl: "https://x.invalid/prose", model: "gemini-3.8
      vite.config.ts rather than declared anywhere. These pin the boundary
      that makes that safe, and the two places the entry guard had to learn
      that an app is not the only thing this builds. */
+  await check("the language rule names no language it does not mean literally", () => {
+    /* English requests were coming back as Turkish sites. The rule said
+       "match the person", but it named Turkish four times in the paragraph
+       that governs UI copy, as its only worked example — and that paragraph
+       sits tens of thousands of characters before the request, behind the
+       whole codebase. The nearest language word to the model when it started
+       writing copy was the example.
+
+       So: no named example. English may still appear, because it is the
+       stated fallback for an ambiguous request rather than an illustration
+       of "write in their language". */
+    for (const mode of ["economy", "power", "plan"]) {
+      const prompt = systemPromptFor(mode);
+      for (const named of ["Turkish", "Arabic", "Spanish", "French", "German", "Chinese"]) {
+        assert.ok(prompt.indexOf(named) === -1,
+          mode + " prompt names " + named + " — an example here is what the model reaches for " +
+          "when it is not sure, and it is wrong every time the person did not write in it");
+      }
+      assert.match(prompt, /LANGUAGE:/, mode + " prompt lost its language rule entirely");
+    }
+  });
+
   console.log("\n── pages, not just one app ──────────────");
 
   await check("a page at the root is writable; a nested one is not", () => {

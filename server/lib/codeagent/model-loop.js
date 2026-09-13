@@ -66,7 +66,10 @@ const client = require("../ai/client");
 // prompt tells it when a request wants a site with real pages rather than
 // one React screen. A v7 entry was produced under a prompt that forbade
 // index.html outright, so every v7 design is single-page by construction.
-const PROMPT_VERSION = "v8";
+// v9: the language rule stopped naming Turkish as its example. It named it
+// four times in the paragraph governing UI copy, and English requests were
+// coming back as Turkish sites — so every v8 design may carry that.
+const PROMPT_VERSION = "v9";
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 
 // The Map was unbounded: entries expire only when something reads them again,
@@ -666,7 +669,7 @@ Alongside your file writes, write a short message (1-3 sentences) in your reply 
 - No preamble, no "Certainly!", no restating their request back at them, no bullet-point summaries of every file you touched. Never claim you tested or verified something you did not.
 - DO NOT ask a question here. This message arrives WITH the finished app, so there is nothing for an answer to change — a question at this point is a dead end the person cannot act on. When something was genuinely ambiguous, make the call, say which way you went in half a sentence, and name the alternative so a one-line reply is enough to switch it: "Went with pickup only — say the word and I'll add delivery."
 
-LANGUAGE: write this message in the SAME language and script the person wrote in — Turkish in, Turkish out; Arabic in, Arabic script out, not transliteration. If the language is genuinely unclear, use English. This is the last turn of a conversation that has already been answering them in their own language, and coming back in English at the moment the app lands is the one place the thread visibly breaks. Code is unaffected: identifiers, imports and file names stay English, and so does any string the STACK requires. UI copy inside the app follows the same rule as this message — an app built for a Turkish bakery has a Turkish menu.
+LANGUAGE: write this message in the SAME language and script the person wrote in, in that script rather than transliterated. Read it off their own words and nothing else — not the kind of business, not a currency or a city or a person's name, and not any language named anywhere in these instructions. If it is genuinely unclear, use English. This is the last turn of a conversation that has already been answering them in their own language, and coming back in English at the moment the app lands is the one place the thread visibly breaks. Code is unaffected: identifiers, imports and file names stay English, and so does any string the STACK requires. UI copy inside the app follows the same rule as this message — if they wrote to you in their language, the menu, the buttons and the sample data are in it too.
 
 You are not choosing the stack — it is fixed and already installed:
 - React 18 + TypeScript, function components with hooks only
@@ -2298,7 +2301,7 @@ const PLAN_SYSTEM_PROMPT = `You turn a build request into a SHORT plan the perso
 
 Be honest about scope: this builds ONE React web app, so do not promise native apps, payments, real email, or a backend database.
 
-LANGUAGE: the person reads title, summary, features and assumptions verbatim, so write those VALUES in the same language they wrote the request in — Turkish in, Turkish out; Arabic in, Arabic out (Arabic script, not transliteration). If the language is genuinely unclear, use English. The JSON keys are always the English ones above.`;
+LANGUAGE: the person reads title, summary, features and assumptions verbatim, so write those VALUES in the same language and script they wrote the request in, not transliterated. Judge it from their words alone, not from the kind of business and not from any language named in these instructions. If it is genuinely unclear, use English. The JSON keys are always the English ones above.`;
 
 /**
  * The plan the user confirms before a build starts.
@@ -2431,7 +2434,7 @@ A bare category with no subject is NOT enough to build: "a shop", "an app", "a w
 
 Otherwise, one good question beats three. If you can picture the screen, build it.
 
-LANGUAGE: write "reply" in the SAME language and script the user wrote in — Turkish in, Turkish out; Arabic in, Arabic script out, not transliteration. If the language is genuinely unclear, use English. The JSON keys and "brief" stay English always.`;
+LANGUAGE: write "reply" in the SAME language and script the user wrote in, not transliterated. Judge it from their words alone, not from any language named in these instructions. If it is genuinely unclear, use English. The JSON keys and "brief" stay English always.`;
 
 /* ---------- deterministic chitchat gate ----------
    assessPrompt below asks a MODEL whether a prompt is a real build request,

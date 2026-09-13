@@ -5141,6 +5141,23 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
       }
     }
 
+    /* THE LAST THING THE MODEL READS ABOUT LANGUAGE, AND THE CLOSEST TO THE
+       REQUEST ITSELF.
+
+       Sites kept coming back in Turkish from English requests — a barber
+       shop with "Hizmetler" and "Randevu al", an expense splitter titled
+       "Ev Giderleri". The rule was in the system prompt and said the right
+       thing, but it named Turkish four times in the one paragraph governing
+       UI copy, as its only worked example. That paragraph also sits tens of
+       thousands of characters before the request, behind the entire
+       codebase, so the nearest thing to the model when it starts writing
+       copy was the example rather than the instruction.
+
+       This does not restate the rule so much as put it where recency makes
+       it win, and it names the failure directly: judge the language from the
+       request and from nothing else, examples in the instructions included. */
+    effectivePrompt += "\n\nLANGUAGE OF THE FINISHED APP: every word a visitor reads — headings, buttons, labels, menu items, form placeholders, alt text, sample data — goes in the same language and script as the change request above. Decide it from the words in that request and nothing else: not from the kind of business, not from a currency, a city or a person's name, and not from any language named as an example elsewhere in your instructions. If the request is genuinely ambiguous, use English.";
+
     // canBuild: false means the client is on mobile or a browser that does not
     // support WebContainers (no SharedArrayBuffer). In that case, skip the
     // client-build loop entirely and use proposeChanges (single AI call, no
