@@ -51,7 +51,10 @@ const client = require("../ai/client");
 // v3: multi-file output + per-mode prompts (Eco Souqi / Powered Souqi).
 // v4: payments — the prompt now describes src/lib/payments.ts, so a v3 entry
 // would serve a design written by a model that had never heard of it.
-const PROMPT_VERSION = "v4";
+// v5: uploaded images — the prompt now describes UPLOADED IMAGES and permits
+// external URLs it previously forbade outright, so a v4 entry would serve a
+// design written by a model that had been told the opposite.
+const PROMPT_VERSION = "v5";
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 
 // The Map was unbounded: entries expire only when something reads them again,
@@ -619,7 +622,14 @@ Four things about it that change how you write the UI:
 - Never build your own card form, never ask for a card number, and never send an amount anywhere. Stripe collects payment details on its own page. An app that takes a card number itself is broken and unsafe, not resourceful.
 
 If the person did not ask to sell anything, do not add payments. A donate button nobody requested is clutter.
-- Do not fetch external images by URL you are unsure exists; prefer CSS gradients, solid colors, or emoji over broken <img> tags.
+- Never invent an image URL. A URL you did not receive in this request does not exist, however plausible it looks — no stock-photo hosts, no picsum, no unsplash, no placeholder services. Where you have no real image, use CSS gradients, solid colours or emoji, which always render, rather than an <img> that resolves to nothing.
+
+UPLOADED IMAGES. When this request lists images under "UPLOADED IMAGES", those are real files the person attached, already hosted, and the URLs work. They are the one exception to the rule above and the only external URLs you may use.
+- Copy each URL EXACTLY as given. Do not shorten it, proxy it, re-host it, import it, or rewrite it to a local path like src/assets/. There is no build step that would resolve a local path to these — the URL in your code is the URL the browser fetches.
+- Use every image you are given at least once, unless the person said otherwise. They attached it because they want to see it.
+- Place each one by what it IS, using the description provided and what the person asked for. A logo belongs in the header at a modest height with the name beside it, and in the footer if there is one. A wide photo of a place or a scene is a hero: full-bleed, with a dark overlay or a gradient scrim behind any text on top of it, because text directly on a photograph fails the contrast rule above more often than not. Square-ish photos of things are product or gallery images and belong in the grid, under the two-column rule.
+- Every <img> needs a real alt describing the picture, object-cover, and a fixed aspect ratio (aspect-square, aspect-[4/3], aspect-video). Without those, one portrait photo in a row of landscape ones stretches its cell and breaks the grid. Add loading="lazy" to anything below the first screen.
+- If a description mentions dominant colours, lean the palette toward them so the site looks like it belongs to the person who owns the photos.
 
 STRUCTURE THE PROJECT INTO REAL FILES. Do not put an entire app in src/App.tsx because it is one call fewer. Someone is going to open this project and keep working in it, and a 900-line single file is a worse starting point than the same code split sensibly. Split by responsibility, using the layout the stack already expects:
 - src/App.tsx — composition and routing/layout only. It should read like a table of contents for the app.
@@ -735,7 +745,84 @@ function twoUpOnMobile(content) {
   return content.replace(GRID_LADDER, "grid-cols-2");
 }
 
-function validateWriteFileArgs(args) {
+/* Remote <img> URLs, for the check below. Only src= on an img — a URL in a
+   CSS gradient or a comment is not something the browser will try to load
+   and fail at. */
+/* The WHOLE tag, through the closing >, not just as far as the src. Matching
+   only up to the quote leaves className outside the match, so the replacement
+   below has nothing to attach the placeholder styling to and silently does
+   half its job — the src disappears and the element keeps its original
+   classes with no background, which renders as an empty box. */
+const REMOTE_IMG = /<img\b[^>]*?\bsrc\s*=\s*["'](https?:\/\/[^"']+)["'][^>]*>/gi;
+
+/* A gradient, chosen from the URL so the same phantom image is always the
+   same colour rather than flickering between builds. Not a grey box: this
+   stands in for a photograph, and a considered block of colour reads as a
+   design decision where a broken-image icon reads as a bug. */
+function placeholderFor(url) {
+  let h = 0;
+  for (let i = 0; i < url.length; i++) h = (h * 31 + url.charCodeAt(i)) >>> 0;
+  const pairs = [
+    ["from-slate-700", "to-slate-900"], ["from-amber-500", "to-rose-600"],
+    ["from-sky-600", "to-indigo-800"], ["from-emerald-600", "to-teal-800"],
+    ["from-fuchsia-600", "to-purple-800"], ["from-orange-500", "to-red-700"]
+  ][h % 6];
+  return pairs[0] + " " + pairs[1];
+}
+
+/**
+ * A URL the model invented is a broken image on someone's website.
+ *
+ * The prompt now says "never invent an image URL" in bold terms, and the
+ * same logic as twoUpOnMobile applies: a prompt asks, this decides. The
+ * failure it prevents is worse than a layout slip, because an <img> pointing
+ * at nothing renders as a torn-page icon in production and there is no build
+ * error to catch it — tsc and Vite are both perfectly happy with a string.
+ *
+ * Two behaviours, and the first matters more than it looks:
+ *
+ * A near-miss is REPAIRED rather than removed. Our keys are 32 hex
+ * characters, so a URL carrying a token that matches a real one but has
+ * been truncated or had a character dropped is unmistakably a copy of ours
+ * rather than an invention. That is the likeliest way this goes wrong — the
+ * model retyping a long URL instead of copying it — and the person's actual
+ * photo appearing is the right outcome.
+ *
+ * Anything else remote is replaced with a gradient, because there is no
+ * repair available: we cannot know what the model hoped was there.
+ *
+ * Allowed URLs pass through untouched, which is the common case and costs
+ * one Set lookup.
+ */
+function fixImageUrls(content, allowed) {
+  if (!allowed || !allowed.length) return content;
+  const exact = new Set(allowed);
+  const byToken = new Map();
+  for (const u of allowed) {
+    const m = /([0-9a-f]{32})\./.exec(u);
+    if (m) byToken.set(m[1], u);
+  }
+
+  return content.replace(REMOTE_IMG, (tag, url) => {
+    if (exact.has(url)) return tag;
+
+    const m = /([0-9a-f]{8,32})/.exec(url);
+    if (m) {
+      for (const [token, real] of byToken) {
+        // A prefix match on a 32-hex token is not a coincidence.
+        if (token.startsWith(m[1]) || m[1].startsWith(token.slice(0, 8))) {
+          return tag.replace(url, real);
+        }
+      }
+    }
+    return tag.replace(/<img\b/i, '<div aria-hidden="true"')
+      .replace(/\bsrc\s*=\s*["'][^"']*["']/i, "")
+      .replace(/\bclass(Name)?\s*=\s*["']([^"']*)["']/i,
+        (whole, n, cls) => 'className="' + cls + ' bg-gradient-to-br ' + placeholderFor(url) + '"');
+  });
+}
+
+function validateWriteFileArgs(args, opts) {
   if (!args || typeof args !== "object") throw new Error("tool call arguments were not an object");
   if (typeof args.path !== "string" || !args.path.trim()) throw new Error("write_file: \"path\" must be a non-empty string");
   if (typeof args.content !== "string") throw new Error("write_file: \"content\" must be a string");
@@ -744,7 +831,13 @@ function validateWriteFileArgs(args) {
   if (!/^src\//.test(p)) throw new Error("write_file: only files under src/ are allowed, got \"" + p + "\"");
   if (PROTECTED_PATHS.has(p)) throw new Error("write_file: \"" + p + "\" is part of the fixed scaffold and cannot be overwritten");
   if (!/\.(tsx?|css)$/.test(p)) throw new Error("write_file: \"" + p + "\" must be a .ts, .tsx or .css file");
-  return { path: p, content: twoUpOnMobile(args.content) };
+  /* Both rewrites are prompt rules the model mostly follows, applied here
+     because "mostly" ships the exception to a customer. opts is optional so
+     every existing caller — and the test suite — keeps working unchanged;
+     with no image list, fixImageUrls returns the content untouched. */
+  let content = twoUpOnMobile(args.content);
+  content = fixImageUrls(content, opts && opts.imageUrls);
+  return { path: p, content: content };
 }
 
 /**
@@ -761,7 +854,7 @@ function validateWriteFileArgs(args) {
  * reversed — it changes nothing in the project, so it degrades to an error
  * string the model can read and retry.
  */
-function parseToolCalls(message, mcp) {
+function parseToolCalls(message, mcp, opts) {
   const calls = (message && message.tool_calls) || [];
   if (!calls.length) return { ok: false, reason: "model returned no tool calls", content: message && message.content };
 
@@ -801,7 +894,7 @@ function parseToolCalls(message, mcp) {
     let args;
     try { args = JSON.parse(c.function.arguments); }
     catch (e) { return { ok: false, reason: "malformed JSON in tool call arguments: " + e.message, raw: c.function.arguments }; }
-    try { writes.push(validateWriteFileArgs(args)); }
+    try { writes.push(validateWriteFileArgs(args, opts)); }
     catch (e) { return { ok: false, reason: e.message, raw: c.function.arguments }; }
   }
 
@@ -891,6 +984,49 @@ const MIN_USEFUL_EXCERPT = 1200;
  *
  * @returns {{text:string, included:string[], excerpted:string[], omitted:string[]}}
  */
+/**
+ * The images a person attached, as the model will read them.
+ *
+ * Numbered, because the numbers are how someone refers to them: "use the
+ * second one as the hero" only works if what the model sees as [2] is what
+ * the composer showed as the second chip. uploads.listForOwner preserves
+ * that order for the same reason.
+ *
+ * The description is the whole point of this block. The build model cannot
+ * see — it is reading a paragraph written by something that could (see
+ * codeagent/vision.js), and that paragraph is what turns "a file called
+ * IMG_4821.jpg" into "a wide, dark photo of a café interior with space for
+ * text on the left". Without it there is only the filename and the shape,
+ * which is still better than nothing: a landscape image is still a hero
+ * candidate and a square one is still a tile.
+ *
+ * Lives inside the USER prompt rather than the system prompt, which matters
+ * for two reasons: the system prompt is shared across every build and gets
+ * the provider's prefix-cache discount, and cacheKey() folds the user
+ * prompt in — so two different sets of photos cannot collide in the design
+ * cache.
+ */
+function buildImagesBlock(images) {
+  const list = (images || []).filter((i) => i && i.url);
+  if (!list.length) return "";
+
+  const lines = list.map((img, n) => {
+    const shape = img.width && img.height
+      ? (img.width > img.height * 1.2 ? "landscape"
+        : img.height > img.width * 1.2 ? "portrait" : "square")
+      : "";
+    const dims = img.width && img.height ? img.width + "x" + img.height : "";
+    const meta = [img.name, dims, shape].filter(Boolean).join(", ");
+    const head = "[" + (n + 1) + "] " + img.url + (meta ? "  (" + meta + ")" : "");
+    const desc = String(img.description || "").replace(/\s+/g, " ").trim();
+    return desc ? head + "\n    Shows: " + desc : head;
+  });
+
+  return "UPLOADED IMAGES — real files this person attached. They are already " +
+    "hosted and these URLs work. Use them exactly as written; do not invent any other image URL.\n" +
+    lines.join("\n") + "\n\n";
+}
+
 function buildCodebaseContext(files, opts) {
   const o = opts || {};
   const budget = o.budget || MAX_CODE_CONTEXT_CHARS;
@@ -1081,7 +1217,7 @@ async function runToolRounds(messages, opts, base) {
     if (!res.ok) return { res, convo, costUsd };
     costUsd += res.costUsd || 0;
 
-    const parsed = parseToolCalls(res.message, mcp);
+    const parsed = parseToolCalls(res.message, mcp, { imageUrls: opts.imageUrls });
     if (!parsed.ok || !parsed.mcpCalls || !parsed.mcpCalls.length) {
       return { res, convo, costUsd, parsed };
     }
@@ -1134,7 +1270,7 @@ async function attemptOnce(messages, opts) {
     return { ok: false, reason: sanitized, disabled: res.disabled, breakerOpen: res.breakerOpen, budgetExceeded: res.budgetExceeded };
   }
 
-  const parsed = parseToolCalls(res.message, o.mcp);
+  const parsed = parseToolCalls(res.message, o.mcp, { imageUrls: o.imageUrls });
   // `note` is the model's own prose alongside its tool calls — what it
   // built and why, or a judgement call it made. It was being discarded
   // entirely (only .calls was ever read), which is why the agent could
@@ -1168,7 +1304,7 @@ async function attemptOnce(messages, opts) {
   const retryMessages = convo.concat([res.message], toolResponses, [{ role: "user", content: retryAsk }]);
   const retryRes = await client.chat(Object.assign({}, base, { messages: retryMessages, maxTokens: retryMaxTokens }));
   if (!retryRes.ok) return { ok: false, reason: retryRes.reason || "retry call failed" };
-  const retryParsed = parseToolCalls(retryRes.message, o.mcp);
+  const retryParsed = parseToolCalls(retryRes.message, o.mcp, { imageUrls: o.imageUrls });
   if (!retryParsed.ok || !retryParsed.calls.length) {
     const retryTruncated = retryRes.finishReason === "length";
     const reason = retryTruncated
@@ -1918,6 +2054,6 @@ async function assessPrompt(userPrompt, opts) {
 
 module.exports = {
   quickAssess, buildPlan, proposeChanges, proposeWithRepair, proposeWithClientBuild, assessPrompt, TOOLS_SCHEMA, SYSTEM_PROMPT,
-  buildHistory, buildCodebaseContext, MAX_CLARIFYING_QUESTIONS,
+  buildHistory, buildCodebaseContext, buildImagesBlock, fixImageUrls, MAX_CLARIFYING_QUESTIONS,
   systemPromptFor, parseToolCalls, validateWriteFileArgs, cacheKey, clearCache, cacheStatsSnapshot
 };

@@ -2558,7 +2558,7 @@ app.post("/api/projects/:key/micro-claim", microClaimLimiter, verifyCaptcha(), v
 const codeAgentRuntimeReg = require("./lib/codeagent/runtime");
 const daytonaRuntimeModule = require("./lib/codeagent/runtimes/daytona-runtime"); // registers "daytona"
 const { makeTools: makeCodeAgentTools } = require("./lib/codeagent/tools");
-const { proposeChanges, proposeWithRepair, proposeWithClientBuild, assessPrompt, buildPlan, buildCodebaseContext } = require("./lib/codeagent/model-loop");
+const { proposeChanges, proposeWithRepair, proposeWithClientBuild, assessPrompt, buildPlan, buildCodebaseContext, buildImagesBlock } = require("./lib/codeagent/model-loop");
 const codeAgentUsage = require("./lib/codeagent/usage");
 codeAgentUsage.init({ getMasterDb });
 
@@ -4885,6 +4885,23 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
   // the model call itself is what actually tells those apart.
   // Set by the assessment below when the conversation produced more detail
   // than the last message carries on its own.
+  /* THE PHOTOS THIS PERSON ATTACHED.
+     Resolved once, here, because four separate things downstream need them:
+     the assessment (so it does not ask what the shop looks like about a
+     photo it was just sent), the plan card, the build prompt, and the
+     URL-repair pass that runs over what the model writes.
+
+     listForOwner is the ownership check as well as the lookup — it drops
+     anything not owned by this person and anything still pending, so a
+     guessed id resolves to nothing rather than to someone else's picture.
+     Order is preserved, because the prompt numbers them and "the second
+     one" has to mean what the composer showed. */
+  const attachedImages = await uploads.listForOwner(
+    Array.isArray(req.body && req.body.imageIds) ? req.body.imageIds : [], owner
+  );
+  const imagesBlock = buildImagesBlock(attachedImages);
+  const imageUrls = attachedImages.map((i) => i.url);
+
   let conversationBrief = null;
   if (!isFollowUp || buildMode === "plan") {
     /* The conversation so far, as the client has it.
@@ -4908,7 +4925,18 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
         return m && m.role === "agent" && m.kind === "ask";
       }).length;
 
-      const assessment = await assessPrompt(prompt, { history: convo, asked: asked });
+      /* A one-line note, not the whole block: the assessment only decides
+         build/ask/chat and writes the brief, so it needs to KNOW photos
+         arrived — otherwise it asks "what does your shop look like?" about a
+         picture it was just handed, which is the most obviously stupid thing
+         this product could do. It does not need the URLs or the
+         descriptions to make that call. */
+      const assessPromptText = attachedImages.length
+        ? prompt + "\n\n(" + attachedImages.length + " photo" +
+          (attachedImages.length === 1 ? "" : "s") + " attached: " +
+          attachedImages.map((i) => i.name).join(", ") + ")"
+        : prompt;
+      const assessment = await assessPrompt(assessPromptText, { history: convo, asked: asked });
       if (!assessment.clear) {
         /* "ask" and "chat" mean the same thing to the client - show this and
            wait - but not to the person reading it, and the client counts the
@@ -4944,7 +4972,9 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
       const planType = String((req.body && req.body.buildType) || "website");
       let plan = null;
       try {
-        plan = await buildPlan(prompt, planType);
+        // Same reason as the assessment: a plan card that does not mention
+        // the photos reads as though they were ignored.
+        plan = await buildPlan(imagesBlock ? imagesBlock + prompt : prompt, planType);
       } catch (e) {
         // The confirm step must never become a new way for a build to die.
         plan = null;
@@ -5004,6 +5034,14 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
        needs online ordering" and "for a small shop" arrive as one instruction
        instead of three messages the builder never saw. */
     let effectivePrompt = conversationBrief || prompt;
+    /* Images first, then the instruction — the model should know what it has
+       before it is told what to do with it. Prepended rather than appended
+       for the same reason: on a long edit prompt the codebase context runs to
+       tens of thousands of characters, and a list of photos at the far end of
+       that reads as an afterthought. Applies to BOTH paths, which is the
+       whole point: the old logo handling sat inside `if (!project)`, so
+       attaching a photo to an existing site did nothing at all. */
+    if (imagesBlock) effectivePrompt = imagesBlock + effectivePrompt;
     if (!project) {
       const buildType = String((req.body && req.body.buildType) || "");
       effectivePrompt = effectivePrompt + (CODEAGENT_TYPE_HINT[buildType] || "");
@@ -5064,13 +5102,22 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
         // so, which is how a model came to rewrite a file from the half
         // it had been shown and delete the other half.
         const ctx = buildCodebaseContext(srcFiles, { prompt: prompt });
-        effectivePrompt = "Here is the current codebase:\n\n" + ctx.text + "Change request: " + prompt;
+        /* This REPLACES effectivePrompt rather than extending it, so the
+           images block prepended above would be thrown away here — it has to
+           be re-inserted, and this is the better place for it anyway. After
+           the code and immediately before the change request, so the photos
+           sit next to the instruction that refers to them rather than tens of
+           thousands of characters of source away from it. */
+        effectivePrompt = "Here is the current codebase:\n\n" + ctx.text +
+          imagesBlock + "Change request: " + prompt;
         if (ctx.excerpted.length || ctx.omitted.length) {
           console.warn("[codeagent] context budget hit for " + project.id +
             ": excerpted=" + ctx.excerpted.join(",") + " omitted=" + ctx.omitted.join(","));
         }
       } else {
-        effectivePrompt = prompt;
+        // An existing project with nothing under src/ yet. Same reassignment
+        // trap as the branch above — keep the images.
+        effectivePrompt = imagesBlock + prompt;
       }
     }
 
@@ -5143,6 +5190,12 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
     } else {
       result = await proposeWithClientBuild(Object.assign({}, agentOpts, {
         userPrompt: effectivePrompt,
+        /* The URLs the model is allowed to reference. validateWriteFileArgs
+           repairs a mistyped one back to the real image and replaces any
+           other remote <img> with a gradient — an invented URL is a
+           torn-page icon on a customer's site, and neither tsc nor Vite
+           objects to a string, so nothing else would catch it. */
+        imageUrls: imageUrls,
         maxRounds: agentMode === "power" ? 3 : 2,
         onFiles: async (calls) => {
           /* The one phase with nothing to say for itself. The files have
@@ -5238,7 +5291,21 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
       const newTitle = planTitle.slice(0, 60) || projects.titleFromPrompt(prompt);
       project = await projects.create({ title: newTitle, prompt, meta: { kind: "code", buildType: createdBuildType }, owner });
     }
-    await projects.addTurn(project.id, { role: "user", kind: "text", body: prompt, chatId: chatId });
+    /* The moment the images stop being temporary.
+       Until now they carry a 24h TTL, because an upload nobody built with is
+       litter. A build has just used them, so their URLs can be inside a
+       published site or an exported ZIP from here on and must never expire —
+       which is also why deleting the project does not delete them. */
+    if (attachedImages.length) {
+      try { await uploads.attachToProject(attachedImages.map((i) => i.id), project.id); } catch (e) {}
+    }
+    await projects.addTurn(project.id, {
+      role: "user", kind: "text", body: prompt, chatId: chatId,
+      /* addTurn builds a fixed row and drops anything it does not know, so
+         without this the thumbnails vanish on reload and a replayed
+         conversation shows a message that mentions photos nobody can see. */
+      images: attachedImages.map((i) => ({ id: i.id, url: i.url, name: i.name }))
+    });
     const revision = await projects.addRevision(
       project.id,
       { files: fileContents },

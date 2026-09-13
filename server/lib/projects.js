@@ -475,6 +475,19 @@ async function addTurn(projectId, turn) {
     detail: turn.detail ? String(turn.detail).slice(0, 300) : "",
     revisionId: turn.revisionId || null,
     ms: typeof turn.ms === "number" ? turn.ms : null,
+    /* Photos attached to this message, so a reloaded conversation still
+       shows them. Just enough to render a chip — the upload rows are the
+       record, this is the transcript.
+
+       This row is deliberately fixed-shape: it is built field by field and
+       anything the caller passes that is not named here is dropped. That is
+       the right default, and it is also why this line has to exist rather
+       than the caller simply spreading turn — without it the thumbnails
+       disappear on reload and the message reads as referring to pictures
+       nobody can see. */
+    images: Array.isArray(turn.images) ? turn.images.slice(0, 8).map((i) => ({
+      id: String(i && i.id || ""), url: String(i && i.url || ""), name: String(i && i.name || "").slice(0, 120)
+    })).filter((i) => i.url) : [],
     at: new Date().toISOString()
   };
 
