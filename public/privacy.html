@@ -11,7 +11,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Jost:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
 <script>
-(function(){var k="souqi-theme";try{var t=localStorage.getItem(k)||"dark";document.documentElement.setAttribute("data-theme",t)}catch(e){}})();
+(function(){var k="souqi-theme",p="dark";try{p=localStorage.getItem(k)||"dark"}catch(e){}var m=window.matchMedia&&window.matchMedia("(prefers-color-scheme:dark)");var r=function(){return (p==="dark"||p==="light")?p:((m&&m.matches)?"dark":"light")};document.documentElement.setAttribute("data-theme",r());if(m){var f=function(){try{p=localStorage.getItem(k)||"dark"}catch(e){}if(p!=="dark"&&p!=="light")document.documentElement.setAttribute("data-theme",r())};m.addEventListener?m.addEventListener("change",f):m.addListener&&m.addListener(f)}})();
 </script>
 <style>
   *,*::before,*::after{box-sizing:border-box}

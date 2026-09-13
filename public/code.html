@@ -13,7 +13,7 @@
 <title>Souqi Code</title>
 <script src="/js/voice-input.js?v=1"></script>
 <script>
-(function(){var k="souqi-theme";try{var t=localStorage.getItem(k)||"light";document.documentElement.setAttribute("data-theme",t)}catch(e){}})();
+(function(){var k="souqi-theme",p="light";try{p=localStorage.getItem(k)||"light"}catch(e){}var m=window.matchMedia&&window.matchMedia("(prefers-color-scheme:dark)");var r=function(){return (p==="dark"||p==="light")?p:((m&&m.matches)?"dark":"light")};document.documentElement.setAttribute("data-theme",r());if(m){var f=function(){try{p=localStorage.getItem(k)||"light"}catch(e){}if(p!=="dark"&&p!=="light")document.documentElement.setAttribute("data-theme",r())};m.addEventListener?m.addEventListener("change",f):m.addListener&&m.addListener(f)}})();
 </script>
 <style>
   /* Same visual system as agent.html (docs/CODE-AGENT-PLAN.md Phase 6:
@@ -715,6 +715,85 @@
   @media (prefers-reduced-motion:reduce){
     .ag-composer.ag-flipping{transition:none;box-shadow:none}
   }
+
+  /* ═══════ THE BAR FLOATS OVER THE CONVERSATION ═══════
+     A solid bar is a floor: the log stops dead at its top edge and the
+     conversation ends in a hard horizontal line, which is why the last
+     message always looked like the end of the page rather than the
+     newest thing said. The bar is frosted glass instead — the log runs
+     underneath it and you can read the message passing behind while you
+     scroll, the way a phone keyboard bar or Claude's own composer reads.
+
+     Three parts, and all three are needed:
+       - the log extends BEHIND the bar, so there is something to see
+         through it (the two positioning rules below);
+       - the bar's own fill is part paper, part nothing, over a
+         backdrop-filter — the blur is what keeps text legible on top of
+         moving content instead of turning the bar into a window;
+       - ::before feathers the top edge, because a backdrop-filter has a
+         hard boundary and a line of text crossing it snaps from sharp to
+         blurred. The gradient gives it 38px to dissolve in.
+
+     Only with a conversation on screen. The new-chat screen centres this
+     same form in the middle of the hero with nothing behind it, where
+     glass has nothing to be glass over. */
+  .ag:not(.is-new) .ag-composer,
+  .ag.has-convo .ag-composer,
+  .ag:has(#agLog > *:not(.ag-empty)) .ag-composer{
+    /* 40%, not 58: the glass is meant to be seen through. The text on
+       top of it stays readable because .ag-box brings its own solid fill
+       — only the band AROUND the input is this thin. */
+    background:color-mix(in srgb,var(--paper) 40%,transparent);
+    -webkit-backdrop-filter:blur(20px) saturate(1.5);
+    backdrop-filter:blur(20px) saturate(1.5);
+    border-top:0;
+  }
+  .ag:not(.is-new) .ag-composer::before,
+  .ag.has-convo .ag-composer::before,
+  .ag:has(#agLog > *:not(.ag-empty)) .ag-composer::before{
+    content:"";position:absolute;left:0;right:0;bottom:100%;height:38px;
+    pointer-events:none;
+    background:linear-gradient(to top,color-mix(in srgb,var(--paper) 40%,transparent),transparent);
+  }
+
+  /* Above 900 the bar is a flex item at the end of the column, so the log
+     can only ever stop where it starts. Taking it out of flow is what
+     lets the log own the full height and scroll behind it — absolute
+     within .ag rather than fixed to the viewport, because at this width
+     .ag is one column of a split and a fixed bar would sit across the
+     preview too.
+
+     inset-inline repeats .ag's own side padding so the bar lines up with
+     the messages instead of the column edges, and width:auto is
+     load-bearing for the same reason it is in the phone rule below: the
+     shared width:100% would resolve against the padding box and hang the
+     send button off the right edge. */
+  @media (min-width:901px){
+    .ag{position:relative}
+    .ag:not(.is-new) .ag-composer,
+    .ag.has-convo .ag-composer,
+    .ag:has(#agLog > *:not(.ag-empty)) .ag-composer{
+      position:absolute;inset-inline:clamp(20px,2.4vw,28px);
+      /* Off the floor, not on it. The gap underneath is a strip of the
+         live log — text scrolls through it in the clear, under a bar that
+         is no longer the last thing on the screen. */
+      bottom:12px;top:auto;width:auto;z-index:40;
+      /* Over-constrained on purpose: left, right AND a 720px max-width are
+         all set, and the rule that resolves that drops `right` — which
+         left-aligned the bar against the column edge while the messages
+         above it stayed centred, 176px to its right. Auto margins split
+         the leftover instead, which is what centres it on them. */
+      margin-inline:auto;
+    }
+    /* The bar's measured height, so the last message can be scrolled out
+       from under it. --composer-h is kept current by the ResizeObserver
+       further down; the fallback only matters for the first paint. */
+    .ag:not(.is-new) #agLog,
+    .ag.has-convo #agLog,
+    .ag:has(#agLog > *:not(.ag-empty)) #agLog{
+      padding-bottom:calc(var(--composer-h, 110px) + 26px);
+    }
+  }
   /* ---------------------------------------------------------------
      Composer treatment: an aurora bloom (::before) behind the box and a
      travelling light beam (::after) around its rim.
@@ -1396,8 +1475,22 @@
      viewport and the two visibly collide. */
   /* perspective is what makes the desktop frame's lid-open rotateX read
      as a hinge instead of a vertical squash — see @keyframes macEnter. */
+  /* container-type:size is what lets every mockup below size itself
+     against THIS BOX in both axes — 100cqw/100cqh are the stage's content
+     width and height, padding already subtracted.
+
+     It is needed because a device has one dimension and a ratio, and the
+     limit that binds is usually on the OTHER axis: the iPad is sized by
+     height, but what clipped it was the pane being too narrow, and a
+     percentage inside a height property can only ever see the parent's
+     height. Container units cross the axes, so "as tall as this box
+     allows, but no taller than its width can carry" is one min(). The
+     stage's own size never came from its contents (it is flex:1 in a
+     column with a definite height, or a min-height below 901px), so size
+     containment changes nothing about how big it is. */
   .ag-pv-stage{position:relative;flex:1;min-height:0;display:flex;align-items:center;justify-content:center;
     padding:clamp(12px,2.5vw,24px);padding-top:64px;overflow:hidden;background:var(--paper);
+    container-type:size;
     perspective:1600px}
   .ag-pv-frame{
     position:relative;
@@ -1489,7 +1582,15 @@
      on that rule for why the markup kept its old class names.
      ═══════════════════════════════════════════════════════════════════ */
   .ag-pv-frame.desktop {
-    width: min(800px, calc(100% - 48px)); height: auto; max-height: calc(100% - 80px);
+    /* Width drives the lid and 16/9 derives the height, so BOTH limits
+       have to be written as widths. max-height could not be one: with a
+       definite width and an auto height, clamping the height does not
+       send the browser back to recompute the width, so a short pane
+       squashed the lid out of 16/9 instead of standing a smaller machine
+       in it. The 44px is the base — .mac-stand hangs 21px below the lid
+       and is 15px tall — plus a little for its cast shadow. */
+    width: min(800px, calc(100cqw - 16px), calc((100cqh - 44px) * 16 / 9));
+    height: auto; max-height: none;
     aspect-ratio: 16 / 9;
     overflow: visible;
     /* A real MacBook reads as a BLACK bezel with only a thin silver
@@ -1611,7 +1712,16 @@
      2. TABLET — Photorealistic iPad Pro 12.9" (Space Gray)
      ═══════════════════════════════════════════════════════════════════ */
   .ag-pv-frame.tablet {
-    height: min(580px, calc(100% - 60px)); max-height: 580px;
+    /* The third term is a width limit this frame never had. It is sized
+       by height with 3/4 deriving the width, and nothing checked that the
+       derived width fit: at an iPad-sized window with the sidebar open
+       the preview column is ~417px and this came out 435px, so the stage
+       (overflow:hidden) cut the mockup down both edges — no right bezel,
+       no left one, just the app running off the pane. Expressed as the
+       height the stage's width can carry, it makes the iPad smaller
+       instead of clipped. */
+    height: min(580px, 100cqh, calc((100cqw - 16px) * 4 / 3));
+    max-height: none;
     width: auto; aspect-ratio: 3 / 4;
     /* Space Gray aluminum — smooth metallic gradient */
     background: linear-gradient(
@@ -1681,8 +1791,14 @@
   /* 3. MOBILE — iPhone 15 Pro Natural Titanium */
   .ag-pv-frame.mobile {
     overflow: visible; /* side buttons extend outside */
-    height: min(580px, calc(100% - 24px));
-    max-height: 580px;
+    /* Same pair of limits as the iPad above. The phone is narrow enough
+       that it rarely binds, but "rarely" was three pixels: in a 274px
+       preview column the 268px body plus its side buttons filled the
+       stage edge to edge. 8px, not the 16 the other two take: this frame
+       is overflow:visible and what hangs outside it is 3px of buttons,
+       not a 70px shadow. */
+    height: min(580px, 100cqh, calc((100cqw - 8px) * 19.5 / 9));
+    max-height: none;
     aspect-ratio: 9 / 19.5;
     width: auto;
     border: none;
@@ -2099,7 +2215,10 @@
       position: fixed;
       left: var(--rail);
       right: 0;
-      bottom: 0;
+      /* Lifted, like the desktop rule — plus the home-indicator inset, so
+         the gap is a real gap on a phone rather than one the system UI
+         sits in. */
+      bottom: calc(10px + env(safe-area-inset-bottom, 0px));
       top: auto;
       /* width:auto is load-bearing. .ag-composer shares a rule with .ag-log
          and .ag-head that sets width:100%, and on a FIXED element that
@@ -2109,10 +2228,17 @@
          what sizes it. */
       width: auto;
       z-index: 40;
-      margin: 0;
-      padding: 8px 10px calc(10px + env(safe-area-inset-bottom, 0px));
-      background: var(--paper);
-      border-top: 1px solid var(--line);
+      /* auto, not 0: same over-constraint as the desktop rule above, and
+         with margin:0 the bar sat hard against the icon rail while the
+         messages were centred in what was left. */
+      margin: 0 auto;
+      /* The safe-area inset moved to `bottom` above, so it is not also
+         padded for here — it would be counted twice and leave a bar half
+         a home indicator too tall. */
+      padding: 8px 10px 8px;
+      /* Fill and edge come from the floating-bar rules above — this was a
+         solid var(--paper) and a 1px rule, which is exactly the floor the
+         log is no longer supposed to hit. */
     }
     /* The preview takes the whole screen on a phone and the chat is hidden
        behind it — but a fixed element does not care that its ancestor is
@@ -2125,7 +2251,7 @@
     .ag:not(.is-new) #agLog,
     .ag.has-convo #agLog,
     .ag:has(#agLog > *:not(.ag-empty)) #agLog {
-      padding-bottom: calc(var(--composer-h, 108px) + 10px);
+      padding-bottom: calc(var(--composer-h, 108px) + 26px + env(safe-area-inset-bottom, 0px));
     }
 
     /* Messages sit ON the composer, the way a chat does, instead of stacking
@@ -2189,12 +2315,39 @@
     .ag:not(.is-new) .ag-hero,
     .ag.has-convo .ag-hero,
     .ag:has(#agLog > *:not(.ag-empty)) .ag-hero{display:contents !important}
-    /* The device-size picker only means something once there's room to
-       switch between iPhone/iPad/monitor shapes side by side — desktop
-       only. #agDeskPreviewToggle stays visible here: it's the ONLY way
-       to switch panes on mobile now (see its click handler), not a
-       desktop-only control. */
-    #agPvDevices{display:none !important}
+    /* The device-size picker needs room to be worth having, and a phone
+       has none — but 900px was the wrong line to draw it at. An iPad in
+       portrait is 768 or 820 and lands in here, where the preview takes
+       the WHOLE screen: there is more room for a mockup than on any
+       laptop. Hiding the picker there did not simplify anything, it took
+       the only control away and left whatever frame was already on — pick
+       iPad on a laptop, rotate an iPad into portrait, and the preview was
+       stuck on a shape with no way back.
+
+       650 is the line the JS already draws (see applyDeviceFrame, which
+       forces the phone frame below it). The two disagreeing is what
+       created the 650-900px gap where a frame could be set and not
+       unset. #agDeskPreviewToggle stays visible at every width here:
+       it's the ONLY way to switch panes on mobile now (see its click
+       handler), not a desktop-only control. */
+    @media (max-width:649px){
+      #agPvDevices{display:none !important}
+    }
+    /* BELOW the band, not on it.
+
+       .ag-main::before (see its rule above) paints a solid 52px strip of
+       paper right across the top of the screen so chat text scrolling
+       under the fixed Sidebar/Preview buttons cannot show through between
+       them. The picker's own top:6px puts it inside that strip, where it
+       was drawn but never seen — laid out, hit-testable, and painting
+       nothing. Raising its z-index above the band's does not fix it: the
+       band is a fixed-position layer and wins the paint whatever the two
+       numbers say. So the control moves out from under it instead, and
+       the stage reserves the matching room below (see its padding-top). */
+    .ag-pv-devices{top:58px}
+    /* Centred over the STAGE, which is inset by the icon rail — the same
+       22px correction the stage comment below explains for the mockup. */
+    body.preview-mode .ag-pv-devices{left:calc(50% + 22px)}
     /* One scroll on mobile (.ag's), not a nested one — but overflow:visible
        alone was not enough. .ag-log kept flex:1 + min-height:0, so its BOX
        stayed short while its content spilled out and painted straight over
@@ -2210,23 +2363,45 @@
       box-sizing: border-box !important;
     }
     .ag-pv-stage {
-      padding: 12px 0 16px !important;
+      /* 52px top: the device picker sits at top:58px, just clear of the
+         band above it, and this is what keeps the mockup from starting
+         underneath it. The frames measure this box (100cqh), so they take
+         the room out of their own height without any further arithmetic. */
+      padding: 52px 0 16px !important;
       min-height: calc(100svh - 110px) !important;
       display: flex; align-items: center; justify-content: center;
     }
+    /* One column, so the device fills the screen: the 580px cap the base
+       rules carry is lifted and the stage's own box becomes the limit.
+       Everything else — the ratio, and fitting the axis that is NOT
+       driving — is already right up there, so these only drop the cap. */
     .ag-pv-frame.mobile {
-      height: calc(100svh - 110px) !important;
+      height: min(100cqh, calc((100cqw - 8px) * 19.5 / 9)) !important;
       max-height: none;
       width: auto;
-      max-width: calc(100vw - 20px);
+      max-width: none;
       aspect-ratio: 9 / 19.5;
       padding: 9px;
       border-radius: 46px;
     }
     .ag-pv-frame.mobile .ip-screen{border-radius:36px}
     .ag-pv-frame.mobile .ip-screen::before{width:100px;height:28px;top:10px}
-    .ag-pv-frame.tablet{width:100%;height:calc(100svh - 110px);max-height:none}
-    .ag-pv-frame.desktop{width:100%;height:calc(100svh - 110px);max-height:none}
+    /* FILL THE STAGE, BUT STAY A DEVICE.
+
+       These two were width:100% with an explicit height — which is both
+       axes pinned, so aspect-ratio had nothing left to do. On an iPad the
+       iPad mockup came out as a full-bleed rounded slab: no bezel down
+       either side, the home bar off the bottom edge, the camera the only
+       thing left of the frame. The MacBook came out worse — a lid taller
+       than it is wide, portrait, with a base under it.
+
+       Same shape as the phone rule above instead: one axis is the lesser
+       of what the stage's height and its width allow, and aspect-ratio
+       derives the other. */
+    .ag-pv-frame.tablet{width:auto;max-width:none;max-height:none;
+      height:min(100cqh, calc((100cqw - 16px) * 4 / 3))}
+    .ag-pv-frame.desktop{height:auto;max-height:none;
+      width:min(calc(100cqw - 16px), calc((100cqh - 44px) * 16 / 9))}
     body.preview-mode{height:100dvh;overflow:hidden !important}
     body.preview-mode .ag-main{height:100dvh;overflow:hidden !important}
     body.preview-mode .ag-preview{position:fixed !important;inset:0 !important;width:100% !important;height:100dvh !important;
@@ -2238,24 +2413,22 @@
        parked the phone half a rail to the left of the space anyone can
        actually see. Measured: frame centre 390, visible centre 412. */
     body.preview-mode .ag-pv-stage{height:calc(100dvh - 52px) !important;min-height:0 !important;max-height:none !important;
-      padding:10px 0 12px !important;overflow:hidden !important;
+      padding:52px 0 12px !important;overflow:hidden !important;
       margin-left:44px !important;width:calc(100% - 44px) !important}
 
-    /* Fill the stage rather than the viewport. The frame was sized
-       calc(100svh - 110px) while its container is (100dvh - 52px) less
-       padding, so it left ~30px of height unused and came out smaller
-       than the room it had.
+    /* No frame overrides here any more, and that is the fix.
 
-       Height drives the phone and aspect-ratio derives the width from
-       it, so the height has to respect BOTH limits: the lesser of the
-       stage's height and the height the remaining width can support.
-       Without the second, a narrow screen gets a phone whose implied
-       width overflows and is clipped by the stage's own overflow. */
-    body.preview-mode .ag-pv-frame.mobile{
-      height:min(100%, calc((100vw - 44px) * 19.5 / 9)) !important;
-      max-height:100% !important}
-    body.preview-mode .ag-pv-frame.tablet,
-    body.preview-mode .ag-pv-frame.desktop{height:100% !important;max-height:100% !important}
+       This block used to re-state each frame's size against the VIEWPORT
+       — height:calc(100svh - 110px) out of preview mode, height:100% and
+       (100vw - 44px) in it — because the stage is a different box in the
+       two modes and percentages could only see one axis of it. Every one
+       of those numbers is now a container unit read off the stage itself,
+       so the rules above are already correct in both modes.
+
+       Restating them here is what broke the iPad: height:100% pinned the
+       second axis again and put the slab back the moment the preview took
+       over the screen. The frames fill this stage because it is the stage
+       they measure, not because anything here says so. */
   }
   @media (max-width:640px){
     .ag-say,.ag-card{padding-inline-start:0;margin-inline-start:0}
@@ -2663,12 +2836,30 @@
        /projects, but nested inside .ag-main on /agent. A bare `~` matched
        nothing there and failed silently, so the toggle never hid on the
        builder while looking correct on the other two. */
-    .ag-history:not(.on) ~ #agDeskSidebarToggle,
-    .ag-history:not(.on) ~ * #agDeskSidebarToggle{opacity:0;pointer-events:none;transition:opacity .18s ease}
-    .ag-history:not(.on):hover ~ #agDeskSidebarToggle,
-    .ag-history:not(.on):hover ~ * #agDeskSidebarToggle,
-    .ag-history:not(.on).hover-open ~ #agDeskSidebarToggle,
-    .ag-history:not(.on).hover-open ~ * #agDeskSidebarToggle{opacity:1;pointer-events:auto}
+    /* HIDING IT IS A HOVER FEATURE, SO IT IS SCOPED LIKE ONE.
+
+       Only a pointer that can hover can bring the button back, so on a
+       touch screen these two rules are a trapdoor: the toggle is
+       opacity:0 and pointer-events:none the moment the sidebar is
+       collapsed, and the hover that un-hides it never happens. On an
+       iPad the sidebar could not be opened at all — measured on
+       /projects, /deployments and /security, where the rail sits at 44px
+       and the only control that opens it is unreachable. (The builder
+       escaped it by opening the sidebar on a tap of the rail itself, and
+       by starting open; the same trapdoor is in its CSS.)
+
+       The guard is the one the hover-to-open rule above already uses, so
+       the two halves of the behaviour now appear and disappear together.
+       Without a hover pointer the toggle simply stays visible, which is
+       what every touch device needs anyway. */
+    @media (hover:hover) and (pointer:fine){
+      .ag-history:not(.on) ~ #agDeskSidebarToggle,
+      .ag-history:not(.on) ~ * #agDeskSidebarToggle{opacity:0;pointer-events:none;transition:opacity .18s ease}
+      .ag-history:not(.on):hover ~ #agDeskSidebarToggle,
+      .ag-history:not(.on):hover ~ * #agDeskSidebarToggle,
+      .ag-history:not(.on).hover-open ~ #agDeskSidebarToggle,
+      .ag-history:not(.on).hover-open ~ * #agDeskSidebarToggle{opacity:1;pointer-events:auto}
+    }
     /* OPEN: the icon alone, at the right edge of the sidebar header —
        where the reference puts its controls. The word "Sidebar" was the
        widest thing in that row and only named what the icon already
@@ -2960,33 +3151,104 @@
      recognisable underneath, and the blur (not the opacity) is what does
      the separating. */
   /* ---------- build confirmation card ---------- */
-  .ag-plan{margin:10px 0 14px;padding:16px 18px 14px;border:1px solid var(--line);border-radius:16px;
-    background:var(--card);box-shadow:0 1px 3px rgba(0,0,0,.05),0 10px 28px -14px rgba(0,0,0,.25);
+  /* ═══════ THE PLAN CARD ═══════
+     Plan mode's one piece of UI, and the only thing standing between
+     someone and their app, so it has to look like the moment it is: a
+     considered proposal, not a system dialog. It was a grey bordered box
+     with a flat list in it, which is what every confirm step has looked
+     like for fifteen years.
+
+     The lit rim is the composer's own treatment, reused deliberately —
+     the box you typed into glows cyan/violet/pink, and this is the answer
+     to what you typed. Two backgrounds with different clips is what draws
+     it: the fill is painted to the padding box and the gradient to the
+     border box, so the 1px border IS the gradient and nothing has to be
+     faked with a pseudo-element behind the card. */
+  .ag-plan{
+    --pl-a:34,211,238;    /* cyan   */
+    --pl-b:139,92,246;    /* violet */
+    --pl-c:236,72,153;    /* pink   */
+    position:relative;margin:12px 0 16px;padding:18px 20px 16px;
+    border:1px solid transparent;border-radius:20px;
+    background:
+      linear-gradient(var(--card),var(--card)) padding-box,
+      linear-gradient(135deg,rgba(var(--pl-a),.75),rgba(var(--pl-b),.55) 48%,rgba(var(--pl-c),.5)) border-box;
+    box-shadow:
+      0 1px 2px rgba(0,0,0,.04),
+      0 2px 10px -6px rgba(var(--pl-b),.35),
+      0 26px 50px -28px rgba(11,22,38,.55);
     max-width:560px;animation:agIn .35s var(--ease) forwards}
-  .ag-plan.done{opacity:.72}
-  .pl-head{display:flex;flex-direction:column;gap:2px;margin-bottom:8px}
-  .pl-kicker{font-size:.68rem;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--accent)}
-  .pl-title{font-family:var(--disp);font-size:1.12rem;font-weight:700;letter-spacing:-.01em;color:var(--ink)}
-  .pl-sum{margin:0 0 12px;font-size:.92rem;line-height:1.5;color:var(--ink-2)}
-  .pl-list{list-style:none;margin:0 0 12px;padding:0;display:flex;flex-direction:column;gap:7px}
-  .pl-list li{display:flex;align-items:flex-start;gap:9px;font-size:.9rem;color:var(--ink);line-height:1.45}
-  .pl-list svg{width:15px;height:15px;flex:none;margin-top:3px;color:#2ea87a}
-  .pl-assume{margin:0 0 14px;padding:10px 12px;border-radius:11px;background:var(--paper-2)}
-  .pl-assume-h{display:block;font-size:.7rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
-    color:var(--mut);margin-bottom:5px}
-  .pl-assume ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}
-  .pl-assume li{font-size:.85rem;color:var(--ink-2);line-height:1.45}
-  .pl-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
-  .pl-go,.pl-edit{border:0;border-radius:10px;padding:9px 16px;font:inherit;font-size:.88rem;
-    font-weight:600;cursor:pointer;transition:.15s}
-  .pl-go{background:var(--accent);color:#fff;box-shadow:0 3px 10px -3px rgba(26,166,223,.55)}
-  .pl-go:hover{background:var(--accent-2)}
-  .pl-edit{background:var(--paper-2);color:var(--ink-2);border:1px solid var(--line)}
-  .pl-edit:hover{color:var(--ink);border-color:var(--mut)}
-  .pl-chose{font-size:.85rem;color:var(--mut)}
+  /* A wash of the same three hues across the top, so the rim reads as
+     light falling on the card rather than a coloured outline drawn round
+     it. Behind the content, inside the radius, and it cannot intercept a
+     click on the buttons. */
+  .ag-plan::before{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;
+    background:
+      radial-gradient(120% 80% at 0% 0%,rgba(var(--pl-a),.10),transparent 60%),
+      radial-gradient(100% 70% at 100% 0%,rgba(var(--pl-c),.08),transparent 62%);
+    z-index:0}
+  .ag-plan>*{position:relative;z-index:1}
+  .ag-plan.done{opacity:.68;box-shadow:none}
+
+  .pl-head{display:flex;align-items:center;gap:11px;margin-bottom:11px}
+  /* The badge is what makes the card read as a proposal at a glance,
+     before a word of it is read. Shield-with-a-tick: this was checked. */
+  .pl-badge{flex:none;width:34px;height:34px;border-radius:11px;display:grid;place-items:center;
+    color:#fff;background:linear-gradient(140deg,rgb(var(--pl-a)),rgb(var(--pl-b)));
+    box-shadow:0 4px 12px -4px rgba(var(--pl-b),.6),inset 0 1px 0 rgba(255,255,255,.4)}
+  .pl-badge svg{width:18px;height:18px}
+  .pl-headtext{display:flex;flex-direction:column;gap:1px;min-width:0}
+  .pl-kicker{font-size:.66rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--accent)}
+  .pl-title{font-family:var(--disp);font-size:1.22rem;font-weight:800;letter-spacing:-.015em;color:var(--ink);
+    line-height:1.2;overflow-wrap:anywhere}
+  .pl-sum{margin:0 0 14px;font-size:.93rem;line-height:1.55;color:var(--ink-2)}
+
+  .pl-sec{margin:0 0 14px}
+  .pl-sec-h,.pl-assume-h{display:block;font-size:.67rem;font-weight:800;letter-spacing:.1em;
+    text-transform:uppercase;color:var(--mut);margin-bottom:8px}
+  .pl-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+  .pl-list li{display:flex;align-items:flex-start;gap:10px;font-size:.91rem;color:var(--ink);line-height:1.45}
+  /* A filled disc rather than a bare tick: at 15px a stroked check next to
+     text reads as a stray mark, and the list needs a left edge the eye can
+     run down. */
+  .pl-tick{flex:none;width:18px;height:18px;margin-top:1px;border-radius:50%;display:grid;place-items:center;
+    background:color-mix(in srgb,#2ea87a 18%,transparent);color:#2ea87a}
+  .pl-tick svg{width:11px;height:11px}
+
+  /* Quieter than the list above it, and marked as the soft half of the
+     plan: these are guesses, and the accent bar says so without a
+     sentence explaining it. */
+  .pl-assume{margin:0 0 16px;padding:11px 13px 11px 14px;border-radius:0 12px 12px 0;
+    background:color-mix(in srgb,var(--paper-2) 80%,transparent);
+    border-left:3px solid color-mix(in srgb,var(--accent) 45%,transparent)}
+  .pl-assume-h{margin-bottom:6px}
+  .pl-assume ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:5px}
+  .pl-assume li{font-size:.86rem;color:var(--ink-2);line-height:1.45;position:relative;padding-left:13px}
+  .pl-assume li::before{content:"";position:absolute;left:2px;top:.62em;width:4px;height:4px;border-radius:50%;
+    background:var(--mut);opacity:.6}
+
+  .pl-actions{display:flex;flex-wrap:wrap;gap:9px;align-items:center}
+  .pl-go,.pl-edit{border:0;border-radius:12px;padding:11px 18px;font:inherit;font-size:.89rem;
+    font-weight:700;cursor:pointer;transition:transform .15s var(--ease),box-shadow .15s,background .15s,color .15s,border-color .15s}
+  .pl-go{display:inline-flex;align-items:center;gap:8px;color:#fff;
+    background:linear-gradient(135deg,var(--accent),color-mix(in srgb,rgb(var(--pl-b)) 55%,var(--accent)));
+    box-shadow:0 6px 18px -6px rgba(var(--pl-b),.6),inset 0 1px 0 rgba(255,255,255,.28)}
+  .pl-go svg{width:15px;height:15px;transition:transform .15s var(--ease)}
+  .pl-go:hover{transform:translateY(-1px);box-shadow:0 10px 24px -8px rgba(var(--pl-b),.7),inset 0 1px 0 rgba(255,255,255,.32)}
+  .pl-go:hover svg{transform:translateX(3px)}
+  .pl-go:active{transform:translateY(0)}
+  .pl-edit{background:transparent;color:var(--ink-2);border:1px solid var(--line)}
+  .pl-edit:hover{color:var(--ink);border-color:var(--mut);background:var(--paper-2)}
+  .pl-chose{display:inline-flex;align-items:center;gap:7px;font-size:.85rem;font-weight:600;color:var(--mut)}
+  .pl-chose::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--accent);opacity:.7}
+  @media (prefers-reduced-motion:reduce){
+    .pl-go:hover{transform:none}
+    .pl-go:hover svg{transform:none}
+  }
   @media (max-width:640px){
-    .ag-plan{padding:14px 14px 12px;border-radius:14px}
-    .pl-go,.pl-edit{flex:1 1 auto;text-align:center}
+    .ag-plan{padding:15px 15px 13px;border-radius:17px}
+    .pl-title{font-size:1.1rem}
+    .pl-go,.pl-edit{flex:1 1 auto;justify-content:center;text-align:center}
   }
 
   .ag-set-overlay{position:fixed;inset:0;z-index:9999999 !important;background:var(--scrim);
@@ -3016,9 +3278,27 @@
     .ag-set-overlay iframe{animation-duration:1ms;animation-name:none;opacity:1}
     .ag-set-overlay.closing iframe{animation-name:none;opacity:0}
   }
-  @media (max-width:900px){
+  /* (hover:none) and (pointer:coarse) is in here because an iPad is not a
+     narrow screen. In landscape it reports 1180 or 1366 CSS pixels — wider
+     than most laptops — so a width-only rule handed it the 1393px desktop
+     dialog with its 237px sidebar, on a device that has no mouse to hover
+     the thing with. The pointer is what actually distinguishes the two. */
+  @media (max-width:900px), (hover:none) and (pointer:coarse){
+    /* A SHEET, not a page. Full-bleed and square-cornered, Settings stopped
+       reading as something opened over the builder and started reading as
+       having navigated away from it — with no edge, no scrim and nothing to
+       tap beside it to get back. It is a centred card here, the shape the
+       same screen has on a phone and a tablet everywhere else: as wide as
+       it can be up to 520px, as tall as it can be up to 640, and on a
+       screen smaller than that it simply fills what there is. */
     .ag-set-overlay{padding:0}
-    .ag-set-overlay iframe{width:100%;height:100%;border-radius:0}
+    .ag-set-overlay iframe{
+      /* One size for both, and small: 420x560 is under half of an iPad's
+         screen and still the whole of a phone's width, so the sheet reads
+         the same on either — a panel over the app, not the app replaced.
+         The vw/dvh terms only bite on a screen smaller than the sheet. */
+      width:min(420px,92vw);height:min(560px,88dvh);
+      border-radius:22px;box-shadow:0 30px 80px -20px rgba(0,0,0,.55)}
   }
   @media (max-width: 650px) {
     .ag-tiles-track {
@@ -3650,10 +3930,10 @@
             <div class="ag-model-popover" id="agModelPopover">
               <div class="pop-section-ttl">Mode</div>
               <button type="button" class="pop-option on" data-mode="auto" id="popModeAuto">
-                <span class="pop-text"><b>Auto</b><small>Answers, asks or builds — whichever the message calls for</small></span>
+                <span class="pop-text"><b>Auto</b><small>Answers, asks or builds it — no plan to approve first</small></span>
               </button>
               <button type="button" class="pop-option" data-mode="plan" id="popModePlan">
-                <span class="pop-text"><b>Plan</b><small>Always shows the plan first, edits included</small></span>
+                <span class="pop-text"><b>Plan</b><small>Shows the plan and waits for your yes, edits included</small></span>
               </button>
               <button type="button" class="pop-option" data-mode="power" id="popModePower">
                 <span class="pop-text"><b>Power</b><small>Deep reasoning, MCP tools, more repair passes</small></span>
@@ -4701,16 +4981,29 @@
     const plan = payload.plan || {};
     const card = el("ag-plan");
 
+    /* The badge and the section headings are the card's structure, not
+       decoration: a plan is a title, a shape, a list of what you get and a
+       list of what was guessed, and each of those should be findable at a
+       glance rather than run together as paragraphs. */
+    var MARK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" '
+      + 'stroke-linecap="round" stroke-linejoin="round">'
+      + '<path d="M12 3 4 7v6c0 4.4 3.4 7.6 8 8.5 4.6-.9 8-4.1 8-8.5V7z"/>'
+      + '<path d="m9 12 2 2 4-4"/></svg>';
+
     let html = '<div class="pl-head">'
+      + '<span class="pl-badge">' + MARK + '</span>'
+      + '<span class="pl-headtext">'
       + '<span class="pl-kicker">Here\u2019s the plan</span>'
       + '<b class="pl-title">' + esc(plan.title || "Your app") + '</b>'
+      + '</span>'
       + '</div>';
     if (plan.summary) html += '<p class="pl-sum">' + esc(plan.summary) + '</p>';
 
     if (plan.features && plan.features.length) {
-      html += '<ul class="pl-list">' + plan.features.map(function (f) {
-        return '<li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>' + esc(f) + '</li>';
-      }).join("") + '</ul>';
+      html += '<div class="pl-sec"><span class="pl-sec-h">What you\u2019ll get</span>'
+        + '<ul class="pl-list">' + plan.features.map(function (f) {
+        return '<li><i class="pl-tick"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></i><span>' + esc(f) + '</span></li>';
+      }).join("") + '</ul></div>';
     }
     if (plan.assumptions && plan.assumptions.length) {
       html += '<div class="pl-assume"><span class="pl-assume-h">I\u2019m assuming</span><ul>'
@@ -4718,7 +5011,9 @@
         + '</ul></div>';
     }
     html += '<div class="pl-actions">'
-      + '<button type="button" class="pl-go">Build it</button>'
+      + '<button type="button" class="pl-go">Build it'
+      + '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>'
+      + '</button>'
       + '<button type="button" class="pl-edit">Change something</button>'
       + '</div>';
 
@@ -5144,7 +5439,21 @@
 
   function applyDeviceFrame() {
     if (!agPvDevices || !agPvFrame) return;
-    if (window.innerWidth < 650 || !window.__wcSupported) {
+    /* Narrow screens only. This used to force the phone frame whenever
+       `!window.__wcSupported` as well, and that test is a UA match on
+       /iPhone|iPad|iPod|Android/ — so it was true on EVERY iPad, at any
+       size, including a 12.9" one in landscape with the picker sitting
+       right there. Tapping iPad worked for exactly as long as it took
+       anything to call this again: starting a build, finishing one, or
+       reopening a project each snapped the preview back to an iPhone.
+
+       The two have nothing to do with each other. WebContainer support
+       decides whether the app inside is served by a dev server in the
+       browser or by the CDN srcdoc fallback; the fallback renders into
+       the same iframe, laid out at the same --pv-w and scaled the same
+       way. Which machine is drawn around it is presentation, and the
+       only thing it should answer to is whether there is room. */
+    if (window.innerWidth < 650) {
       agPvDevices.querySelectorAll("button").forEach((b) => b.classList.remove("on"));
       const mobBtn = agPvDevices.querySelector('button[data-size="mobile"]');
       if (mobBtn) mobBtn.classList.add("on");

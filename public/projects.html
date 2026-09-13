@@ -12,7 +12,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Jost:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <title>Projects — Souqi</title>
 <script>
-(function(){var k="souqi-theme";try{var t=localStorage.getItem(k)||"light";document.documentElement.setAttribute("data-theme",t)}catch(e){}})();
+(function(){var k="souqi-theme",p="light";try{p=localStorage.getItem(k)||"light"}catch(e){}var m=window.matchMedia&&window.matchMedia("(prefers-color-scheme:dark)");var r=function(){return (p==="dark"||p==="light")?p:((m&&m.matches)?"dark":"light")};document.documentElement.setAttribute("data-theme",r());if(m){var f=function(){try{p=localStorage.getItem(k)||"light"}catch(e){}if(p!=="dark"&&p!=="light")document.documentElement.setAttribute("data-theme",r())};m.addEventListener?m.addEventListener("change",f):m.addListener&&m.addListener(f)}})();
 </script>
 <style>
   *,*::before,*::after{box-sizing:border-box}
@@ -568,12 +568,30 @@
        /projects, but nested inside .ag-main on /agent. A bare `~` matched
        nothing there and failed silently, so the toggle never hid on the
        builder while looking correct on the other two. */
-    .ag-history:not(.on) ~ #agDeskSidebarToggle,
-    .ag-history:not(.on) ~ * #agDeskSidebarToggle{opacity:0;pointer-events:none;transition:opacity .18s ease}
-    .ag-history:not(.on):hover ~ #agDeskSidebarToggle,
-    .ag-history:not(.on):hover ~ * #agDeskSidebarToggle,
-    .ag-history:not(.on).hover-open ~ #agDeskSidebarToggle,
-    .ag-history:not(.on).hover-open ~ * #agDeskSidebarToggle{opacity:1;pointer-events:auto}
+    /* HIDING IT IS A HOVER FEATURE, SO IT IS SCOPED LIKE ONE.
+
+       Only a pointer that can hover can bring the button back, so on a
+       touch screen these two rules are a trapdoor: the toggle is
+       opacity:0 and pointer-events:none the moment the sidebar is
+       collapsed, and the hover that un-hides it never happens. On an
+       iPad the sidebar could not be opened at all — measured on
+       /projects, /deployments and /security, where the rail sits at 44px
+       and the only control that opens it is unreachable. (The builder
+       escaped it by opening the sidebar on a tap of the rail itself, and
+       by starting open; the same trapdoor is in its CSS.)
+
+       The guard is the one the hover-to-open rule above already uses, so
+       the two halves of the behaviour now appear and disappear together.
+       Without a hover pointer the toggle simply stays visible, which is
+       what every touch device needs anyway. */
+    @media (hover:hover) and (pointer:fine){
+      .ag-history:not(.on) ~ #agDeskSidebarToggle,
+      .ag-history:not(.on) ~ * #agDeskSidebarToggle{opacity:0;pointer-events:none;transition:opacity .18s ease}
+      .ag-history:not(.on):hover ~ #agDeskSidebarToggle,
+      .ag-history:not(.on):hover ~ * #agDeskSidebarToggle,
+      .ag-history:not(.on).hover-open ~ #agDeskSidebarToggle,
+      .ag-history:not(.on).hover-open ~ * #agDeskSidebarToggle{opacity:1;pointer-events:auto}
+    }
     /* OPEN: the icon alone, at the right edge of the sidebar header —
        where the reference puts its controls. The word "Sidebar" was the
        widest thing in that row and only named what the icon already

@@ -17,11 +17,23 @@
   <script src="https://js.stripe.com/v3/"></script>
   <script>
     (function(){
-      var k = "souqi-theme";
-      try {
-        var t = localStorage.getItem(k) || "light";
-        document.documentElement.setAttribute("data-theme", t);
-      } catch(e) {}
+      var k = "souqi-theme", p = "light";
+      try { p = localStorage.getItem(k) || "light"; } catch(e) {}
+      /* "system" is a stored PREFERENCE, not a theme — resolve it here or
+         the attribute reads data-theme="system", which no rule matches and
+         every page silently falls back to light. */
+      var m = window.matchMedia && window.matchMedia("(prefers-color-scheme:dark)");
+      function resolved() {
+        return (p === "dark" || p === "light") ? p : ((m && m.matches) ? "dark" : "light");
+      }
+      document.documentElement.setAttribute("data-theme", resolved());
+      if (m) {
+        var f = function () {
+          try { p = localStorage.getItem(k) || "light"; } catch(e) {}
+          if (p !== "dark" && p !== "light") document.documentElement.setAttribute("data-theme", resolved());
+        };
+        if (m.addEventListener) m.addEventListener("change", f); else if (m.addListener) m.addListener(f);
+      }
     })();
   </script>
   <style>

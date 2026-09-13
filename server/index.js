@@ -4621,9 +4621,11 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
   /* The three modes the composer offers, normalised here so every read of
      them agrees.
 
-       auto   decide per message: answer, ask, or build. A fresh build still
-              shows its plan to confirm; an edit goes straight through.
+       auto   decide per message: answer, ask, or build, and then just
+              build it — no plan card, no confirm step, either way.
        plan   show the plan and wait for approval EVERY time, edits included.
+              This is the ONLY mode that shows a plan; it is what the mode
+              is for, and it is the whole difference between it and auto.
        power  deep reasoning, MCP tools, an extra repair round.
 
      "economy" and "power" were the old names and still arrive from anything
@@ -4903,20 +4905,21 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
       if (assessment.brief) conversationBrief = assessment.brief;
     }
 
-    /* Confirm before building.
-       A build takes a minute, spends credits and produces a whole app, and
-       until now the first sign of what the agent understood was the finished
-       result. This shows the plan first — what it will be, what it will have,
-       and which choices the agent is making that the prompt did not specify —
-       and waits for a yes.
+    /* Confirm before building — PLAN MODE ONLY.
 
-       Only on a FRESH build: a follow-up is already a correction of something
-       on screen, so asking "shall I?" for every tweak would be a tax rather
-       than a check. The client re-POSTs the same prompt with confirmed:true,
-       which lands here with the gate already passed. */
-    /* Plan mode reaches here on follow-ups too: it is someone asking for
-       the confirm step on every change, which is the one thing it turns on. */
-    if (!(req.body && req.body.confirmed)) {
+       The plan card shows what the agent understood before it spends a
+       minute and some credits building it, which is worth having. It is
+       not worth having on every first message of every conversation,
+       which is where it used to appear: auto mode put a card with two
+       buttons between someone and the thing they had just asked for,
+       every single time, and the answer was "yes, build it" every single
+       time. That is a click, not a check.
+
+       So it is the mode's job now. Plan means plan — fresh builds and
+       edits alike, which is the one thing that mode turns on; auto and
+       power go straight to building. The client re-POSTs the same prompt
+       with confirmed:true, which lands here with the gate already passed. */
+    if (buildMode === "plan" && !(req.body && req.body.confirmed)) {
       const planType = String((req.body && req.body.buildType) || "website");
       let plan = null;
       try {
