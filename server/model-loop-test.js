@@ -361,10 +361,15 @@ const ROUTES = { prose: { baseUrl: "https://x.invalid/prose", model: "gemini-3.8
        a file the model was already allowed to overwrite, through the same
        path validation and the same PROTECTED_PATHS. It executes nothing.
 
+       read_file joins it too, and is inert in a stronger sense: it never
+       touches the filesystem. It looks the path up in the in-memory file map
+       the caller passed for this one request, so there is nothing on the host
+       for a traversal to reach even if validateReadPath were bypassed.
+
        This assertion is deliberately an exact set rather than a subset check,
        so adding a tool to the model's surface cannot happen quietly — which
-       is why it caught this one. */
-    assert.deepStrictEqual(names, ["edit_file", "suggest_next", "write_file"]);
+       is why it caught both of these. */
+    assert.deepStrictEqual(names, ["edit_file", "read_file", "suggest_next", "write_file"]);
     for (const forbidden of ["run", "exec", "shell", "bash", "npm_install", "install", "fetch", "http"]) {
       assert.ok(!names.includes(forbidden), "a tool named " + forbidden + " is offered to the model");
     }
@@ -937,6 +942,93 @@ const ROUTES = { prose: { baseUrl: "https://x.invalid/prose", model: "gemini-3.8
     const res = await runEdit(null, { "src/App.tsx": "real" });
     assert.ok(res.ok, "one bad anchor must not discard the work that did land");
     assert.ok(res.calls.some((c) => c.path === "src/New.tsx"));
+  });
+
+  /* ---- read_file ---------------------------------------------------------
+     The risky part is not the lookup, it is the loop: a tool that returns a
+     reply rather than a file changes the shape of a turn, and a turn that
+     never stops reading never writes anything. */
+  console.log("\n── read_file ───────────────────────────────────────");
+
+  function readThenWrite(readPaths, writeAfter) {
+    const first = { role: "assistant", tool_calls: readPaths.map((p, i) => ({
+      id: "r_" + i, type: "function", function: { name: "read_file", arguments: JSON.stringify({ path: p }) } })) };
+    const second = toolCallMsg([writeAfter || { path: "src/App.tsx", content: "export default function App(){return <p>ok</p>}" }]);
+    return fetchReturning([first, second]);
+  }
+  const runRead = (files) => proposeWithClientBuild({
+    userPrompt: "change the header", maxRounds: 0, baseFiles: files,
+    onFiles: async () => ({ ok: true, errors: [] })
+  });
+
+  await check("a read is answered and the model writes on the next round", async () => {
+    let bodies = [];
+    const inner = readThenWrite(["src/components/Header.tsx"]);
+    client.init({ enabled: true, routes: ROUTES, fetchImpl: async (u, o) => { bodies.push(JSON.parse(o.body)); return inner(); } });
+    const res = await runRead({ "src/components/Header.tsx": "export const Header = () => <h1>Velvet</h1>;" });
+    assert.ok(res.ok, "the turn should complete");
+    assert.strictEqual(bodies.length, 2, "expected one round to read and one to write");
+    const toolMsg = bodies[1].messages.find((m) => m.role === "tool");
+    assert.ok(toolMsg, "the second call must carry the file back as a tool result");
+    assert.match(toolMsg.content, /Velvet/, "the model should receive the real file contents");
+  });
+
+  await check("an unknown path comes back as an error listing what exists", async () => {
+    let bodies = [];
+    const inner = readThenWrite(["src/Ghost.tsx"]);
+    client.init({ enabled: true, routes: ROUTES, fetchImpl: async (u, o) => { bodies.push(JSON.parse(o.body)); return inner(); } });
+    await runRead({ "src/App.tsx": "x" });
+    const toolMsg = bodies[1].messages.find((m) => m.role === "tool");
+    assert.match(toolMsg.content, /not in this project/);
+    assert.match(toolMsg.content, /src\/App\.tsx/, "naming the real files is what makes the error recoverable");
+  });
+
+  await check("a read cannot escape src/ or walk up the tree", async () => {
+    for (const bad of ["../../server/.env", "/etc/passwd", "package.json"]) {
+      let bodies = [];
+      const inner = readThenWrite([bad]);
+      client.init({ enabled: true, routes: ROUTES, fetchImpl: async (u, o) => { bodies.push(JSON.parse(o.body)); return inner(); } });
+      /* A DIFFERENT prompt each iteration. Round 0 is cached by prompt, so
+         reusing one made every pass after the first a cache hit with zero
+         model calls — the assertion then read an undefined second body and
+         failed for a reason that had nothing to do with traversal. */
+      await proposeWithClientBuild({
+        userPrompt: "change the header " + bad, maxRounds: 0,
+        baseFiles: { "src/App.tsx": "x", [bad]: "SECRET" },
+        onFiles: async () => ({ ok: true, errors: [] })
+      });
+      const toolMsg = bodies[1].messages.find((m) => m.role === "tool");
+      assert.match(toolMsg.content, /^Error:/, bad + " should have been refused");
+      assert.ok(!/SECRET/.test(toolMsg.content), bad + " leaked content");
+    }
+  });
+
+  await check("asking for the same file twice does not spend a second round", async () => {
+    /* A model that cannot find what it wants will ask again. Without the
+       served-set it burns every round re-asking and writes nothing, and the
+       person gets a starter template for a question no one answered. */
+    let calls = 0;
+    const loop = { role: "assistant", tool_calls: [{ id: "r", type: "function",
+      function: { name: "read_file", arguments: JSON.stringify({ path: "src/App.tsx" }) } }] };
+    client.init({ enabled: true, routes: ROUTES, fetchImpl: async () => {
+      calls++;
+      return { ok: true, json: async () => ({ choices: [{ message: loop, finish_reason: "tool_calls" }], usage: {} }) };
+    } });
+    await runRead({ "src/App.tsx": "x" });
+    assert.ok(calls <= 4, "a repeating reader must not loop forever; made " + calls + " calls");
+  });
+
+  await check("an ordinary build still costs exactly one model call", async () => {
+    /* The tool loop now wraps every mode. If that turned a plain build into
+       two round trips it would be a latency regression on the common path. */
+    let calls = 0;
+    client.init({ enabled: true, routes: ROUTES, fetchImpl: async () => {
+      calls++;
+      return { ok: true, json: async () => ({ choices: [{ message: toolCallMsg([{ path: "src/App.tsx", content: "export default function App(){return <p>hi</p>}" }]), finish_reason: "tool_calls" }], usage: {} }) };
+    } });
+    const res = await proposeWithClientBuild({ userPrompt: "a site", maxRounds: 0, onFiles: async () => ({ ok: true, errors: [] }) });
+    assert.ok(res.ok);
+    assert.strictEqual(calls, 1, "a build with no tool calls must not gain a round trip");
   });
 
   console.log("\n── caller options reach the write validator ────────");

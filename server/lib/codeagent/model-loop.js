@@ -54,7 +54,12 @@ const client = require("../ai/client");
 // v5: uploaded images — the prompt now describes UPLOADED IMAGES and permits
 // external URLs it previously forbade outright, so a v4 entry would serve a
 // design written by a model that had been told the opposite.
-const PROMPT_VERSION = "v5";
+// v6: read_file — a v5 entry was produced by a model that could not see a file
+// it was not shown, and was told to write around that. It is not just a new
+// tool: the omitted-files line and the excerpt marker both changed from "say
+// what you need" to "go get it", which is a different instruction, not a
+// clearer one.
+const PROMPT_VERSION = "v6";
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 
 // The Map was unbounded: entries expire only when something reads them again,
@@ -549,6 +554,36 @@ const TOOLS_SCHEMA = [
       }
     }
   },
+  /* THE PROMPT PROMISED THIS TOOL FOR A LONG TIME BEFORE IT EXISTED.
+
+     buildCodebaseContext tells the model, in the prompt, "Also in this
+     project, but not shown here (ask if you need one)" — and there was no way
+     to ask. An excerpted file got something worse: "Do NOT rewrite this file
+     in full — you would delete the part you cannot see. Change only what you
+     can see here, or say which part you need in full." Saying which part it
+     needs ended the turn with nothing written, and SYSTEM_PROMPT separately
+     forbids asking questions. On any project past the 120k context budget the
+     model had no legal move.
+
+     This is that move. It reads from the same materialised tree the prompt
+     was built from, so what comes back is exactly what the codebase says —
+     and it is what makes edit_file usable on a large project, since an
+     exact-match anchor requires having seen the real text rather than
+     remembering it. */
+  {
+    type: "function",
+    function: {
+      name: "read_file",
+      description: "Read a file from this project that was not included in full above. Use it when you need to see a file listed as omitted, or the part of an excerpted file you were not shown — especially before calling edit_file on it, since the anchor must match the real text exactly. Returns the whole file.",
+      parameters: {
+        type: "object",
+        properties: {
+          path: { type: "string", description: "Relative file path, e.g. src/components/Header.tsx" }
+        },
+        required: ["path"]
+      }
+    }
+  },
   /* CHANGING ONE THING SHOULD COST ONE THING.
 
      Until now the only way to alter an existing file was to rewrite it whole,
@@ -634,6 +669,7 @@ You are not choosing the stack — it is fixed and already installed:
 Rules:
 - Call write_file for every file you CREATE, and for a file you are genuinely rewriting most of. One call per file. Always write or edit at least one file unless you are asking a clarifying question.
 - To change part of a file that already exists, call edit_file rather than rewriting it. Its "find" must be text copied EXACTLY from the file and must appear exactly once — include the surrounding lines if a short snippet would be ambiguous. This is faster than a rewrite and, more importantly, it cannot drop the parts of the file you were not changing. Rewriting a 200-line component to change one line is how a working feature disappears.
+- If a file you need to change was listed as omitted, or you were shown only an excerpt of it, call read_file on it FIRST. Guessing at code you have not seen is how an edit_file anchor misses and how a rewrite deletes working features. Reading costs one round; both of those cost the whole build.
 - After your writes, call suggest_next with 2-3 short ideas for what to improve next — things you could do immediately if they said yes. Make them specific to THIS app ("Add a filter by category", not "Improve the UI"), and never suggest something you just did. Skip the call entirely if you asked a clarifying question, or if nothing worthwhile is left.
 - src/App.tsx must have a default export and must compile under TypeScript strict mode.
 - DO NOT import 'lucide-react', 'heroicons', or any uninstalled packages. ONLY import from 'react' or 'react-dom'. Use inline SVG elements, emoji, or Tailwind styled elements for icons.
@@ -874,6 +910,30 @@ function validateWriteFileArgs(args, opts) {
   return { path: p, content: content };
 }
 
+/** Backslashes to forward, trimmed. One spelling of a path, everywhere. */
+function normalisePath(p) {
+  return String(p || "").trim().split("\\").join("/");
+}
+
+/**
+ * What a read is allowed to reach.
+ *
+ * Narrower than a write on purpose. A write is refused outside src/ because
+ * writing there would break the scaffold; a read is refused because the model
+ * has no business seeing anything else — this process holds JWT_SECRET and
+ * MONGODB_URI in its environment, and a path traversal out of a file map is
+ * the classic way that becomes a prompt. It reads from an in-memory object
+ * rather than disk, so traversal cannot actually escape anywhere, but the
+ * check belongs here regardless of what today's storage happens to be.
+ */
+function validateReadPath(path) {
+  const p = normalisePath(path);
+  if (!p) throw new Error("read_file: \"path\" must be a non-empty string");
+  if (p.startsWith("/") || p.includes("..")) throw new Error("read_file: \"" + p + "\" is not a safe relative path");
+  if (!/^src\//.test(p)) throw new Error("read_file: only files under src/ can be read, got \"" + p + "\"");
+  return p;
+}
+
 /* The same path rules as a write, because an edit IS a write — it just
    computes its content from what is already there. Split out so the two
    cannot drift: a path that is unsafe to write is unsafe to edit. */
@@ -954,6 +1014,11 @@ function parseToolCalls(message, mcp, opts) {
   // Edits that could not be applied. Recoverable, so they travel back to the
   // model rather than failing the turn — see the edit_file branch below.
   const editErrors = [];
+  /* Reads do not produce files, they produce a REPLY the model then writes
+     against. Collected like MCP calls and serviced by the caller's loop,
+     because answering them here would mean parseToolCalls making a decision
+     about conversation flow that belongs one level up. */
+  const readCalls = [];
   for (const c of calls) {
     const name = c.function && c.function.name;
     if (!name) return { ok: false, reason: "tool call had no function name" };
@@ -979,6 +1044,15 @@ function parseToolCalls(message, mcp, opts) {
       try { args = JSON.parse(c.function.arguments || "{}"); }
       catch (e) { argError = "malformed JSON arguments: " + e.message; }
       mcpCalls.push({ id: c.id, name: name, args: args, argError: argError });
+      continue;
+    }
+
+    if (name === "read_file") {
+      let args = {};
+      let argError = null;
+      try { args = JSON.parse(c.function.arguments || "{}"); }
+      catch (e) { argError = "malformed JSON arguments: " + e.message; }
+      readCalls.push({ id: c.id, path: normalisePath((args && args.path) || ""), argError: argError });
       continue;
     }
 
@@ -1018,7 +1092,7 @@ function parseToolCalls(message, mcp, opts) {
 
   // A turn that ONLY called MCP tools is valid and expected — the model is
   // gathering facts before it writes. The caller loops rather than failing.
-  if (!writes.length && mcpCalls.length) return { ok: true, calls: [], mcpCalls: mcpCalls, toolsOnly: true, suggestions: suggestions };
+  if (!writes.length && mcpCalls.length) return { ok: true, calls: [], mcpCalls: mcpCalls, readCalls: readCalls, toolsOnly: true, suggestions: suggestions };
   /* Every edit missed and nothing was written. Not "no tool calls" — the model
      tried and aimed badly — so the reason names the anchors it got wrong,
      which is something it can act on, rather than a generic failure it
@@ -1026,8 +1100,14 @@ function parseToolCalls(message, mcp, opts) {
   if (!writes.length && editErrors.length) {
     return { ok: false, reason: editErrors.map((e) => e.message).join("\n"), editErrors: editErrors, recoverable: true };
   }
+  /* Asked to see files and wrote nothing yet. That is a legitimate turn, not
+     a failure — it is the whole point of having a read tool — so it comes
+     back as toolsOnly and the caller answers the reads and asks again. */
+  if (!writes.length && readCalls.length) {
+    return { ok: true, calls: [], mcpCalls: mcpCalls, readCalls: readCalls, toolsOnly: true, suggestions: suggestions };
+  }
   if (!writes.length) return { ok: false, reason: "model returned no write_file calls" };
-  return { ok: true, calls: writes, mcpCalls: mcpCalls, suggestions: suggestions, editErrors: editErrors };
+  return { ok: true, calls: writes, mcpCalls: mcpCalls, readCalls: readCalls, suggestions: suggestions, editErrors: editErrors };
 }
 
 // 8000, not an initial 3000: found live, not by estimate — a real
@@ -1210,9 +1290,13 @@ function buildCodebaseContext(files, opts) {
       const cut = content.length - keepTop - keepEnd;
       const marker = "\n\n/* ---- " + cut + " characters omitted from the middle of this file ----\n" +
         "   You are seeing an EXCERPT of " + p + ", not the whole file.\n" +
+        /* Both branches are now things the model can actually DO. This used
+           to end with "say which part you need in full", which terminated the
+           turn with nothing written — there was no read tool and the system
+           prompt forbids asking questions. */
         "   Do NOT rewrite this file in full — you would delete the part you\n" +
-        "   cannot see. Change only what you can see here, or say which part\n" +
-        "   you need in full. ---- */\n\n";
+        "   cannot see. Either change only what you can see here with\n" +
+        "   edit_file, or call read_file on it to get the whole thing. ---- */\n\n";
       parts.push(head + content.slice(0, keepTop) + marker + content.slice(-keepEnd) + foot);
       used = budget;
       excerpted.push(p);
@@ -1224,8 +1308,11 @@ function buildCodebaseContext(files, opts) {
   let text = parts.join("");
   if (omitted.length) {
     // Naming them matters: "there are files you cannot see" is actionable,
-    // silently shipping a partial app is not.
-    text += "Also in this project, but not shown here (ask if you need one):\n" +
+    // silently shipping a partial app is not. And now the offer is real:
+    // this said "(ask if you need one)" while no tool could ask and the
+    // system prompt forbade asking in prose, so the only move it left was
+    // to write around a file it could not see.
+    text += "Also in this project, but not shown here — call read_file to see any of them:\n" +
       omitted.map((p) => "  - " + p).join("\n") + "\n\n";
   }
   return { text, included, excerpted, omitted };
@@ -1325,7 +1412,16 @@ const POWER_MODEL = process.env.AI_JSON_POWER_MODEL || "";
 // start writing files. Capped because each round is a full model call plus a
 // network round-trip the user is waiting through; three is enough to look
 // something up, follow one reference, and write.
-const MAX_MCP_ROUNDS = 3;
+/* Rounds the model may spend on tools before it has to write. Covers MCP
+   lookups and read_file together, because they compete for the same thing —
+   the person's patience — and because a turn that spends three rounds reading
+   and then has none left to write is a wasted build either way. */
+const MAX_TOOL_ROUNDS = 3;
+
+/* One file's worth of reply. buildCodebaseContext already budgets 120k for
+   the WHOLE codebase, so a single file arriving larger than this is a file
+   nothing good is about to happen to. */
+const MAX_READ_CHARS = 24000;
 
 /**
  * Builds the request options shared by every call in a run: which provider
@@ -1371,31 +1467,70 @@ async function runToolRounds(messages, opts, base) {
   const mcp = opts.mcp;
   let convo = messages;
   let costUsd = 0;
+  /* Every path already answered this turn. A model that cannot find what it
+     wants will ask for the same file again, and without this each repeat
+     costs a full round and it still never writes anything — the loop runs out
+     and the person gets a starter template for a question nobody answered. */
+  const served = new Set();
 
-  for (let round = 0; round < MAX_MCP_ROUNDS; round++) {
+  for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
     const res = await client.chat(Object.assign({}, base, { messages: convo }));
     if (!res.ok) return { res, convo, costUsd };
     costUsd += res.costUsd || 0;
 
     const parsed = parseToolCalls(res.message, mcp, opts);
-    if (!parsed.ok || !parsed.mcpCalls || !parsed.mcpCalls.length) {
+    const reads = (parsed.readCalls || []).filter((r) => !served.has(r.path) || r.argError);
+    const mcps = parsed.mcpCalls || [];
+    /* Nothing to service: this is the ordinary build turn, and it returns
+       after exactly one model call — the same shape the caller had before
+       this loop handled every mode rather than just power-with-MCP. */
+    if (!parsed.ok || (!mcps.length && !reads.length)) {
       return { res, convo, costUsd, parsed };
     }
 
     // Execute in parallel: MCP calls are independent lookups, and running
     // them in series would multiply the one latency the user actually feels.
-    const results = await Promise.all(parsed.mcpCalls.map(async (c) => {
+    const results = await Promise.all(mcps.map(async (c) => {
       if (c.argError) return { id: c.id, text: "Error: " + c.argError };
       if (opts.onToolCall) { try { opts.onToolCall({ name: c.name, args: c.args }); } catch (e) { /* observability only */ } }
       const r = await mcp.call(c.name, c.args);
       return { id: c.id, text: r.ok ? r.text : "Error: " + r.text };
     }));
 
+    /* Answer the reads from the same materialised tree the prompt was built
+       from, so the model sees exactly what the codebase says rather than what
+       it remembers. Refusals come back as the tool result, not as a thrown
+       turn: a bad path is something it can correct on the next round. */
+    const readResults = reads.map((r) => {
+      if (r.argError) return { id: r.id, text: "Error: " + r.argError };
+      let p;
+      try { p = validateReadPath(r.path); }
+      catch (e) { return { id: r.id, text: "Error: " + e.message }; }
+      served.add(r.path);
+      const content = opts.files ? opts.files[p] : undefined;
+      if (opts.onToolCall) { try { opts.onToolCall({ name: "read_file", args: { path: p } }); } catch (e) {} }
+      if (typeof content !== "string") {
+        const known = Object.keys(opts.files || {}).slice(0, 40);
+        return { id: r.id, text: "Error: " + p + " is not in this project. Files available: " +
+          (known.length ? known.join(", ") : "(none — this is a new project)") };
+      }
+      /* Truncated from the END, and said so. A file over the cap is rare and
+         the top of it — imports, the component signature — is what an anchor
+         is usually taken from. Silently returning a prefix would invite an
+         edit_file against text that was cut off. */
+      if (content.length > MAX_READ_CHARS) {
+        return { id: r.id, text: content.slice(0, MAX_READ_CHARS) +
+          "\n\n/* --- truncated: " + (content.length - MAX_READ_CHARS) +
+          " more characters. Do not use edit_file against anything past this point. --- */" };
+      }
+      return { id: r.id, text: content };
+    });
+
     // The model wrote files in the same turn it called tools — take the
     // files and stop. Re-asking would throw away work it already did.
     if (parsed.calls && parsed.calls.length) return { res, convo, costUsd, parsed };
 
-    convo = convo.concat([res.message], results.map((r) => ({
+    convo = convo.concat([res.message], results.concat(readResults).map((r) => ({
       role: "tool", tool_call_id: r.id, content: r.text
     })));
   }
@@ -1403,7 +1538,7 @@ async function runToolRounds(messages, opts, base) {
   // Out of tool rounds: tell it plainly to write, and take whatever comes.
   const finalConvo = convo.concat([{
     role: "user",
-    content: "You have used all available tool calls. Write the app now with write_file, using what you already know."
+    content: "You have used all available tool calls. Write the app now with write_file or edit_file, using what you already know."
   }]);
   const res = await client.chat(Object.assign({}, base, { messages: finalConvo }));
   costUsd += (res.costUsd || 0);
@@ -1414,13 +1549,22 @@ async function attemptOnce(messages, opts) {
   const o = opts || {};
   const base = callOptions(o);
 
-  let res, convo = messages, mcpCost = 0;
-  if (o.mcp && o.mcp.size && String(o.mode).toLowerCase() === "power") {
-    const rounds = await runToolRounds(messages, o, base);
-    res = rounds.res; convo = rounds.convo; mcpCost = rounds.costUsd - (rounds.res.costUsd || 0);
-  } else {
-    res = await client.chat(Object.assign({}, base, { messages: messages }));
-  }
+  /* Always through the tool loop now, not only for power-mode MCP.
+
+     read_file has to work in every mode, because the situation it exists for
+     — a project too large for the context budget, with files omitted or
+     excerpted — has nothing to do with which mode someone picked. Eco was
+     exactly where the model was most likely to be shown a partial codebase
+     and told "ask if you need one" with no way to ask.
+
+     This is not a new code path for ordinary builds. With no MCP configured
+     and no read requested, the loop returns after its first model call with
+     the same `parsed` the direct call produced — one extra function frame and
+     nothing else. */
+  const rounds = await runToolRounds(messages, o, base);
+  const res = rounds.res;
+  const convo = rounds.convo;
+  const mcpCost = rounds.costUsd - (rounds.res.costUsd || 0);
 
   if (!res.ok) {
     const reason = (res.reason || "model call failed");
