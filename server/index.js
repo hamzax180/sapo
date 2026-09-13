@@ -2581,6 +2581,7 @@ app.post("/api/projects/:key/micro-claim", microClaimLimiter, verifyCaptcha(), v
    blank-page check — the one just rebuilt in the browser. Deleting them
    would mean writing them again. */
 const { proposeChanges, proposeWithRepair, proposeWithClientBuild, assessPrompt, buildPlan, buildCodebaseContext, buildImagesBlock, codeBudgetChars, PROMPT_VERSION } = require("./lib/codeagent/model-loop");
+const diffstat = require("./lib/codeagent/diffstat");
 const codeAgentUsage = require("./lib/codeagent/usage");
 codeAgentUsage.init({ getMasterDb });
 
@@ -5389,7 +5390,15 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
     // Collect file contents from the last successful proposal for persistence
     const fileContents = {};
     for (const c of result.calls) fileContents[c.path] = c.content;
-    const srcFiles = result.calls.map((c) => c.path).filter((f) => f.startsWith("src/"));
+    /* Pages count too. This filtered to src/ back when src/ was the only
+       thing the model could write — left alone it would list a multi-page
+       site's components and silently drop every page it actually built. */
+    const srcFiles = result.calls.map((c) => c.path)
+      .filter((f) => f.startsWith("src/") || /^[^/]+\.html$/.test(f));
+    /* How much each file actually moved, measured against the tree this turn
+       started from. Without it the card shows a fixed typo and a rewritten
+       component as the same thing: a filename. */
+    const fileStats = diffstat.statsFor(result.calls, srcFilesForEdit);
 
     if (!project) {
       const createdBuildType = String((req.body && req.body.buildType) || "website");
@@ -5439,6 +5448,9 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
     // Tell the client to start preview (client-side WebContainer handles this, or standalone mobile fallback)
     sseFrame(res, "result", {
       projectId: project.id, slug: project.slug, files: srcFiles, fileContents: fileContents,
+      // Sent alongside `files` rather than replacing it, so a client that
+      // has not been updated keeps rendering the plain list it knows.
+      fileStats: fileStats,
       previewUrl: "__webcontainer__", // signal to client: use local WebContainer preview or mobile srcdoc
       note: result.note || "", // the model's own explanation, shown in the chat
       // What it thinks is worth doing next. Sent even when empty so the

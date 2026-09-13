@@ -663,14 +663,46 @@
   .ag-worked .ic{width:22px;height:22px;flex:none;border-radius:50%;border:1px solid var(--line);display:grid;place-items:center;background:var(--card)}
   .ag-worked .ic svg{width:12px;height:12px}
 
-  .ag-card{margin:0 0 20px 35px;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px}
-  .ag-card .files{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:14px}
-  .ag-card .files span{background:var(--paper-2);border-radius:999px;padding:5px 12px;font-size:.8rem;font-weight:500;color:var(--ink-2);font-family:ui-monospace,monospace;
-    max-width:100%;overflow-wrap:anywhere} /* a long generated filename (e.g. a component
-      name with no spaces) has no natural break point — flex-wrap on the parent only
-      decides which ROW an item goes on, it can't shrink one item narrower than its own
-      unbroken text, so a long pill silently overflowed the card on narrow screens */
-  .ag-card .cost{font-size:.78rem;color:var(--mut)}
+  .ag-card{margin:0 0 20px 35px;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:8px 8px 10px}
+  /* ONE ROW PER FILE, WITH WHAT IT COST.
+     These were pills carrying a path and nothing else, so a one-word copy
+     fix and a rewritten component were the same object on screen — a wrapped
+     hedge of identical grey lozenges you had to read word by word to find
+     anything in. A build is a list of changes, and the thing that makes a
+     list of changes scannable is the number beside each line. */
+  .ag-card .files{display:flex;flex-direction:column;gap:0;margin:0 0 4px}
+  .ag-file{display:flex;align-items:center;gap:10px;padding:6px 10px;border-radius:9px;
+    font-size:.8rem;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    min-width:0}
+  .ag-file + .ag-file{margin-top:1px}
+  .ag-file:hover{background:var(--paper-2)}
+  /* The directory is context and the filename is the answer, so they are not
+     the same colour. At a glance you read a column of filenames; the paths
+     are there when you need to tell two Header.tsx apart. */
+  .ag-file .p{min-width:0;flex:1 1 auto;overflow-wrap:anywhere;color:var(--mut)}
+  .ag-file .p b{font-weight:600;color:var(--ink-2)}
+  /* Fixed width and tabular figures so the counts form a column that can be
+     compared down the list rather than a ragged edge that cannot. */
+  .ag-file .d{flex:none;display:flex;gap:7px;font-variant-numeric:tabular-nums;font-size:.76rem;letter-spacing:-.01em}
+  .ag-file .d i{font-style:normal;opacity:.92}
+  .ag-file .add{color:var(--diff-add)}
+  .ag-file .del{color:var(--diff-del)}
+  /* A new file has nothing to compare against, so a "+N / -0" would be
+     arithmetic pretending to be information. It gets a word instead. */
+  .ag-file .new{flex:none;font-family:var(--sans);font-size:.68rem;font-weight:600;
+    letter-spacing:.02em;text-transform:uppercase;color:var(--diff-add);
+    background:color-mix(in srgb,var(--diff-add) 13%,transparent);
+    border-radius:5px;padding:1px 5px}
+  .ag-card .cost{font-size:.78rem;color:var(--mut);padding:6px 10px 2px;border-top:1px solid var(--line);margin-top:5px}
+  /* Green and red that survive both themes. The light pair is darkened well
+     past the usual UI green so it clears contrast on the card, and the dark
+     pair is lifted for the same reason in the other direction — a diff you
+     cannot read is decoration. */
+  :root{--diff-add:#15803d;--diff-del:#be123c}
+  :root[data-theme="dark"]{--diff-add:#4ade80;--diff-del:#fb7185}
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){--diff-add:#4ade80;--diff-del:#fb7185}
+  }
 
   ::-webkit-scrollbar-corner{background:transparent !important}
   .ag-composer{flex:0 0 auto;position:relative;bottom:0;z-index:10;background:var(--paper);padding:8px 0 calc(12px + env(safe-area-inset-bottom));overflow:visible}
@@ -5366,10 +5398,66 @@
     row.lastChild.textContent = "Worked for " + seconds + (seconds === 1 ? " second" : " seconds");
     agLog.appendChild(row); toBottom();
   }
-  function renderCard(files, costUsd) {
+  /**
+   * The build's file list, one row per file with what it cost in lines.
+   *
+   * `stats` is [{path, added, removed, isNew}] from the server, which is the
+   * only side that can produce it — it has the tree the turn started from and
+   * the client never does. It is optional: an older server sends `files`
+   * alone, and a turn replayed from history has only the names, so the row
+   * renders without counts rather than not at all.
+   */
+  function renderCard(files, costUsd, stats) {
     const card = el("ag-card");
     const list = el("files");
-    files.forEach((f) => { const s = document.createElement("span"); s.textContent = f; list.appendChild(s); });
+    const byPath = {};
+    (stats || []).forEach((s) => { if (s && s.path) byPath[s.path] = s; });
+
+    (files || []).forEach((f) => {
+      const path = typeof f === "string" ? f : (f && f.path) || "";
+      if (!path) return;
+      const row = el("ag-file");
+      const cut = path.lastIndexOf("/");
+      const dir = cut >= 0 ? path.slice(0, cut + 1) : "";
+      const name = cut >= 0 ? path.slice(cut + 1) : path;
+
+      const p = document.createElement("span");
+      p.className = "p";
+      // textContent for both halves: a path is model output, and the one
+      // thing it must never be is markup.
+      if (dir) p.appendChild(document.createTextNode(dir));
+      const b = document.createElement("b");
+      b.textContent = name;
+      p.appendChild(b);
+      row.appendChild(p);
+
+      const st = byPath[path];
+      if (st && st.isNew) {
+        const tag = document.createElement("span");
+        tag.className = "new";
+        tag.textContent = "new";
+        row.appendChild(tag);
+      }
+      if (st && (st.added || st.removed)) {
+        const d = document.createElement("span");
+        d.className = "d";
+        // Only the sides that moved. "+12 -0" reads as though something was
+        // deleted and then counted to zero; "+12" says what happened.
+        if (st.added) {
+          const i = document.createElement("i");
+          i.className = "add"; i.textContent = "+" + st.added;
+          d.appendChild(i);
+        }
+        if (st.removed) {
+          const i = document.createElement("i");
+          i.className = "del"; i.textContent = "\u2212" + st.removed;
+          d.appendChild(i);
+        }
+        row.appendChild(d);
+      }
+      list.appendChild(row);
+    });
+
     card.appendChild(list);
     if (costUsd) { const c = el("cost"); c.textContent = "~$" + costUsd.toFixed(5); card.appendChild(c); }
     agLog.appendChild(card); toBottom();
@@ -5838,7 +5926,7 @@
          silently re-attach the same photos to the NEXT message. */
       clearAttachments();
       if (result.note) say(esc(result.note).replace(/\n/g, "<br>"));
-      renderCard(result.files, result.costUsd);
+      renderCard(result.files, result.costUsd, result.fileStats);
       if (!/\?\s*$/.test(result.note || "")) {
         say('<span class="muted">Tell me what to change and I\'ll update it.</span>');
       }
