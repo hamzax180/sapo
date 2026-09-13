@@ -7,7 +7,27 @@ const packageJson = {
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    /* tsc --noEmit, matching the canonical scaffold. Its absence here was the
+       single largest correctness hole in the product.
+
+       vite build is esbuild, and esbuild STRIPS types without checking them.
+       So the only signal the agent ever got was "did it bundle" — which a
+       type error passes cleanly, before throwing at runtime and rendering a
+       blank page that nothing else checks either. The prompt requires the app
+       to "compile under TypeScript strict mode" and nothing was verifying it;
+       both build parsers carry a TSC_RE branch for diagnostics that could not
+       be produced.
+
+       typescript is already in devDependencies below, so this costs a few
+       seconds of build time and no new install. Expect the measured failure
+       rate to RISE at first: those builds were failing before, silently and
+       later, in the user's browser instead of in the repair loop. Surfacing
+       them is what lets the loop fix them.
+
+       tsconfig sets strict:true but leaves noUnusedLocals/Parameters off,
+       which is the right calibration — real type errors fail, tidiness
+       complaints do not. */
+    "build": "tsc --noEmit && vite build",
     "preview": "vite preview --port 4173 --strictPort"
   },
   "dependencies": {
