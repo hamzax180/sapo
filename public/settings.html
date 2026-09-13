@@ -82,9 +82,25 @@
      invisible card, so the override sets a finished state rather than
      `animation:none`. */
   @keyframes sqFadeUp{from{opacity:0;transform:translateY(var(--fade-up-shift))}to{opacity:1;transform:none}}
-  .fade-up{animation:sqFadeUp var(--dur-chill) var(--ease-snappy) both}
-  .fade-in{animation:sqFadeUp var(--dur-chill) var(--ease-snappy) both;--fade-up-shift:0px}
-  .stagger > *{animation:sqFadeUp var(--dur-chill) var(--ease-snappy) both}
+  /* THE BOX MOVES. WHAT IS IN IT DOES NOT.
+
+     Opening settings is ONE event, and one event should produce one
+     movement. The container already carries it — .ag-set-overlay animates
+     its iframe in and out, identically in all four pages that can open it
+     (code, projects, deployments, security). Everything in here arriving
+     with its own fade on top of that was a second entrance for the same
+     event: the panel sliding up inside a box that was itself still
+     sliding up, one movement read as two, and the heading visibly lagging
+     the frame it lives in.
+
+     So these three keep their names and do nothing. Left in place rather
+     than deleted because they are referenced from markup and from the
+     stagger helper; a missing class is a silent no-op that looks like an
+     oversight, where a class that explicitly declines to animate is a
+     decision someone can read. The keyframe above stays for the same
+     reason — nothing else defines it, and reversing this is then one
+     line rather than an archaeology exercise. */
+  .fade-up,.fade-in,.stagger > *{animation:none}
   .stagger > :nth-child(1){animation-delay:0ms}
   .stagger > :nth-child(2){animation-delay:50ms}
   .stagger > :nth-child(3){animation-delay:100ms}
@@ -664,20 +680,26 @@
     .mrt-themes .theme .mock{height:62px}
   }
 
-  /* Settings panels arrive on every switch, not only on first open — the
-     switch is the moment worth animating, and re-triggering it is why the
-     JS below removes and re-adds the class with a reflow between. */
-  /* Scoped to .panels-ready, which is added one frame after load.
-     Without it the first panel animated at the same moment the iframe
-     around it was animating — two entrances for one event, and the
-     heading visibly lagging the box it lives in. The container carries
-     the opening; this carries the SWITCH between panels, which is a
-     different event and does deserve its own movement. */
-  body.panels-ready .panel:not([hidden]){animation:sqFadeUp var(--dur-chill) var(--ease-snappy) both}
-  .ag-hist-foot{animation:sqFadeUp var(--dur-chill) var(--ease-snappy) both}
-  @media (prefers-reduced-motion:reduce){
-    body.panels-ready .panel:not([hidden]),.ag-hist-foot{animation-duration:1ms;--fade-up-shift:0px}
-  }
+  /* The panels do not animate either, on open OR on switch.
+
+     This used to, deliberately: the rule it replaces drew a line between
+     the two events — the container owns the opening, and switching from
+     Domains to Billing is a different event that earns its own movement —
+     and .panels-ready exists only to hold the fade off for the one frame
+     where those two would otherwise collide.
+
+     That reasoning is sound and the result still was not still enough. A
+     panel is the whole right-hand side of the dialog, so animating it
+     animates everything you are looking at; flicking down the sidebar
+     turned a list of settings into a slideshow, and the thing you came to
+     read arrived late every time. Content inside the box holds still now
+     and the box is the only thing that moves — which is the same rule the
+     three utilities above follow, stated for the panels.
+
+     .panels-ready is left alone: the class is now inert here, but the JS
+     that adds it is one line and removing it is a separate edit with its
+     own way to go wrong. It costs a class on <body> and nothing else. */
+  body.panels-ready .panel:not([hidden]),.ag-hist-foot{animation:none}
 
   /* ---- integrations, as cards ------------------------------------------
      A stack of text rows with a pill floated right made every integration
