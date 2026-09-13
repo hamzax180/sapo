@@ -64,7 +64,9 @@ async function snapshot() {
     from = "docker";
     counts = {
       total: containers.length,
-      running: containers.filter((c) => /running/i.test(c.state)).length
+      running: containers.filter((c) => /running/i.test(c.state)).length,
+      // The names, so canAdmit can tell a REPLACEMENT from an addition.
+      names: containers.map((c) => c.name)
     };
   } else {
     from = "database";
@@ -123,11 +125,20 @@ async function snapshot() {
  * 10 containers each allowed 512MB is already oversubscribed by 5GB, and
  * free memory tells you nothing until they all get busy at once.
  */
-async function canAdmit({ memoryMb }) {
+async function canAdmit({ memoryMb, replacingDeploymentId }) {
   const snap = await snapshot();
   const reasons = [];
 
-  if (snap.containers.total >= cfg.admission.maxContainers) {
+  /* A REDEPLOY IS NOT AN EXTRA APP.
+     It removes the old container and starts a new one under the same name,
+     so the host ends with exactly the containers it began with. Counted as
+     an addition, a full host could never redeploy anything — the app that
+     was already running was itself the reason it was refused, and the only
+     way out was to delete something. */
+  const replacingName = replacingDeploymentId ? engine.containerName(replacingDeploymentId) : null;
+  const replacing = !!(replacingName && (snap.containers.names || []).indexOf(replacingName) !== -1);
+
+  if (!replacing && snap.containers.total >= cfg.admission.maxContainers) {
     reasons.push("this server is at its container limit (" + cfg.admission.maxContainers + ")");
   }
   if (snap.memory.pct >= cfg.admission.maxMemoryPct) {

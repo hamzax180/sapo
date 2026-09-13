@@ -56,11 +56,29 @@ async function setStatus(deploymentId, status, extra) {
   );
 }
 
-async function fail(deploymentId, reason) {
+/**
+ * @param {boolean} [ownsContainer]  has THIS attempt reached the point where
+ *   a container under this name would be its own? Default false, and the
+ *   default is the whole point.
+ *
+ * A redeploy reuses the deployment id, so the container name is the same one
+ * the LIVE revision is running under. This used to remove it unconditionally
+ * "so a half-built container from this attempt must not linger" — but an
+ * attempt that fails before it starts anything has no container to linger,
+ * and the one it force-removed was the working app.
+ *
+ * Seen in production: a redeploy refused at admission for being over the
+ * container limit, which is a refusal to do anything at all, and the refusal
+ * took the site down. The route stayed, the container did not, and every
+ * request to it answered 502 from then on. Refusing to act must not be more
+ * destructive than acting.
+ */
+async function fail(deploymentId, reason, ownsContainer) {
   await log(deploymentId, "system", "FAILED: " + reason, "stderr");
   await setStatus(deploymentId, "FAILED", { error: String(reason).slice(0, 1000) });
-  // Best effort: a half-built container from this attempt must not linger.
-  try { await engine.removeContainer(deploymentId); } catch (e) { /* nothing to remove */ }
+  if (ownsContainer) {
+    try { await engine.removeContainer(deploymentId); } catch (e) { /* nothing to remove */ }
+  }
   return { ok: false, error: reason };
 }
 
@@ -367,10 +385,15 @@ async function checkResponse(id, url) {
  */
 async function deploy(dep, sourceDir) {
   const id = dep.id;
+  /* False until this attempt takes the name over — see fail(). Everything
+     before the swap can fail without touching what is already serving. */
+  let ownsContainer = false;
 
   try {
     // --- 1. admission -------------------------------------------------
-    const admit = await capacity.canAdmit({ memoryMb: dep.memory_mb });
+    // The id, so a redeploy is measured as the replacement it is rather
+    // than as one more app the host has to find room for.
+    const admit = await capacity.canAdmit({ memoryMb: dep.memory_mb, replacingDeploymentId: id });
     if (!admit.ok) {
       return fail(id, "this server cannot take another app right now — " + admit.reasons.join("; "));
     }
@@ -435,9 +458,11 @@ async function deploy(dep, sourceDir) {
       await cleanupBuildContext(id);
       return fail(id, "could not create the app network — " + (net.error || "unknown error"));
     }
-    // A previous revision may still be up; replacing it is what makes
-    // redeploy actually mean redeploy.
+    /* From HERE the container under this name is ours: the previous
+       revision has been removed on purpose, so a later failure cleaning up
+       is cleaning up after this attempt rather than after the live app. */
     await engine.removeContainer(id);
+    ownsContainer = true;
 
     /* The database, before the app starts.
        Order matters twice over: the network has to exist because the
@@ -476,7 +501,7 @@ async function deploy(dep, sourceDir) {
     });
     if (!run.ok) {
       await cleanupBuildContext(id);
-      return fail(id, "the container did not start — " + (run.error || "unknown error"));
+      return fail(id, "the container did not start — " + (run.error || "unknown error"), ownsContainer);
     }
 
     // --- 6. route -----------------------------------------------------
@@ -503,7 +528,7 @@ async function deploy(dep, sourceDir) {
     const healthy = await waitForRunning(id, 30000);
     if (!healthy.ok) {
       await cleanupBuildContext(id);
-      return fail(id, healthy.reason);
+      return fail(id, healthy.reason, ownsContainer);
     }
 
     await setStatus(id, "RUNNING", { container_name: run.name, error: null });
@@ -517,7 +542,7 @@ async function deploy(dep, sourceDir) {
 
   } catch (e) {
     await cleanupBuildContext(id).catch(() => {});
-    return fail(id, e.message || String(e));
+    return fail(id, e.message || String(e), ownsContainer);
   }
 }
 
