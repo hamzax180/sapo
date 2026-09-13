@@ -4885,9 +4885,13 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
      type, so a dashboard and a game do not open looking like each other.
      Costs no model call and is deterministic: the same request builds the
      same palette every time. */
+  /* Hoisted because the project row stores it: forBuild() returns a palette,
+     not its input, so without keeping the seed a reopen cannot reproduce the
+     colours an uploaded logo produced. */
+  const buildSeedHex = (attachedImages.find((i) => i.seedHex) || {}).seedHex || "";
   const buildTheme = theme.forBuild({
     buildType: String((req.body && req.body.buildType) || ""),
-    seedHex: (attachedImages.find((i) => i.seedHex) || {}).seedHex || ""
+    seedHex: buildSeedHex
   });
   const imagesBlock = buildImagesBlock(attachedImages);
   const imageUrls = attachedImages.map((i) => i.url);
@@ -5426,7 +5430,10 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
          that the app's name everywhere it appears. */
       const planTitle = String((req.body && req.body.planTitle) || "").trim();
       const newTitle = planTitle.slice(0, 60) || projects.titleFromPrompt(prompt);
-      project = await projects.create({ title: newTitle, prompt, meta: { kind: "code", buildType: createdBuildType }, owner });
+      /* seedHex too, so a reopen can rebuild the same palette. Without it a
+         project whose colours came from an uploaded logo comes back in the
+         build type's default scheme instead of its own. */
+      project = await projects.create({ title: newTitle, prompt, meta: { kind: "code", buildType: createdBuildType, seedHex: buildSeedHex }, owner });
     }
     /* The moment the images stop being temporary.
        Until now they carry a 24h TTL, because an upload nobody built with is
@@ -5524,6 +5531,37 @@ app.get("/api/codeagent/:key", async (req, res, next) => {
 
     const reopenSrc = await projects.materialize(project.id);
 
+    /* THE PREVIEW IS BLACK ON REOPEN WITHOUT THIS.
+
+       materialize() returns the model's files and only those — a revision
+       records what the model wrote, never the scaffold. A build gets away
+       with that because the build route ALSO sends the generated
+       tailwind.config.js, the font tag and the runtime scaffold files in its
+       own frame. Reopening sent neither.
+
+       So a reloaded project mounted src/** into a container still holding
+       wc-runtime's placeholder tailwind.config.js — `theme: { extend: {} }`,
+       no tokens at all. Every bg-surface, text-ink and bg-accent the model
+       wrote then compiled to nothing: no background, no colour, a
+       transparent page, and the dark device mockup showing straight through
+       it. The app was never dark; it was never styled.
+
+       Recomputed rather than stored, and deterministic for that reason —
+       forBuild() maps the same inputs to the same palette every time, so a
+       reopened project gets the colours it was built with. */
+    const reopenTheme = theme.forBuild({
+      buildType: String((project.meta || {}).buildType || "website"),
+      seedHex: String((project.meta || {}).seedHex || "")
+    });
+    const reopenFiles = Object.assign({}, reopenSrc.files);
+    if (Object.keys(reopenFiles).length) {
+      for (const rp of SCAFFOLD_RUNTIME_FILES) {
+        if (typeof scaffoldAll[rp] === "string") reopenFiles[rp] = scaffoldAll[rp];
+      }
+      reopenFiles["tailwind.config.js"] = theme.tailwindConfig(reopenTheme);
+      reopenFiles["__souqi_fonts__"] = theme.fontLinkTag(reopenTheme);
+    }
+
     res.json({
       project: { id: project.id, slug: project.slug, title: project.title, prompt: project.prompt, createdAt: project.createdAt, updatedAt: project.updatedAt },
       turns: turns,
@@ -5531,9 +5569,15 @@ app.get("/api/codeagent/:key", async (req, res, next) => {
       chatId: wantChat,
       // The whole tree, not the last diff — otherwise reopening a project
       // after a follow-up edit renders only the files that edit touched.
-      files: Object.keys(reopenSrc.files).filter((f) => f.startsWith("src/")),
-      fileContents: Object.keys(reopenSrc.files).length ? reopenSrc.files : null,
-      previewUrl: "/api/codeagent/preview/" + encodeURIComponent(project.slug), sandboxAlive: sandboxAlive
+      // Pages count too — a multi-page site keeps its markup in about.html
+      // and the rest, and this list is what the editor shows.
+      files: Object.keys(reopenSrc.files).filter((f) => f.startsWith("src/") || /^[^/]+\.html$/.test(f)),
+      fileContents: Object.keys(reopenFiles).length ? reopenFiles : null,
+      /* __webcontainer__, the same signal a build sends. It used to name
+         /api/codeagent/preview/:slug, which has been a 410 stub since
+         previews moved into the browser — showPreview() would have pointed
+         the iframe at it and rendered the stub's text. */
+      previewUrl: "__webcontainer__", sandboxAlive: sandboxAlive
     });
   } catch (e) { next(e); }
 });
