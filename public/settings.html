@@ -440,10 +440,28 @@
     /* Header: close left, title centred, info right — and the title is
        centred against the two buttons rather than the box, which is why
        both slots are the same width whether or not anything is in them. */
-    /* No rule under the header: the sheet is one surface with a title at
-       the top of it, not a titlebar bolted onto a list. */
-    .mhead{position:relative;flex:none;gap:8px;padding:11px 12px 9px;border-bottom:0;
-      background:var(--card)}
+    /* THE HEADER FLOATS OVER THE LIST.
+
+       Not a titlebar bolted on top of a box — the sheet is one surface,
+       and the list runs the whole height of it and passes UNDER the
+       title. Same frosted glass as the composer, for the same reason: the
+       rows stay visible as they go by, and the title stays readable on
+       top of them because the blur is doing the work a solid fill used to.
+
+       position:absolute, so .mbody below gets the full height and the
+       scroll starts at the top of the sheet rather than under a 54px
+       header that had already eaten it. The scrollers pad themselves down
+       by that much (--mhead-h) so nothing STARTS underneath it. */
+    .mhead{position:absolute;top:0;left:0;right:0;z-index:6;flex:none;gap:8px;
+      padding:11px 12px 9px;border-bottom:0;
+      background:color-mix(in srgb,var(--card) 62%,transparent);
+      -webkit-backdrop-filter:blur(20px) saturate(1.6);
+      backdrop-filter:blur(20px) saturate(1.6)}
+    /* The blur has a hard bottom edge; this is the 14px a row gets to
+       dissolve in as it slides under, so text does not snap from sharp to
+       frosted at a line. */
+    .mhead::after{content:"";position:absolute;left:0;right:0;top:100%;height:14px;pointer-events:none;
+      background:linear-gradient(to bottom,color-mix(in srgb,var(--card) 62%,transparent),transparent)}
     .mhead svg.gear{display:none}
     .mhead h1{order:2;flex:1;min-width:0;text-align:center;font-size:1.05rem;font-weight:700;
       letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -451,6 +469,10 @@
     /* Same specificity as the rule above or it loses and the info button
        lands next to the close button on the left. */
     .mrt-info:not([hidden]){order:3}
+    /* The tick is the affirmative one, so it carries a little more weight
+       than the plain grey circles either side of the title. */
+    .mrt-done{background:var(--line);color:var(--ink)}
+    .mrt-done:hover{background:var(--mut);color:var(--card)}
     .ag-modal-x-btn{order:1;margin-left:0;width:34px;height:34px;border-radius:50%;border:0;
       background:var(--paper-2);color:var(--ink)}
     .ag-modal-x-btn:hover{transform:none;background:var(--line)}
@@ -458,14 +480,41 @@
        way a pushed screen replaces the one under it. */
     body.mpanel .ag-modal-x-btn{display:none}
 
-    .mbody{display:block;grid-template-columns:none;min-height:0;flex:1;min-height:0;overflow:hidden}
+    /* --mhead-h is the room the floating header needs. One number, used
+       by both scrollers, so they cannot drift apart. */
+    :root{--mhead-h:54px}
+    .mbody{display:block;grid-template-columns:none;min-height:0;flex:1;overflow:hidden;position:relative}
     .side{display:none}
-    .mroot:not([hidden]){display:block;height:100%;overflow-y:auto;-webkit-overflow-scrolling:touch;
-      padding:12px 13px calc(22px + env(safe-area-inset-bottom,0px));background:var(--paper-2)}
-    .content{display:none;max-height:none;height:100%;overflow-y:auto;
-      padding:16px 16px calc(30px + env(safe-area-inset-bottom,0px))}
-    body.mpanel .mroot{display:none}
-    body.mpanel .content{display:block}
+
+    /* PUSH AND POP.
+
+       Both panes are always in the DOM, stacked on each other and moved
+       with transform — which is what makes this animate in BOTH
+       directions from one class on <body>, with no timers to get wrong
+       and nothing to clean up when someone taps back mid-slide.
+
+       visibility rather than display, and its transition delayed by the
+       length of the slide, so the outgoing pane is still painted while it
+       leaves and is out of the tab order the moment it has. */
+    .mroot:not([hidden]),.content{
+      position:absolute;inset:0;height:auto;max-height:none;overflow-y:auto;
+      -webkit-overflow-scrolling:touch;
+      transition:transform .3s cubic-bezier(.32,.72,0,1),opacity .22s ease,visibility 0s linear .3s}
+    .mroot:not([hidden]){display:block;background:var(--paper-2);
+      padding:calc(var(--mhead-h) + 8px) 13px calc(22px + env(safe-area-inset-bottom,0px));
+      transform:none;opacity:1;visibility:visible;transition-delay:0s,0s,0s}
+    .content{display:block;background:var(--card);
+      padding:calc(var(--mhead-h) + 8px) 16px calc(30px + env(safe-area-inset-bottom,0px));
+      transform:translateX(100%);opacity:0;visibility:hidden}
+    /* The list does not leave the way the panel arrives: it slides a
+       fraction of the distance and dims, so the panel reads as coming
+       down on top of it rather than the two swapping places. */
+    body.mpanel .mroot:not([hidden]){transform:translateX(-22%);opacity:0;visibility:hidden;
+      transition-delay:0s,0s,.3s}
+    body.mpanel .content{transform:none;opacity:1;visibility:visible;transition-delay:0s,0s,0s}
+    @media (prefers-reduced-motion:reduce){
+      .mroot:not([hidden]),.content{transition-duration:1ms,1ms,0s}
+    }
     /* The panel's own heading is the sheet title now, so showing it again
        at the top of the panel is the same words twice. */
     body.mpanel .panel-head{display:none}
@@ -619,6 +668,9 @@
     <h1 id="mheadTitle">Settings</h1>
     <button type="button" class="mrt-round mrt-info" id="mheadInfo" aria-label="About Souqi" aria-expanded="false" hidden>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 16v-5M12 8h.01"/></svg>
+    </button>
+    <button type="button" class="mrt-round mrt-info mrt-done" id="mheadDone" aria-label="Done" hidden>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
     </button>
     <button type="button" class="ag-modal-x-btn" id="mheadClose" aria-label="Close Settings" title="Close Settings">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
@@ -1205,12 +1257,14 @@
     var t = $("mheadTitle"); if (t) t.textContent = (btn.textContent || "Settings").trim();
     if ($("mheadBack")) $("mheadBack").hidden = false;
     if ($("mheadInfo")) $("mheadInfo").hidden = true;
+    if ($("mheadDone")) $("mheadDone").hidden = false;
     var c = document.querySelector(".content"); if (c) c.scrollTop = 0;
   }
   function sheetRoot() {
     document.body.classList.remove("mpanel");
     var t = $("mheadTitle"); if (t) t.textContent = "Settings";
     if ($("mheadBack")) $("mheadBack").hidden = true;
+    if ($("mheadDone")) $("mheadDone").hidden = true;
     if ($("mheadInfo")) $("mheadInfo").hidden = !isSheet();
   }
 
@@ -1219,6 +1273,7 @@
     if (!sheet) {
       document.body.classList.remove("mpanel", "mabout");
       if ($("mheadBack")) $("mheadBack").hidden = true;
+      if ($("mheadDone")) $("mheadDone").hidden = true;
       if ($("mheadInfo")) $("mheadInfo").hidden = true;
       var t = $("mheadTitle"); if (t) t.textContent = "Settings";
       return;
@@ -1245,6 +1300,10 @@
     if (e.target.closest("#mrtLogout")) { e.preventDefault(); logOut(); }
   });
   if ($("mheadBack")) $("mheadBack").addEventListener("click", sheetRoot);
+  /* The tick pops the same way the chevron does. It is a Done, not a Save:
+     every panel that can save has its own button for that, and a tick that
+     quietly meant "discard" would be worse than no tick. */
+  if ($("mheadDone")) $("mheadDone").addEventListener("click", sheetRoot);
   if ($("mheadInfo")) $("mheadInfo").addEventListener("click", function () {
     var on = document.body.classList.toggle("mabout");
     $("mheadInfo").setAttribute("aria-expanded", on ? "true" : "false");
