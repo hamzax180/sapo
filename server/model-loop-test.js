@@ -118,6 +118,31 @@ const ROUTES = { prose: { baseUrl: "https://x.invalid/prose", model: "gemini-3.8
     assert.strictEqual(rounds[0].errors[0].code, "NO_ENTRY");
   });
 
+  await check("a missing entry file costs no compile — it is known before building", async () => {
+    /* The compile that used to run here could only ever pass: the scaffold
+       ships a placeholder src/App.tsx, so leaf files resolve against it, type
+       -check, and render "Souqi Code". It was ~13s of WebContainer install
+       spent proving a placeholder is valid TypeScript, on a question `written`
+       already answers. */
+    const utils = toolCallMsg([
+      { path: "src/types.ts", content: "export type E = { id: string };" },
+      { path: "src/lib/split.ts", content: "export const split = () => 1;" }
+    ]);
+    const withApp = toolCallMsg([{ path: "src/App.tsx", content: "export default function App(){return null}" }]);
+    client.init({ enabled: true, routes: ROUTES, fetchImpl: fetchReturning([utils, withApp]) });
+
+    let builds = 0;
+    const res = await proposeWithClientBuild({
+      userPrompt: "an expense splitter for roommates",
+      hasExistingEntry: false,
+      onFiles: async () => { builds++; return { ok: true, errors: [] }; }
+    });
+    assert.strictEqual(res.ok, true);
+    assert.strictEqual(builds, 1, "compiled " + builds + " times; the round with no App.tsx should not build at all");
+    assert.ok(res.calls.some((c) => c.path === "src/types.ts"),
+      "the files written before App.tsx were dropped — skipping the build must not skip collecting them");
+  });
+
   await check("a follow-up that edits one component is left alone", async () => {
     const edit = toolCallMsg([{ path: "src/components/Header.tsx", content: "export const Header = () => null;" }]);
     client.init({ enabled: true, routes: ROUTES, fetchImpl: fetchReturning([edit]) });

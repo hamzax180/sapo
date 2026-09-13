@@ -59,7 +59,10 @@ const client = require("../ai/client");
 // tool: the omitted-files line and the excerpt marker both changed from "say
 // what you need" to "go get it", which is a different instruction, not a
 // clearer one.
-const PROMPT_VERSION = "v6";
+// v7: one-response rule — v6 entries came from a model that had no
+// instruction to finish the app in a single turn, and routinely wrote the
+// leaf files and stopped before the entry point.
+const PROMPT_VERSION = "v7";
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 
 // The Map was unbounded: entries expire only when something reads them again,
@@ -668,6 +671,7 @@ You are not choosing the stack — it is fixed and already installed:
 
 Rules:
 - Call write_file for every file you CREATE, and for a file you are genuinely rewriting most of. One call per file. Always write or edit at least one file unless you are asking a clarifying question.
+- YOUR WHOLE ANSWER IS ONE RESPONSE. There is no second turn to finish in — every file the app needs goes in this one. On a new app src/App.tsx is not optional and not something to leave until last: write it in the SAME batch as everything else, importing the files you are writing alongside it. Stopping after the types, helpers and data leaves src/main.tsx mounting the placeholder App.tsx the scaffold ships, so the app compiles cleanly and renders nothing.
 - To change part of a file that already exists, call edit_file rather than rewriting it. Its "find" must be text copied EXACTLY from the file and must appear exactly once — include the surrounding lines if a short snippet would be ambiguous. This is faster than a rewrite and, more importantly, it cannot drop the parts of the file you were not changing. Rewriting a 200-line component to change one line is how a working feature disappears.
 - If a file you need to change was listed as omitted, or you were shown only an excerpt of it, call read_file on it FIRST. Guessing at code you have not seen is how an edit_file anchor misses and how a rewrite deletes working features. Reading costs one round; both of those cost the whole build.
 - After your writes, call suggest_next with 2-3 short ideas for what to improve next — things you could do immediately if they said yes. Make them specific to THIS app ("Add a filter by category", not "Improve the UI"), and never suggest something you just did. Skip the call entirely if you asked a clarifying question, or if nothing worthwhile is left.
@@ -2105,7 +2109,34 @@ async function proposeWithClientBuild({ userPrompt, maxRounds, onFiles, onRound,
       try { onProposal({ round: round, calls: attempt.calls || [] }); }
       catch (e) { /* observability only — never fail a build over a callback */ }
     }
-    let build = await onFiles(allCalls);
+    /* CHECKED BEFORE THE COMPILE, NOT AFTER IT.
+
+       This used to build first and then notice. The compile it paid for was
+       guaranteed to pass and guaranteed to prove nothing: the scaffold ships
+       a placeholder src/App.tsx, so a tree of leaf files resolves, type-checks
+       cleanly, and renders the words "Souqi Code". Roughly thirteen seconds of
+       WebContainer install-and-compile to establish that a placeholder is
+       valid TypeScript, on a question already answerable from `written`.
+
+       Skipping it loses nothing. `allCalls` is cumulative, so these files are
+       mounted by the next round's build along with the App.tsx this asks for,
+       and any type error in them surfaces then — one compile instead of two,
+       and the model gets to fix everything in one pass. */
+    const missingEntry = !hasExistingEntry && !written.has("src/App.tsx");
+    let build;
+    if (missingEntry) {
+      if (entryRounds < MAX_ENTRY_ROUNDS) entryRounds++;
+      build = {
+        ok: false,
+        errors: [{
+          file: "src/App.tsx", line: 1, col: 1, code: "NO_ENTRY",
+          message: "src/App.tsx is missing, so the app renders nothing. Write it now, " +
+            "with a default export that composes the files you have already written."
+        }]
+      };
+    } else {
+      build = await onFiles(allCalls);
+    }
 
     /* A tree that type-checks but has no entry point is not a build that
        succeeded.
@@ -2129,18 +2160,6 @@ async function proposeWithClientBuild({ userPrompt, maxRounds, onFiles, onRound,
        repair loop the same way a type error does — the model is asked for the
        missing file, and a run that still never produces one falls through to
        the template at round === cap instead of shipping an empty project. */
-    if (build.ok && !hasExistingEntry && !written.has("src/App.tsx")) {
-      if (entryRounds < MAX_ENTRY_ROUNDS) entryRounds++;
-      build = {
-        ok: false,
-        errors: [{
-          file: "src/App.tsx", line: 1, col: 1, code: "NO_ENTRY",
-          message: "src/App.tsx is missing, so the app renders nothing. Write it now, " +
-            "with a default export that composes the files you have already written."
-        }]
-      };
-    }
-
     if (onRound) onRound({ round, ok: build.ok, calls: allCalls, errors: build.ok ? undefined : build.errors });
 
     /* INFRASTRUCTURE IS NOT A CODE DEFECT.
