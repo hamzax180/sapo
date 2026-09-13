@@ -1682,7 +1682,9 @@ const INDUSTRY_LABELS = {
    ================================================================= */
 const projects = require("./lib/projects");
 const anon = require("./lib/anon");
+const uploads = require("./lib/uploads");
 projects.init({ getMasterDb });
+uploads.init({ getMasterDb });
 anon.init({ JWT_SECRET });
 
 const projectLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 20, key: (req) => req.ip || "" });
@@ -2632,6 +2634,25 @@ async function codeAgentLive(project) {
    A prefix because the shared counter is namespaced per limiter now, and
    naming it is better than taking whatever number it is assigned. */
 const codeAgentLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 40, prefix: "rl-codeagent", key: (req) => req.ip || "" });
+
+/* Its own bucket rather than sharing the build limiter. Attaching six photos
+   to one message is six signing calls and six completions — normal use that
+   would eat a build allowance meant for something far more expensive. */
+const uploadLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 120, prefix: "rl-upload", key: (req) => req.ip || "" });
+
+/* appOwnerOf and isAdminEmail are declared further down and hoisted, so the
+   references here are live by the time a request arrives. */
+require("./lib/uploads-routes").register(app, {
+  appOwnerOf: (req, res) => appOwnerOf(req, res),
+  isAdminEmail: (email) => isAdminEmail(email),
+  limiter: uploadLimiter,
+  // Describing an image is AI spend and is billed to the same owner budget a
+  // build is, so it cannot be a free side channel around the quota.
+  recordSpend: (owner, usd) => {
+    if (!usd) return;
+    try { codeAgentUsage.recordSpend(owner, usd); } catch (e) {}
+  }
+});
 
 // WebContainers flow: the SSE handler proposes files and waits for the client
 // to build them in the browser. This map holds pending promises keyed by a
@@ -5235,6 +5256,7 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
     });
     try { await projects.ensureIndexes(); } catch(e) {}
     try { await codeAgentUsage.ensureIndexes(); } catch(e) {}
+    try { await uploads.ensureIndexes(); } catch(e) {}
 
     // Tell the client to start preview (client-side WebContainer handles this, or standalone mobile fallback)
     sseFrame(res, "result", {
