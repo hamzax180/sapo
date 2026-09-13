@@ -1191,6 +1191,13 @@ const MAX_HISTORY_AGENT_TURN_CHARS = 300;
 const MAX_CODE_CONTEXT_CHARS = Number(process.env.CODEAGENT_MAX_CODE_CHARS || 120000);
 // Below this an excerpt teaches the model less than an honest "omitted".
 const MIN_USEFUL_EXCERPT = 1200;
+/* The floor codeBudgetChars will not go under, and roughly what one App.tsx
+   plus a couple of components costs. Below this the model is working blind
+   whatever the arithmetic says. */
+const MIN_CODE_CONTEXT_CHARS = 24000;
+/* What a round of build errors costs, reserved so the errors the model is
+   being asked to fix cannot be the thing that pushes the request over. */
+const BUILD_ERROR_BUDGET_CHARS = 4000;
 
 /**
  * Assemble the "here is the current codebase" block.
@@ -1463,6 +1470,165 @@ function callOptions(opts) {
  * their results are part of the context the model wrote its files against,
  * and replaying without them asks it to fix code it can no longer explain.
  */
+/* ── keeping the conversation inside the model's window ──────────────────
+   The repair loop only ever grew. Each round appended the assistant message
+   — which carries the full text of every file it just wrote — plus the tool
+   replies and the new build errors, and nothing ever came off the other end.
+
+   Measured on a 14-file project: round 0 sent ~43k tokens, and with the
+   reply budget reserved it crossed DeepSeek's 65,536 by round 3. At the old
+   120,000-char code budget it crossed on round 1. Past that line the
+   provider returns 400, attemptOnce reports a failed call, and
+   proposeWithClientBuild ships getFallbackAppCode — so the symptom was a
+   large project coming back as a starter template, most often precisely
+   because it was large enough to be worth keeping. */
+const SAFETY_MARGIN_TOKENS = 512;
+
+/**
+ * Drop the oldest repair exchanges until the conversation fits.
+ *
+ * Two rules make this safe to do mechanically:
+ *
+ * 1. Whole groups, never single messages. An assistant message carrying
+ *    tool_calls MUST be followed by one `tool` message per call — the
+ *    provider rejects the request otherwise, which is the same 400 by
+ *    another route. So the unit of removal is an assistant message together
+ *    with every tool reply that belongs to it.
+ *
+ * 2. The head and the tail are never touched. The head is the system prompt,
+ *    the conversation history and the request itself (which carries the
+ *    codebase); the tail is the most recent attempt and the errors being
+ *    fixed right now. Everything between them is superseded — round 1's
+ *    files were replaced by round 2's, and round 1's errors either got fixed
+ *    or are still in the current list.
+ *
+ * `headLen` is passed rather than inferred because history contains
+ * assistant turns too, and "first assistant message" would cut in the middle
+ * of the conversation rather than at the start of the repair rounds.
+ *
+ * Nothing is inserted to mark the gap. The kept messages are a coherent
+ * conversation on their own — latest code, current errors — and a note
+ * saying earlier attempts were removed mostly invites the model to ask about
+ * them, which it has no way to do.
+ */
+function fitConversation(messages, opts) {
+  const o = opts || {};
+  const msgs = messages || [];
+  const budget = (o.windowTokens || 0) - (o.maxTokens || 0) - SAFETY_MARGIN_TOKENS;
+  const size = (list) => client.estimateTokens(list, o.tools);
+  if (budget <= 0 || size(msgs) <= budget) return { messages: msgs, dropped: 0 };
+
+  const headLen = Math.min(Math.max(o.headLen || 1, 1), msgs.length);
+  const head = msgs.slice(0, headLen);
+  const tail = msgs.slice(headLen);
+
+  // Group the repair rounds: each group opens at an assistant message and
+  // holds the tool replies (and the build-error user turn) that follow it.
+  const groups = [];
+  for (const m of tail) {
+    if (m.role === "assistant" || !groups.length) groups.push([m]);
+    else groups[groups.length - 1].push(m);
+  }
+
+  /* Oldest first, and never the last one: that is the attempt whose errors
+     are in the current request. Dropping it would ask the model to fix code
+     it can no longer see. */
+  let dropped = 0;
+  while (groups.length > 1 && size(head.concat(...groups)) > budget) {
+    groups.shift();
+    dropped++;
+  }
+
+  /* Still over with only the current attempt left, so the head itself is too
+     big. Shed history oldest-first — index 0 is the system prompt and the
+     last head entry is the request with the codebase in it, and neither is
+     something a build can proceed without. */
+  let head2 = head;
+  while (head2.length > 2 && size(head2.concat(...groups)) > budget) {
+    head2 = [head2[0]].concat(head2.slice(2));
+    dropped++;
+  }
+
+  return { messages: head2.concat(...groups), dropped: dropped };
+}
+
+/**
+ * Fit a conversation to the model about to receive it, and say so when it
+ * had to cut. One helper rather than three copies, because the three send
+ * sites in this file (tool round, forced write, malformed-JSON retry) all
+ * grow the same conversation and would otherwise drift apart.
+ */
+function fitFor(convo, base, opts, maxTokens) {
+  const fit = fitConversation(convo, {
+    windowTokens: client.windowFor(base.route, base.model),
+    /* The reply budget this particular call will ask for, not the route's
+       default. A truncation retry doubles it, and reserving the smaller
+       number would fit the conversation against a ceiling the call does not
+       actually have. */
+    maxTokens: maxTokens || base.maxTokens,
+    tools: base.tools,
+    headLen: (opts && opts.headLen) || 1
+  });
+  if (fit.dropped) {
+    console.warn("[codeagent] context trimmed: dropped " + fit.dropped +
+      " earlier exchange(s) to stay inside the model window");
+  }
+  return fit.messages;
+}
+
+/**
+ * How many characters of codebase this request can actually afford.
+ *
+ * The old constant was a cost argument — 120K chars is under a cent at
+ * DeepSeek's input rate — and cost was never what bounded it. The window is.
+ * 120K chars is about 40K tokens, and a power build reserves 16K more for the
+ * reply, so the FIRST repair round pushed past 65,536 and came back a starter
+ * template.
+ *
+ * What has to fit at once, in the steady state fitConversation maintains:
+ *
+ *     system prompt + tools + history + code + one attempt + the reply
+ *
+ * One attempt, not three, and that is the whole reason the trimmer exists: it
+ * keeps the head and the most recent exchange, so the conversation stops
+ * growing after the first repair round instead of compounding. Sizing against
+ * one is what lets the code budget stay large.
+ *
+ * Falling out of this: eco keeps roughly the budget it always had and power
+ * gets a smaller one, because power reserves twice the reply. That is the
+ * right way round — power is also the mode with the extra repair round to
+ * spend — and read_file can now fetch back whatever the budget pushed out,
+ * which is what makes the smaller number survivable rather than blinding.
+ */
+function codeBudgetChars(opts) {
+  const o = opts || {};
+  const base = callOptions(o);
+  const reply = base.maxTokens;
+  const perToken = client.CHARS_PER_TOKEN;
+  const windowTokens = client.windowFor(base.route, base.model);
+
+  const fixed =
+    client.estimateTokens([{ role: "system", content: systemPromptFor(o.mode) }], base.tools) +
+    Math.ceil(MAX_HISTORY_CHARS / perToken) +          // the conversation so far
+    Math.ceil(BUILD_ERROR_BUDGET_CHARS / perToken) +   // the errors being fixed now
+    SAFETY_MARGIN_TOKENS;
+
+  // Twice the reply budget: once for the reply itself, once for the attempt
+  // it is being asked to fix, which is a reply that already happened.
+  const forCode = windowTokens - (reply * 2) - fixed;
+
+  /* A floor rather than a negative number. A window too small to hold the
+     system prompt and one reply is a misconfiguration — most likely an
+     unrecognised model id falling back to the pessimistic default — and the
+     useful behaviour there is a small context and a build that probably still
+     works, not an empty one that certainly does not. */
+  const chars = Math.max(MIN_CODE_CONTEXT_CHARS, Math.floor(forCode * perToken));
+  // An explicit CODEAGENT_MAX_CODE_CHARS still caps, but can no longer raise
+  // the budget past what the window will hold.
+  const ceiling = Number(process.env.CODEAGENT_MAX_CODE_CHARS || 0);
+  return ceiling ? Math.min(ceiling, chars) : chars;
+}
+
 async function runToolRounds(messages, opts, base) {
   const mcp = opts.mcp;
   let convo = messages;
@@ -1474,7 +1640,7 @@ async function runToolRounds(messages, opts, base) {
   const served = new Set();
 
   for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
-    const res = await client.chat(Object.assign({}, base, { messages: convo }));
+    const res = await client.chat(Object.assign({}, base, { messages: fitFor(convo, base, opts) }));
     if (!res.ok) return { res, convo, costUsd };
     costUsd += res.costUsd || 0;
 
@@ -1540,7 +1706,7 @@ async function runToolRounds(messages, opts, base) {
     role: "user",
     content: "You have used all available tool calls. Write the app now with write_file or edit_file, using what you already know."
   }]);
-  const res = await client.chat(Object.assign({}, base, { messages: finalConvo }));
+  const res = await client.chat(Object.assign({}, base, { messages: fitFor(finalConvo, base, opts) }));
   costUsd += (res.costUsd || 0);
   return { res, convo: finalConvo, costUsd };
 }
@@ -1606,7 +1772,7 @@ async function attemptOnce(messages, opts) {
     ? "Your last response was cut off before it finished (" + retryReason + "). Call write_file again — split the app across MORE, SMALLER files so each individual write_file call fits comfortably."
     : "Your last response was not usable: " + retryReason + ". Call write_file again with valid arguments.";
   const retryMessages = convo.concat([res.message], toolResponses, [{ role: "user", content: retryAsk }]);
-  const retryRes = await client.chat(Object.assign({}, base, { messages: retryMessages, maxTokens: retryMaxTokens }));
+  const retryRes = await client.chat(Object.assign({}, base, { messages: fitFor(retryMessages, base, o, retryMaxTokens), maxTokens: retryMaxTokens }));
   if (!retryRes.ok) return { ok: false, reason: retryRes.reason || "retry call failed" };
   const retryParsed = parseToolCalls(retryRes.message, o.mcp, o);
   if (!retryParsed.ok || !retryParsed.calls.length) {
@@ -1820,6 +1986,12 @@ async function proposeWithClientBuild({ userPrompt, maxRounds, onFiles, onRound,
   ].concat(hist, [
     { role: "user", content: String(userPrompt || "").slice(0, MAX_USER_PROMPT_CHARS) }
   ]);
+  /* Where the opening request ends and the repair rounds begin. Passed rather
+     than inferred because history contains assistant turns of its own, so
+     "the first assistant message" would point into the conversation instead
+     of at the first build attempt — and the trimmer would then shed the
+     request and the codebase while keeping every failed round. */
+  opts.headLen = messages.length;
   let totalCost = 0;
   let jsonRetries = 0;
 
@@ -2417,6 +2589,7 @@ async function assessPrompt(userPrompt, opts) {
 module.exports = {
   quickAssess, buildPlan, proposeChanges, proposeWithRepair, proposeWithClientBuild, assessPrompt, TOOLS_SCHEMA, SYSTEM_PROMPT,
   buildHistory, buildCodebaseContext, buildImagesBlock, fixImageUrls, MAX_CLARIFYING_QUESTIONS,
+  codeBudgetChars, fitConversation,
   // Exported so a build outcome can record WHICH prompt produced it — without
   // that, a prompt change cannot be attributed to a change in quality.
   PROMPT_VERSION,

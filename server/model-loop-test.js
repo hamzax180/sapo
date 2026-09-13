@@ -19,7 +19,9 @@
 "use strict";
 const assert = require("assert");
 const client = require("./lib/ai/client");
-const { proposeChanges, proposeWithRepair, proposeWithClientBuild, assessPrompt, buildPlan, parseToolCalls, validateWriteFileArgs, TOOLS_SCHEMA, clearCache, cacheKey, cacheStatsSnapshot } = require("./lib/codeagent/model-loop");
+const { proposeChanges, proposeWithRepair, proposeWithClientBuild, assessPrompt, buildPlan, parseToolCalls, validateWriteFileArgs, TOOLS_SCHEMA, clearCache, cacheKey, cacheStatsSnapshot,
+  fitConversation, codeBudgetChars, systemPromptFor } = require("./lib/codeagent/model-loop");
+const clientMod = require("./lib/ai/client");
 
 let passed = 0, failed = 0;
 async function check(name, fn) {
@@ -1029,6 +1031,122 @@ const ROUTES = { prose: { baseUrl: "https://x.invalid/prose", model: "gemini-3.8
     const res = await proposeWithClientBuild({ userPrompt: "a site", maxRounds: 0, onFiles: async () => ({ ok: true, errors: [] }) });
     assert.ok(res.ok);
     assert.strictEqual(calls, 1, "a build with no tool calls must not gain a round trip");
+  });
+
+  /* ---- staying inside the model's context window ------------------------
+     The repair loop used to only grow. What follows pins the two properties
+     that stop it: the conversation reaches a steady size however many rounds
+     run, and what gets dropped is never something the protocol or the model
+     needs. */
+  console.log("\n── the context window ──────────────────────");
+
+  const WINDOW = 65536;
+  const fitOpts = (over) => Object.assign({ windowTokens: WINDOW, maxTokens: 16000, tools: TOOLS_SCHEMA, headLen: 2 }, over || {});
+
+  /* An assistant message carrying tool_calls MUST be followed by one `tool`
+     message per call. A trimmer that drops messages individually breaks that
+     and the provider answers 400 — the same failure the trimmer exists to
+     prevent, arrived at from the other side. */
+  function assertProtocolValid(msgs, label) {
+    for (let i = 0; i < msgs.length; i++) {
+      const calls = msgs[i].tool_calls || [];
+      if (!calls.length) continue;
+      const replies = new Set();
+      for (let j = i + 1; j < msgs.length && msgs[j].role === "tool"; j++) replies.add(msgs[j].tool_call_id);
+      for (const c of calls) {
+        assert.ok(replies.has(c.id), label + ": tool_call " + c.id + " lost its reply");
+      }
+    }
+    for (let i = 0; i < msgs.length; i++) {
+      if (msgs[i].role !== "tool") continue;
+      const prev = msgs[i - 1];
+      assert.ok(prev && (prev.role === "assistant" || prev.role === "tool"),
+        label + ": a tool message at " + i + " does not follow an assistant message");
+    }
+  }
+
+  function repairRound(n) {
+    return [
+      { role: "assistant", tool_calls: [{ id: "c" + n, type: "function", function: { name: "write_file", arguments: "y".repeat(48000) } }] },
+      { role: "tool", tool_call_id: "c" + n, content: "ok" },
+      { role: "user", content: "The build failed with these errors: round " + n }
+    ];
+  }
+
+  await check("the conversation stops growing instead of walking out of the window", async () => {
+    const head = [{ role: "system", content: "S".repeat(13000) }, { role: "user", content: "C".repeat(73000) }];
+    let msgs = head.slice();
+    let worst = 0;
+    for (let round = 0; round < 6; round++) {
+      const fit = fitConversation(msgs, fitOpts());
+      const used = clientMod.estimateTokens(fit.messages, TOOLS_SCHEMA) + 16000;
+      worst = Math.max(worst, used);
+      assertProtocolValid(fit.messages, "round " + round);
+      msgs = fit.messages.concat(repairRound(round));
+    }
+    assert.ok(worst <= WINDOW, "sent " + worst + " tokens into a " + WINDOW + " window");
+  });
+
+  await check("the system prompt and the request survive every trim", async () => {
+    const head = [{ role: "system", content: "SYSTEM-PROMPT" }, { role: "user", content: "C".repeat(73000) }];
+    let msgs = head.slice();
+    for (let round = 0; round < 5; round++) msgs = msgs.concat(repairRound(round));
+    const fit = fitConversation(msgs, fitOpts());
+    assert.ok(fit.dropped > 0, "nothing was dropped — this case is meant to overflow");
+    assert.strictEqual(fit.messages[0].content, "SYSTEM-PROMPT", "the rules were dropped");
+    assert.ok(fit.messages.some((m) => m.role === "user" && /^C+$/.test(m.content)),
+      "the request carrying the codebase was dropped");
+  });
+
+  await check("the newest attempt is kept — it is the one the errors refer to", async () => {
+    const head = [{ role: "system", content: "S" }, { role: "user", content: "C".repeat(73000) }];
+    let msgs = head.slice();
+    for (let round = 0; round < 5; round++) msgs = msgs.concat(repairRound(round));
+    const fit = fitConversation(msgs, fitOpts());
+    const last = fit.messages[fit.messages.length - 1];
+    assert.match(last.content, /round 4/, "the current build errors were trimmed away");
+    assert.ok(fit.messages.some((m) => (m.tool_calls || []).some((c) => c.id === "c4")),
+      "the attempt those errors describe was dropped, so there is nothing to fix");
+  });
+
+  await check("a conversation that already fits is returned untouched", async () => {
+    const msgs = [{ role: "system", content: "S" }, { role: "user", content: "small" }].concat(repairRound(0));
+    const fit = fitConversation(msgs, fitOpts());
+    assert.strictEqual(fit.dropped, 0);
+    assert.strictEqual(fit.messages.length, msgs.length, "a fitting conversation must not be rewritten");
+  });
+
+  await check("history is shed only after every earlier attempt is gone", async () => {
+    /* Order matters: a superseded repair round is worth less than the
+       conversation, so history is the second thing to go, not the first. */
+    const msgs = [
+      { role: "system", content: "S" },
+      { role: "user", content: "H".repeat(3000) },      // history turn
+      { role: "assistant", content: "h".repeat(3000) }, // history turn
+      { role: "user", content: "C".repeat(73000) }      // the request
+    ].concat(repairRound(0), repairRound(1));
+    const fit = fitConversation(msgs, Object.assign(fitOpts(), { headLen: 4 }));
+    assert.ok(fit.messages.some((m) => /^C+$/.test(m.content || "")), "the request was shed before history");
+    assertProtocolValid(fit.messages, "history shed");
+  });
+
+  await check("the code budget leaves room for a reply and the attempt it fixes", async () => {
+    /* Configured here rather than inherited from whichever test ran last:
+       the budget is computed from the configured model's window, so a stale
+       route would have this assert against the wrong number and pass for a
+       reason that has nothing to do with the budget. */
+    client.init({ enabled: true, routes: ROUTES });
+    assert.strictEqual(clientMod.windowFor("json", null), WINDOW, "test route is not the model this asserts against");
+    for (const mode of ["economy", "power"]) {
+      const budget = codeBudgetChars({ mode });
+      const reply = mode === "power" ? 16000 : 8000;
+      const need = clientMod.estimateTokens([
+        { role: "system", content: systemPromptFor(mode) },
+        { role: "user", content: "x".repeat(budget) }
+      ], TOOLS_SCHEMA) + reply * 2;
+      assert.ok(need <= WINDOW, mode + ": a full-budget request plus one repair round needs " + need +
+        " tokens, over the " + WINDOW + " window");
+    }
   });
 
   console.log("\n── caller options reach the write validator ────────");

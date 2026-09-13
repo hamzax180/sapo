@@ -2580,7 +2580,7 @@ app.post("/api/projects/:key/micro-claim", microClaimLimiter, verifyCaptcha(), v
    are the next thing the model needs, and dom-snapshot.js is the original
    blank-page check — the one just rebuilt in the browser. Deleting them
    would mean writing them again. */
-const { proposeChanges, proposeWithRepair, proposeWithClientBuild, assessPrompt, buildPlan, buildCodebaseContext, buildImagesBlock, PROMPT_VERSION } = require("./lib/codeagent/model-loop");
+const { proposeChanges, proposeWithRepair, proposeWithClientBuild, assessPrompt, buildPlan, buildCodebaseContext, buildImagesBlock, codeBudgetChars, PROMPT_VERSION } = require("./lib/codeagent/model-loop");
 const codeAgentUsage = require("./lib/codeagent/usage");
 codeAgentUsage.init({ getMasterDb });
 
@@ -5102,7 +5102,14 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
         // old inline version cut every file at 8000 chars without saying
         // so, which is how a model came to rewrite a file from the half
         // it had been shown and delete the other half.
-        const ctx = buildCodebaseContext(srcFiles, { prompt: prompt });
+        /* Sized from the model's context window rather than a flat
+           constant, because the flat one did not fit: at 120,000 chars a
+           power build crossed DeepSeek's window on its first repair round
+           and came back as a starter template. */
+        const ctx = buildCodebaseContext(srcFiles, {
+          prompt: prompt,
+          budget: codeBudgetChars({ mode: buildMode === "power" ? "power" : "economy" })
+        });
         /* This REPLACES effectivePrompt rather than extending it, so the
            images block prepended above would be thrown away here — it has to
            be re-inserted, and this is the better place for it anyway. After

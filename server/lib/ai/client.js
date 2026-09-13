@@ -53,6 +53,41 @@ const PRICING = {
   vision: { inputPerM: 0.30, outputPerM: 2.50 }
 };
 
+/* Context windows, in tokens, by model-id substring — first match wins.
+ *
+ * Same caveat as PRICING above: these are vendor facts that move, and there
+ * is no endpoint that reports them, so they have to live somewhere. A route
+ * can override its own with AI_<ROUTE>_CONTEXT_TOKENS, which is the thing to
+ * reach for when a provider raises a window and this table has not caught up
+ * — no code change, no redeploy of a constant.
+ *
+ * Wrong-but-low is safe here and wrong-but-high is not: too low trims a few
+ * files that read_file can fetch back, too high is a 400 and a starter
+ * template in someone's face. The unknown default is deliberately pessimistic
+ * for the same reason.
+ */
+const CONTEXT_WINDOWS = [
+  [/deepseek/i, 65536],
+  [/gemini/i, 1048576],
+  [/gpt-4o|gpt-4\.1|o[34]-/i, 128000],
+  [/claude/i, 200000]
+];
+const UNKNOWN_CONTEXT_TOKENS = 32768;
+
+/* Chars per token, used to size a request before sending it.
+ *
+ * 3.0 is below every real measurement for this traffic (English prose runs
+ * ~4, TypeScript and JSX ~3.2-3.6) and that is the point: this number decides
+ * whether a request is sent, so it must over-count tokens rather than under.
+ * Guessing high costs a file that read_file can ask for; guessing low costs
+ * the whole build. */
+const CHARS_PER_TOKEN = 3.0;
+
+/* Per-message protocol overhead: role, delimiters, and for a tool call the
+ * id and function envelope. OpenAI's own guidance is ~4; tool traffic here
+ * carries more, and this is padding, so 8. */
+const MESSAGE_OVERHEAD_TOKENS = 8;
+
 let CONFIG = null;
 const breakers = {}; // route -> { failCount, openUntil }
 let spend = {};       // "YYYY-MM" -> route -> usd  (in-memory; see recordSpend hook)
@@ -66,8 +101,58 @@ function routeFromEnv(env, prefix) {
   return {
     baseUrl: env[prefix + "_BASE_URL"] || "",
     model: env[prefix + "_MODEL"] || "",
-    key: env[prefix + "_KEY"] || ""
+    key: env[prefix + "_KEY"] || "",
+    // Escape hatch for a window this build's table does not know about.
+    contextTokens: Number(env[prefix + "_CONTEXT_TOKENS"]) || 0
   };
+}
+
+/**
+ * The context window a call on this route will actually get, in tokens.
+ *
+ * Takes the model explicitly because tiering passes one per call — an eco
+ * build and a power build share a route and differ only in that string, and
+ * they need not share a window.
+ */
+function windowFor(route, model) {
+  ensureInit();
+  const r = (CONFIG.routes || {})[resolveRoute(route)] || {};
+  if (r.contextTokens) return r.contextTokens;
+  const id = String(model || r.model || "");
+  for (const [re, n] of CONTEXT_WINDOWS) if (re.test(id)) return n;
+  return UNKNOWN_CONTEXT_TOKENS;
+}
+
+/**
+ * A deliberately pessimistic token count for a request.
+ *
+ * No tokenizer, on purpose: adding one means a native dependency and a model
+ * -specific vocabulary for every provider, to refine a number whose only job
+ * is to keep a request under a ceiling. A conservative ratio plus real
+ * padding does that job, and cannot be wrong in the direction that hurts.
+ */
+function estimateTokens(messages, tools) {
+  let chars = 0, count = 0;
+  for (const m of messages || []) {
+    count++;
+    if (typeof m.content === "string") chars += m.content.length;
+    else if (Array.isArray(m.content)) {
+      // Vision turns: text parts measured, image parts charged a flat rate
+      // because their cost is resolution-driven and not in this string.
+      for (const part of m.content) {
+        if (part && typeof part.text === "string") chars += part.text.length;
+        else if (part && part.type === "image_url") chars += 1200 * CHARS_PER_TOKEN;
+      }
+    }
+    // Tool calls live beside content, not in it, and carry the whole file
+    // the model just wrote — the single biggest thing this has to measure.
+    for (const c of m.tool_calls || []) {
+      chars += String((c.function && c.function.arguments) || "").length +
+               String((c.function && c.function.name) || "").length;
+    }
+  }
+  if (tools) chars += JSON.stringify(tools).length;
+  return Math.ceil(chars / CHARS_PER_TOKEN) + count * MESSAGE_OVERHEAD_TOKENS;
 }
 
 /**
@@ -277,6 +362,33 @@ async function chat(req) {
     return { ok: false, budgetExceeded: true, reason: "monthly AI budget of $" + CONFIG.budgetUsd + " reached" };
   }
 
+  /* Refuse a request that cannot fit, here, instead of paying a round trip to
+     be told the same thing by the provider.
+
+     Callers are expected to have trimmed already (model-loop's
+     fitConversation does). This is the backstop for the ones that have not,
+     and it exists mostly to make the failure legible: as a provider 400 this
+     arrived as "provider returned 400: {...}" and became a starter template,
+     which reads like the model gave up rather than like a request that was
+     never sent. These numbers say exactly what to cut.
+
+     Deliberately NOT a silent trim. Dropping messages down here would mean
+     guessing which of them matter, invisibly to everything upstream — and an
+     assistant message carrying tool_calls must keep its tool replies, so a
+     naive drop produces a 400 for a second reason. */
+  const wantTokens = req.maxTokens || 900;
+  const windowTokens = windowFor(route, req.model || r.model);   // `route` is already resolved
+  const needTokens = estimateTokens(req.messages, req.tools) + wantTokens;
+  if (needTokens > windowTokens) {
+    return {
+      ok: false, error: true, badRequest: true, overflow: true,
+      neededTokens: needTokens, windowTokens: windowTokens,
+      reason: "request needs about " + needTokens + " tokens (including " + wantTokens +
+        " reserved for the reply) but " + (req.model || r.model) + " has a " +
+        windowTokens + " token window"
+    };
+  }
+
   const t0 = Date.now();
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), req.timeoutMs || DEFAULT_TIMEOUT_MS);
@@ -446,4 +558,5 @@ function routeConfigured(route) {
   return !!(CONFIG && configured(CONFIG.routes[route]));
 }
 
-module.exports = { init, chat, routeConfigured, monthSpend, budgetExceeded, _debugState };
+module.exports = { init, chat, routeConfigured, monthSpend, budgetExceeded,
+  windowFor, estimateTokens, CHARS_PER_TOKEN, _debugState };
