@@ -27,6 +27,12 @@
 const crypto = require("crypto");
 const client = require("../ai/client");
 const { preflight } = require("./preflight");
+const { statsFor } = require("./diffstat");
+
+/** Join with a real newline. Written as a helper because a literal
+    escape inside these template strings has been mangled by tooling
+    three times in this file's history. */
+function nlJoin(parts) { return parts.join(String.fromCharCode(10)); }
 
 /* ---------- response cache (docs/AI-PROVIDER-PLAN.md §4.1) ----------
    "Don't call it" is the biggest cost lever there is — cheaper than any
@@ -2402,6 +2408,10 @@ async function proposeWithClientBuild({ userPrompt, maxRounds, onFiles, onRound,
      project PLUS everything written so far this turn, so two edits to one file
      compose and an edit after a write sees that write. */
   const editBase = Object.assign({}, baseFiles || {});
+  /* The tree as it was when the turn started, frozen. editBase is the same
+     thing but it is mutated by every write, so by the first repair round it
+     can no longer answer "what has this turn actually changed". */
+  const turnBase = Object.assign({}, baseFiles || {});
   /* `effort` has to be BOTH destructured above and carried here, and missing
      either one is silent — exactly how imageUrls was dead for a release. The
      test that caught this asserts the max_tokens each level actually asks
@@ -2914,11 +2924,44 @@ async function proposeWithClientBuild({ userPrompt, maxRounds, onFiles, onRound,
         "touch the cause. Do not repeat that edit. Say what the error actually means, then fix " +
         "the thing it names rather than the thing near it.");
 
+    /* WHAT THIS TURN HAS ACTUALLY CHANGED, as numbers.
+
+       The model is handed the full text of every file it wrote, which
+       tells it what the files now say and NOT what it did to them. Those
+       are different questions, and the second one is the one the rules
+       are about: "rewriting a 200-line component to change one line is
+       how a working feature disappears" is a rule with no evidence
+       attached, on a turn where the evidence is a subtraction away.
+
+       statsFor has been computed every turn since diffstat landed. It
+       goes to the file chips in the UI and to the stored turn, and the
+       one party who could act on it never saw it. */
+    const turnStats = statsFor(allCalls, turnBase);
+    const heavy = turnStats.filter(function (f) {
+      if (f.isNew) return false;
+      const was = String(turnBase[f.path] || "").split("\n").length;
+      /* A rewrite is only worth flagging when it replaced most of a file
+         that was worth keeping. Ten lines of a twelve-line helper is a
+         rewrite in ratio and nothing in substance. */
+      return was >= 40 && f.removed >= was * 0.5;
+    });
+    const changeBlock = !turnStats.length ? "" : (nlJoin([
+      "",
+      "What you have changed so far this turn:"
+    ]) + nlJoin(turnStats.map(function (f) {
+      return "  " + f.path + "  +" + f.added + " -" + f.removed + (f.isNew ? "  (new file)" : "");
+    })) + (heavy.length
+      ? nlJoin(["", "You REPLACED most of " + heavy.map(function (f) { return f.path; }).join(", ") +
+          " — files that already existed and already worked. If that was not deliberate, the fix" +
+          " you are making is smaller than the change you made: use edit_file and touch only the" +
+          " lines the error names."])
+      : "") + String.fromCharCode(10));
+
     const lead = onlyReview
       ? "The app compiled, but it is missing something that was asked for:\n" + errorSummary +
-        "\n\nAdd it. Change only what is needed — everything else already works, so do not rewrite files that are fine."
+        "\n\nAdd it. Change only what is needed — everything else already works, so do not rewrite files that are fine." + changeBlock
       : "The build failed with these errors:\n" + errorSummary + rawTail + stallNote +
-        "\n\nFix them. Call write_file again with the corrected file(s) — rewrite each WHOLE file you change, not a diff. Only rewrite the files that actually need fixing.";
+        "\n\nFix them. Call write_file again with the corrected file(s) — rewrite each WHOLE file you change, not a diff. Only rewrite the files that actually need fixing." + changeBlock;
 
     messages = (attempt.messages || messages).concat([attempt.message], toolResponses, [
       { role: "user", content: lead }

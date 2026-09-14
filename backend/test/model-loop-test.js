@@ -1863,6 +1863,58 @@ const ROUTES = { prose: { baseUrl: "https://x.invalid/prose", model: "gemini-3.8
     assert.ok(r.text.length <= budget, "context is " + r.text.length + " chars against a " + budget + " budget");
   });
 
+  console.log("\n── the model is shown what it did, not just what it wrote ──");
+
+  /* The repair round gets the full text of every file, which says what the
+     files NOW SAY and not what was done to them. "Rewriting a 200-line
+     component to change one line is how a working feature disappears" was a
+     rule with no evidence attached, on a turn where the evidence is a
+     subtraction away. */
+  const bigFile = "export default function App(){\n" +
+    Array.from({ length: 80 }, (_, i) => "  const v" + i + " = " + i + ";").join("\n") +
+    "\n  return <p>hi</p>;\n}";
+
+  async function repairBodies(written, base) {
+    const bodies = [];
+    const inner = fetchReturning([toolCallMsg([{ path: "src/App.tsx", content: written }])]);
+    client.init({ enabled: true, routes: ROUTES, fetchImpl: async (u, o) => { bodies.push(JSON.parse(o.body)); return inner(); } });
+    await proposeWithClientBuild({
+      userPrompt: "fix the heading", maxRounds: 1, baseFiles: base, hasExistingEntry: true,
+      onFiles: async () => ({ ok: false, errors: [{ file: "src/App.tsx", line: 2, col: 1, message: "TS1005" }] })
+    });
+    const msgs = bodies[bodies.length - 1].messages || [];
+    const last = msgs.filter((m) => m.role === "user").pop();
+    return last ? last.content : "";
+  }
+
+  await check("a repair round is told what it has changed, with the numbers", async () => {
+    const out = await repairBodies("export default function App(){ return <p>hi</p>; }", { "src/App.tsx": bigFile });
+    assert.match(out, /What you have changed so far this turn/);
+    assert.match(out, /src\/App\.tsx\s+\+\d+ -\d+/);
+  });
+
+  await check("replacing most of a big working file is called out", async () => {
+    const out = await repairBodies("export default function App(){ return <p>hi</p>; }", { "src/App.tsx": bigFile });
+    assert.match(out, /You REPLACED most of src\/App\.tsx/);
+    assert.match(out, /use edit_file/);
+  });
+
+  /* Ten lines of a twelve-line helper is a rewrite in ratio and nothing in
+     substance — flagging it would train the model to ignore the warning. */
+  await check("a small file rewritten whole is not flagged as a rewrite", async () => {
+    clearCache();
+    const out = await repairBodies("export const f = 2;", { "src/App.tsx": "export const f = 1;" });
+    assert.match(out, /What you have changed so far this turn/);
+    assert.ok(!/You REPLACED most of/.test(out), "cried wolf over a one-line file: " + out);
+  });
+
+  await check("a brand new file is marked new rather than as a deletion", async () => {
+    clearCache();
+    const out = await repairBodies("export default function App(){ return null; }", {});
+    assert.match(out, /src\/App\.tsx\s+\+\d+ -0\s+\(new file\)/);
+    assert.ok(!/You REPLACED most of/.test(out));
+  });
+
   console.log("\n── the turn reports what it had to repair ─────────");
 
   /* The loop knew every failure it fixed and told nobody: on success the
