@@ -63,7 +63,7 @@ const { spawnSync, spawn } = require("child_process");
   };
 
   // 1) seed
-  const seed = spawnSync("node", ["seed.js", "--force"], { cwd: path.join(__dirname, ".."), env, encoding: "utf8" });
+  const seed = spawnSync("node", ["seed.js", "--force"], { cwd: require("path").join(__dirname, ".."), env, encoding: "utf8" });
   process.stdout.write(seed.stdout || "");
   if (seed.status !== 0) {
     console.error("SEED FAILED", JSON.stringify({ status: seed.status, signal: seed.signal, error: seed.error && seed.error.message }), seed.stderr || "(no stderr)");
@@ -71,7 +71,7 @@ const { spawnSync, spawn } = require("child_process");
   }
 
   // 2) boot the real server
-  srv = spawn("node", ["index.js"], { cwd: path.join(__dirname, ".."), env });
+  srv = spawn("node", ["index.js"], { cwd: require("path").join(__dirname, ".."), env });
   let booted = false;
   srv.stdout.on("data", (d) => { process.stdout.write(d); if (/listening/.test(d)) booted = true; });
   srv.stderr.on("data", (d) => process.stderr.write(d));
