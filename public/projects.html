@@ -765,6 +765,11 @@
   .fsel{border:1px solid var(--line);border-radius:10px;padding:9px 12px;font:inherit;font-size:.87rem;
     background:var(--card);color:var(--ink);cursor:pointer}
   .fsel:focus{outline:none;border-color:var(--accent)}
+  /* display:contents, so on a wide screen the three selects are still
+     direct flex children of .toolbar and the layout is exactly what it
+     was. The wrapper exists only so the phone can treat them as one
+     thing - see the 640px block. */
+  .filters{display:contents}
   .toolbar .sp{margin-left:auto}
   .viewtog{display:flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--card)}
   .viewtog button{border:0;background:none;color:var(--mut);width:36px;height:36px;display:grid;place-items:center;cursor:pointer;transition:.15s}
@@ -1081,6 +1086,36 @@
     .card,.card .tile{transition:none}
     .card:hover{transform:none}
     .card:hover .tile{transform:none}
+  }
+
+  @media (max-width:640px){
+    /* Four stacked rows of controls before you reach a single project.
+       Each one claimed a line of its own because the search box is
+       min(260px,100%) - full width on a phone - and three selects at
+       their natural widths cannot then share what is left.
+
+       Two rows instead: the search across the top, and everything else on
+       one line that scrolls sideways if it has to. A filter strip that
+       runs off the edge is the normal phone pattern and costs no height;
+       four wrapped rows cost about 160px of it, which on a 812px screen
+       is most of the first card. */
+    .toolbar{gap:8px;margin-bottom:14px}
+    .search{flex:1 1 100%;width:100%}
+    /* flex-basis 0, not auto. On auto the strip demands its full content
+       width - 419px of selects on a 295px line - so it could never share a
+       row and the toggle wrapped onto a third one. A zero basis lets it
+       take what is left after the toggle and scroll inside that. */
+    .filters{display:flex;gap:8px;flex:1 1 0;min-width:0;
+      overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none;
+      -webkit-overflow-scrolling:touch}
+    .filters::-webkit-scrollbar{display:none}
+    /* flex:none or they get squeezed to their text instead of scrolling. */
+    .fsel{flex:none;font-size:.82rem;padding:8px 10px;border-radius:9px}
+    /* The spacer's whole job was to push the toggle right on a wide
+       screen; on one line with a scroller it would eat the strip. */
+    .toolbar .sp{display:none}
+    .viewtog{flex:none}
+    .viewtog button{width:32px;height:32px}
   }
 
   /* Placed AFTER the base .grid/.card rules on purpose: this
@@ -1623,6 +1658,7 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
         <input type="search" id="q" placeholder="Search by name…" aria-label="Search projects">
       </div>
+      <div class="filters">
       <select class="fsel" id="fStatus" aria-label="Filter by status">
         <option value="">Any status</option>
         <option value="published">Published</option>
@@ -1641,6 +1677,7 @@
         <option value="claimed">Saved to account</option>
         <option value="anon">Not yet saved</option>
       </select>
+      </div>
       <span class="sp"></span>
       <div class="viewtog" role="group" aria-label="View">
         <button type="button" id="vGrid" class="on" aria-label="Grid view" title="Grid view">
