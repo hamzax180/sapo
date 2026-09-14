@@ -1224,116 +1224,178 @@
 
   /* Claude & Replit Model Selector Pill */
   /* ── EFFORT ───────────────────────────────────────────────────────────
-     How hard to think, as one scale rather than a mode you had to know to
-     pair with something else. The pill reads as a value, not a dropdown:
-     no chevron, because it opens a slider and not a list. */
+     How hard to think, as one value on a range rather than a mode you had
+     to know to pair with something else. Reads as a value, not a menu: no
+     chevron, because it opens a slider and not a list. */
   .ag-effort-wrap{position:relative;display:inline-flex;flex:none}
   .ag-effort-pill{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:8px;
     border:1px solid transparent;background:transparent;cursor:pointer;
     font:inherit;font-size:.78rem;font-weight:600;color:var(--ink-2);
-    transition:background .16s var(--ease),border-color .16s var(--ease),color .16s var(--ease)}
+    transition:background .18s var(--ease),border-color .18s var(--ease),color .18s var(--ease)}
   .ag-effort-pill:hover{background:var(--paper-2);border-color:var(--line)}
   .ag-effort-pill.open{background:var(--paper-2);border-color:var(--line-hover)}
-  /* The dot is the level, read without reading: it fills and warms as the
-     scale rises, so the pill still says something at a glance. */
-  .ag-effort-pill .lvl-dot{width:7px;height:7px;border-radius:50%;flex:none;
-    background:var(--mut);transition:background .2s var(--ease),box-shadow .2s var(--ease)}
-  .ag-effort-pill[data-level="smart"] .lvl-dot,
-  .ag-effort-pill[data-level="max"] .lvl-dot{background:var(--accent);
-    box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 18%,transparent)}
+  /* No indicator dot. The level's NAME is the indicator — a coloured bead
+     beside a word that already says the same thing is one signal too many,
+     and the reference carries none. The top of the scale still tints the
+     label so it is readable at a glance. */
+  .ag-effort-pill[data-level="smart"],
   .ag-effort-pill[data-level="max"]{color:var(--accent)}
 
-  /* The tooltip the pill carries. A title attribute appears too late and in
-     the wrong place for a control this small. */
   .ag-effort-tip{position:absolute;bottom:calc(100% + 7px);left:50%;transform:translateX(-50%) translateY(3px);
-    background:var(--ink);color:var(--paper);font-size:.7rem;font-weight:600;letter-spacing:.01em;
+    background:var(--ink);color:var(--paper);font-size:.7rem;font-weight:600;
     padding:3px 8px;border-radius:6px;white-space:nowrap;pointer-events:none;
     opacity:0;transition:opacity .14s var(--ease),transform .14s var(--ease);z-index:60}
   .ag-effort-wrap:hover .ag-effort-tip{opacity:1;transform:translateX(-50%) translateY(0)}
   .ag-effort-wrap:has(.ag-effort-pop.open) .ag-effort-tip{opacity:0}
 
-  .ag-effort-pop{position:absolute;bottom:calc(100% + 10px);right:0;width:268px;z-index:70;
-    background:var(--card);border:1px solid var(--line);border-radius:14px;padding:13px 14px 11px;
-    box-shadow:0 18px 40px -16px rgba(23,23,23,.26),0 2px 8px -4px rgba(23,23,23,.12);
-    opacity:0;visibility:hidden;transform:translateY(6px) scale(.97);transform-origin:100% 100%;
-    transition:opacity .18s var(--ease),transform .18s var(--ease),visibility .18s}
+  /* Narrower and shorter than it was. The description line went with it:
+     the level name IS the description once you have read it once, and a
+     paragraph re-rendering under your thumb is noise while you drag. */
+  .ag-effort-pop{position:absolute;bottom:calc(100% + 10px);right:0;width:252px;z-index:70;
+    background:var(--card);border:1px solid var(--line);border-radius:15px;padding:13px 15px 14px;
+    box-shadow:0 18px 44px -18px rgba(23,23,23,.28),0 2px 8px -5px rgba(23,23,23,.14);
+    opacity:0;visibility:hidden;transform:translateY(5px) scale(.975);transform-origin:100% 100%;
+    transition:opacity .2s cubic-bezier(.2,.8,.2,1),transform .24s cubic-bezier(.2,.8,.2,1),visibility .24s}
   .ag-effort-pop.open{opacity:1;visibility:visible;transform:none}
   :root[data-theme="dark"] .ag-effort-pop{
-    box-shadow:0 20px 44px -16px rgba(0,0,0,.7),0 2px 10px -4px rgba(0,0,0,.5)}
+    box-shadow:0 22px 48px -18px rgba(0,0,0,.72),0 2px 10px -5px rgba(0,0,0,.5)}
 
-  .ag-effort-head{display:flex;align-items:baseline;gap:8px;margin-bottom:12px}
-  .ag-effort-head .k{font-size:.8rem;font-weight:600;color:var(--mut)}
-  /* Crossfades rather than snapping — the name is the one thing that changes
-     as you drag, so it is the one thing worth animating. */
-  .ag-effort-head .v{font-size:.8rem;font-weight:700;color:var(--accent);
-    transition:opacity .14s var(--ease)}
+  .ag-effort-head{display:flex;align-items:center;gap:7px;margin-bottom:11px}
+  .ag-effort-head .k{font-size:.78rem;font-weight:500;color:var(--mut)}
+  .ag-effort-head .v{font-size:.78rem;font-weight:600;color:var(--accent);
+    transition:opacity .16s var(--ease)}
   .ag-effort-head .v.swap{opacity:0}
-  .ag-effort-head .q{margin-inline-start:auto;width:15px;height:15px;color:var(--mut);flex:none;opacity:.7}
+  .ag-effort-head .q{margin-inline-start:auto;width:14px;height:14px;color:var(--mut);flex:none;opacity:.55}
 
-  .ag-effort-ends{display:flex;justify-content:space-between;font-size:.72rem;color:var(--mut);margin-bottom:7px}
+  .ag-effort-ends{display:flex;justify-content:space-between;font-size:.7rem;color:var(--mut);margin-bottom:6px}
 
-  /* The track is a real range input, invisible, over a painted field of dots.
-     Keyboard, touch and screen readers all work because the control IS an
-     input — the dots are decoration the browser never has to know about. */
-  .ag-effort-track{position:relative;height:26px;display:flex;align-items:center}
-  .ag-effort-dots{position:absolute;inset:0;border-radius:8px;overflow:hidden;
-    background:var(--paper-2);
-    /* Dots thicken and saturate left to right: the gradient is the scale. */
-    background-image:
-      radial-gradient(circle at center, color-mix(in srgb,var(--accent) 85%,transparent) 42%, transparent 44%);
-    background-size:9px 9px;
-    background-position:center;
-    -webkit-mask-image:linear-gradient(90deg, rgba(0,0,0,.14) 0%, rgba(0,0,0,.34) 34%, rgba(0,0,0,.7) 68%, #000 100%);
-    mask-image:linear-gradient(90deg, rgba(0,0,0,.14) 0%, rgba(0,0,0,.34) 34%, rgba(0,0,0,.7) 68%, #000 100%)}
-  .ag-effort-range{position:relative;z-index:2;width:100%;margin:0;background:transparent;
-    -webkit-appearance:none;appearance:none;height:26px;cursor:pointer}
+  .ag-effort-row{display:flex;align-items:center;gap:9px}
+  .ag-effort-track{position:relative;flex:1 1 auto;height:26px;min-width:0}
+
+  /* THE RAMP IS THE DOTS THEMSELVES.
+     Three grids of the same 7px pitch, each a heavier dot than the last,
+     faded in over a different stretch of the track. Stacked, the left end is
+     a faint speckle and the right is solid — so the control says "more" by
+     getting denser, which is the thing you can read without reading.
+
+     There is no lit bar over the top. An overlay that filled to the thumb
+     was the first attempt and it destroyed the ramp: at the top of the scale
+     it painted full-strength dots across the whole width, so Max and Fast
+     looked identical apart from where the handle sat. The gradient is
+     static; only the thumb moves. */
+  .ag-effort-track .dots,
+  .ag-effort-track .dots::before,
+  .ag-effort-track .dots::after{
+    position:absolute;inset:0;border-radius:8px;content:"";pointer-events:none}
+  .ag-effort-track .dots{
+    background:var(--paper-2);overflow:hidden;
+    background-image:radial-gradient(circle at center,
+      color-mix(in srgb,var(--accent) 45%,transparent) 26%, transparent 28%);
+    background-size:7px 7px;
+    -webkit-mask-image:linear-gradient(90deg,rgba(0,0,0,.16) 0%,rgba(0,0,0,.45) 40%,#000 85%);
+    mask-image:linear-gradient(90deg,rgba(0,0,0,.16) 0%,rgba(0,0,0,.45) 40%,#000 85%)}
+  .ag-effort-track .dots::before{
+    background-image:radial-gradient(circle at center,
+      color-mix(in srgb,var(--accent) 72%,transparent) 33%, transparent 35%);
+    background-size:7px 7px;
+    -webkit-mask-image:linear-gradient(90deg,transparent 14%,rgba(0,0,0,.5) 52%,#000 88%);
+    mask-image:linear-gradient(90deg,transparent 14%,rgba(0,0,0,.5) 52%,#000 88%)}
+  .ag-effort-track .dots::after{
+    background-image:radial-gradient(circle at center,
+      var(--accent) 40%, transparent 42%);
+    background-size:7px 7px;
+    -webkit-mask-image:linear-gradient(90deg,transparent 48%,rgba(0,0,0,.45) 76%,#000 100%);
+    mask-image:linear-gradient(90deg,transparent 48%,rgba(0,0,0,.45) 76%,#000 100%)}
+
+  /* A slow sheen travelling the length of the ramp. Transform only, so it is
+     composited, and it is the one thing here that moves on its own. */
+  .ag-effort-track .sheen{position:absolute;inset:0;border-radius:8px;overflow:hidden;
+    pointer-events:none;z-index:2}
+  .ag-effort-track .sheen::after{content:"";position:absolute;top:0;bottom:0;width:38%;
+    background:linear-gradient(100deg,transparent,
+      color-mix(in srgb,var(--accent) 26%,transparent) 45%,transparent);
+    transform:translateX(-140%);
+    animation:effSheen 4.4s cubic-bezier(.4,0,.2,1) infinite}
+  @keyframes effSheen{
+    0%{transform:translateX(-140%)}
+    60%{transform:translateX(300%)}
+    100%{transform:translateX(300%)}
+  }
+
+  /* The visible thumb is a div so it can EASE between steps. A native range
+     thumb jumps: the browser paints it at the new value on the same frame,
+     so arrow keys and taps both snap. The input is still the control — it
+     keeps focus, keyboard and touch — with its own thumb made transparent
+     and left full height for the hit area. */
+  .ag-effort-thumb{position:absolute;top:50%;left:0;width:24px;height:20px;border-radius:7px;
+    /* NO CUSTOM PROPERTY IN HERE — the transform is written from JS.
+       Two attempts went through a variable and both failed silently while
+       every diagnostic said they should work: calc(var(--n) * var(--len))
+       computed to zero, and a single var(--eff-x) latched at whatever value
+       it first held. Measured across five steps the thumb reported x=119
+       while --eff-x read 0, 59, 119 and 178 in turn — the property updates,
+       the transform does not follow it. An unregistered custom property
+       inside transform is not a reliable dependency for style recalc here,
+       so positionThumb() assigns the whole declaration instead. The
+       transition below still does the easing. */
+    /* POSITIONED WITH `left`, NOT `transform`.
+       Three attempts went through transform and all three failed the same
+       way: the computed matrix stayed at one value no matter what was
+       written. Measured directly — setting style.transform to
+       translate(0px,-50%), even with !important, still rendered at 172px,
+       and there was no competing rule and no animation on the element. The
+       cause was never identified; `left` is not subject to it, transitions
+       identically, and the vertical centring keeps a static transform. */
+    transform:translateY(-50%);
+    background:#fff;border:1px solid rgba(23,23,23,.16);
+    box-shadow:0 1px 3px rgba(23,23,23,.22);
+    pointer-events:none;z-index:3;
+    transition:left .26s cubic-bezier(.22,1,.28,1),box-shadow .24s var(--ease)}
+  /* The halo is the level rather than decoration, so it is a class the two
+     top levels carry — driven from JS, which already knows the level, rather
+     than from a custom property inside a shadow. */
+  .ag-effort-track[data-heat="smart"] .ag-effort-thumb{
+    box-shadow:0 1px 3px rgba(23,23,23,.22),0 0 8px color-mix(in srgb,var(--accent) 34%,transparent)}
+  .ag-effort-track[data-heat="max"] .ag-effort-thumb{
+    box-shadow:0 1px 3px rgba(23,23,23,.22),0 0 13px color-mix(in srgb,var(--accent) 52%,transparent)}
+  /* No easing while dragging — a 260ms ease chasing a pointer trails behind
+     it, which reads as stutter rather than as smoothness. */
+  .ag-effort-track.dragging .ag-effort-thumb{transition:box-shadow .24s var(--ease)}
+  .ag-effort-track.dragging .ag-effort-thumb{left:var(--x,0)}
+  :root[data-theme="dark"] .ag-effort-thumb{background:#f6f6f8;border-color:rgba(0,0,0,.45);
+    box-shadow:0 1px 4px rgba(0,0,0,.6)}
+  .ag-effort-range:focus-visible ~ .ag-effort-thumb{
+    box-shadow:0 1px 3px rgba(23,23,23,.26),0 0 0 3px color-mix(in srgb,var(--accent) 32%,transparent)}
+  .ag-effort-track:active .ag-effort-thumb{transition-duration:.1s}
+
+  .ag-effort-range{position:absolute;inset:0;width:100%;height:100%;margin:0;z-index:4;
+    -webkit-appearance:none;appearance:none;background:transparent;cursor:pointer}
   .ag-effort-range:focus{outline:none}
   .ag-effort-range::-webkit-slider-runnable-track{height:26px;background:transparent}
   .ag-effort-range::-moz-range-track{height:26px;background:transparent}
   .ag-effort-range::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;
-    width:20px;height:20px;border-radius:50%;background:#fff;border:1px solid rgba(23,23,23,.14);
-    box-shadow:0 1px 3px rgba(23,23,23,.28);margin-top:3px;
-    transition:transform .14s var(--ease),box-shadow .14s var(--ease)}
-  .ag-effort-range::-moz-range-thumb{width:20px;height:20px;border-radius:50%;background:#fff;
-    border:1px solid rgba(23,23,23,.14);box-shadow:0 1px 3px rgba(23,23,23,.28)}
-  .ag-effort-range:hover::-webkit-slider-thumb{transform:scale(1.08)}
-  .ag-effort-range:active::-webkit-slider-thumb{transform:scale(.96)}
-  .ag-effort-range:focus-visible::-webkit-slider-thumb{
-    box-shadow:0 1px 3px rgba(23,23,23,.28),0 0 0 3px color-mix(in srgb,var(--accent) 34%,transparent)}
-  :root[data-theme="dark"] .ag-effort-range::-webkit-slider-thumb{
-    background:#f5f5f7;border-color:rgba(0,0,0,.4);box-shadow:0 1px 4px rgba(0,0,0,.6)}
-  :root[data-theme="dark"] .ag-effort-range::-moz-range-thumb{
-    background:#f5f5f7;border-color:rgba(0,0,0,.4)}
+    width:24px;height:26px;background:transparent;border:0}
+  .ag-effort-range::-moz-range-thumb{width:24px;height:26px;background:transparent;border:0}
 
-  .ag-effort-blurb{margin-top:9px;font-size:.72rem;line-height:1.45;color:var(--mut);min-height:2.1em;
-    transition:opacity .14s var(--ease)}
-  .ag-effort-blurb.swap{opacity:0}
+  /* The same hint the reference carries: enter commits and closes. */
+  .ag-effort-enter{flex:none;width:15px;height:15px;color:var(--mut);opacity:.5}
 
-  /* Everything above is opacity and transform, so this turns the motion off
-     without turning the control off. */
   @media (prefers-reduced-motion:reduce){
-    .ag-effort-pop,.ag-effort-tip,.ag-effort-head .v,.ag-effort-blurb,
-    .ag-effort-range::-webkit-slider-thumb{transition:none !important}
+    .ag-effort-pop,.ag-effort-tip,.ag-effort-head .v,.ag-effort-thumb,
+    .ag-effort-pill,
+    .ag-effort-track .sheen{display:none}
   }
-  /* On a phone the pill sits two-thirds of the way across a 375px row, so a
-     popover anchored to it and 268px wide starts at -65px — measured, with
-     "Faster" and half the description off the left edge. Anchor it to the
-     viewport instead of the pill: the composer is already pinned to the
-     bottom there, and --composer-h is kept current by the ResizeObserver
-     further down, so this sits just above it whatever height it has grown to. */
   @media (max-width:900px){
     /* Anchor to the COMPOSER, not the pill and not the viewport.
-       Pill-anchored, a 268px popover starts at -65px on a 375px screen —
-       measured, with "Faster" off the left edge. Viewport-anchored was worse
-       in a way that only shows on the new-chat screen, where the composer is
-       centred in the hero rather than pinned to the bottom, so a popover
-       positioned from the bottom edge landed below it on top of the tiles.
-       Making the wrap static hands the containing block to .ag-box, which is
-       already position:relative and is the thing this should track. */
+       Pill-anchored, the popover started at -65px on a 375px screen —
+       measured, with Faster off the left edge. Viewport-anchored was worse
+       in a way that only showed on the new-chat screen, where the composer
+       is centred in the hero rather than pinned to the bottom, so it landed
+       below the composer on top of the tiles. Making the wrap static hands
+       the containing block to .ag-box, which is already position:relative
+       and is the thing this should track. */
     .ag-effort-wrap{position:static}
     .ag-effort-pop{left:0;right:0;width:auto;bottom:calc(100% + 10px);transform-origin:50% 100%}
-    /* Hover-only, so it never shows on touch and would now be measured
-       against the composer rather than the pill. */
     .ag-effort-tip{display:none}
   }
 
@@ -4266,7 +4328,7 @@
             <span class="ag-effort-tip">Effort</span>
             <button type="button" class="ag-effort-pill" id="agEffortPill"
                     data-level="balanced" aria-haspopup="dialog" aria-expanded="false">
-              <span class="lvl-dot"></span><span id="agEffortPillLabel">Balanced</span>
+              <span id="agEffortPillLabel">Balanced</span>
             </button>
             <div class="ag-effort-pop" id="agEffortPop" role="dialog" aria-label="Effort">
               <div class="ag-effort-head">
@@ -4275,13 +4337,21 @@
                 <svg class="q" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 3.2 2.4c-.6.2-.9.7-.9 1.3v.3"/><circle cx="12" cy="16.8" r=".9" fill="currentColor" stroke="none"/></svg>
               </div>
               <div class="ag-effort-ends"><span>Faster</span><span>Smarter</span></div>
-              <div class="ag-effort-track">
-                <div class="ag-effort-dots" aria-hidden="true"></div>
-                <input type="range" class="ag-effort-range" id="agEffortRange"
-                       min="0" max="3" step="1" value="1"
-                       aria-label="Effort" aria-valuetext="Balanced">
+              <div class="ag-effort-row">
+                <div class="ag-effort-track" id="agEffortTrack">
+                  <div class="dots" aria-hidden="true"></div>
+                  <div class="sheen" aria-hidden="true"></div>
+                  <!-- step is fine-grained so the thumb tracks the finger
+                       instead of jumping between four stops; the LEVEL still
+                       snaps to the nearest whole one, and the value eases to
+                       it on release. -->
+                  <input type="range" class="ag-effort-range" id="agEffortRange"
+                         min="0" max="3" step="0.001" value="1"
+                         aria-label="Effort" aria-valuetext="Balanced">
+                  <div class="ag-effort-thumb" id="agEffortThumb" aria-hidden="true"></div>
+                </div>
+                <svg class="ag-effort-enter" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 10 5 14l4 4"/><path d="M5 14h10a4 4 0 0 0 4-4V6"/></svg>
               </div>
-              <div class="ag-effort-blurb" id="agEffortBlurb">The everyday setting</div>
             </div>
           </div>
 
@@ -7022,7 +7092,8 @@
   const agEffortPop = $("agEffortPop");
   const agEffortRange = $("agEffortRange");
   const agEffortName = $("agEffortName");
-  const agEffortBlurb = $("agEffortBlurb");
+  const agEffortTrack = $("agEffortTrack");
+  const agEffortThumb = $("agEffortThumb");
 
   function effortIndex() {
     const i = EFFORT_LEVELS.findIndex((e) => e.id === agentEffort);
@@ -7043,6 +7114,48 @@
     });
   }
 
+  /* The visible thumb is a div, so its travel has to be computed rather than
+     inherited from the input. --eff-span is the distance it may move (track
+     width minus its own width) and --eff-pos is where along that it sits, so
+     the transform is a pure translate and the easing in CSS does the rest.
+     Recomputed on open and on resize because the track is flexible and a
+     width measured while the popover was hidden is zero. */
+  /* Where the thumb sits, in fractions of a step. Held separately from the
+     level because a drag moves continuously and the level does not: the
+     finger can be at 1.6 while the app is still on Balanced. */
+  let effortRaw = 1;
+  let effortDragging = false;
+
+  function paintEffort(raw) {
+    if (!agEffortTrack || !agEffortThumb) return;
+    const w = agEffortTrack.clientWidth, tw = agEffortThumb.offsetWidth;
+    const span = w - tw;
+    if (span <= 0) return;
+    const steps = EFFORT_LEVELS.length - 1;
+    const frac = steps ? Math.min(1, Math.max(0, raw / steps)) : 0;
+    const x = frac * span;
+    agEffortThumb.style.left = x.toFixed(2) + "px";
+    // The handle looks like the level it is on.
+    agEffortTrack.dataset.heat = (EFFORT_LEVELS[Math.round(raw)] || EFFORT_LEVELS[1]).id;
+  }
+
+  function positionThumb() {
+    effortRaw = effortIndex();
+    paintEffort(effortRaw);
+  }
+
+  /* The parts of setEffort that are safe to run on every pointermove: no
+     thumb repaint (the drag owns that) and no localStorage write. */
+  function setEffortLabelOnly(lvl) {
+    agentEffort = lvl.id;
+    if (agEffortPill) agEffortPill.dataset.level = lvl.id;
+    if (agEffortPillLabel) agEffortPillLabel.textContent = lvl.label;
+    swapText(agEffortName, lvl.label);
+    const hot = !!POWER_TIERS[lvl.id];
+    if (agBoxElement) agBoxElement.classList.toggle("power-mode", hot);
+    document.body.classList.toggle("power-mode", hot);
+  }
+
   function setEffort(id, opts) {
     const lvl = EFFORT_LEVELS.find((e) => e.id === id) || EFFORT_LEVELS[1];
     agentEffort = lvl.id;
@@ -7054,7 +7167,7 @@
     }
     if (agEffortPillLabel) agEffortPillLabel.textContent = lvl.label;
     swapText(agEffortName, lvl.label);
-    swapText(agEffortBlurb, lvl.blurb);
+    positionThumb();
     if (agEffortRange) {
       const idx = String(effortIndex());
       if (agEffortRange.value !== idx) agEffortRange.value = idx;
@@ -7076,6 +7189,9 @@
     // Close the sibling picker rather than stacking two popovers.
     if (agModelPopover) agModelPopover.classList.remove("open");
     if (agModelPill) agModelPill.classList.remove("open");
+    /* After the class lands, so clientWidth is the laid-out width and not the
+       zero a hidden element reports. */
+    requestAnimationFrame(positionThumb);
     if (agEffortRange) agEffortRange.focus();
   }
   function closeEffort() {
@@ -7091,11 +7207,42 @@
   }
   if (agEffortPop) agEffortPop.addEventListener("click", (e) => e.stopPropagation());
   if (agEffortRange) {
-    // `input`, not `change`: the label must track the thumb while dragging.
-    agEffortRange.addEventListener("input", () => {
-      const lvl = EFFORT_LEVELS[Number(agEffortRange.value)] || EFFORT_LEVELS[1];
+    /* Dragging paints continuously and commits discretely.
+       With step=1 the thumb jumped between four stops and the whole control
+       felt like four buttons in a trench coat. The range is fine-grained
+       now: the thumb follows the finger exactly, the level snaps to whatever
+       it is nearest, and the easing is turned OFF for the duration — a
+       260ms ease chasing a pointer lags behind it, which reads as stutter
+       rather than smoothness. */
+    const beginDrag = () => {
+      effortDragging = true;
+      if (agEffortTrack) agEffortTrack.classList.add("dragging");
+    };
+    const endDrag = () => {
+      if (!effortDragging) return;
+      effortDragging = false;
+      if (agEffortTrack) agEffortTrack.classList.remove("dragging");
+      // Ease from wherever the finger left it to the level it chose.
+      const lvl = EFFORT_LEVELS[Math.round(effortRaw)] || EFFORT_LEVELS[1];
+      agEffortRange.value = String(EFFORT_LEVELS.indexOf(lvl));
       setEffort(lvl.id);
+    };
+    agEffortRange.addEventListener("pointerdown", beginDrag);
+    agEffortRange.addEventListener("pointerup", endDrag);
+    agEffortRange.addEventListener("pointercancel", endDrag);
+    agEffortRange.addEventListener("blur", endDrag);
+
+    agEffortRange.addEventListener("input", () => {
+      const raw = Number(agEffortRange.value);
+      effortRaw = raw;
+      paintEffort(raw);
+      const lvl = EFFORT_LEVELS[Math.round(raw)] || EFFORT_LEVELS[1];
+      // Only the parts that are cheap to change mid-drag; positionThumb()
+      // would fight the paint above by snapping the thumb back to the level.
+      if (lvl.id !== agentEffort) setEffortLabelOnly(lvl);
     });
+    // A keyboard step is not a drag: commit and ease, do not free-run.
+    agEffortRange.addEventListener("change", () => { if (!effortDragging) endDrag(); });
     agEffortRange.addEventListener("keydown", (e) => {
       if (e.key === "Enter" || e.key === "Escape") { e.preventDefault(); closeEffort(); }
     });
@@ -7104,6 +7251,7 @@
   document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeEffort(); });
 
   setEffort(agentEffort);
+  window.addEventListener("resize", positionThumb);
 
   /* Derived from the EFFORT level now, not the mode. `thinking` is what the
      Anthropic adapter reads to turn extended reasoning on, so it belongs to
