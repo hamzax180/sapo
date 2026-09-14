@@ -24,3 +24,19 @@ Dockerfile*     text eol=lf
 *.json          text eol=lf
 *.sql           text eol=lf
 .env.example    text eol=lf
+
+# Binaries, marked so nothing tries to normalise them.
+#
+# git guesses: a file with NUL bytes is left alone, everything else gets
+# eol conversion under core.autocrlf. A PDF survives that guess today, and
+# `git add` still prints "LF will be replaced by CRLF" over it, which is a
+# warning about a conversion that would corrupt the file the moment the
+# guess went the other way. Say it explicitly instead of relying on the
+# content sniffer.
+*.pdf  binary
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.ico  binary
+*.woff binary
+*.woff2 binary
