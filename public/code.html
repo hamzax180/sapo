@@ -1236,6 +1236,22 @@
     border:1px solid var(--line);background:var(--card);cursor:pointer;
     font:inherit;font-size:.78rem;font-weight:600;color:var(--ink-2);
     transition:background .18s var(--ease),border-color .18s var(--ease),color .18s var(--ease)}
+  /* THE PILL IS AS WIDE AS ITS WIDEST LABEL, ALWAYS.
+     The level name changes as you drag, and the names are not the same
+     length: "Fast" measured 47.1px and "Balanced" 77.5px, so the pill
+     swung 30.4px and every control to its right - the model pill, the
+     mic, the send button - slid by exactly that much. Dragging the
+     slider made the whole composer row shuffle sideways under the
+     cursor, and on a narrow composer it was enough to wrap the row.
+
+     Every label is in the DOM, stacked in one grid cell; the three that
+     are not current are visibility:hidden, so they still take part in
+     sizing and nothing else. A min-width in px would do the same job
+     until the font, the type scale or the wording changed; this cannot
+     go stale, because the thing being measured IS the set of labels. */
+  .ag-effort-lbl{display:grid;justify-items:center}
+  .ag-effort-lbl>*{grid-area:1/1}
+  .ag-effort-lbl>i{visibility:hidden;font-style:normal;pointer-events:none}
   .ag-effort-pill:hover{background:var(--paper-2);border-color:var(--line-hover)}
   .ag-effort-pill.open{background:var(--paper-2);border-color:var(--line-hover)}
   /* No indicator dot. The level's NAME is the indicator — a coloured bead
@@ -4523,7 +4539,7 @@
             <span class="ag-effort-tip">Effort</span>
             <button type="button" class="ag-effort-pill" id="agEffortPill"
                     data-level="balanced" aria-haspopup="dialog" aria-expanded="false">
-              <span id="agEffortPillLabel">Balanced</span>
+              <span class="ag-effort-lbl"><span id="agEffortPillLabel">Balanced</span><i aria-hidden="true">Fast</i><i aria-hidden="true">Balanced</i><i aria-hidden="true">Smart</i><i aria-hidden="true">Max</i></span>
             </button>
             <div class="ag-effort-pop" id="agEffortPop" role="dialog" aria-label="Effort">
               <div class="ag-effort-head">
