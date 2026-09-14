@@ -457,7 +457,11 @@ const ROUTES = { prose: { baseUrl: "https://x.invalid/prose", model: "gemini-3.8
        This assertion is deliberately an exact set rather than a subset check,
        so adding a tool to the model's surface cannot happen quietly — which
        is why it caught both of these. */
-    assert.deepStrictEqual(names, ["edit_file", "read_file", "suggest_next", "write_file"]);
+    /* search_code joins them, and is inert on the same terms as read_file:
+       it iterates the same in-memory map through the same validateReadPath,
+       so it can never name a file a read could not have opened anyway. It
+       spawns nothing and touches no disk. */
+    assert.deepStrictEqual(names, ["edit_file", "read_file", "search_code", "suggest_next", "write_file"]);
     for (const forbidden of ["run", "exec", "shell", "bash", "npm_install", "install", "fetch", "http"]) {
       assert.ok(!names.includes(forbidden), "a tool named " + forbidden + " is offered to the model");
     }
@@ -1662,6 +1666,93 @@ const ROUTES = { prose: { baseUrl: "https://x.invalid/prose", model: "gemini-3.8
     });
     assert.ok(res.ok, "a first build that fails should still render something");
     assert.ok(res.fellBack, "the template is the right answer when the alternative is a blank screen");
+  });
+
+  console.log("\n── search_code ───────────────────────────────────");
+
+  const shop = {
+    "src/App.tsx": 'import { useCart } from "./hooks/useCart";\nexport default function App(){ return <p>Book a table</p>; }',
+    "src/hooks/useCart.ts": "export function useCart(){ return { total: 0 }; }\n// the TOTAL is minor units",
+    "index.html": '<!doctype html><html><body><a href="menu.html">Menu</a></body></html>',
+    "menu.html": "<!doctype html><html><body>menu</body></html>"
+  };
+  function searchThenWrite(calls) {
+    const first = { role: "assistant", tool_calls: calls.map((a, i) => ({
+      id: "s_" + i, type: "function", function: { name: "search_code", arguments: JSON.stringify(a) } })) };
+    const second = toolCallMsg([{ path: "src/App.tsx", content: "export default function App(){ return <p>ok</p>; }" }]);
+    return fetchReturning([first, second]);
+  }
+  async function searchOnce(args, files) {
+    const bodies = [];
+    const inner = searchThenWrite([args]);
+    client.init({ enabled: true, routes: ROUTES, fetchImpl: async (u, o) => { bodies.push(JSON.parse(o.body)); return inner(); } });
+    await proposeWithClientBuild({
+      userPrompt: "change it", maxRounds: 0, baseFiles: files || shop, hasExistingEntry: true,
+      onFiles: async () => ({ ok: true, errors: [] })
+    });
+    const tool = (bodies[1] || { messages: [] }).messages.find((m) => m.role === "tool");
+    return tool ? tool.content : null;
+  }
+
+  await check("a match comes back as file, line and the line itself", async () => {
+    const out = await searchOnce({ query: "useCart" });
+    assert.match(out, /src\/App\.tsx:1:/);
+    assert.match(out, /src\/hooks\/useCart\.ts:1:/);
+  });
+
+  await check("matching is case-insensitive by default", async () => {
+    const out = await searchOnce({ query: "total" });
+    assert.match(out, /useCart\.ts:1/, "lowercase 'total' should match 'total: 0'");
+    assert.match(out, /useCart\.ts:2/, "and the uppercase TOTAL in the comment");
+  });
+
+  await check("a page at the project root is searchable", async () => {
+    const out = await searchOnce({ query: "menu.html" });
+    assert.match(out, /^index\.html:1:/m);
+  });
+
+  await check("regex is opt-in and a bad one is an answer, not a crash", async () => {
+    const good = await searchOnce({ query: "Book a (table|room)", regex: true });
+    assert.match(good, /src\/App\.tsx:2:/);
+    // Both halves run the same userPrompt, and the response cache would
+    // otherwise serve the first result to the second without a model call.
+    clearCache();
+    const bad = await searchOnce({ query: "Book a (table", regex: true });
+    assert.match(bad, /Error: .*not a valid regular expression/);
+  });
+
+  /* Bare "no matches" reads as a broken tool, and the model searches again
+     with a synonym instead of concluding the thing is absent. */
+  await check("no matches says the search worked", async () => {
+    const out = await searchOnce({ query: "stripeWebhookHandler" });
+    assert.match(out, /No matches/);
+    assert.match(out, /does not yet/);
+  });
+
+  await check("search cannot name a file a read could not open", async () => {
+    const out = await searchOnce({ query: "SECRET" }, {
+      "src/App.tsx": "export default function App(){ return null; }",
+      ".env": "JWT_SECRET=hunter2"
+    });
+    assert.ok(!/\.env/.test(out), "search reached a path outside what a read is allowed: " + out);
+  });
+
+  /* The manifest tells the model to call read_file on a page it was not
+     shown, and read_file refused every .html at the project root — so a
+     site's own pages were unreadable by the thing that wrote them. */
+  await check("read_file can open a page at the project root", async () => {
+    const bodies = [];
+    const first = { role: "assistant", tool_calls: [{ id: "r0", type: "function",
+      function: { name: "read_file", arguments: JSON.stringify({ path: "menu.html" }) } }] };
+    const inner = fetchReturning([first, toolCallMsg([{ path: "index.html", content: "<!doctype html><html></html>" }])]);
+    client.init({ enabled: true, routes: ROUTES, fetchImpl: async (u, o) => { bodies.push(JSON.parse(o.body)); return inner(); } });
+    await proposeWithClientBuild({
+      userPrompt: "add a page", maxRounds: 0, baseFiles: shop, hasExistingEntry: true,
+      onFiles: async () => ({ ok: true, errors: [] })
+    });
+    const tool = bodies[1].messages.find((m) => m.role === "tool");
+    assert.match(tool.content, /menu/, "the page came back as an error: " + tool.content);
+    assert.ok(!/only files under src/.test(tool.content), "root .html is still refused");
   });
 
   console.log("\n── the reviewer, and its bias toward silence ──────");

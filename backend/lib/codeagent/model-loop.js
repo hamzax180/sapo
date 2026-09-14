@@ -76,7 +76,12 @@ const { preflight } = require("./preflight");
 // failed — so a v9 design can carry the unresolved import or the dead nav
 // link that preflight now refuses, and was written under a codebase block
 // that did not yet list the files it was not shown.
-const PROMPT_VERSION = "v10";
+// v11: search_code, and read_file stopped refusing the project's own pages.
+// A v10 entry came from a model that could only find a thing by opening the
+// file it was in, and could not open a root .html at all — so a v10 design
+// for a multi-page site was written by something that could not read the
+// pages it had already written.
+const PROMPT_VERSION = "v11";
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 
 // The Map was unbounded: entries expire only when something reads them again,
@@ -643,6 +648,27 @@ const TOOLS_SCHEMA = [
   {
     type: "function",
     function: {
+      name: "search_code",
+      description: "Find where something is in this project — a component, a helper, a prop, a class name, a string a visitor sees. Searches every file and returns the matching lines with their file and line number. Use it when you know WHAT you are looking for but not WHERE it is; it is one call instead of reading five files to find out which one holds the thing you need. Cheaper than read_file for locating, and read_file is still the way to see a whole file once you know which.",
+      parameters: {
+        type: "object",
+        properties: {
+          query: {
+            type: "string",
+            description: "The text to find. Matched literally and case-insensitively unless regex is true, e.g. \"useCart\", \"aria-current\", \"Book a table\"."
+          },
+          regex: {
+            type: "boolean",
+            description: "Optional. Treat query as a JavaScript regular expression instead of literal text."
+          }
+        },
+        required: ["query"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
       name: "suggest_next",
       description: "AFTER writing files, optionally propose 2-3 short next improvements the person might want. Each must be a concrete change to THIS app that you could carry out immediately if they said yes — not generic advice, not something already done.",
       parameters: {
@@ -696,8 +722,8 @@ Rules:
 HOW TO WORK, IN ORDER. Not ceremony — every step here is one that got skipped and produced a specific broken app.
 
 1. UNDERSTAND what is being asked. When the request comes with a note about what the project is for, that is background: it tells you what the app is, not what to do today. The change request is the task.
-2. INSPECT before you write. The codebase block opens with the COMPLETE list of files in this project — read it first. A path that is not on that list does not exist, and a file marked as not shown or excerpted is one to call read_file on, not one to reconstruct from what a file with that name usually contains.
-3. PLAN which files you will create and which you will change, before writing any of them. If something on the list already does the job, import it. A second component doing what an existing one already does is how a project ends up with two headers that disagree.
+2. INSPECT before you write. The codebase block opens with the COMPLETE list of files in this project — read it first. A path that is not on that list does not exist, and a file marked as not shown or excerpted is one to call read_file on, not one to reconstruct from what a file with that name usually contains. When you know what you are looking for but not which file holds it — a hook, a prop, a class, a line of copy — call search_code rather than opening files one at a time to find out.
+3. PLAN which files you will create and which you will change, before writing any of them. If something on the list already does the job, import it. A second component doing what an existing one already does is how a project ends up with two headers that disagree — and search_code is how you find out before writing it rather than after.
 4. EXECUTE. Write them all, entry point included, in this one response.
 5. VERIFY before you finish. You cannot run the app, so check what you CAN check by rereading what you just wrote:
    - every import points at a file that exists — one you wrote in this response, or one on the file list
@@ -989,6 +1015,58 @@ function normalisePath(p) {
   return String(p || "").trim().split("\\").join("/");
 }
 
+/** Caps on one search result, so a common word cannot eat the context. */
+const MAX_SEARCH_HITS = 40;
+const MAX_SEARCH_LINE = 200;
+
+/**
+ * Find a string across the project, the way someone would use grep.
+ *
+ * The model could read a file it could name and could name nothing it had
+ * not been shown. So "where does the cart total get worked out" was answered
+ * by reading files one at a time until it appeared — three rounds of budget
+ * to answer a question grep answers in one — or, more often, by writing a
+ * second function that did the same thing beside the first.
+ *
+ * Literal and case-insensitive by default, because the model mostly knows
+ * the name of the thing and not its exact casing, and a regex typo comes
+ * back as an error rather than an answer.
+ */
+function searchCode(files, query, useRegex) {
+  const q = String(query || "").trim();
+  if (!q) throw new Error("search_code: \"query\" must be a non-empty string");
+  if (q.length > 200) throw new Error("search_code: \"query\" is too long");
+
+  let re;
+  if (useRegex) {
+    try { re = new RegExp(q, "i"); }
+    catch (e) { throw new Error("search_code: \"" + q + "\" is not a valid regular expression: " + e.message); }
+  } else {
+    const needle = q.toLowerCase();
+    re = { test: (line) => line.toLowerCase().indexOf(needle) !== -1 };
+  }
+
+  const hits = [];
+  let truncated = false;
+  for (const path of Object.keys(files || {}).sort()) {
+    let allowed;
+    try { allowed = validateReadPath(path); }
+    catch (e) { continue; }   // the same set a read may reach, and no wider
+    const content = files[allowed];
+    if (typeof content !== "string") continue;
+    const lines = content.split("\n");
+    for (let i = 0; i < lines.length; i++) {
+      if (!re.test(lines[i])) continue;
+      if (hits.length >= MAX_SEARCH_HITS) { truncated = true; break; }
+      const text = lines[i].trim();
+      hits.push(allowed + ":" + (i + 1) + ": " +
+        (text.length > MAX_SEARCH_LINE ? text.slice(0, MAX_SEARCH_LINE) + " …" : text));
+    }
+    if (truncated) break;
+  }
+  return { hits, truncated };
+}
+
 /**
  * What a read is allowed to reach.
  *
@@ -1004,7 +1082,15 @@ function validateReadPath(path) {
   const p = normalisePath(path);
   if (!p) throw new Error("read_file: \"path\" must be a non-empty string");
   if (p.startsWith("/") || p.includes("..")) throw new Error("read_file: \"" + p + "\" is not a safe relative path");
-  if (!/^src\//.test(p)) throw new Error("read_file: only files under src/ can be read, got \"" + p + "\"");
+  /* Root .html is readable because it is WRITABLE — a site with pages is
+     index.html, menu.html, contact.html at the project root, and this
+     refused every one of them. The model could write about.html, be shown
+     it in the codebase block, be told by the file manifest to call
+     read_file on it when it did not fit the budget, and then be refused by
+     its own tool. Same set write_file allows, for the same reason. */
+  if (!/^src\//.test(p) && !/^[^/]+\.html$/.test(p)) {
+    throw new Error("read_file: only files under src/, or a page .html at the project root, can be read — got \"" + p + "\"");
+  }
   return p;
 }
 
@@ -1115,6 +1201,7 @@ function parseToolCalls(message, mcp, opts) {
      because answering them here would mean parseToolCalls making a decision
      about conversation flow that belongs one level up. */
   const readCalls = [];
+  const searchCalls = [];
   /* WAS THE COMPLETION CUT OFF? The caller knows (finish_reason === "length")
      and this function cannot tell. It changes exactly one judgement: a final
      tool call whose arguments will not parse.
@@ -1171,6 +1258,20 @@ function parseToolCalls(message, mcp, opts) {
       continue;
     }
 
+    if (name === "search_code") {
+      let args = {};
+      let argError = null;
+      try { args = JSON.parse(c.function.arguments || "{}"); }
+      catch (e) { argError = "malformed JSON arguments: " + e.message; }
+      searchCalls.push({
+        id: c.id,
+        query: String((args && args.query) || ""),
+        regex: !!(args && args.regex),
+        argError: argError
+      });
+      continue;
+    }
+
     if (name === "edit_file") {
       let args;
       try { args = JSON.parse(c.function.arguments); }
@@ -1213,7 +1314,7 @@ function parseToolCalls(message, mcp, opts) {
 
   // A turn that ONLY called MCP tools is valid and expected — the model is
   // gathering facts before it writes. The caller loops rather than failing.
-  if (!writes.length && mcpCalls.length) return { ok: true, calls: [], mcpCalls: mcpCalls, readCalls: readCalls, toolsOnly: true, suggestions: suggestions };
+  if (!writes.length && mcpCalls.length) return { ok: true, calls: [], mcpCalls: mcpCalls, readCalls: readCalls, searchCalls: searchCalls, toolsOnly: true, suggestions: suggestions };
   /* Every edit missed and nothing was written. Not "no tool calls" — the model
      tried and aimed badly — so the reason names the anchors it got wrong,
      which is something it can act on, rather than a generic failure it
@@ -1224,11 +1325,11 @@ function parseToolCalls(message, mcp, opts) {
   /* Asked to see files and wrote nothing yet. That is a legitimate turn, not
      a failure — it is the whole point of having a read tool — so it comes
      back as toolsOnly and the caller answers the reads and asks again. */
-  if (!writes.length && readCalls.length) {
-    return { ok: true, calls: [], mcpCalls: mcpCalls, readCalls: readCalls, toolsOnly: true, suggestions: suggestions };
+  if (!writes.length && (readCalls.length || searchCalls.length)) {
+    return { ok: true, calls: [], mcpCalls: mcpCalls, readCalls: readCalls, searchCalls: searchCalls, toolsOnly: true, suggestions: suggestions };
   }
   if (!writes.length) return { ok: false, reason: "model returned no write_file calls" };
-  return { ok: true, calls: writes, mcpCalls: mcpCalls, readCalls: readCalls, suggestions: suggestions,
+  return { ok: true, calls: writes, mcpCalls: mcpCalls, readCalls: readCalls, searchCalls: searchCalls, suggestions: suggestions,
     editErrors: editErrors,
     /* The file the cut landed in, when one was salvaged past. The caller needs
        it to say what is still missing rather than guessing. */
@@ -1916,10 +2017,11 @@ async function runToolRounds(messages, opts, base) {
     const parsed = parseToolCalls(res.message, mcp, opts);
     const reads = (parsed.readCalls || []).filter((r) => !served.has(r.path) || r.argError);
     const mcps = parsed.mcpCalls || [];
+    const searches = parsed.searchCalls || [];
     /* Nothing to service: this is the ordinary build turn, and it returns
        after exactly one model call — the same shape the caller had before
        this loop handled every mode rather than just power-with-MCP. */
-    if (!parsed.ok || (!mcps.length && !reads.length)) {
+    if (!parsed.ok || (!mcps.length && !reads.length && !searches.length)) {
       return { res, convo, costUsd, parsed };
     }
 
@@ -1961,11 +2063,40 @@ async function runToolRounds(messages, opts, base) {
       return { id: r.id, text: content };
     });
 
+    /* Searches are answered from the same tree as reads, and a refusal comes
+       back as the result rather than a thrown turn for the same reason: a bad
+       regex is something the model can correct next round. Deliberately NOT
+       added to `served` — asking twice for the same FILE is the loop that
+       wasted a round, but two searches for two different things are two
+       questions, and the second is usually the useful one. */
+    const searchResults = searches.map(function (sc) {
+      if (sc.argError) return { id: sc.id, text: "Error: " + sc.argError };
+      if (opts.onToolCall) {
+        try { opts.onToolCall({ name: "search_code", args: { query: sc.query } }); }
+        catch (e) { /* observability only */ }
+      }
+      let found;
+      try { found = searchCode(opts.files || {}, sc.query, sc.regex); }
+      catch (e) { return { id: sc.id, text: "Error: " + e.message }; }
+      if (!found.hits.length) {
+        /* "No matches" has to read as an ANSWER. Left bare it looks like a
+           broken tool, and the model searches again with a synonym instead
+           of concluding the thing is absent and going on to write it. */
+        return { id: sc.id, text: "No matches for " + JSON.stringify(sc.query) +
+          " anywhere in this project. The search worked \u2014 nothing in the code" +
+          " contains that, so if you expected it to exist, it does not yet." };
+      }
+      const more = found.truncated
+        ? "\n\n(stopped at " + MAX_SEARCH_HITS + " matches \u2014 narrow the query for the rest)"
+        : "";
+      return { id: sc.id, text: found.hits.join("\n") + more };
+    });
+
     // The model wrote files in the same turn it called tools — take the
     // files and stop. Re-asking would throw away work it already did.
     if (parsed.calls && parsed.calls.length) return { res, convo, costUsd, parsed };
 
-    convo = convo.concat([res.message], results.concat(readResults).map((r) => ({
+    convo = convo.concat([res.message], results.concat(readResults, searchResults).map((r) => ({
       role: "tool", tool_call_id: r.id, content: r.text
     })));
   }
