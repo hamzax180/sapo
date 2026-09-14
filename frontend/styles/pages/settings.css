@@ -1,0 +1,742 @@
+  /* Replit's settings pattern: a centered modal panel over a dimmed page,
+     a left sub-nav grouped under small uppercase headings (Workspace /
+     Account), and one content pane on the right. Replit's neutral grays
+     and flat cards, Souqi's cyan as the accent rather than their blue. */
+  *,*::before,*::after{box-sizing:border-box}
+  :root{
+    /* ---- motion and elevation, sampled from replit.com -----------------
+       Read out of their live stylesheet rather than guessed from a
+       screenshot, because what reads as "fancy" there is not one effect.
+       It is the SAME fade level and the SAME two speeds applied to
+       everything; picking a plausible shadow per surface is exactly what
+       makes an interface look assembled rather than designed.
+
+       Two durations carry all of it: .12s for anything answering a press,
+       .3s for anything arriving or leaving. Four shadows, one near-black
+       at rising alpha, which is why their cards read as lifted instead of
+       outlined. And the fade levels are a share of the CURRENT text
+       colour, not a fixed grey — one token that is correct on any surface
+       and in either theme. */
+    --dur-snappy:.12s; --dur-chill:.3s;
+    --ease-snappy:ease-out; --ease-chill:ease-in-out;
+    --sh-subtle:0px 1px 2px #00000008,0px 4px 8px -2px #0000000a;
+    --sh-raised:0px 2px 4px #0000000a,0px 8px 16px -4px #0000000f;
+    --sh-floating:0px 4px 6px -2px #0000000d,0px 12px 24px -6px #00000012;
+    --sh-overlay:0px 8px 16px -4px #00000014,0px 24px 48px -12px #0000001a;
+    --fade-subtle:color-mix(in srgb,currentColor 10%,transparent);
+    --fade-regular:color-mix(in srgb,currentColor 20%,transparent);
+    --fade-strong:color-mix(in srgb,currentColor 30%,transparent);
+    --fade-up-shift:10px; --fade-up-gap:50ms;
+
+    --paper:#f6f5f4; --paper-2:#ebeced; --card:#fcfcfc; --sidebg:#f2f1f0;
+    --ink:#241f1a; --ink-2:#6b6258; --mut:#9c948a;
+    --accent:#0079f2; --accent-2:#0068d0;      /* Replit blue */
+    --tint-2:#e8f2fe; --line:#cfc9c3; --dark:#241f1a; --navy-800:#0d0d0d;
+    --hero-a:#302a23; --hero-b:#191410;
+    --danger:#d92d20; --danger-bg:#fef3f2; --danger-line:#fda29b;
+    /* Replit sets UI type in its own sans, not a display face — using Jost
+       for headings here is what made this read as "inspired by" rather
+       than "the same". One family, weight does the work. */
+    --disp:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+    --body:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+    --ease:cubic-bezier(.16,1,.3,1);
+  }
+  /* Dark theme. Only the tokens change — every rule below is written
+     against variables precisely so this stays a ~15-line override rather
+     than a second stylesheet that drifts from the first. */
+  :root[data-theme="dark"]{
+    --paper:#18191b; --paper-2:#212225; --card:#26282b; --sidebg:#1e2022;
+    --ink:#f5f9fc; --ink-2:#9ea3a6; --mut:#7a7f82;
+    --tint-2:#2d2420; --line:#33363a; --dark:#0a0908; --navy-800:#0d0b0a;
+    --hero-a:#2c2622; --hero-b:#1d1916;
+    --danger:#f97066; --danger-bg:#2a1614; --danger-line:#4a2320;
+  }
+  html{background:var(--paper)}
+
+  /* ---- the arrival ------------------------------------------------------
+     Their fade-up, to their numbers: .3s ease-out, 10px of travel, and a
+     50ms gap between siblings so a column of cards resolves in sequence
+     rather than all at once. `both` matters — without it the element is
+     painted at its final position for one frame before the animation
+     starts, which is the flash this is meant to avoid.
+
+     Reduced-motion gets the opacity and none of the travel. Removing the
+     animation outright would leave `both` holding the from-state, i.e. an
+     invisible card, so the override sets a finished state rather than
+     `animation:none`. */
+  @keyframes sqFadeUp{from{opacity:0;transform:translateY(var(--fade-up-shift))}to{opacity:1;transform:none}}
+  /* THE BOX MOVES. WHAT IS IN IT DOES NOT.
+
+     Opening settings is ONE event, and one event should produce one
+     movement. The container already carries it — .ag-set-overlay animates
+     its iframe in and out, identically in all four pages that can open it
+     (code, projects, deployments, security). Everything in here arriving
+     with its own fade on top of that was a second entrance for the same
+     event: the panel sliding up inside a box that was itself still
+     sliding up, one movement read as two, and the heading visibly lagging
+     the frame it lives in.
+
+     So these three keep their names and do nothing. Left in place rather
+     than deleted because they are referenced from markup and from the
+     stagger helper; a missing class is a silent no-op that looks like an
+     oversight, where a class that explicitly declines to animate is a
+     decision someone can read. The keyframe above stays for the same
+     reason — nothing else defines it, and reversing this is then one
+     line rather than an archaeology exercise. */
+  .fade-up,.fade-in,.stagger > *{animation:none}
+  .stagger > :nth-child(1){animation-delay:0ms}
+  .stagger > :nth-child(2){animation-delay:50ms}
+  .stagger > :nth-child(3){animation-delay:100ms}
+  .stagger > :nth-child(4){animation-delay:150ms}
+  .stagger > :nth-child(5){animation-delay:200ms}
+  .stagger > :nth-child(6){animation-delay:250ms}
+  .stagger > :nth-child(n+7){animation-delay:300ms}
+  @media (prefers-reduced-motion:reduce){
+    .fade-up,.fade-in,.stagger > *{animation-duration:1ms;animation-delay:0ms;--fade-up-shift:0px}
+  }
+
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--body);-webkit-font-smoothing:antialiased;
+    transition:background .2s,color .2s}
+  a{color:inherit;text-decoration:none}
+  button{font:inherit}
+  h1,h2,h3{font-family:var(--disp);font-weight:700;letter-spacing:-.02em;margin:0}
+
+  .nav{display:flex;align-items:center;gap:20px;padding:14px clamp(18px,4vw,40px);
+    background:var(--paper);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:20}
+  .brand{display:flex;align-items:center;gap:10px;font-family:var(--disp);font-weight:800;font-size:1.1rem}
+  .brand img{width:26px;height:26px;object-fit:contain;border-radius:4px}
+  .nav .sp{margin-left:auto}
+  .btn-g{padding:9px 15px;border:1px solid var(--line);border-radius:8px;font-size:.86rem;font-weight:600;transition:.16s;background:var(--card)}
+  .btn-g:hover{border-color:var(--mut)}
+  .btn-d{padding:9px 17px;border-radius:8px;background:var(--accent);color:#fff;font-size:.86rem;font-weight:600;transition:.16s}
+  .btn-d:hover{background:var(--accent-2)}
+
+  /* The modal shell */
+  .wrap{max-width:1180px;margin:clamp(12px,3vh,34px) auto;background:var(--card);
+    border:1px solid var(--line);border-radius:14px;overflow:hidden;
+    box-shadow:0 24px 70px -30px rgba(0,0,0,.35)}
+  .mhead{display:flex;align-items:center;gap:10px;padding:9px 20px 8px;border-bottom:1px solid var(--line)}
+  .mhead svg.gear{width:20px;height:20px;color:var(--ink)}
+  .mhead h1{font-size:1.4rem;font-weight:600;letter-spacing:-.02em}
+  .ag-modal-x-btn {
+    margin-left: auto;
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+    border: 1px solid var(--line);
+    background: var(--paper-2);
+    color: var(--ink-2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  .ag-modal-x-btn:hover {
+    background: var(--card);
+    color: var(--ink);
+    border-color: var(--mut);
+    transform: scale(1.05);
+  }
+  .ag-modal-x-btn svg { width: 18px; height: 18px; }
+  /* The round header buttons. They only ever appear below 901px (the
+     desktop header has a gear, a title and an X and needs neither), so
+     they ship hidden and the breakpoint reveals them. */
+  /* No fill at rest. A close button and an info button are the two least
+     interesting things on a settings screen, and a filled grey circle
+     behind each one gave them the visual weight of the title between
+     them. The glyph alone is enough to tap; the circle comes back on
+     hover, where it is feedback rather than decoration. .mrt-done opts
+     back into a fill below — it is the one affirmative control here and
+     is supposed to carry weight. */
+  .mrt-round{display:none;flex:none;width:34px;height:34px;border-radius:50%;border:0;
+    background:none;color:var(--ink-2);align-items:center;justify-content:center;
+    cursor:pointer;transition:background .15s ease,color .15s ease}
+  .mrt-round:hover{background:color-mix(in srgb,var(--ink) 8%,transparent);color:var(--ink)}
+  .mrt-round svg{width:19px;height:19px}
+  /* hidden is an ATTRIBUTE and the UA rule behind it is weaker than any
+     class selector, so every display here has to say :not([hidden]) or
+     the breakpoint below would show a back button on the root list. */
+  .mrt-round[hidden],.mroot[hidden]{display:none !important}
+  .mroot{display:none}
+  .mbody{display:grid;grid-template-columns:237px 1fr;min-height:min(74vh,660px)}
+
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--line); border-radius: 99px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--mut); }
+
+  .side{padding:10px 10px 16px 14px;overflow-y:auto;max-height:min(74vh,660px);
+    background:var(--sidebg);border-right:1px solid var(--line);
+    /* A column, so the nav below can claim the leftover height and push
+       its last group down. Nothing here changes the panel's size. */
+    display:flex;flex-direction:column}
+  .wsbadge{display:flex;align-items:center;gap:10px;width:100%;border:1px solid var(--line);background:var(--card);
+    color:var(--ink);border-radius:9px;padding:5px 9px 5px 5px;margin-bottom:16px;text-align:left;cursor:pointer}
+  .wsbadge .av{width:24px;height:24px;border-radius:50%;flex:none;display:grid;place-items:center;color:#fff;
+    background:linear-gradient(135deg,#8b8b8b,#6b6b6b);font-weight:600;font-size:.82rem}
+  .wsbadge .nm{flex:1;min-width:0;font-size:.8rem;font-weight:600;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .wsbadge .chev{width:14px;height:14px;flex:none;color:var(--ink-2)}
+  /* Replit's group labels are normal-case and near-body-size, not the
+     tiny uppercase eyebrows a settings page usually uses. */
+  .grp{font-size:.7rem;font-weight:600;color:var(--ink);padding:0 8px;margin:16px 0 3px}
+  .grp:first-of-type{margin-top:0}
+  .snav{display:flex;flex-direction:column;gap:4px;flex:1}
+  /* The last group — User, ending in Promotions & Referrals — sits at the
+     bottom of the column. The empty space in this sidebar was collecting
+     UNDER the final item, which reads as a list that stopped early. Put
+     it between the groups instead and the column has a top and a bottom:
+     what you do with the workspace up here, who you are down there. */
+  .snav .grp:last-of-type{margin-top:auto}
+  .snav button{display:flex;align-items:center;gap:10px;width:100%;text-align:left;border:0;background:none;
+    color:var(--ink-2);padding:8px;border-radius:8px;font-size:.81rem;font-weight:400;cursor:pointer;transition:.14s}
+  .snav button svg{width:16px;height:16px;flex:none}
+  .snav button:hover{background:var(--paper-2);color:var(--ink)}
+  .snav button.on{background:var(--paper-2);color:var(--ink);font-weight:500}
+
+  .content{padding:4px clamp(16px,2.4vw,27px) 32px;overflow-y:auto;max-height:min(74vh,660px)}
+  .panel{display:none}
+  .panel.on{display:block}
+  .panel-head{margin-bottom:26px}
+  .panel-head h2{font-size:1.5rem;font-weight:600;letter-spacing:-.02em}
+  /* Replit's content shape: NOT bordered cards — a collapsible section
+     heading, rows beneath it, and a hairline rule between sections. */
+  .sec{border-top:1px solid var(--line);padding:22px 0 4px}
+  .sec:first-of-type{border-top:0;padding-top:0}
+  .sec > h3{display:flex;align-items:center;font-size:1rem;font-weight:600;margin-bottom:11px;
+    cursor:pointer;user-select:none}
+  .sec > h3 .chev{margin-left:auto;width:18px;height:18px;color:var(--ink-2);transition:transform .2s var(--ease)}
+  .sec.closed > h3{margin-bottom:0}
+  .sec.closed > h3 .chev{transform:rotate(180deg)}
+  /* Collapse everything under the heading. :not(h3) rather than a wrapper
+     div so the existing markup needed no restructuring. */
+  .sec.closed > *:not(h3){display:none}
+  .sec > p{font-size:.81rem;color:var(--ink-2);line-height:1.55;margin:0 0 13px}
+  .sec > p:last-child{margin-bottom:0}
+
+  /* Replit's scan-result banner shape, reused honestly (see the HTML
+     comment above #secBanner) — a neutral blue tint rather than success
+     green, since this isn't the output of any actual check we ran. */
+  .sec-banner{display:flex;align-items:flex-start;gap:12px;background:var(--tint-2);
+    border:1px solid #bfe3f7;border-radius:12px;padding:16px 18px;margin-bottom:22px}
+  :root[data-theme="dark"] .sec-banner{border-color:#1c4a63}
+  .sec-banner svg{width:19px;height:19px;color:var(--accent);flex:none;margin-top:1px}
+  .sec-banner b{display:block;font-size:.95rem;font-weight:600}
+  .sec-banner span{display:block;font-size:.87rem;color:var(--ink-2);margin-top:3px;line-height:1.5}
+  /* Label + description on the left, control hard right — Replit's row */
+  .srow{display:flex;align-items:center;gap:20px;padding:12px 0}
+  .srow .txt{flex:1;min-width:0}
+  /* Both are <span>, so without this they lay out inline and every row in
+     Settings reads "Custom domainsPoint your own domain at a published
+     app." — the label welded to its own description. The margin-top below
+     was doing nothing for the same reason: it cannot apply to an inline
+     box. This is not specific to Integrations; it was every row on the
+     page. */
+  .srow .t{display:block;font-size:.98rem;font-weight:500}
+  .srow .d{display:block;font-size:.88rem;color:var(--ink-2);margin-top:2px;line-height:1.45}
+  .srow .val{font-size:.95rem;font-weight:500;white-space:nowrap}
+  /* Toggle switch */
+  .tgl{position:relative;width:44px;height:24px;flex:none;cursor:pointer}
+  .tgl input{position:absolute;opacity:0;width:0;height:0}
+  .tgl .track{position:absolute;inset:0;background:#d4d4d4;border-radius:999px;transition:.18s}
+  .tgl .track::after{content:"";position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;
+    background:#fff;transition:.18s;box-shadow:0 1px 3px rgba(0,0,0,.25)}
+  .tgl input:checked + .track{background:var(--accent)}
+  .tgl input:checked + .track::after{transform:translateX(20px)}
+  .sel{border:1px solid var(--line);border-radius:8px;padding:9px 12px;font:inherit;font-size:.92rem;
+    background:var(--card);color:var(--ink);cursor:pointer}
+  .sel:focus{outline:none;border-color:var(--accent)}
+  .stat3{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+  .copyrow{display:flex;gap:8px}
+  .copyrow input{flex:1;min-width:0;border:1px solid var(--line);border-radius:8px;padding:10px 12px;
+    font:inherit;font-size:.88rem;background:var(--paper);color:var(--ink)}
+  .copyrow input:focus{outline:none;border-color:var(--accent)}
+  .btn-primary{border:0;background:var(--accent);color:#fff;border-radius:8px;padding:10px 18px;
+    font-size:.88rem;font-weight:600;cursor:pointer;transition:.15s;white-space:nowrap}
+  .btn-primary:hover{background:var(--accent-2)}
+  /* Model provider rows. Each is a self-contained key form: the input is
+     always present rather than hidden behind an "Add" toggle, because the
+     whole point of this panel is that it is the one place keys are entered
+     — a click to reveal the field would just be a step in the way. */
+  .prow{border-top:1px solid var(--line);padding:16px 0}
+  .prow:first-of-type{border-top:0;padding-top:4px}
+  .prow .phead{display:flex;align-items:center;gap:10px;margin-bottom:4px}
+  .prow .pname{font-size:.98rem;font-weight:600}
+  .prow .phint{font-size:.87rem;color:var(--ink-2);line-height:1.45;margin:0 0 12px}
+  .prow .copyrow{margin-bottom:8px}
+  .prow .copyrow input.model{flex:0 0 190px}
+  .prow .prow-actions{display:flex;gap:8px;align-items:center}
+  .pill.keyed{background:#e6f8f1;color:#0f8a5f}
+  .pill.nokey{background:var(--paper-2);color:var(--ink-2)}
+  @media (max-width:620px){
+    .prow .copyrow{flex-wrap:wrap}
+    .prow .copyrow input.model{flex:1 1 100%}
+  }
+  .domrow{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:13px 0;border-top:1px solid var(--line)}
+  .domrow:first-of-type{border-top:0}
+  .domrow .t{flex:1;min-width:150px;font-size:.9rem;font-weight:600}
+  .domrow .u{font-size:.83rem;color:var(--ink-2);word-break:break-all}
+  .pill{display:inline-flex;align-items:center;gap:6px;font-size:.75rem;font-weight:700;
+    border-radius:999px;padding:3px 10px;background:var(--paper-2);color:var(--ink-2)}
+  .pill.live{background:#e6f8f1;color:#0f8a5f}
+  :root[data-theme="dark"] .pill.live{background:#0d2f24;color:#3ddca5}
+  .lbl{font-size:.9rem;font-weight:600;margin:0 0 12px}
+  .hint{font-size:.86rem;color:var(--ink-2);margin:0 0 16px;line-height:1.5}
+
+  /* Appearance — the two big theme preview cards */
+  .themes{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+  @media (max-width:620px){ .themes{grid-template-columns:1fr} }
+  .theme{position:relative;border:2px solid var(--line);border-radius:16px;padding:14px;background:none;
+    cursor:pointer;transition:.16s;text-align:center}
+  .theme:hover{border-color:var(--accent)}
+  .theme.on{border-color:var(--accent);box-shadow:0 0 0 4px var(--tint-2)}
+  .theme .mock{border-radius:11px;padding:14px;height:150px;display:flex;flex-direction:column;gap:8px;
+    justify-content:space-between;border:1px solid rgba(128,128,128,.18)}
+  .theme[data-theme="light"] .mock{background:#faf7f2}
+  .theme[data-theme="dark"] .mock{background:#0d1117}
+  /* System is both, split on the diagonal — the one preview that cannot
+     show a single colour, because the whole point of it is that the
+     colour is not its to decide. */
+  .theme[data-theme="system"] .mock{background:linear-gradient(120deg,#faf7f2 0 50%,#0d1117 50% 100%)}
+  /* display:block, or nothing. These are <span>s, and the two in the top
+     stack are not inside a flex parent the way the bottom one is — inline
+     boxes ignore height, so that half of every preview has always been
+     empty. */
+  .theme .bar{display:block;height:9px;border-radius:5px}
+  .theme[data-theme="light"] .bar{background:#dfd9cf}
+  .theme[data-theme="dark"] .bar{background:#2a323d}
+  /* Mid-tone, so the bars read against both halves of the split above. */
+  .theme[data-theme="system"] .bar{background:#8d8b88}
+  .theme .bar.s{width:55%}
+  /* Bar then dot: the dot sits at the trailing edge of the row, where a
+     window's controls are, rather than leading it. */
+  .theme .row{display:flex;align-items:center;gap:8px;flex-direction:row-reverse}
+  .theme .dot{width:14px;height:14px;border-radius:50%;background:var(--accent);flex:none}
+  .theme .row .bar{flex:1;margin:0}
+  /* color was never set here, so a <button>'s text fell back to the UA's
+     own ButtonText — which is black, in every theme. In dark mode the
+     words "Light" and "Dark" were black on a near-black card. Inheriting
+     from the page is the fix, and .theme gets color:inherit too so nothing
+     else inside these buttons picks up the same default. */
+  .theme{color:inherit}
+  .theme .name{margin-top:11px;font-size:.92rem;font-weight:700;color:var(--ink)}
+  .theme[aria-pressed="true"] .name,.theme.on .name{color:var(--ink)}
+  /* The same lift the integration cards use, so the two panels feel like
+     one product rather than two people's work. */
+  .theme{transition:border-color var(--dur-snappy,.12s) ease,box-shadow var(--dur-snappy,.12s) ease,
+         transform var(--dur-snappy,.12s) ease}
+  .theme:hover{border-color:var(--line-hover);box-shadow:var(--sh-raised);transform:translateY(-1px)}
+  @media (prefers-reduced-motion:reduce){ .theme{transition:none} }
+  .theme .tick{position:absolute;top:9px;right:9px;width:19px;height:19px;border-radius:50%;background:var(--accent);
+    display:none;place-items:center}
+  .theme .tick svg{width:11px;height:11px;color:#fff}
+  .theme.on .tick{display:grid}
+
+  /* Rows: a label/description on the left, a control on the right */
+  .row-card{display:flex;align-items:center;gap:16px;flex-wrap:wrap;
+    border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin-top:12px;background:var(--paper)}
+  .row-card .txt{flex:1;min-width:190px}
+  .row-card .t{font-size:.95rem;font-weight:700}
+  .row-card .d{font-size:.84rem;color:var(--ink-2);margin-top:3px;line-height:1.45}
+  .row-card .v{font-size:.95rem;font-weight:700}
+
+  /* Profile hero.
+
+     It was --dark to --navy-800, which in dark mode is #0a0908 to #0d0b0a:
+     a slab blacker than the page it sits on, so the one panel meant to read
+     as a header read as a hole punched in the panel. Warm graphite instead,
+     and a shade LIGHTER than the page rather than darker, which is what
+     every other raised surface here does.
+
+     Light mode keeps its dark banner - white text needs it - but warms the
+     far end too: #0d0d0d was the one neutral black in a palette that is
+     warm everywhere else, and it showed. */
+  .hero{border:1px solid var(--line);border-radius:16px;padding:30px;text-align:center;
+    background:linear-gradient(135deg,var(--hero-a),var(--hero-b));color:#fff}
+  .avatar{width:78px;height:78px;border-radius:50%;margin:0 auto 14px;display:grid;place-items:center;
+    background:linear-gradient(135deg,var(--accent),var(--accent-2));font-family:var(--disp);font-weight:700;font-size:2rem;color:#fff}
+  .hero .who{font-family:var(--disp);font-size:1.3rem;font-weight:700}
+  .hero .mail{font-size:.87rem;opacity:.72;margin-top:3px}
+  .cards2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px}
+  @media (max-width:620px){ .cards2{grid-template-columns:1fr} }
+  .kv{padding:2px 0}
+  .kv .k{font-size:.86rem;color:var(--ink-2);font-weight:400}
+  .kv .v{font-size:1.6rem;font-weight:600;margin-top:2px;letter-spacing:-.02em}
+  .kv .v small{font-family:var(--body);font-size:.8rem;font-weight:500;color:var(--mut)}
+  .kv a{display:inline-block;margin-top:7px;font-size:.85rem;font-weight:700;color:var(--accent)}
+  .meter{height:7px;border-radius:5px;background:var(--paper-2);overflow:hidden;margin-top:9px}
+  .meter i{display:block;height:100%;background:linear-gradient(90deg,var(--accent),var(--accent-2))}
+
+  /* Centered empty-ish panel (Build History), TurkGateway's shape */
+  .mid{text-align:center;padding:26px 10px}
+  .mid .ic{width:56px;height:56px;border-radius:16px;margin:0 auto 16px;display:grid;place-items:center;
+    background:var(--tint-2);color:var(--accent)}
+  .mid .ic svg{width:26px;height:26px}
+  .mid h3{font-size:1.35rem;margin-bottom:8px}
+  .mid p{font-size:.92rem;color:var(--ink-2);max-width:44ch;margin:0 auto 20px;line-height:1.55}
+
+  .btn{border:1px solid var(--line);background:var(--paper);color:var(--ink);border-radius:11px;
+    padding:11px 20px;font-size:.88rem;font-weight:700;cursor:pointer;transition:.16s;white-space:nowrap}
+  .btn:hover{border-color:var(--accent);color:var(--accent)}
+  .btn:disabled{opacity:.55;cursor:default}
+  .btn-danger{border-color:var(--danger-line);background:var(--danger-bg);color:var(--danger)}
+  .btn-danger:hover{background:var(--danger);border-color:var(--danger);color:#fff}
+
+  .danger{border:1px solid var(--danger-line);background:var(--danger-bg);border-radius:16px;
+    padding:24px;text-align:center;margin-top:22px}
+  .danger h3{color:var(--danger);font-size:1.1rem;margin-bottom:7px}
+  .danger p{font-size:.87rem;color:var(--ink-2);max-width:46ch;margin:0 auto 16px;line-height:1.5}
+  .danger input{border:1px solid var(--danger-line);border-radius:10px;padding:10px 13px;font:inherit;
+    font-size:.88rem;background:var(--card);color:var(--ink);width:min(260px,100%);margin-bottom:10px}
+  .danger input:focus{outline:none;border-color:var(--danger)}
+
+  .note{margin-top:14px;font-size:.85rem;line-height:1.5}
+  .note.ok{color:#0f8a5f}
+  .note.err{color:var(--danger)}
+
+  .signedout{text-align:center;padding:44px 16px}
+  .signedout p{color:var(--ink-2);margin:0 0 18px}
+
+  /* Embedded as the builder's overlay: the builder already has a header
+     and a way back, so this page's own nav would be a second one. Set by
+     the script below rather than a media query — it depends on being in
+     an iframe, not on width. */
+  body.embedded .nav{display:none}
+  body.embedded .wrap{margin:0;border:0;border-radius:0;max-width:none;width:100%;height:100vh;display:flex;flex-direction:column}
+  body.embedded .mbody{flex:1;min-height:0}
+  body.embedded .content{max-height:none;height:100%}
+  body.embedded .side{max-height:none;height:100%}
+  /* The frame owns the scroll now, so the page itself must not add a
+     second one on top of the two column scrollers. */
+  body.embedded{overflow:hidden}
+
+  /* ═══════════════════════════════════════════════════════════════════
+     PHONE + TABLET: ONE LIST, NOT TWO COLUMNS
+     ═══════════════════════════════════════════════════════════════════
+     A 237px sidebar beside a panel is a desktop shape. Squeezed onto a
+     tablet it became a horizontally-scrolling strip of tabs with the last
+     four cut off the right edge, above a panel that still looked like one
+     pane of a dialog — a settings screen you had to scroll sideways to
+     read the contents of.
+
+     So below 901px this is a sheet with a root list, the shape every
+     settings screen on a touch device has: grouped rows with an icon, a
+     label and a chevron; a tap opens that panel full-width; the header's
+     left button turns into a back chevron and its title into the panel's
+     name. The rows are generated from #snav (see the JS), so this is one
+     nav rendered two ways rather than a second list to keep in step.
+
+     Everything here is scoped to the breakpoint. Desktop is untouched.
+
+     The pointer query is here for the same reason it is on the overlay
+     that frames this page: an iPad in landscape is 1180 or 1366 CSS
+     pixels wide, so width alone would give a touch device the two-column
+     desktop shape. Inside the overlay the iframe is already narrow enough
+     to match on width; this is what catches /settings opened directly. */
+  @media (max-width:900px), (hover:none) and (pointer:coarse){
+    /* html and body have to carry the height or the percentage below has
+       nothing to resolve against: embedded, .wrap fell back to auto and
+       grew to its content — 1025px of list inside a 560px sheet, so the
+       IFRAME scrolled instead of the list, and the header scrolled away
+       with it. One rule covers both cases: 100% of the iframe when
+       embedded, 100% of the window when opened directly. */
+    html,body{height:100%}
+    .wrap{margin:0;border:0;border-radius:0;height:100%;display:flex;flex-direction:column;box-shadow:none}
+
+    /* Header: close left, title centred, info right — and the title is
+       centred against the two buttons rather than the box, which is why
+       both slots are the same width whether or not anything is in them. */
+    /* THE HEADER IS GLASS, AND THE GLASS ITSELF FADES OUT.
+
+       Two earlier attempts, and what was wrong with each:
+
+       A flat frosted bar — one blur, one tint, a hard bottom edge. The
+       edge is the problem. A backdrop-filter stops dead at its boundary,
+       so a row crossing it snapped from sharp to frosted at a line, and
+       the line is the bar you were trying not to draw.
+
+       Then no bar at all, with the list masked away beneath it. That has
+       no edge, but it also has nothing to see: rows did not pass behind
+       the title, they stopped existing on the way up. Which is not
+       see-through, it is a trapdoor.
+
+       This is the third shape and the one the iPad settings actually use:
+       the blur is on a ::before layer, and that LAYER is masked rather
+       than the list. So the blur is at full strength behind the glyphs
+       and tapers to nothing 26px below them — a row does not cross a
+       boundary, it drifts progressively out of focus and comes back as it
+       leaves. The content never disappears, and there is no line anywhere
+       to find, because the thing with the hard edge is itself dissolving.
+
+       The mask is eased rather than linear. A straight ramp bands
+       visibly across a 26px run at these blur radii; the stops below are
+       a rough ease-out, which is smooth enough that the falloff has no
+       features to catch on.
+
+       ::before, not the element, because a mask on .mhead would take the
+       title and the two glyphs down with it. They stay fully opaque on
+       top of their own glass.
+
+       position:absolute is unchanged and still load-bearing, so .mbody
+       gets the full height and the scroll starts at the top of the sheet
+       rather than under a 54px header that had already eaten it. The
+       scrollers pad themselves down by that much (--mhead-h) so nothing
+       STARTS underneath it. */
+    .mhead{position:absolute;top:0;left:0;right:0;z-index:6;flex:none;gap:8px;
+      padding:11px 12px 9px;border-bottom:0;background:none;
+      -webkit-backdrop-filter:none;backdrop-filter:none}
+    .mhead::before{
+      content:"";position:absolute;left:0;right:0;top:0;bottom:-26px;
+      pointer-events:none;z-index:-1;
+      /* Thin enough to read the shape of a row through it. The tint is
+         what keeps the title legible over whatever is passing; the blur
+         is what stops it being readable competition. */
+      background:color-mix(in srgb,var(--card) 52%,transparent);
+      -webkit-backdrop-filter:blur(18px) saturate(1.5);
+      backdrop-filter:blur(18px) saturate(1.5);
+      -webkit-mask-image:linear-gradient(to bottom,#000 0,#000 52%,
+        rgba(0,0,0,.92) 64%,rgba(0,0,0,.73) 74%,rgba(0,0,0,.48) 83%,
+        rgba(0,0,0,.22) 92%,transparent 100%);
+      mask-image:linear-gradient(to bottom,#000 0,#000 52%,
+        rgba(0,0,0,.92) 64%,rgba(0,0,0,.73) 74%,rgba(0,0,0,.48) 83%,
+        rgba(0,0,0,.22) 92%,transparent 100%)}
+    .mhead svg.gear{display:none}
+    .mhead h1{order:2;flex:1;min-width:0;text-align:center;font-size:1.05rem;font-weight:700;
+      letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .mrt-round:not([hidden]){order:1;display:flex}
+    /* Same specificity as the rule above or it loses and the info button
+       lands next to the close button on the left. */
+    .mrt-info:not([hidden]){order:3}
+    /* The tick is the affirmative one, so it carries a little more weight
+       than the plain grey circles either side of the title. */
+    .mrt-done{background:var(--line);color:var(--ink)}
+    .mrt-done:hover{background:var(--mut);color:var(--card)}
+    /* Matched to .mrt-round above: bare glyph, fill only on hover. The
+       border has to go too — it is set on the desktop rule and a 1px
+       ring is exactly the outline this is trying to lose. */
+    .ag-modal-x-btn{order:1;margin-left:0;width:34px;height:34px;border-radius:50%;border:0;
+      background:none;color:var(--ink-2)}
+    .ag-modal-x-btn:hover{transform:none;border-color:transparent;color:var(--ink);
+      background:color-mix(in srgb,var(--ink) 8%,transparent)}
+    /* In a panel the back chevron replaces the close button outright, the
+       way a pushed screen replaces the one under it. */
+    body.mpanel .ag-modal-x-btn{display:none}
+
+    /* --mhead-h is the room the floating header needs. One number, used
+       by both scrollers, so they cannot drift apart. */
+    :root{--mhead-h:54px}
+    .mbody{display:block;grid-template-columns:none;min-height:0;flex:1;overflow:hidden;position:relative}
+    .side{display:none}
+
+    /* PUSH AND POP.
+
+       Both panes are always in the DOM, stacked on each other and moved
+       with transform — which is what makes this animate in BOTH
+       directions from one class on <body>, with no timers to get wrong
+       and nothing to clean up when someone taps back mid-slide.
+
+       visibility rather than display, and its transition delayed by the
+       length of the slide, so the outgoing pane is still painted while it
+       leaves and is out of the tab order the moment it has. */
+    /* No mask here. There was one — it cut the list off at 38px so rows
+       vanished before they reached the title, and that cut is precisely
+       what a see-through header is not. The row is supposed to still be
+       there, softened, behind its own glass. The dissolve lives on
+       .mhead::before now, where it fades the BLUR instead of the
+       content. */
+    .mroot:not([hidden]),.content{
+      position:absolute;inset:0;height:auto;max-height:none;overflow-y:auto;
+      -webkit-overflow-scrolling:touch;
+      transition:transform .3s cubic-bezier(.32,.72,0,1),opacity .22s ease,visibility 0s linear .3s}
+    /* --card, which is what the group slabs used to be filled with. The
+       list and the panel it pushes to are now the same colour, so going
+       in and coming back out no longer changes the shade of the sheet
+       under your thumb — the panel slides over a surface it matches
+       instead of a darker one it doesn't. */
+    .mroot:not([hidden]){display:block;background:var(--card);
+      padding:calc(var(--mhead-h) + 8px) 13px calc(22px + env(safe-area-inset-bottom,0px));
+      transform:none;opacity:1;visibility:visible;transition-delay:0s,0s,0s}
+    .content{display:block;background:var(--card);
+      padding:calc(var(--mhead-h) + 8px) 16px calc(30px + env(safe-area-inset-bottom,0px));
+      transform:translateX(100%);opacity:0;visibility:hidden}
+    /* The list does not leave the way the panel arrives: it slides a
+       fraction of the distance and dims, so the panel reads as coming
+       down on top of it rather than the two swapping places. */
+    body.mpanel .mroot:not([hidden]){transform:translateX(-22%);opacity:0;visibility:hidden;
+      transition-delay:0s,0s,.3s}
+    body.mpanel .content{transform:none;opacity:1;visibility:visible;transition-delay:0s,0s,0s}
+    @media (prefers-reduced-motion:reduce){
+      .mroot:not([hidden]),.content{transition-duration:1ms,1ms,0s}
+    }
+    /* The panel's own heading is the sheet title now, so showing it again
+       at the top of the panel is the same words twice. */
+    body.mpanel .panel-head{display:none}
+
+    /* ---- grouped rows ----
+
+       THE GROUPS ARE NOT OBJECTS.
+
+       They used to be: a --card fill on a --paper-2 sheet, a 14px radius
+       and a drop shadow, which is the iOS grouped-list shape — every
+       group a white slab floating on grey. It draws a box around each
+       set of rows and then asks you to read past the box to get to the
+       rows, and with seven of them stacked the screen is mostly edges.
+
+       The fill moved to the sheet instead (see .mroot below), so the
+       surface the cards used to have is now the surface everything sits
+       on, and the cards themselves have nothing left to be. What holds a
+       group together now is the label above it and the gap either side —
+       which is all that was ever doing the work; the slab was just the
+       part you could see. */
+    .mrt-grp{font-size:.71rem;font-weight:600;letter-spacing:.02em;color:var(--mut);
+      margin:22px 4px 6px;text-transform:none}
+    .mrt-grp:first-child{margin-top:2px}
+    .mrt-card{background:none;border-radius:0;overflow:visible;box-shadow:none}
+    .mrt-row{display:flex;align-items:center;gap:12px;width:100%;border:0;background:none;
+      color:var(--ink);text-align:left;font:inherit;font-size:.91rem;padding:11px 13px;
+      cursor:pointer;position:relative;text-decoration:none}
+    /* The divider starts where the label does, not at the card edge — an
+       inset rule is what makes a list read as rows of one thing rather
+       than a stack of separate bars. */
+    /* The hairline is the only thing left holding the rows apart, so it
+       is softer than the full --line it was: at full strength, with no
+       card edge to compete with, seven of them down the screen read as a
+       grid. 55% is enough to separate two rows and not enough to draw
+       attention to itself. */
+    .mrt-row + .mrt-row::before{content:"";position:absolute;left:45px;right:0;top:0;height:1px;
+      background:color-mix(in srgb,var(--line) 55%,transparent)}
+    /* --paper-2 was a fill that matched the old sheet; against the new one
+       it is nearly invisible. A tint of the ink works in both themes
+       without naming a colour for either, and the radius is here because
+       the press no longer happens inside a clipped card. */
+    .mrt-row{border-radius:9px}
+    .mrt-row:active{background:color-mix(in srgb,var(--ink) 7%,transparent)}
+    .mrt-row .ic{flex:none;width:22px;height:22px;display:grid;place-items:center;color:var(--ink-2)}
+    .mrt-row .ic svg{width:20px;height:20px}
+    .mrt-row .lb{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .mrt-row .val{flex:none;font-size:.9rem;color:var(--ink-2);max-width:45%;overflow:hidden;
+      text-overflow:ellipsis;white-space:nowrap}
+    .mrt-row .chev{flex:none;width:17px;height:17px;color:var(--mut)}
+    .mrt-row.accent,.mrt-row.accent .ic{color:var(--accent)}
+    .mrt-row.danger{color:#d9382c;justify-content:center;font-weight:600}
+    :root[data-theme="dark"] .mrt-row.danger{color:#ff6b5e}
+
+    /* The account row: avatar, name, plan beneath it. */
+    .mrt-row.acct{padding:12px 14px}
+    .mrt-row.acct .av{flex:none;width:36px;height:36px;border-radius:50%;display:grid;place-items:center;
+      color:#fff;font-weight:700;font-size:.95rem;background:linear-gradient(135deg,#8b8b8b,#6b6b6b)}
+    .mrt-row.acct .who{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+    .mrt-row.acct .who .e{font-size:.97rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .mrt-row.acct .who .p{display:flex;align-items:center;gap:5px;font-size:.82rem;color:var(--ink-2)}
+    .mrt-row.acct .who .p svg{width:13px;height:13px}
+
+    /* ---- appearance, inline at the foot of the list ---- */
+    /* The last slab on the screen, and it goes for the same reason the
+       others did. The theme mocks are already outlined objects — a box
+       around three boxes was the outline twice. */
+    .mrt-themes{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;
+      background:none;border-radius:0;padding:12px 0 4px}
+    .mrt-themes .theme{border:0;padding:0;background:none;box-shadow:none;transform:none;text-align:center}
+    .mrt-themes .theme:hover{border:0;box-shadow:none;transform:none}
+    .mrt-themes .theme .mock{height:74px;padding:8px;gap:5px;border-radius:9px;
+      border:2px solid transparent;box-shadow:0 0 0 1px var(--line) inset;position:relative}
+    .mrt-themes .theme.on .mock{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
+    .mrt-themes .theme .name{margin-top:7px;font-size:.82rem;font-weight:600;color:var(--ink-2)}
+    .mrt-themes .theme.on .name{color:var(--accent)}
+    .mrt-themes .theme .bar{height:5px;border-radius:3px}
+    .mrt-themes .theme .dot{width:9px;height:9px}
+    .mrt-themes .theme .tick{display:none !important}
+
+    /* ---- the info sheet the ⓘ opens ---- */
+    .mrt-about{display:none}
+    body.mabout .mrt-about{display:block}
+
+    /* Desktop widths inside a panel keep their own spacing; here the
+       sections run edge to edge of the sheet. */
+    .panel{padding-bottom:8px}
+    .sec{padding:18px 0 4px}
+    .srow{flex-wrap:wrap;gap:10px}
+  }
+  @media (max-width:420px){
+    .mroot{padding-inline:12px}
+    .mrt-themes{gap:7px;padding:10px}
+    .mrt-themes .theme .mock{height:62px}
+  }
+
+  /* The panels do not animate either, on open OR on switch.
+
+     This used to, deliberately: the rule it replaces drew a line between
+     the two events — the container owns the opening, and switching from
+     Domains to Billing is a different event that earns its own movement —
+     and .panels-ready exists only to hold the fade off for the one frame
+     where those two would otherwise collide.
+
+     That reasoning is sound and the result still was not still enough. A
+     panel is the whole right-hand side of the dialog, so animating it
+     animates everything you are looking at; flicking down the sidebar
+     turned a list of settings into a slideshow, and the thing you came to
+     read arrived late every time. Content inside the box holds still now
+     and the box is the only thing that moves — which is the same rule the
+     three utilities above follow, stated for the panels.
+
+     .panels-ready is left alone: the class is now inert here, but the JS
+     that adds it is one line and removing it is a separate edit with its
+     own way to go wrong. It costs a class on <body> and nothing else. */
+  body.panels-ready .panel:not([hidden]),.ag-hist-foot{animation:none}
+
+  /* ---- integrations, as cards ------------------------------------------
+     A stack of text rows with a pill floated right made every integration
+     look like a settings toggle. These are things you go and DO something
+     with, so they get the shape that says so: an icon, a name, what it is
+     for, and the action, in a card you can scan a grid of.
+
+     What this deliberately is NOT is a wall of logos. The rest of the page
+     already says so and it still holds — every card here is something this
+     server can actually do, or is honestly marked as not built. There is
+     no Slack, no Drive, no HubSpot tile implying an integrations platform
+     that does not exist, and no count of "400+" anything. Five real cards
+     beat fifty fictional ones. */
+  .int-grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(238px,1fr));margin-top:6px}
+  /* A card is a fixed shape: header, description, action. The action is
+     pinned to the bottom with margin-auto so a two-line description and a
+     five-line one still line their buttons up across a row — ragged
+     buttons are what makes a grid of cards look like a list that failed. */
+  .int-card{display:flex;flex-direction:column;padding:15px;border-radius:14px;
+    border:1px solid var(--line);background:var(--card);box-shadow:var(--sh-subtle);
+    transition:border-color var(--dur-snappy,.12s) ease,box-shadow var(--dur-snappy,.12s) ease,
+               transform var(--dur-snappy,.12s) ease}
+  .int-card:hover{border-color:var(--line-hover);box-shadow:var(--sh-raised);transform:translateY(-1px)}
+  .int-head{display:flex;align-items:center;gap:9px;min-width:0;margin-bottom:9px}
+  .int-ic{width:32px;height:32px;border-radius:9px;flex:none;display:grid;place-items:center;
+    background:var(--paper-2);border:1px solid var(--line);color:var(--ink)}
+  .int-ic svg{width:18px;height:18px}
+  .int-head b{font-size:.92rem;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0}
+  /* A dot, and the button below says the same thing in words. Colour on its
+     own is not a status anyone can rely on. */
+  .int-dot{width:7px;height:7px;border-radius:50%;flex:none;background:var(--mut)}
+  /* Fallback is load-bearing: settings.html does not define --ok, so
+     var(--ok) resolved to nothing and the "available" dots rendered fully
+     transparent — the one state the dot exists to show was the one it did
+     not show. The button underneath still said "Available" in words, which
+     is why this was invisible rather than obviously broken. */
+  .int-dot.on{background:var(--ok,#22a565)}
+  .int-d{font-size:.82rem;color:var(--ink-2);line-height:1.5;margin:0 0 12px;
+    display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}
+  /* Full width, at the bottom, always present. A card whose only affordance
+     is a status pill is a card you read; the point of this panel is that
+     these are things you go and switch on. Where there is genuinely nothing
+     to do the button is really disabled rather than absent, so the card
+     keeps its shape and says why instead of leaving a gap. */
+  .int-act{margin-top:auto;width:100%;display:inline-flex;align-items:center;justify-content:center;gap:7px;
+    padding:9px 12px;border-radius:10px;border:1px solid var(--line);background:var(--paper-2);
+    color:var(--ink);font:inherit;font-size:.84rem;font-weight:600;cursor:pointer;text-decoration:none;
+    box-sizing:border-box;
+    transition:background var(--dur-snappy,.12s) ease,border-color var(--dur-snappy,.12s) ease}
+  .int-act:hover{background:var(--card);border-color:var(--line-hover)}
+  .int-act svg{width:14px;height:14px;flex:none}
+  .int-act.primary{background:var(--accent);border-color:transparent;color:#fff}
+  .int-act.primary:hover{background:var(--accent-2)}
+  .int-act[disabled]{opacity:.55;cursor:not-allowed;background:var(--paper-2)}
+  .int-act[disabled]:hover{background:var(--paper-2);border-color:var(--line)}
+  @media (prefers-reduced-motion:reduce){ .int-card{transition:none} }
+

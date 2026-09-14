@@ -1,0 +1,1806 @@
+  *,*::before,*::after{box-sizing:border-box}
+  *[hidden], [hidden]{display:none !important;pointer-events:none !important;visibility:hidden !important}
+  :root{
+    /* ---- motion and elevation, sampled from replit.com -----------------
+       Read out of their live stylesheet rather than guessed from a
+       screenshot, because what reads as "fancy" there is not one effect.
+       It is the SAME fade level and the SAME two speeds applied to
+       everything; picking a plausible shadow per surface is exactly what
+       makes an interface look assembled rather than designed.
+
+       Two durations carry all of it: .12s for anything answering a press,
+       .3s for anything arriving or leaving. Four shadows, one near-black
+       at rising alpha, which is why their cards read as lifted instead of
+       outlined. And the fade levels are a share of the CURRENT text
+       colour, not a fixed grey — one token that is correct on any surface
+       and in either theme. */
+    --dur-snappy:.12s; --dur-chill:.3s;
+    --ease-snappy:ease-out; --ease-chill:ease-in-out;
+    --sh-subtle:0px 1px 2px #00000008,0px 4px 8px -2px #0000000a;
+    --sh-raised:0px 2px 4px #0000000a,0px 8px 16px -4px #0000000f;
+    --sh-floating:0px 4px 6px -2px #0000000d,0px 12px 24px -6px #00000012;
+    --sh-overlay:0px 8px 16px -4px #00000014,0px 24px 48px -12px #0000001a;
+    --fade-subtle:color-mix(in srgb,currentColor 10%,transparent);
+    --fade-regular:color-mix(in srgb,currentColor 20%,transparent);
+    --fade-strong:color-mix(in srgb,currentColor 30%,transparent);
+    --fade-up-shift:10px; --fade-up-gap:50ms;
+
+    /* Interactive hover, per theme.
+
+       --line-hover is the border that lights up on a button, chip, pill or
+       tile. It was the literal pale blue #c6dbe7 in fifteen rules: a colour
+       tuned for a white page, which on a dark surface reads as a bright
+       outline drawn AROUND the control rather than a highlight OF it.
+
+       --wash-rgb is the ink of a hover FILL and of the scrollbar thumb, as a
+       bare RGB triple so every surface keeps the alpha it was tuned with -
+       there are ten distinct ones, and collapsing them into two tokens would
+       restyle a lot of surfaces to fix a bug about their colour. Hardcoded
+       near-black, a hover darkened on light (right) and darkened on dark
+       (invisible). Only the colour flips; no alpha changes.
+
+       Deliberately NOT applied to the shadows, or to the chrome on .pline /
+       .art-stack / the [data-theme="light"] card rules: those sit on an
+       explicitly white background or are shadows, and ink is the correct
+       colour for both in either theme. */
+    --line-hover:#bdb7b1;
+    --wash-rgb:18,32,46;
+    --paper:#f6f5f4; --paper-2:#ebeced; --card:#fcfcfc;
+    --ink:#1b252b; --ink-2:#5c6062; --mut:#8a8f91;
+    --accent:#1aa6df; --accent-2:#0f8ec4;
+    --tint-2:#e7f5fd; --line:#cfc9c3;
+    --ok:#22a565; --warn:#e0a11a; --danger:#d92d20;
+    --disp:'Jost','Century Gothic',system-ui,sans-serif;
+    --body:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+    --mono:ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace;
+    --ease:cubic-bezier(.16,1,.3,1);
+    /* Card elevation, per theme. These used to be hardcoded at the hover
+       rule - a pale blue border and a navy-tinted shadow - so in dark mode
+       the border read as a bright outline and the shadow was invisible
+    /* Card layering. A flat fill and one shadow read as a div; a surface
+       gradient, a lit top edge, a hairline and a tray ground read as a card.
+       Tokens because they were hardcoded at the hover rule before, where dark
+       mode got a pale blue border and a shadow it could not cast. */
+    --card-surface:linear-gradient(180deg,#ffffff,#fbfbfa);
+    --card-sheen:#ffffff;
+    --hair:#eceae8;
+    --card-tray:rgba(246,245,244,.72);
+    --card-rest-shadow:0px 1px 2px #00000008,0px 4px 8px -2px #0000000a;
+    --card-hover-border:#bdb7b1;
+    --card-hover-shadow:0px 2px 4px #0000000a,0px 8px 16px -4px #0000000f;
+    /* Sidebar geometry, matching the builder rail so the two pages feel
+       like one product rather than two that happen to share colours. */
+    --rail:44px; --sb-w:238px; --sb-pad:6px; --ease-sb:cubic-bezier(.32,.72,0,1);
+  /* One scrim for every overlay — the mobile sidebar drawer and the desktop
+     settings modal alike. There used to be three different ones: 88% paper on
+     the builder (which washed the page out almost white), rgba(0,0,0,.65) on
+     /projects and /deployments, and rgba(8,7,6,.32)+blur(14px) for settings.
+     Same gesture, three different answers.
+
+     Built from --paper rather than black so it stays warm and follows the
+     theme by itself. 52% and a light blur: enough to push the page back and
+     make the panel clearly on top, while leaving the content readable
+     underneath instead of erasing it. */
+  --scrim: color-mix(in srgb, var(--paper) 52%, transparent);
+  --scrim-blur: blur(5px) saturate(105%);
+  }
+  :root[data-theme="dark"]{
+    --line-hover:rgba(255,255,255,.22);
+    --wash-rgb:255,255,255;
+    --paper:#18191b; --paper-2:#212225; --card:#26282b;
+    --ink:#f5f9fc; --ink-2:#9ea3a6; --mut:#7a7f82;
+    --tint:#3d3428; --tint-2:#2d2420;
+    --stone:#2a2c2f; --dark:#0a0908; --line:#33363a; --navy-800:#0d0b0a;
+    --accent:#1aa6df; --accent-2:#118cc0; --accent-ink:#e6edf3;
+    --card-surface:linear-gradient(180deg,#2b2d31,#232528);
+    --card-sheen:rgba(255,255,255,.055);
+    --hair:rgba(255,255,255,.06);
+    --card-tray:rgba(0,0,0,.16);
+    --card-rest-shadow:0 1px 2px rgba(0,0,0,.45);
+    --card-hover-border:rgba(255,255,255,.15);
+    --card-hover-shadow:0 2px 6px rgba(0,0,0,.35),0 16px 34px -16px rgba(0,0,0,.8);
+  }
+
+  /* ---- the arrival ------------------------------------------------------
+     Their fade-up, to their numbers: .3s ease-out, 10px of travel, and a
+     50ms gap between siblings so a column of cards resolves in sequence
+     rather than all at once. `both` matters — without it the element is
+     painted at its final position for one frame before the animation
+     starts, which is the flash this is meant to avoid.
+
+     Reduced-motion gets the opacity and none of the travel. Removing the
+     animation outright would leave `both` holding the from-state, i.e. an
+     invisible card, so the override sets a finished state rather than
+     `animation:none`. */
+  @keyframes sqFadeUp{from{opacity:0;transform:translateY(var(--fade-up-shift))}to{opacity:1;transform:none}}
+  .fade-up{animation:sqFadeUp var(--dur-chill) var(--ease-snappy) both}
+  .fade-in{animation:sqFadeUp var(--dur-chill) var(--ease-snappy) both;--fade-up-shift:0px}
+  .stagger > *{animation:sqFadeUp var(--dur-chill) var(--ease-snappy) both}
+  .stagger > :nth-child(1){animation-delay:0ms}
+  .stagger > :nth-child(2){animation-delay:50ms}
+  .stagger > :nth-child(3){animation-delay:100ms}
+  .stagger > :nth-child(4){animation-delay:150ms}
+  .stagger > :nth-child(5){animation-delay:200ms}
+  .stagger > :nth-child(6){animation-delay:250ms}
+  .stagger > :nth-child(n+7){animation-delay:300ms}
+  @media (prefers-reduced-motion:reduce){
+    .fade-up,.fade-in,.stagger > *{animation-duration:1ms;animation-delay:0ms;--fade-up-shift:0px}
+  }
+
+  /* clip, not hidden. overflow-x:hidden turns the element into a scroll
+     container, and a scroll container silently breaks position:sticky in
+     every descendant — which is why the rail rode up off the top of the page
+     while the list scrolled instead of staying locked to the viewport. clip
+     stops the same horizontal overflow without creating that container. */
+  html, body{background:var(--paper);overscroll-behavior-x:none;overflow-x:clip}
+  .ag-main, .wrap{overflow-x:hidden}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--body);-webkit-font-smoothing:antialiased;display:flex;min-height:100vh}
+  a{color:inherit;text-decoration:none}
+  /* color:inherit matters as much as font. A <button> does NOT inherit
+     colour — it falls back to the UA's ButtonText, which is black — so any
+     button styled as a surface (the app cards) rendered black-on-dark in
+     dark mode while every other element followed the theme. */
+  button{font:inherit;color:inherit}
+  button:focus, button:focus-visible, a:focus, a:focus-visible{outline:none !important;box-shadow:none !important}
+  h1,h2{font-family:var(--disp);font-weight:700;letter-spacing:-.02em;margin:0}
+
+  /* The page's own scroll container, so it carries the page's own
+     scrollbar — left alone it renders the OS default, which on Windows is
+     a wide grey trough that looks like a 2010 desktop app bolted onto the
+     side of the page. Same treatment the app list already gets. */
+  /* One scroller, and it is the window's. .ag-main used to be its own
+     height:100vh overflow:auto container, so the page carried TWO tracks —
+     an inner one a few hundred pixels in from the edge, plus the real one at
+     the window edge — for a single list of apps. The column now grows with
+     its content and the document scrolls, which is also why the rail below
+     has to become sticky: as a plain flex item it would scroll away with it. */
+  .ag-main{flex:1;min-width:0;display:flex;flex-direction:column}
+  /* The one remaining scrollbar. Inset with a transparent border and
+     background-clip so the thumb reads as a floating pill rather than a bar
+     welded to the window edge. Firefox gets the standard properties, scoped
+     so they cannot override the rules above in Chromium. */
+  html::-webkit-scrollbar{width:10px;height:10px}
+  html::-webkit-scrollbar-track{background:transparent}
+  html::-webkit-scrollbar-thumb{background:rgba(128,128,128,.32);border-radius:99px;
+    border:2px solid transparent;background-clip:content-box}
+  html::-webkit-scrollbar-thumb:hover{background:rgba(128,128,128,.55);
+    border:2px solid transparent;background-clip:content-box}
+  @supports (-moz-appearance:none){
+    html{scrollbar-width:thin;scrollbar-color:rgba(128,128,128,.35) transparent}
+  }
+  /* Scrollbars on this page's chrome. Deliberately webkit-only: Chromium
+     honours scrollbar-width / scrollbar-color OVER ::-webkit-scrollbar, so
+     declaring those makes every rule below them dead and brings back the
+     full-width OS bar with arrow buttons — which is exactly what was on
+     screen here. Firefox, which has no ::-webkit-scrollbar, is handled
+     separately at the bottom.
+
+     The rail gets no bar at all. It is chrome, it scrolls only on a short
+     window, and a scrollbar down the side of the navigation is the thing
+     being complained about. Wheel and touch still scroll it.
+
+     The main column keeps a thumb, because a list of fifty apps needs the
+     affordance — but a thin tinted one that only appears once the pointer
+     is actually over the column. */
+  .ag-history::-webkit-scrollbar{width:0;height:0}
+  @supports (-moz-appearance:none){
+    .ag-history{scrollbar-width:none}
+  }
+
+  /* ---- sidebar: same shell as /projects so navigation feels continuous ---- */
+  /* sticky, not relative: the page is what scrolls now, and a relative rail
+     at height:100vh would ride up out of view with it. align-self keeps it
+     from being stretched to the full document height, which is what sticky
+     needs in order to stick at all. */
+  .ag-history{position:sticky !important;top:0;align-self:flex-start;height:100vh;flex:0 0 0px;
+    width:0;min-width:0;max-width:var(--sb-w);overflow:hidden;
+    background:var(--paper);border-right:0 solid var(--line);box-sizing:border-box;
+    transition:width .26s var(--ease),flex-basis .26s var(--ease),border-color .26s var(--ease);
+    display:flex;flex-direction:column;z-index:100}
+  .ag-history.on{width:var(--sb-w) !important;flex:0 0 var(--sb-w) !important;min-width:var(--sb-w) !important;border-right:1px solid var(--line);overflow:visible !important}
+  .ag-hist-head,.ag-hist-tabs,.ag-hist-foot{width:100%;box-sizing:border-box}
+  /* --- header: logo left, controls right --- */
+  .ag-hist-head{display:flex;align-items:center;gap:8px;padding:10px 10px 12px 12px;width:100%;box-sizing:border-box}
+  .ag-hist-mark{width:28px;height:28px;display:grid;place-items:center;flex:none}
+  .ag-hist-mark img{width:23px;height:23px;display:block;object-fit:contain;border-radius:5px}
+  /* Sits between the mark and the toggle, the way the reference does.
+     margin-left:auto pushes it to the right end of the header; the right
+     margin is the width the fixed toggle occupies at the very edge. */
+  .ag-hist-search{margin-left:auto;margin-right:38px;flex:none;width:30px;height:30px;
+    display:grid;place-items:center;border:1px solid transparent;border-radius:9px;
+    background:none;color:var(--ink-2);cursor:pointer;transition:background .15s ease,color .15s ease}
+  .ag-hist-search:hover{background:var(--paper-2);color:var(--ink)}
+  .ag-hist-search svg{width:16px;height:16px}
+  .ag-hist-brand-text{display:none;flex-direction:column;line-height:1.05;font-family:var(--disp);font-weight:800;font-size:.88rem;color:var(--ink);letter-spacing:-.01em;margin-left:6px}
+  .ag-hist-brand-text span{display:block}
+  .ag-ws-wrap{position:relative}
+  .ag-ws{display:flex;align-items:center;gap:9px;border:1px solid var(--line);background:var(--card);color:var(--ink) !important;border-radius:999px;padding:6px 10px 6px 6px;margin:8px 10px 8px;width:calc(100% - 20px);cursor:pointer;text-align:left;box-sizing:border-box}
+  /* color:#fff is load-bearing: .ag-ws svg paints every icon in the pill
+     --ink-2 for the chevron, and that blanket rule was catching the avatar
+     glyph too, drawing it grey on the blue circle. */
+  .ag-ws .av svg,.ag-user-main .av svg{width:13px;height:13px;color:#fff}
+  .ag-ws .av{flex:none;width:26px;height:26px;border-radius:50%;display:grid;place-items:center;color:#fff;background:linear-gradient(135deg,var(--accent),var(--accent-2));font-weight:600;font-size:.8rem}
+  .ag-ws .nm{color:var(--ink) !important;flex:1;min-width:0;font-size:.9rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ag-ws svg{width:16px;height:16px;flex:none;color:var(--ink-2)}
+  .ag-ws .chev{transition:transform .16s var(--ease)}
+  .ag-ws.open .chev{transform:rotate(180deg)}
+  .ag-ws-menu{position:absolute;left:10px;right:10px;top:calc(100% - 2px);z-index:60;
+    background:var(--card);border:1px solid var(--line);border-radius:14px;padding:8px;
+    box-shadow:0 16px 40px -10px rgba(11,22,38,.32);
+    opacity:0;visibility:hidden;transform:translateY(-4px);
+    transition:opacity .16s ease,transform .16s ease,visibility .16s ease}
+  .ag-ws-menu.open{opacity:1;visibility:visible;transform:none}
+  .ag-ws-signed{padding:8px 10px 10px;font-size:.78rem;color:var(--mut);border-bottom:1px solid var(--line);margin-bottom:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .ag-ws-item{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:9px;font-size:.88rem;color:var(--ink);transition:.13s;text-decoration:none;border:0;background:none;width:100%;text-align:left;cursor:pointer}
+  .ag-ws-item:hover{background:var(--paper-2)}
+  .ag-ws-item svg{width:15px;height:15px;flex:none}
+  .ag-ws-sep{height:1px;background:var(--line);margin:6px 4px}
+  .ag-act{display:flex;align-items:center;gap:9px;margin:0 10px 8px;padding:8px 10px;border:1px solid var(--line);background:var(--card);border-radius:9px;color:var(--ink);font-size:.88rem;font-weight:500;cursor:pointer;width:calc(100% - 20px);box-sizing:border-box}
+  .ag-act svg{width:16px;height:16px;flex:none;color:var(--ink-2)}
+  /* ---- nav rows: the builder's shape (18px icon slot, compact row) ---- */
+  .ag-hist-tabs{display:flex;flex-direction:column;gap:2px;padding:2px var(--sb-pad) 4px;width:100%;box-sizing:border-box;flex:0 0 auto;overflow:visible !important}
+  .ag-hist-tab{width:100%;box-sizing:border-box;display:flex;align-items:center;gap:10px;border:0;background:none;color:var(--ink);cursor:pointer;
+    padding:7px 6px;border-radius:8px;font-size:.75rem;font-weight:450;text-align:left;transition:background .14s,color .14s;text-decoration:none}
+  .ag-hist-tab .tab-ic{flex:none;width:18px;height:18px;display:grid;place-items:center;color:var(--ink-2)}
+  .ag-hist-tab .tab-ic svg{width:16px;height:16px}
+  .ag-hist-tab .tab-ic.ring{border:1px solid var(--line);border-radius:50%;background:var(--paper-2)}
+  .ag-hist-tab:hover{background:var(--paper-2)}
+  .ag-hist-tab.on{background:var(--paper-2);font-weight:600}
+  .ag-hist-tab.on .tab-ic,.ag-hist-tab:hover .tab-ic{color:var(--ink)}
+  /* Labels reveal by max-width + opacity rather than display:none, so the
+     rail's open/close reads as one continuous motion. Toggling display
+     makes the text pop in at full size the instant the width starts
+     animating — nothing is broken, the label simply was not part of the
+     movement. */
+  .ag-hist-tab .lbl,.ag-user-main .nm,.ag-ws .nm,.ag-hist-brand-text{
+    max-width:190px;opacity:1;overflow:hidden;white-space:nowrap;
+    transition:max-width .26s var(--ease-sb),opacity .18s ease .06s}
+  .ag-tab-new{background:var(--card);box-shadow:0 1px 2px rgba(0,0,0,.05)}
+  .ag-tab-new:hover{background:var(--card);filter:brightness(1.06)}
+  .ag-tab-new .tab-ic.ring{color:var(--ink);background:var(--paper-2)}
+
+  /* Recent deployments take the flexible middle, the way chat history does
+     in the builder, so the account row stays pinned to the bottom. */
+  /* The list and the plan card kept taking turns being the casualty.
+
+     First it was the list: flex:1 1 auto against a foot that would not
+     shrink, so every pixel the plan card wanted came out of the history,
+     and once the card grew (an alert, three meters, an upgrade button)
+     that took it to zero — the "Recent" heading with nothing under it.
+     Giving the list a min-height floor only moved the damage: the foot
+     became the loser instead, and because it was also overflow:hidden it
+     lost SILENTLY — clipped mid-meter, Upgrade button below the cut, no
+     scrollbar to admit anything was missing.
+
+     Neither is clipped now. The foot is always whole; the list takes what
+     is left and scrolls inside itself; and the list's floor is applied
+     only at window heights where that floor can actually be honoured (the
+     vertical budget below). An unmeetable min-height is precisely what
+     pushed the plan card off the bottom of the rail. */
+  .ag-hist-chats{flex:1 1 auto;min-height:0;
+    display:flex;flex-direction:column;padding:2px 0 4px}
+  .ag-chats-ttl{font-size:.655rem;font-weight:450;color:var(--mut);padding:10px 10px 4px;flex:0 0 auto}
+  /* No scrollbar-width / scrollbar-color on this rule, deliberately.
+     Chromium honours the standard properties OVER ::-webkit-scrollbar, so
+     setting them made the six-pixel rules below dead code and handed the
+     rail a ten-pixel standard scrollbar instead — a visible bar eating
+     sidebar width to scroll three recent projects. Measured in this
+     browser: these webkit rules alone give the 6px asked for, adding
+     scrollbar-width:thin widens it to 10px, and scrollbar-color without a
+     width falls all the way back to the 15px default with arrow buttons.
+
+     The thumb is transparent until the rail is hovered, so at rest nothing
+     shows at all. The 6px gutter stays reserved either way, which is what
+     stops the list shifting sideways when the thumb appears. */
+  .ag-chats-list{flex:1 1 auto;min-height:0;overflow-y:auto;padding:0 var(--sb-pad) 4px;display:flex;flex-direction:column;gap:2px}
+  .ag-chats-list::-webkit-scrollbar{width:6px;height:6px}
+  .ag-chats-list::-webkit-scrollbar-track{background:transparent}
+  .ag-chats-list::-webkit-scrollbar-thumb{background:transparent;border-radius:99px}
+  .ag-history:hover .ag-chats-list::-webkit-scrollbar-thumb{background:var(--line)}
+  .ag-chats-list::-webkit-scrollbar-thumb:hover{background:var(--mut)}
+  /* Firefox has no ::-webkit-scrollbar at all, so without this it would get
+     a full-width classic bar — the very thing being removed above. Scoped
+     to Firefox so it cannot re-break Chromium. */
+  @supports (-moz-appearance:none){
+    .ag-chats-list{scrollbar-width:thin;scrollbar-color:var(--line) transparent}
+  }
+  /* Rows keep their own height. A flex column shrinks its children before
+     it overflows, and these had overflow:hidden so their min-content height
+     was zero — 20 projects did not make the list scroll, they made every
+     row 14px instead of 30 and squeezed the text inside it. The list looked
+     merely "dense"; nothing announced that the layout had run out of room.
+     Scrolling is the correct answer to too many rows, and it only happens
+     once the rows refuse to shrink. Applies to the empty and loading
+     states too, which were being flattened the same way. */
+  .ag-chats-list > *{flex:0 0 auto}
+  .ag-chat-item{display:flex;align-items:center;gap:10px;width:100%;box-sizing:border-box;
+    padding:7px 6px;border-radius:8px;color:var(--ink-2);text-decoration:none;font-size:.75rem;
+    white-space:nowrap;overflow:hidden;transition:background .14s,color .14s;border:0;background:none;cursor:pointer;text-align:left;font-family:inherit}
+  .ag-chat-item:hover{background:var(--paper-2);color:var(--ink)}
+  .ag-chat-item.current{background:var(--paper-2);color:var(--ink);font-weight:600}
+  .ag-chat-item i{flex:none;width:18px;height:18px;display:grid;place-items:center;color:var(--ink-2);opacity:.95}
+  .ag-chat-item i svg{width:16px;height:16px}
+  .ag-chat-item span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis}
+  /* A dot instead of an icon for anything currently live, so the rail shows
+     what is running without needing the page. */
+  .ag-chat-item .sdot{width:6px;height:6px;border-radius:50%;background:var(--mut);flex:none;margin:0 6px}
+  .ag-chat-item .sdot.run{background:var(--ok)}
+  .ag-chat-item .sdot.move{background:var(--warn)}
+  .ag-chat-item .sdot.bad{background:var(--danger)}
+  .ag-chats-empty{padding:14px;color:var(--mut);font-size:.8rem;line-height:1.5;text-align:center}
+
+  /* ---- plan block, same shape as the one on /projects ----
+     The numbers here are real rather than the static placeholders that
+     page ships: apps created against the free allowance, agent spend
+     against the monthly budget, and — since this is the deployments
+     page — host capacity as the cloud meter, which is the thing that
+     actually decides whether the next deploy is accepted. */
+  /* Never the casualty. A plan card cut in half is worse than a short
+     history: it hides the alert's consequence and the button that answers
+     it. On a short window it sheds optional rows on purpose — see the
+     vertical budget below — and is otherwise always drawn in full. */
+  .ag-hist-foot{flex:0 0 auto;
+    padding:8px 10px 8px;border-top:1px solid var(--line);background:var(--paper);
+    width:100%;box-sizing:border-box}
+  .ag-hist-foot .ttl{font-size:.84rem;font-weight:600;padding:0 2px;margin-bottom:4px;color:var(--ink)}
+  .ag-plan-alert{background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.25);color:#f87171;font-size:.76rem;
+    font-weight:500;padding:4px 8px;border-radius:6px;margin-bottom:6px;text-align:center;width:100%;box-sizing:border-box}
+  .ag-meter-row{display:flex;align-items:center;gap:7px;padding:2px 0;width:100%;box-sizing:border-box}
+  .ag-meter-row svg{width:14px;height:14px;flex:none;color:var(--ink-2)}
+  .ag-meter-row .lab{flex:1;min-width:0;font-size:.78rem;color:var(--ink);font-weight:500}
+  .ag-meter-row .lab i{display:block;font-style:normal;color:var(--mut);font-size:.70rem;font-weight:400;margin-top:0}
+  .ag-meter{width:54px;height:5px;border-radius:999px;background:rgba(128,128,128,.18);overflow:hidden;flex:none}
+  .ag-meter i{display:block;height:100%;border-radius:999px;background:#3b82f6;transition:width .4s var(--ease)}
+  .ag-meter i.warn{background:var(--warn)}
+  .ag-meter i.hot{background:var(--danger)}
+  .ag-upgrade{display:flex;align-items:center;justify-content:center;gap:7px;margin-top:8px;padding:9px 12px;
+    border:0;border-radius:9px;background:#0077ff;color:#fff;font-size:.9rem;font-weight:600;
+    cursor:pointer;width:100%;box-sizing:border-box;text-decoration:none;transition:.15s}
+  .ag-upgrade:hover{background:#0062cc}
+  .ag-hist-install{display:flex;align-items:center;justify-content:center;gap:5px;margin-top:6px;font-size:.72rem;color:var(--mut);width:100%;box-sizing:border-box}
+  .ag-hist-install svg{width:13px;height:13px;color:var(--ink-2);flex:none;transition:color .15s ease,transform .15s ease;cursor:pointer}
+  .ag-hist-install svg:hover{color:#0077ff !important;transform:scale(1.15)}
+  .ag-hist-install a:hover{color:var(--ink)}
+  .ag-hist-links{display:flex;gap:8px;justify-content:center;margin-top:5px;font-size:.71rem;color:var(--mut);width:100%;box-sizing:border-box}
+  .ag-hist-links a:hover{color:var(--ink)}
+
+  /* ---- vertical budget -------------------------------------------------
+     Header, workspace pill, nav and account row cost ~300px before either
+     the history or the plan card gets a single pixel, and the card itself
+     is ~200px once the usage alert is up. Under roughly 600px of window
+     the two cannot both be whole, so the rail gives something up
+     deliberately here rather than leaving it to whichever flex rule
+     happened to win.
+
+     Room for both      → the history gets a real floor.
+     Getting tight      → the card drops its footer links and puts each
+                          meter's number back on the label's own line.
+     Shorter than that  → no floor at all: the history shrinks toward its
+                          scrollbar and the card stays whole, because a
+                          half-drawn meter reads as breakage while a short
+                          list reads as a short list. */
+  @media (min-height:660px){ .ag-hist-chats{min-height:clamp(96px,18vh,260px)} }
+  @media (min-height:560px) and (max-height:659px){ .ag-hist-chats{min-height:76px} }
+  /* Compressed, not deleted.
+
+     These two rows were display:none below 700px, and 700px of viewport is
+     more than a laptop usually has once the browser's own chrome is taken
+     off the screen — so "Install Souqi on ... Changelog" and the
+     Terms / Privacy / Plans line were simply absent for most people, on
+     every page with this rail. They are two 14px rows: the room comes from
+     tightening what sits around them and letting the chat list give up a
+     little more of its minimum, which it can afford because it scrolls. */
+  @media (max-height:700px){
+    .ag-hist-install{font-size:.68rem;gap:4px;margin-top:5px}
+    .ag-hist-install svg{width:12px;height:12px}
+    .ag-hist-links{font-size:.67rem;gap:7px;margin-top:4px}
+    .ag-hist-chats{min-height:56px}
+    .ag-hist-foot{padding-top:8px;padding-bottom:8px}
+    .ag-meter-row{padding:2px 0}
+  }
+  @media (max-height:620px){
+    .ag-meter-row .lab i{display:inline;margin-left:6px}
+    .ag-meter-row{padding:1px 0}
+    .ag-upgrade{margin-top:6px;padding:7px 12px}
+    .ag-hist-foot{padding-top:6px;padding-bottom:6px}
+  }
+
+  /* Account row pinned to the very bottom: avatar, name, settings gear. */
+  .ag-hist-user{flex:0 0 auto;display:flex;align-items:center;gap:2px;padding:5px var(--sb-pad) 8px;
+    background:var(--paper-2);width:100%;box-sizing:border-box}
+  .ag-user-main{flex:1;min-width:0;display:flex;align-items:center;gap:8px;border:0;background:none;
+    color:var(--ink);cursor:pointer;padding:5px 6px;border-radius:9px;font:inherit;text-align:left;transition:.14s}
+  .ag-user-main:hover{background:var(--paper)}
+  .ag-user-main .av{flex:none;width:22px;height:22px;border-radius:50%;display:grid;place-items:center;
+    background:linear-gradient(135deg,var(--accent),var(--accent-2));color:#fff;font-size:.76rem;font-weight:700}
+  .ag-user-main .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.72rem;font-weight:500}
+  .ag-user-gear{flex:none;width:24px;height:24px;display:grid;place-items:center;border:0;background:none;
+    color:var(--mut);cursor:pointer;border-radius:9px;transition:.14s}
+  .ag-user-gear:hover{background:var(--paper);color:var(--ink)}
+  .ag-user-gear svg{width:14px;height:14px}
+
+  .ag-pv-toggle-btn{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line);background:var(--card);color:var(--ink);
+    border-radius:9px;padding:6px 14px;height:34px;font-size:.85rem;font-weight:600;cursor:pointer;
+    transition:all .2s var(--ease);box-shadow:0 2px 6px rgba(0,0,0,.03);outline:none !important}
+  #agDeskSidebarToggle{position:fixed !important;top:10px !important;left:10px !important;z-index:999999 !important;
+    padding:5px 10px !important;height:32px !important;font-size:.82rem !important}
+  .ag-pv-toggle-btn:hover{border-color:#cbd5e1;background:var(--paper-2);color:var(--ink)}
+  .ag-pv-toggle-btn.on{background:var(--card);color:var(--ink)}
+  .ag-pv-toggle-btn .pane-left{transition:fill .2s ease;fill:transparent}
+  .ag-pv-toggle-btn.on .pane-left{fill:var(--accent)}
+  .ag-pv-toggle-btn svg{width:16px;height:16px;flex:none}
+
+  /* ================= desktop rail =================
+     COLLAPSED = an icon rail, not nothing. Taking the sidebar to width:0
+     throws away every navigation affordance on the page — the only way
+     back to Projects or the builder becomes "reopen the drawer first".
+     At --rail the icons and their titles stay reachable while the content
+     column gets back most of the width. */
+  @media (min-width:901px){
+    .ag-history{
+      flex:0 0 var(--rail) !important;width:var(--rail) !important;min-width:var(--rail) !important;
+      border-right:1px solid var(--line);overflow:hidden;
+      transition:width .34s var(--ease-sb),flex-basis .34s var(--ease-sb),margin-right .34s var(--ease-sb),
+         clipping the rail on its way somewhere else does not make the
+         panel flash open and shut. */
+      transition-delay:.16s;will-change:width;z-index:100}
+    .ag-history.on{width:var(--sb-w) !important;flex:0 0 var(--sb-w) !important;min-width:var(--sb-w) !important;
+      overflow:visible !important;box-shadow:none;margin-right:0}
+
+    /* HOVER TO OPEN. The negative margin is what keeps this an OVERLAY
+       rather than a push: the flex item measures --sb-w but the margin
+       cancels all but --rail of it, so the content column never moves.
+       Expanding it in place would reflow the whole page on every
+       mouse-over, which is unusable. */
+    @media (hover:hover) and (pointer:fine){
+      .ag-history:not(.on):not(.hover-suppressed):hover,
+      .ag-history.hover-open:not(.on):not(.hover-suppressed){
+        width:var(--sb-w) !important;flex-basis:var(--sb-w) !important;
+        margin-right:calc(var(--rail) - var(--sb-w));
+        overflow:visible !important;z-index:400 !important;transition-delay:0s;
+        box-shadow:6px 0 28px -8px rgba(11,22,38,.28)}
+    }
+
+    /* --- what the rail actually shows --- */
+    .ag-history:not(.on):not(:hover):not(.hover-open) .lbl,
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-hist-brand-text,
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-user-main .nm,
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-ws .nm{max-width:0 !important;opacity:0 !important;transition-delay:0s}
+
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-ws .chev,
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-chats-ttl,
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-hist-foot{display:none !important}
+
+    /* Settings keeps its icon on the collapsed rail. Hiding it left the one
+       route into Settings only reachable by first widening the sidebar — and
+       every other item in that rail survives the collapse as an icon, so the
+       gear disappearing read as a missing feature rather than a tidier rail.
+
+       Stacked, not side by side. The user row is a flex ROW, so putting the
+       gear back next to the avatar asked a 44px rail to hold a 32px avatar,
+       a 30px gear and the gap between them: the avatar lost, squeezed to
+       12px, and the pair still ran to the rail's edge. Avatar over gear is
+       how the phone rail already does it — this is the same treatment, which
+       the desktop rules had simply never been given. */
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-hist-user{
+      flex-direction:column;align-items:center;gap:4px;
+      padding-left:0 !important;padding-right:0 !important}
+    /* gap:0, like the tab and workspace rows above. The name beside the
+       avatar is collapsed to max-width:0 rather than removed, so it keeps
+       its transition — but a zero-width flex item is still a flex item, and
+       the 8px gap in front of it was being centred along with the circle.
+       That pushed the avatar 4px left of the rail's centre line, out of step
+       with the gear beneath it and every status dot above. */
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-user-main{
+      flex:none;width:32px;padding:5px 0;justify-content:center;gap:0}
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-user-gear{
+      display:grid !important;flex:none;width:30px;height:24px}
+
+    /* Click-opened, so letting it render inside a panel that vanishes on
+       mouse-out would strand it. */
+    .ag-history:not(.on) .ag-ws-menu{display:none !important}
+
+    /* The apps stay in the rail as bare status dots — dropping them would
+       make the collapsed sidebar a dead end for getting back into one. */
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-hist-chats{border-top:1px solid var(--line);margin:5px 9px 0;padding-top:6px}
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-chats-list{padding:0;overflow:hidden}
+    /* Fills the list box rather than being a fixed 32px inside it: the
+       list is inset 9px each side for its hairline, so a 32px child could
+       not centre in the 26px that leaves and sat 3px right. */
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-chat-item{width:100%;margin:0;padding:7px 0;justify-content:center;gap:0}
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-chat-item span{display:none}
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-chats-empty{display:none}
+
+    /* Height clears the fixed sidebar toggle sitting at top-left. */
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-hist-head{padding:8px 0 4px !important;height:44px !important;flex:0 0 44px !important;overflow:hidden;justify-content:center}
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-hist-mark{margin:0 auto}
+    /* The rail is 44px of logo. Nothing else fits, and the search box it
+       would focus is not on screen there either. */
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-hist-search{display:none !important}
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-hist-tabs{padding:4px 0 6px !important;align-items:center}
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-hist-tab{width:32px;padding:7px 0;justify-content:center;gap:0}
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-tab-new{background:transparent;box-shadow:none}
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-tab-new .tab-ic.ring{background:var(--card);border-color:var(--line);box-shadow:0 1px 2px rgba(0,0,0,.06)}
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-hist-user{background:transparent;justify-content:center}
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-ws-wrap{padding:0 !important;display:flex;justify-content:center}
+    /* gap:0 matters: the name is still a flex item at max-width:0, so the
+       pill's 9px gap was being counted and justify-content:center pushed
+       the avatar ~5px left of the rail. */
+    /* No pill chrome in the rail. The white background and border make
+       it read as a dropdown when the name and chevron are there; with only
+       the avatar showing they are just a ring drawn around a circle. */
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-ws{width:32px;margin:6px auto;padding:3px;justify-content:center;gap:0;background:transparent;border-color:transparent}
+    /* The dot carries side margins for the expanded row; in the rail they
+       are what pushes it off centre. */
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-chat-item .sdot{margin:0}
+
+
+    /* Collapsed: the toggle is an icon, not a labelled button. Same as
+       the builder — the word "Sidebar" beside a 44px rail is wider than
+       the rail it describes. */
+    #agDeskSidebarToggle:not(.on) span{display:none !important}
+    #agDeskSidebarToggle:not(.on){padding:4px !important;width:30px !important;height:30px !important;
+      left:calc(var(--sb-w) - 40px) !important;justify-content:center !important}
+    /* Collapsed = the logo and nothing else, the way the reference does
+       it. The toggle is not merely unlabelled in the rail, it is gone: a
+       floating button parked beside a 44px column is the one thing there
+       that is not navigation. It fades back in while the rail is hovered
+       — which is also when the panel opens — so pinning it open is still
+       one click, and hover-open below is what stops it collapsing out
+       from under that click. */
+    /* Two forms, because the button does not sit in the same place on
+       every page: a direct sibling of the sidebar on /deployments and
+       /projects, but nested inside .ag-main on /agent. A bare `~` matched
+       nothing there and failed silently, so the toggle never hid on the
+       builder while looking correct on the other two. */
+    /* HIDING IT IS A HOVER FEATURE, SO IT IS SCOPED LIKE ONE.
+
+       Only a pointer that can hover can bring the button back, so on a
+       touch screen these two rules are a trapdoor: the toggle is
+       opacity:0 and pointer-events:none the moment the sidebar is
+       collapsed, and the hover that un-hides it never happens. On an
+       iPad the sidebar could not be opened at all — measured on
+       /projects, /deployments and /security, where the rail sits at 44px
+       and the only control that opens it is unreachable. (The builder
+       escaped it by opening the sidebar on a tap of the rail itself, and
+       by starting open; the same trapdoor is in its CSS.)
+
+       The guard is the one the hover-to-open rule above already uses, so
+       the two halves of the behaviour now appear and disappear together.
+       Without a hover pointer the toggle simply stays visible, which is
+       what every touch device needs anyway. */
+    @media (hover:hover) and (pointer:fine){
+      .ag-history:not(.on) ~ #agDeskSidebarToggle,
+      .ag-history:not(.on) ~ * #agDeskSidebarToggle{opacity:0;pointer-events:none;transition:opacity .18s ease}
+      .ag-history:not(.on):hover ~ #agDeskSidebarToggle,
+      .ag-history:not(.on):hover ~ * #agDeskSidebarToggle,
+      .ag-history:not(.on).hover-open ~ #agDeskSidebarToggle,
+      .ag-history:not(.on).hover-open ~ * #agDeskSidebarToggle{opacity:1;pointer-events:auto}
+    }
+    /* OPEN: the icon alone, at the right edge of the sidebar header —
+       where the reference puts its controls. The word "Sidebar" was the
+       widest thing in that row and only named what the icon already
+       shows; dropping it is what lets the mark sit at the far left with
+       the control at the far right instead of both bunched together.
+       The .on glow stays: that, not the label, is the state cue. */
+    #agDeskSidebarToggle.on span{display:none !important}
+    #agDeskSidebarToggle.on{padding:4px !important;width:30px !important;height:30px !important;
+      justify-content:center !important;left:calc(var(--sb-w) - 40px) !important}
+    .ag-history.on .ag-hist-search{order:2;margin-left:auto;margin-right:0}
+    .ag-history.on .ag-hist-mark{order:3;margin-left:0}
+    .ag-history:hover .ag-hist-search,.ag-history.hover-open .ag-hist-search{order:2;margin-left:auto;margin-right:0}
+    .ag-history:hover .ag-hist-mark,.ag-history.hover-open .ag-hist-mark{order:3;margin-left:0}
+    #agDeskSidebarToggle:not(.on){left:7px !important}
+    #agDeskSidebarToggle.on{left:7px !important}
+
+    /* The content column sits beside the rail, so it only needs to clear
+       the fixed toggle button, not the whole panel. */
+    .ag-main .nav{padding-left:96px}
+    .ag-history.on ~ .ag-main .nav{padding-left:clamp(18px,4vw,40px)}
+  }
+
+  @media (max-width:900px){
+    .ag-history{position:fixed !important;top:0 !important;left:0 !important;bottom:0 !important;
+      height:100vh !important;width:240px !important;max-width:80vw !important;z-index:999999 !important;
+      transform:translateX(-100%) !important;transition:transform .28s var(--ease) !important;box-shadow:4px 0 24px rgba(0,0,0,.5)}
+    .ag-history.on{transform:translateX(0) !important}
+
+    /* CLOSED ON PHONE = the same icon rail as desktop, not nothing.
+       It used to translate fully off-screen, so closing the drawer left the
+       page with no navigation at all. Same argument as the desktop rail,
+       same 44px.
+
+       The element is NARROWED to the rail rather than translated most of the
+       way off: translating leaves it 240px wide with only its left edge
+       showing, and its contents keep laying out for the full 240px, so the
+       centred icons land off the visible strip and it renders as an empty
+       bar. Shrinking it collapses the inner layout, exactly as on desktop. */
+    .ag-history:not(.on){
+      width:var(--rail) !important;min-width:var(--rail) !important;max-width:var(--rail) !important;
+      transform:translateX(0) !important;box-shadow:none !important;overflow:hidden !important;
+      transition:width .28s var(--ease),transform .28s var(--ease) !important;
+      /* Clears the fixed #agDeskSidebarToggle at top:10px. Its desktop
+         hide-on-hover rule cannot apply here — there is no hover on touch,
+         so the button must stay reachable and the rail starts below it. */
+      padding-top:44px !important}
+
+    /* position:fixed means the rail overlays rather than pushes, so the
+       content needs that width back as padding. */
+    .ag-main{padding-left:var(--rail)}
+
+    /* --- rail contents: icons only (desktop's rules, minus :hover) --- */
+    .ag-history:not(.on) .lbl,
+    .ag-history:not(.on) .ag-hist-brand-text,
+    .ag-history:not(.on) .ag-user-main .nm,
+    .ag-history:not(.on) .ag-ws .nm{max-width:0 !important;opacity:0 !important;overflow:hidden !important}
+    .ag-history:not(.on) .ag-ws .chev,
+    .ag-history:not(.on) .ag-hist-view,
+    .ag-history:not(.on) .ag-chats-ttl,
+    .ag-history:not(.on) .ag-upsell,
+    /* Same as this page's desktop rail: the search button and the mark
+       both want the head's 44px, and side by side they overflow it —
+       which pushed the Souqi mark off the left edge entirely. */
+    .ag-history:not(.on) .ag-hist-search,
+    /* These are HIDDEN. The declaration block that said so went missing at
+       some point and the selector list simply ran on into the next rule, so
+       instead of display:none the chevron, search box, "Recent" heading and
+       upsell were all handed a border-top and margins meant for
+       .ag-hist-chats. The visible symptom is a clipped "Rece" in a 44px
+       rail. Same fix as code.html; these two files never got it. */
+    .ag-history:not(.on) .ag-ws-menu{display:none !important}
+
+    .ag-history:not(.on) .ag-hist-chats{border-top:1px solid var(--line);margin:5px 6px 0;padding-top:6px}
+    .ag-history:not(.on) .ag-hist-chats.is-empty{border-top:0;margin:0;padding-top:0}
+    .ag-history:not(.on) .ag-chats-list{padding:0;overflow:hidden}
+    .ag-history:not(.on) .ag-chat-item{width:32px;margin:0 auto;padding:7px 0;justify-content:center;gap:0}
+    .ag-history:not(.on) .ag-chat-item .sdot{margin:0}
+    .ag-history:not(.on) .ag-chat-item span{display:none}
+    .ag-history:not(.on) .ag-chats-empty{display:none}
+    .ag-history:not(.on) .ag-hist-head{padding:8px 0 4px !important;height:44px !important;flex:0 0 44px !important;overflow:hidden;justify-content:center}
+    .ag-history:not(.on) .ag-hist-mark{margin:0 auto}
+    /* The workspace row keeps its white card look and its asymmetric
+       6px/10px padding from the expanded panel, so in the rail it was the one
+       icon sitting inside a visible white pill, nudged off-centre by the extra
+       right padding — every other icon is transparent and centred. Desktop
+       already strips it in the rail; this is the same treatment. */
+    .ag-history:not(.on) .ag-ws-wrap{padding:0 !important;display:flex;justify-content:center}
+    .ag-history:not(.on) .ag-ws{width:32px !important;margin:0 !important;padding:5px 0 !important;
+      justify-content:center;gap:0;background:transparent !important;border-color:transparent !important}
+    .ag-history:not(.on) .ag-hist-tabs{padding:4px 0 6px !important;align-items:center}
+    .ag-history:not(.on) .ag-hist-tab{width:32px;padding:7px 0;justify-content:center;gap:0}
+    .ag-history:not(.on) .ag-tab-new{background:transparent;box-shadow:none}
+    .ag-history:not(.on) .ag-hist-user{background:transparent}
+    .ag-history:not(.on) .ag-hist-user{flex-direction:column;gap:3px;padding-left:0;padding-right:0}
+    .ag-history:not(.on) .ag-user-main{flex:none;width:32px;padding:5px 0;justify-content:center;gap:0}
+    .ag-history:not(.on) .ag-user-gear{display:grid !important;flex:none;width:30px;height:24px}
+    /* Matches this page's own desktop rail, which hides the footer entirely:
+       the plan card, meters and legal links have no 44px form, and left
+       visible they overflow the rail as wrapped, clipped text. */
+    .ag-history:not(.on) .ag-hist-foot{display:none !important}
+
+    /* Icon only on phones. The word "Sidebar" is wider than the 44px rail it
+       sits on, so the label covered the rail's own icons rather than
+       labelling anything. Centred in the rail (7px = (44-30)/2) it reads as
+       the rail's top item instead of a pill parked on top of it. */
+    #agDeskSidebarToggle{position:fixed !important;top:10px !important;left:7px !important;
+      z-index:999999 !important;padding:4px !important;width:30px !important;height:30px !important;
+      justify-content:center !important}
+    #agDeskSidebarToggle span{display:none !important}
+
+    /* OPEN: mark at the far left of the header, control at the far right —
+       the same arrangement as desktop. The drawer is 240px (clamped to
+       80vw on very narrow screens), so the control is offset from whichever
+       of those actually applies rather than from a hardcoded 240. */
+    #agDeskSidebarToggle.on{left:calc(min(240px, 80vw) - 40px) !important}
+
+    /* A real 1px divider, as the desktop rail has. Rail and page background
+       are the same token, so with no border the seam between them rendered
+       as an inconsistent hairline — present on some scroll positions and
+       device pixel ratios, absent on others. An explicit border is the fix;
+       leaving it to sub-pixel rounding is what made it look like a glitch. */
+    .ag-history:not(.on){border-right:1px solid var(--line) !important}
+
+    /* The drawer's overlay shadow was rgba(0,0,0,.5) — a black scrim edge
+       that reads as a hard dark band against light paper. Softer, and warm
+       enough to belong to the theme. */
+    .ag-history.on{box-shadow:6px 0 28px -10px rgba(11,22,38,.28) !important}
+    .ag-hist-backdrop{display:block !important;position:fixed !important;top:0 !important;right:0 !important;bottom:0 !important;left:min(var(--sb-w),80vw) !important;
+      background:var(--scrim) !important;
+      backdrop-filter:var(--scrim-blur) !important;z-index:999998 !important;opacity:0 !important;pointer-events:none !important;transition:opacity .28s ease !important}
+    .ag-hist-backdrop.on{opacity:1 !important;pointer-events:auto !important}
+  }
+
+  .nav{display:flex;align-items:center;gap:16px;padding:14px clamp(18px,4vw,40px) 14px 114px;background:var(--paper);transition:padding-left .26s var(--ease)}
+  .ag-history.on ~ .ag-main .nav{padding-left:clamp(18px,4vw,40px)}
+  .nav .sp{margin-left:auto}
+  .btn-g{padding:9px 15px;border:1px solid var(--line);border-radius:10px;font-size:.86rem;font-weight:600;transition:.16s;background:var(--card);color:var(--ink);cursor:pointer}
+  .btn-g:hover{border-color:var(--line-hover)}
+  .btn-d{padding:9px 17px;border-radius:10px;background:var(--accent);color:#fff;font-size:.86rem;font-weight:600;transition:.16s;border:0;cursor:pointer}
+  .btn-d:hover{background:var(--accent-2)}
+  .btn-d:disabled,.btn-g:disabled{opacity:.55;cursor:not-allowed}
+  .btn-danger{padding:9px 15px;border:1px solid rgba(217,45,32,.35);border-radius:10px;background:transparent;color:var(--danger);font-size:.86rem;font-weight:600;cursor:pointer;transition:.16s}
+  .btn-danger:hover{background:rgba(217,45,32,.08)}
+  /* Armed only once the name matches. The guard already existed, but it
+     fired as a toast AFTER the click — you learned the rule by breaking it.
+     Showing the button dimmed says the same thing before you reach for it,
+     and the click-time check stays as the thing that actually enforces it. */
+  .btn-danger[disabled]{opacity:.4;cursor:not-allowed}
+  .btn-danger[disabled]:hover{background:transparent}
+  /* Two-word labels in a flex row with no wrapping budget: at narrow widths
+     "Open builder" broke onto three lines and the pair grew taller than the
+     page heading below it. */
+  .btn-g,.btn-d{white-space:nowrap}
+  @media (max-width:900px){
+    /* Gone on phones, bar and all. Both destinations are already in the rail
+       two taps away — New goes to the builder, Projects is its own row — so
+       this header was a second copy of navigation that is always on screen,
+       paying for it in the vertical space the list itself needed. Nothing is
+       left behind as clearance: the fixed sidebar toggle sits at left:7px,
+       inside the 44px rail that .ag-main is already padded past, so it never
+       overlaps this column and the heading can start at the top of the
+       screen. Hiding .nav rather than its buttons also leaves the identical
+       .btn-g / .btn-d inside the deployment cards below untouched. */
+    .nav{display:none}
+    .wrap{padding-top:14px}
+  }
+
+  .wrap{max-width:1180px;margin:0 auto;padding:clamp(26px,5vw,46px) clamp(18px,4vw,40px) 80px;width:100%}
+  .phead{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+  .phead svg.ic{width:22px;height:22px;color:var(--ink)}
+  .phead h1{font-size:clamp(1.5rem,3vw,1.9rem)}
+  .psub{color:var(--mut);font-size:.9rem;margin:0 0 22px}
+
+  /* ---- KPI row ---- */
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:22px}
+  .kpi{border:1px solid var(--line);background:var(--card);border-radius:14px;padding:14px 16px}
+  .k-label{font-size:.72rem;letter-spacing:.13em;text-transform:uppercase;color:var(--mut);font-weight:600}
+  .k-val{font-family:var(--disp);font-weight:700;font-size:1.6rem;letter-spacing:-.02em;margin-top:6px;font-variant-numeric:tabular-nums}
+  .k-sub{font-size:.78rem;color:var(--mut);margin-top:2px}
+  .k-meter{height:5px;border-radius:999px;background:var(--paper-2);overflow:hidden;margin-top:9px}
+  .k-meter i{display:block;height:100%;border-radius:999px;background:var(--ok);transition:width .5s var(--ease),background .3s}
+  .k-meter i.warn{background:var(--warn)}
+  .k-meter i.hot{background:var(--danger)}
+
+  .toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:20px}
+  .search{position:relative;width:min(260px,100%)}
+  .search svg{position:absolute;left:12px;top:50%;transform:translateY(-50%);width:16px;height:16px;color:var(--mut)}
+  .search input{width:100%;border:1px solid var(--line);border-radius:10px;padding:9px 12px 9px 34px;font:inherit;font-size:.9rem;background:var(--card);color:var(--ink)}
+  .search input:focus{outline:none;border-color:var(--accent)}
+  .search kbd{position:absolute;right:10px;top:50%;transform:translateY(-50%);font-family:var(--mono);font-size:.7rem;color:var(--mut);
+    border:1px solid var(--line);border-radius:5px;padding:1px 5px;background:var(--paper-2)}
+  .chips{display:flex;gap:6px;flex-wrap:wrap}
+  .fchip{border:1px solid var(--line);background:var(--card);color:var(--ink-2);border-radius:999px;padding:6px 13px;font-size:.82rem;font-weight:500;cursor:pointer;transition:.15s}
+  .fchip:hover{border-color:var(--line-hover);color:var(--ink)}
+  .fchip.on{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+  .toolbar .sp{margin-left:auto}
+
+  /* ---- status pills ----
+     Colour carries the meaning; motion carries "this is still moving".
+     A settled state must be visually still, or everything looks busy. */
+  .pill{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:3px 9px 3px 7px;
+    box-shadow:inset 0 0 0 1px color-mix(in srgb,currentColor 26%,transparent);
+    font-size:.76rem;font-weight:600;letter-spacing:.01em;white-space:nowrap;position:relative;overflow:hidden}
+  .pill .dot{width:6px;height:6px;border-radius:50%;background:currentColor;flex:none}
+  .pill.s-none{color:var(--mut);background:rgba(139,152,165,.14)}
+  .pill.s-queued{color:var(--mut);background:rgba(139,152,165,.16)}
+  .pill.s-building{color:#a9760a;background:rgba(224,161,26,.16)}
+  .pill.s-starting{color:var(--accent-2);background:rgba(26,166,223,.16)}
+  .pill.s-running{color:#187a4b;background:rgba(34,165,101,.16)}
+  .pill.s-stopped{color:var(--mut);background:rgba(139,152,165,.14)}
+  .pill.s-failed{color:var(--danger);background:rgba(217,45,32,.14)}
+  :root[data-theme="dark"] .pill.s-building{color:#e0a11a}
+  :root[data-theme="dark"] .pill.s-running{color:#3ecb84}
+  :root[data-theme="dark"] .pill.s-failed{color:#f87171}
+  /* A build is the one state where a sweep is honest: work is happening
+     that we cannot show a percentage for. */
+  .pill.s-building::after{content:"";position:absolute;inset:0;
+    background:linear-gradient(90deg,transparent,rgba(224,161,26,.35),transparent);
+    transform:translateX(-100%);animation:sweep 1.7s var(--ease) infinite}
+  @keyframes sweep{to{transform:translateX(100%)}}
+  .pill.s-starting .dot,.pill.s-queued .dot{animation:blip 1.2s ease-in-out infinite}
+  @keyframes blip{0%,100%{opacity:1}50%{opacity:.25}}
+  .pill.s-running .dot{animation:breathe 2.4s ease-in-out infinite}
+  @keyframes breathe{0%,100%{box-shadow:0 0 0 0 rgba(34,165,101,.55)}70%{box-shadow:0 0 0 5px rgba(34,165,101,0)}}
+
+  /* ---- app cards ---- */
+  /* 300, not 248. The status pill sits on the title row, so a narrower
+     column left the title about 100px and clamped "build me a football
+     stadium" after two two-word lines. A card that cannot show its own name
+     is not denser, it is just smaller. */
+  /* ===================================================================
+     APP CARD - generated into projects.html and deployments.html from one
+     source, so the two cannot drift again. They already had, into tile
+     colour meaning build type on one page and a hash of the key on the
+     other, so one app was two different colours depending where you looked.
+     Any change belongs in both; edit the source, not the copies.
+
+     Flat fill, flat border, one shadow: the card read as a div with text in
+     it. What makes a console card look built is layering - a surface with a
+     gradient rather than a colour, a lit top edge, a tray under the hairline,
+     and a tile that has depth instead of being a coloured square.
+     =================================================================== */
+  /* grid-auto-rows:1fr is what makes every card the SAME size rather than
+     merely the same width. The thumbnail is a fixed ratio and the footer a
+     fixed two lines, so the content already wants one height - this stops a
+     row with a short title from collapsing under its neighbours. */
+  .grid{display:grid;grid-auto-rows:1fr;
+    grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}
+
+  .app{position:relative;isolation:isolate;display:flex;flex-direction:column;text-align:left;
+    border:1px solid var(--line);border-radius:16px;background:var(--card-surface);
+    padding:0;overflow:hidden;cursor:pointer;width:100%;
+    box-shadow:var(--card-rest-shadow);
+    transition:transform .24s var(--ease),box-shadow .24s var(--ease),border-color .18s}
+  /* Above the glow. Both pseudo-elements are positioned and the children are
+     not, so without this the spotlight paints over the title. */
+  .app>*{position:relative;z-index:1}
+
+  /* The lit top edge, as a pseudo-element rather than a second border: no
+     layout cost and it follows the radius for free. */
+  .app::before{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;
+    box-shadow:inset 0 1px 0 var(--card-sheen)}
+  /* Under the cursor the card glows in ITS OWN colour - --tile is the identity
+     colour the tile is painted with, set inline per card. --mx/--my track the
+     pointer; with no JS they fall back to the tile's corner, so this degrades
+     to a fixed corner glow rather than to nothing. */
+  .app::after{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;
+    z-index:0;opacity:0;transition:opacity .3s var(--ease);
+    /* A neutral wash, not the type colour. --tile still identifies the app on
+       its tile mark, but bathing the whole card in cyan or magenta on hover
+       made the grid flicker between unrelated hues as the pointer crossed it,
+       and said nothing a glance at the tile does not already say. One grey
+       lift for every card, so hover reads as "this one" rather than as a
+       second, louder colour system. */
+    background:radial-gradient(420px circle at var(--mx,16%) var(--my,0%),
+      rgba(190,198,208,.55),transparent 62%)}
+  /* Hover changes the card's COLOUR, never its position. The lift and the
+     tile's scale-and-rotate meant the icon you were pointing at slid out from
+     under the cursor, and on a grid of these the whole page twitched as the
+     pointer crossed it. */
+  .app:hover{border-color:var(--card-hover-border);box-shadow:var(--card-hover-shadow)}
+  .app:hover::after{opacity:.09}
+  .app:hover .tile{transform:none}
+  /* A focus ring is not a hover state. Keyboard users were getting the mouse
+     treatment and no ring at all. */
+  .app:focus-visible{outline:2px solid var(--accent);outline-offset:2px;
+    box-shadow:var(--card-hover-shadow)}
+
+  /* ---- the thumbnail --------------------------------------------------
+     The card leads with the app, not with its name. .thumb is the frame and
+     .pv is the preview inside it - two elements rather than one, because
+     pvMount()/pvFallback() replace .pv's innerHTML wholesale and anything
+     that must survive that (the type badge, the status pill) has to be a
+     SIBLING of it, not a child. Same shape as /projects, deliberately: one
+     app looks the same on both pages. */
+  .app .thumb{position:relative;width:100%;aspect-ratio:16/9;flex:none;
+    overflow:hidden;background:var(--paper-2);border-bottom:1px solid var(--hair)}
+  .app .badge{position:absolute;left:10px;bottom:10px;z-index:2;
+    width:26px;height:26px;border-radius:8px;display:grid;place-items:center;
+    background:var(--card);border:1px solid var(--line);color:var(--ink-2);
+    box-shadow:0 1px 3px rgba(0,0,0,.12)}
+  .app .badge svg{width:14px;height:14px}
+  /* Status is the whole point of this page, so unlike /projects the pill is
+     on every card whatever state it is in. */
+  .app .thumb .pill{position:absolute;top:9px;right:9px;z-index:2;
+    box-shadow:0 1px 4px rgba(0,0,0,.12)}
+
+  .app .top{display:flex;align-items:flex-start;gap:11px;padding-bottom:13px}
+  /* One inline --tile drives the fill, the inner highlight and the drop glow.
+     The wash over it is fixed white-to-black, so every identity colour gets
+     the same light without needing a second value per card. */
+  /* A dark square with the type mark in the type's colour — the same tile
+     the builder's recent-projects grid uses. --tile is still the card's
+     identity colour (it drives the hover glow below), but it now means
+     something: a website card glows cyan, a game card red. */
+  .app .tile{width:36px;height:36px;border-radius:11px;display:grid;place-items:center;flex:none;
+    font-family:var(--disp);font-weight:700;font-size:1.02rem;
+    color:var(--tile);background:#0f0f0f;
+    box-shadow:0 4px 12px -6px var(--tile),inset 0 0 0 1px rgba(255,255,255,.07);
+    transition:transform .24s var(--ease)}
+  .app .tile svg{width:20px;height:20px}
+
+  /* ---- card preview -----------------------------------------------------
+     A real miniature of the running app: the deployed site itself in an
+     iframe, scaled down. A full 1280px frame scaled with transform, not a
+     small iframe — a 300px-wide viewport makes a responsive site render its
+     MOBILE layout, which is not what the app looks like.
+
+     Only an app that is RUNNING gets one. Everything else shows its type
+     mark: a Souqi Code project is React/TSX until something builds it — not
+     one revision in this database holds an .html file — so there is no
+     document to put in a frame, and a grey placeholder dressed up as a
+     screenshot would be a lie about that. */
+  /* Fills its .thumb frame. The frame owns the ratio and the clipping now,
+     so this is a bare surface - pvScale() still measures clientWidth off it
+     and gets the frame's width, which is what it always measured. */
+  .pv{position:absolute;inset:0;display:block;overflow:hidden;background:var(--paper-2)}
+  /* pointer-events:none — the card is the click target, and a live app inside
+     it must not swallow the click or scroll the grid. */
+  .pv iframe{position:absolute;top:0;left:0;width:1280px;height:800px;border:0;
+    transform-origin:0 0;pointer-events:none;background:#fff}
+  .pv.loading::after{content:"";position:absolute;inset:0;
+    background:linear-gradient(90deg,transparent,rgba(139,152,165,.10),transparent);
+    transform:translateX(-100%);animation:sweep 1.4s var(--ease) infinite}
+  /* One large mark, centred, and nothing else. The "Deploy to show preview
+     here" caption moved to the card's title attribute - the footer under it
+     already says what state the deployment is in, so printing an
+     instruction as well said the same thing twice. */
+  .pv-none{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
+  .pv-none i{width:54px;height:54px;border-radius:16px;display:grid;place-items:center;
+    flex:none;background:#0f0f0f;color:var(--tile);box-shadow:inset 0 0 0 1px rgba(255,255,255,.07)}
+  .pv-none i svg{width:27px;height:27px}
+  .pv-none b{display:none}
+
+  /* Open sits in the card header now, beside the status pill, rather than in
+     a panel header the card no longer has. */
+  .dt-open{font-size:.78rem;font-weight:600;color:var(--accent);margin-top:3px}
+  .dt-open:hover{text-decoration:underline}
+  /* A shape, not just a height. The app is always rendered at 1280x800 — a
+     real desktop viewport — and that frame is scaled to FIT this box, so the
+     preview looks like the site looks on a desktop no matter how wide the
+     panel happens to be. Sizing the iframe to the panel instead handed the
+     app a 1353x470 viewport and it laid itself out for that, which is not a
+     preview of anything anyone will see. */
+  .dt-live{position:relative;width:100%;flex:1;min-height:clamp(300px,46vh,520px);
+    overflow:hidden;background:var(--paper-2)}
+  /* pointer-events:none deliberately: the app is here to be SEEN. A 3D scene
+     that grabs the wheel would trap the page scroll, and Open is right there
+     for actually using it. */
+  .dt-live iframe{position:absolute;top:0;left:0;width:1280px;height:800px;border:0;
+    transform-origin:0 0;pointer-events:none}
+  /* Centred icon over centred text, the same placeholder the cards grid
+     shows — so "nothing to preview" looks the same wherever you meet it. */
+  .dt-live-off{display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:12px;background:var(--paper-2);color:var(--mut);font-size:.82rem;
+    text-align:center;padding:0 20px}
+  .dt-live-off i{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;
+    flex:none;background:#0f0f0f;color:var(--tile);
+    box-shadow:inset 0 0 0 1px rgba(255,255,255,.07)}
+  .dt-live-off i svg{width:20px;height:20px}
+  /* The log box fills its column instead of the fixed 420px it had when it
+     was a full-width panel with nothing beside it. */
+  /* max-height:none was mine, and it is what made a long build run off the
+     end of the page — the base .logs rule caps at 420px for exactly this
+     reason. Bounded again, and it scrolls inside itself. */
+  .dt-logs .logs{min-height:clamp(220px,26vh,320px);
+    max-height:clamp(280px,40vh,460px);overflow-y:auto;overflow-x:auto}
+
+
+  /* A scrollbar worth looking at, on a terminal that is worth reading.
+     A gradient pill floating inside a transparent border, brightening under
+     the pointer — and webkit-only, because Chromium honours scrollbar-width
+     and scrollbar-color OVER these rules and would hand back the flat
+     platform bar instead. Firefox gets the thin tinted one below. */
+  .dt-logs .logs::-webkit-scrollbar{width:12px;height:12px}
+  .dt-logs .logs::-webkit-scrollbar-track{background:transparent}
+  .dt-logs .logs::-webkit-scrollbar-corner{background:transparent}
+  .dt-logs .logs::-webkit-scrollbar-thumb{
+    background:linear-gradient(180deg,rgba(125,145,175,.58),rgba(88,108,138,.46));
+    border-radius:99px;border:3px solid transparent;background-clip:content-box}
+  .dt-logs .logs::-webkit-scrollbar-thumb:hover{
+    background:linear-gradient(180deg,rgba(158,184,220,.85),rgba(112,138,175,.65));
+    border:3px solid transparent;background-clip:content-box}
+  .dt-logs .logs::-webkit-scrollbar-thumb:active{
+    background:linear-gradient(180deg,var(--accent),rgba(112,138,175,.8));
+    border:3px solid transparent;background-clip:content-box}
+  @supports (-moz-appearance:none){
+    .dt-logs .logs{scrollbar-width:thin;scrollbar-color:rgba(125,145,175,.6) transparent}
+  }
+
+  /* Pipeline and controls, one panel under the split. */
+  .dt-run-body{padding:16px 20px 18px}
+  .dt-run-body .acts{margin-top:16px}
+  .dt-run-body .steps{margin:0}
+  .dt-run .panel-h b{flex:none}
+  .run-meta{flex:1;min-width:0;font-size:.76rem;color:var(--mut);
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  /* What the beads mean, in words. Four circles and a filling bar say which
+     stage you are at but never what that stage IS, and "Starting" is not
+     self-explanatory when you are waiting on it. */
+  .run-say{margin-top:14px;font-size:.82rem;color:var(--ink-2);line-height:1.55}
+  .run-say b{font-weight:600;color:var(--ink)}
+  /* And what the buttons do. Redeploy, Stop and Restart are three verbs with
+     real consequences for something that is live, offered with no indication
+     of which one keeps your data or your address. */
+  .dt-run-note{margin-top:12px;font-size:.79rem;color:var(--mut);line-height:1.55;max-width:78ch}
+  /* A live site should take two clicks to take down. The button arms itself
+     rather than opening a dialog — same gesture, one extra beat, and it
+     disarms on its own if it was a misclick. */
+  .btn-g.arming{border-color:rgba(217,45,32,.5);color:var(--danger);
+    background:rgba(217,45,32,.07)}
+  @media (prefers-reduced-motion:reduce){ .pv.loading::after{animation:none} }
+  .app .nm{flex:1;min-width:0}
+  /* ONE line, not two. The footer has to be exactly as tall on every card in
+     the grid or the cards stop matching, and a title that is allowed a
+     second line decides that per card. The full string is on the card's
+     title attribute, which is where a truncated name is recoverable. */
+  .app .nm b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+    font-size:.9rem;font-weight:600;line-height:1.35;letter-spacing:-.006em}
+  .app .nm i{display:flex;align-items:center;gap:5px;font-style:normal;
+    font-size:.745rem;color:var(--mut);margin-top:2px;min-width:0;
+    letter-spacing:.004em;font-variant-numeric:tabular-nums}
+  .app .nm i svg{width:11px;height:11px;flex:none}
+
+  /* The footer is the caption under the thumbnail: name on the first line,
+     the address or the state on the second. Its own ground and a hairline
+     above separate it from the preview, which is most of what makes a
+     console card look like one.
+
+     flex:1 and a fixed min-height together are what keep the grid even: the
+     footer takes whatever is left under a fixed-ratio thumbnail, and the two
+     lines inside it never change count. */
+  .app .foot{display:flex;align-items:center;gap:10px;flex:1;
+    font-size:.765rem;color:var(--mut);
+    min-height:58px;box-sizing:border-box;padding:10px 13px 11px;
+    background:var(--card-tray)}
+  .app .foot .sp{flex:1}
+  /* An unconstrained inline SVG fills its flex line. META_PRIV's padlock did
+     exactly that the moment the old .body .m svg rule went with .body - a
+     12px lock became a 200px one and the card grew around it. Scoped to the
+     meta line so nothing else in the footer is caught by it. */
+  .app .foot .nm svg{width:12px;height:12px;flex:none}
+
+  .app .foot .url{color:var(--accent-2);font-weight:500;white-space:nowrap;
+    overflow:hidden;text-overflow:ellipsis;min-width:0}
+  :root[data-theme="dark"] .app .foot .url{color:var(--accent)}
+
+  /* ---- skeletons: a shape that says "nearly there", not a spinner ---- */
+  .sk{border:1px solid var(--line);background:var(--card);border-radius:16px;padding:15px 16px;height:104px;position:relative;overflow:hidden}
+  .sk::after{content:"";position:absolute;inset:0;transform:translateX(-100%);
+    background:linear-gradient(90deg,transparent,rgba(139,152,165,.13),transparent);animation:sweep 1.4s var(--ease) infinite}
+  .sk .bar{height:10px;border-radius:6px;background:var(--paper-2);margin-bottom:9px}
+  /* A skeleton INSIDE a panel must not repeat the panel's own chrome: same
+     border, same background, same radius meant the loading state rendered as
+     a card inside an identical card, which reads as an empty box rather than
+     as something on its way. Strip the chrome and leave the bars. */
+  .panel > .sk{border:0;background:none;border-radius:0;height:auto;padding:14px 16px}
+
+  /* ---- detail ---- */
+  .back{display:inline-flex;align-items:center;gap:7px;color:var(--ink-2);font-size:.86rem;font-weight:500;cursor:pointer;border:0;background:none;padding:0;margin-bottom:16px}
+  .back:hover{color:var(--ink)}
+  .back svg{width:15px;height:15px}
+  /* ---- the app card ------------------------------------------------------
+     The title, the preview and the health readout used to be three separate
+     bordered boxes stacked down the page: a title card that was mostly empty,
+     the preview, and a health panel stretched to the preview's height with
+     two-thirds of itself blank. They describe ONE thing, so they are one
+     card — the header names it, the body shows it running, the rail beside it
+     says how it is doing. Two card borders, a 14px gutter and a duplicated
+     status pill went with them. */
+  .dt-app{border:1px solid var(--line);background:var(--card);border-radius:16px;
+    margin-bottom:16px;overflow:hidden}
+  .dt-app-head{display:flex;align-items:flex-start;gap:14px;flex-wrap:wrap;
+    padding:18px 22px;border-bottom:1px solid var(--line)}
+  /* The same tile the cards grid and the builder's recent list draw, so one
+     app looks like itself everywhere — including on its own page, which was
+     the one place it had no face at all. */
+  .dt-app-head .tile{width:42px;height:42px;border-radius:13px;display:grid;place-items:center;
+    flex:none;color:var(--tile);background:#0f0f0f;
+    box-shadow:0 5px 14px -7px var(--tile),inset 0 0 0 1px rgba(255,255,255,.07)}
+  .dt-app-head .tile svg{width:22px;height:22px}
+  .dt-app-id{flex:1;min-width:0}
+  .dt-app-head h2{font-size:1.35rem}
+  .dt-app-head .h-url{display:inline-flex;align-items:center;gap:6px;font-size:.86rem;
+    color:var(--accent-2);font-weight:500;margin-top:6px}
+  .dt-app-head .h-url svg{width:13px;height:13px}
+  /* Full bleed inside the card: a rounded error box inside a rounded card,
+     inset on all four sides, was a third border in a design losing borders. */
+  .h-err{border-bottom:1px solid rgba(217,45,32,.3);background:rgba(217,45,32,.07);
+    color:var(--danger);padding:11px 22px;font-size:.85rem;line-height:1.45}
+
+  /* Preview and health share one row, divided by a hairline rather than by
+     two card edges and a gutter. */
+  .dt-app-body{display:grid;grid-template-columns:1.38fr .62fr}
+  .dt-app-pv{min-width:0;display:flex;flex-direction:column}
+
+  /* A window around the window. The preview was a bare rectangle of pixels
+     that could as easily have been a screenshot or a background image; a
+     chrome bar with the address in it says "this is the site, live, right
+     now" without a caption having to. */
+  .dt-chrome{display:flex;align-items:center;gap:10px;flex:none;
+    padding:9px 12px;border-bottom:1px solid var(--line);background:var(--paper-2)}
+  .dt-chrome .dots{display:flex;gap:6px;flex:none}
+  .dt-chrome .dots i{width:9px;height:9px;border-radius:50%;background:var(--line)}
+  .dt-chrome .addr{flex:1;min-width:0;text-align:center;font-family:var(--mono);
+    font-size:.72rem;color:var(--mut);background:var(--card);border:1px solid var(--line);
+    border-radius:999px;padding:3px 12px;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+  .dt-app-health{border-left:1px solid var(--line);min-width:0}
+  /* Status as a statement, not a table row. "state / running" in a key-value
+     list made the single most important fact on the page look like metadata
+     — same weight as the exit code. */
+  .dt-state{padding:17px 18px 15px;border-bottom:1px solid var(--line)}
+  .dt-state .sv{display:flex;align-items:center;gap:10px;font-family:var(--disp);
+    font-weight:700;font-size:1.12rem;letter-spacing:-.01em;text-transform:capitalize}
+  .dt-state .sv i{width:9px;height:9px;border-radius:50%;background:var(--mut);flex:none}
+  .dt-state.on .sv i{background:var(--ok);box-shadow:0 0 0 4px rgba(34,165,101,.16)}
+  .dt-state.bad .sv i{background:var(--danger);box-shadow:0 0 0 4px rgba(217,45,32,.16)}
+  .dt-state.busy .sv i{background:var(--accent);animation:halo 2s ease-in-out infinite}
+  .dt-state .ss{font-size:.77rem;color:var(--mut);margin-top:6px}
+  /* Two-up: these are short numbers, and one per full-width row was what left
+     the rail mostly empty. */
+  .dt-facts{display:flex;flex-wrap:wrap}
+  .dt-facts > div{flex:1 1 50%;min-width:0;padding:12px 18px;border-bottom:1px solid var(--line)}
+  .dt-facts > div + div{border-left:1px solid var(--line)}
+  .dt-facts .k{display:block;font-size:.68rem;letter-spacing:.1em;text-transform:uppercase;
+    color:var(--mut);font-weight:600}
+  .dt-facts .v{display:block;font-family:var(--mono);font-size:.9rem;color:var(--ink);margin-top:4px}
+  @media (max-width:1000px){
+    .dt-app-body{grid-template-columns:1fr}
+    .dt-app-health{border-left:0;border-top:1px solid var(--line)}
+  }
+
+  /* ---- the detail view on a phone ---------------------------------------
+     The header is a flex row of four things: tile, name, Open, status pill.
+     On a 352px screen the pill and Open took their natural widths and the
+     name — the only flexible item — was left with 48px, so a two-word title
+     broke across two lines in a column narrower than either word.
+
+     Giving the name a basis of "the row minus the tile" makes it claim the
+     first line; Open and the pill wrap onto the second, which is where they
+     read as actions rather than as debris around the title. */
+  @media (max-width:640px){
+    .dt-app-head{padding:14px 16px;gap:12px;align-items:center}
+    .dt-app-head .tile{width:36px;height:36px;border-radius:11px}
+    .dt-app-head .tile svg{width:19px;height:19px}
+    .dt-app-head h2{font-size:1.12rem}
+    .dt-app-id{flex:1 1 calc(100% - 48px);min-width:0}
+    .dt-open{order:3;margin-top:0}
+    .dt-app-head .pill{order:4}
+
+    /* Four controls in the logs header — day, count, Copy, Wrap, and the
+       Build/Runtime pair — cannot share one 320px line. The meta line goes
+       above them rather than squeezing the segmented control to nothing. */
+    .dt-logs .panel-h{flex-wrap:wrap;row-gap:9px}
+    .dt-logs .panel-h .log-meta{flex:1 1 100%;order:-1}
+
+    /* Stacked: two 160px cells put a label above a value with room for
+       neither. */
+    .dt-facts > div{flex:1 1 100%}
+    .dt-facts > div + div{border-left:0}
+
+    /* The address chip and the DNS record are long strings in a narrow box;
+       let them wrap instead of pushing the panel wider than the screen. */
+    .cfg-fixed code,.dns-row code{white-space:normal;word-break:break-all}
+    .dns-row{flex-wrap:wrap;row-gap:6px}
+    .dns-row .k{width:100%}
+  }
+
+  /* ---- the deploy stepper: the signature element ----
+     Four states the deploy plane actually reports, drawn as a track that
+     fills. It turns a status string into something you can watch. */
+  .steps{display:flex;align-items:center;margin:22px 0 4px;padding:0 2px}
+  .step{display:flex;flex-direction:column;align-items:center;gap:7px;flex:none;width:78px}
+  .step .bead{width:26px;height:26px;border-radius:50%;border:2px solid var(--line);background:var(--card);
+    display:grid;place-items:center;transition:all .4s var(--ease);color:var(--mut)}
+  .step .bead svg{width:13px;height:13px;opacity:0;transition:opacity .3s}
+  .step .lb{font-size:.74rem;color:var(--mut);font-weight:500;transition:color .3s}
+  .step.done .bead{border-color:var(--ok);background:var(--ok);color:#fff}
+  .step.done .bead svg{opacity:1}
+  .step.done .lb{color:var(--ink-2)}
+  .step.now .bead{border-color:var(--accent);background:var(--card);color:var(--accent);animation:halo 2s ease-in-out infinite}
+  .step.now .lb{color:var(--ink);font-weight:600}
+  .step.fail .bead{border-color:var(--danger);background:var(--danger);color:#fff}
+  .step.fail .bead svg{opacity:1}
+  .step.fail .lb{color:var(--danger);font-weight:600}
+  @keyframes halo{0%,100%{box-shadow:0 0 0 0 rgba(26,166,223,.5)}70%{box-shadow:0 0 0 8px rgba(26,166,223,0)}}
+  .strut{flex:1;height:2px;background:var(--line);position:relative;margin-bottom:22px;border-radius:2px;overflow:hidden}
+  .strut i{position:absolute;inset:0;width:0;background:linear-gradient(90deg,var(--ok),var(--accent));transition:width .5s var(--ease)}
+  .strut.full i{width:100%}
+  @media (prefers-reduced-motion:reduce){
+    .step.now .bead{animation:none}
+    .pill.s-building::after,.pill .dot{animation:none !important}
+    .app,.app .tile{transition:none}
+    .app:hover,.app:hover .tile{transform:none}
+    .sk::after{animation:none}
+  }
+
+  .acts{display:flex;gap:8px;flex-wrap:wrap;margin-top:18px;padding-top:16px;border-top:1px solid var(--line)}
+
+  .panel{border:1px solid var(--line);background:var(--card);border-radius:16px;margin-bottom:16px;overflow:hidden}
+  .panel-h{display:flex;align-items:center;gap:10px;padding:13px 16px;border-bottom:1px solid var(--line)}
+  .panel-h b{font-size:.92rem;font-weight:600;flex:1}
+  .seg{display:flex;border:1px solid var(--line);border-radius:9px;overflow:hidden;background:var(--paper-2)}
+  .seg button{border:0;background:none;color:var(--mut);padding:5px 12px;font-size:.8rem;font-weight:600;cursor:pointer;transition:.15s}
+  .seg button.on{background:var(--card);color:var(--ink)}
+
+  /* ---- log viewer ----
+     Deliberately dark in BOTH themes. A terminal that follows the page
+     theme stops reading as a terminal, and build output is the one place
+     people expect a console. */
+  .logs{position:relative;background:#0d1117;max-height:420px;overflow-y:auto;overflow-x:auto}
+  .logs pre{margin:0;padding:12px 0;font-family:var(--mono);font-size:.78rem;line-height:1.65;
+    color:#c9d1d9;white-space:pre;min-height:80px}
+  /* Each line is its own block so a failure can be marked down its whole
+     width. Coloured text alone meant a red line and a grey line had the same
+     shape, and in five hundred lines of build output shape is what you
+     actually scan for. Joined with no newline between them — the blocks
+     provide the line breaks, and a \n as well would double-space the log. */
+  .logs .ln{display:block;padding:0 16px;border-left:2px solid transparent}
+  .logs .ln.err{color:#f87171;border-left-color:#f87171;background:rgba(248,113,113,.07)}
+  .logs .ln.sys{color:#58a6ff;border-left-color:#2f5878}
+  .logs .ts{color:#4d5866;font-variant-numeric:tabular-nums}
+  /* Wrapping is a choice, not a default: pre keeps a long line readable by
+     scrolling, wrap keeps it on screen. Toggled by adding a class rather than
+     re-rendering, so flipping it does not rebuild the panel — and with it the
+     live preview iframe. */
+  .logs.wrap pre,.logs.wrap .ln{white-space:pre-wrap;overflow-wrap:anywhere}
+  .dt-logs .panel-h b{flex:none}
+  .log-meta{flex:1;min-width:0;font-family:var(--mono);font-size:.73rem;color:var(--mut);
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .dt-logs .panel-h .dbmini{flex:none}
+  .dbmini.on{border-color:var(--accent);color:var(--accent)}
+  .logs-empty{padding:26px 16px;color:#6e7681;font-family:var(--mono);font-size:.78rem}
+  .jump{position:sticky;bottom:10px;float:right;margin-right:14px;border:0;border-radius:999px;background:var(--accent);color:#fff;
+    font-size:.75rem;font-weight:600;padding:5px 12px;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.35)}
+
+  /* .kv is gone: the last key-value table row on this page became either a
+     fact cell or a value in its own right. */
+
+  /* ---- database panel ---- */
+  .dbnote{padding:12px 16px;font-size:.8rem;color:var(--mut);line-height:1.55;border-bottom:1px solid var(--line)}
+  /* ---- configure ---- */
+  .cfg-suffix{display:flex;align-items:center;padding:0 2px;color:var(--mut);font-size:.85rem;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;white-space:nowrap}
+  .cfg-hint{padding:0 16px 12px;font-size:.78rem}
+  .cfg-hint.ok{color:var(--ok)}
+  .cfg-hint.bad{color:var(--danger)}
+  .cfg-sec{display:flex;align-items:center;gap:10px;padding:13px 16px 3px;border-top:1px solid var(--line)}
+  .cfg-sec b{flex:1;font-size:.84rem}
+  .cfg-list{margin:0;padding:10px 16px 14px 34px;color:var(--mut);font-size:.8rem;line-height:1.8}
+  /* Beside the button rather than instead of it, so it needs to sit on the
+     button's baseline instead of the top of the row. */
+  .cfg-nudge{color:var(--mut);font-size:.8rem;align-self:center}
+  /* The DNS record, shaped like the form you are about to paste it into.
+     It used to be one inline sentence — CNAME shop.x.com -> app.souqi.site —
+     and every provider asks for the same three fields in a column, so you had
+     to pick the sentence apart and retype both halves by hand. */
+  .dns-card{margin:12px 20px 0;border:1px solid var(--line);border-radius:12px;overflow:hidden}
+  .dns-row{display:flex;align-items:center;gap:12px;padding:10px 14px;
+    border-bottom:1px solid var(--line)}
+  .dns-row:last-child{border-bottom:0}
+  .dns-row .k{flex:none;width:56px;font-size:.68rem;letter-spacing:.1em;text-transform:uppercase;
+    color:var(--mut);font-weight:600}
+  .dns-row code{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+    font-family:var(--mono);font-size:.8rem;color:var(--ink)}
+  .dns-row button{flex:none;padding:4px 10px;font-size:.75rem}
+  .cfg-steps{counter-reset:s;list-style:none;margin:0;padding:10px 20px 0}
+  .cfg-steps li{counter-increment:s;position:relative;padding:0 0 8px 26px;
+    font-size:.8rem;color:var(--mut);line-height:1.55}
+  .cfg-steps li::before{content:counter(s);position:absolute;left:0;top:1px;
+    width:17px;height:17px;border-radius:50%;background:var(--paper-2);
+    border:1px solid var(--line);color:var(--ink);font-size:.66rem;font-weight:700;
+    display:grid;place-items:center}
+  .cfg-acts{display:flex;gap:8px;flex-wrap:wrap;padding:0 16px 14px}
+
+  /* ---- Configure: sections, not table rows -------------------------------
+     Every piece in here — the heading, the note under it, the field, the hint
+     below the field — was a full-width row with its own bottom border, so the
+     panel was a hairline every forty pixels and nothing looked more related
+     to anything else than to everything else. One rule per SECTION now, and
+     the parts of a section sit together inside it.
+
+     Scoped to .cfg because dbPanel() shares .dbnote and .dbform and is a
+     different shape: a mode picker, not a form. */
+  /* Spacing runs one way only: every block pays for the gap ABOVE itself,
+     and the panel pays for the last one at the bottom. The sections are not
+     wrapped in anything — they are a flat run of siblings — so there is no
+     ":last element of a section" to hang a bottom margin on, and giving both
+     sides padding would have doubled it wherever two blocks met. The rule
+     between sections comes from .cfg-sec's margin-top sitting ABOVE its own
+     border. */
+  .cfg{padding-bottom:18px}
+  .cfg .cfg-sec{margin-top:18px;padding:16px 20px 0;border-top:1px solid var(--line)}
+  /* The section that opens the panel needs no rule above it — the panel
+     header already draws one. NOT :first-of-type: .panel-h is a div too, so
+     that never matched the first section and the panel opened with two
+     hairlines eighteen pixels apart. */
+  .cfg .panel-h + .cfg-sec{margin-top:0;border-top:0}
+  .cfg .cfg-sec b{font-size:.9rem}
+  .cfg .dbnote{padding:7px 20px 0;border-bottom:0;
+    /* A line of help is read, not scanned: full-bleed across 1300px it was
+       one long line your eye had to travel back across. */
+    max-width:82ch}
+  .cfg .dbform{padding:13px 20px 0;border-bottom:0}
+  /* A hostname is about twenty characters. Stretching its field the width of
+     the page made a short answer look like a long one. */
+  .cfg .dbform input{flex:0 1 360px;max-width:100%}
+  /* Disabled buttons already dim; the fields beside them did not, so a row
+     read as half available. */
+  .cfg .dbform input:disabled{opacity:.55;cursor:not-allowed;background:var(--paper-2)}
+  .cfg .cfg-hint{padding:9px 20px 0}
+  .cfg .cfg-acts{padding:14px 20px 0}
+  .cfg .cfg-env{padding:10px 20px 0}
+  .cfg .cfg-block{margin:0 0 2px;border-bottom:0}
+
+  /* ---- Database: facts, not table rows ----------------------------------
+     database / user / password / size were four full-width rows with a 150px
+     label column, so each value sat alone in the middle of 1300px with its
+     label a hand's width away and a hairline under every one. They are four
+     short strings: side by side, label above value, they read as one block of
+     credentials instead of four unrelated rows. */
+  .db-facts{display:flex;flex-wrap:wrap;border-bottom:1px solid var(--line)}
+  .db-facts > div{flex:1 1 190px;min-width:0;padding:13px 20px;
+    border-left:1px solid var(--line)}
+  .db-facts > div:first-child{border-left:0}
+  .db-facts .k{display:block;font-size:.68rem;letter-spacing:.1em;text-transform:uppercase;
+    color:var(--mut);font-weight:600}
+  .db-facts .v{display:block;font-family:var(--mono);font-size:.82rem;color:var(--ink);
+    margin-top:5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .db .dbnote{max-width:86ch}
+  /* Refresh moved up here from inside the size row, where it was a button
+     living in a data cell — it acts on the panel, not on that one value. */
+  .db .panel-h .dbmini{flex:none}
+
+  /* A value you cannot change, shown as a value rather than as a table row
+     with a lonely label in the left column. */
+  .cfg-fixed{display:flex;align-items:center;gap:11px;flex-wrap:wrap;padding:12px 20px 0}
+  .cfg-fixed code{font-family:var(--mono);font-size:.85rem;color:var(--ink);
+    background:var(--paper-2);border:1px solid var(--line);border-radius:9px;padding:7px 12px}
+  .cfg-fixed .tag{font-size:.68rem;letter-spacing:.1em;text-transform:uppercase;
+    color:var(--mut);font-weight:600}
+  .cfg-block{padding:13px 16px;border-bottom:1px solid var(--line);background:color-mix(in srgb, var(--danger) 7%, transparent)}
+  .cfg-block b{display:block;font-size:.85rem;color:var(--danger);margin-bottom:5px}
+  .cfg-block p{margin:0 0 8px;font-size:.8rem;color:var(--mut);line-height:1.55}
+  .cfg-block ul{margin:0;padding-left:18px;font-size:.8rem;line-height:1.85}
+  .cfg-block code{font-family:var(--mono);font-size:.78rem;color:var(--ink)}
+  .cfg-block span{color:var(--mut);font-family:var(--mono);font-size:.75rem}
+  /* Checks live in the health rail now, not in Configuration. They are
+     results, not settings — "did it pass" belongs beside "is it running",
+     and it is what fills a rail that was two-thirds empty. Stacked rather
+     than name-beside-summary: the rail is ~340px, and a 132px name column
+     left the summary four words wide. */
+  .dt-checks{padding:15px 18px}
+  .dt-checks-h{font-size:.68rem;letter-spacing:.1em;text-transform:uppercase;
+    color:var(--mut);font-weight:600;margin-bottom:9px}
+  .dt-checks ul{list-style:none;margin:0;padding:0}
+  .dt-checks li{display:flex;gap:9px;align-items:flex-start;padding:5px 0;font-size:.8rem}
+  .dt-checks li::before{content:"";flex:none;width:7px;height:7px;border-radius:50%;
+    margin-top:5px;background:var(--mut)}
+  .dt-checks li.s-pass::before{background:var(--ok)}
+  .dt-checks li.s-warn::before{background:var(--warn)}
+  .dt-checks li.s-fail::before{background:var(--danger)}
+  .dt-checks b{display:block;font-weight:600;font-size:.79rem}
+  .dt-checks span{display:block;color:var(--mut);line-height:1.45;font-size:.76rem;margin-top:1px}
+  /* Environment variables are a SET, so they get a container of their own.
+     Loose under a heading, each row stretched the key to the left edge and
+     pinned its masked value to the right — a name and its value six hundred
+     pixels apart, which is the one pairing on this panel you actually read
+     across. Boxed, with the value sitting directly after the name. */
+  .env-box{margin:12px 20px 0;border:1px solid var(--line);border-radius:12px;overflow:hidden}
+  .env-head{display:flex;align-items:center;gap:8px;padding:9px 14px;background:var(--paper-2);
+    border-bottom:1px solid var(--line);font-size:.68rem;letter-spacing:.1em;
+    text-transform:uppercase;color:var(--mut);font-weight:600}
+  .env-head .n{margin-left:auto;letter-spacing:0;text-transform:none;font-size:.74rem}
+  .cfg-env{list-style:none;margin:0;padding:0}
+  .cfg-env li{display:flex;align-items:center;gap:12px;padding:10px 14px;
+    border-bottom:1px solid var(--line)}
+  .cfg-env li:last-child{border-bottom:0}
+  .cfg-env code{flex:0 1 auto;max-width:50%;min-width:0;overflow:hidden;text-overflow:ellipsis;
+    white-space:nowrap;font-family:var(--mono);font-size:.8rem;color:var(--ink);font-weight:600}
+  .cfg-env span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+    font-family:var(--mono);font-size:.78rem;color:var(--mut);letter-spacing:.04em}
+  .cfg-env button{flex:none;padding:4px 10px;font-size:.75rem}
+  /* An empty set should say so. Before, nothing had been set and nothing
+     said nothing had been set — the section was a paragraph and a form. */
+  .env-empty{padding:18px 14px;text-align:center;font-size:.8rem;color:var(--mut);line-height:1.5}
+  /* A key is short and a value is not: two equal 360px boxes made a name
+     field the same size as the secret going into it. */
+  .cfg .env-form #envKey{flex:0 1 240px}
+  .cfg .env-form #envVal{flex:1 1 300px}
+  .dbnote:last-child{border-bottom:0}
+  .dbnote code{font-family:var(--mono);font-size:.75rem;background:var(--paper-2);border:1px solid var(--line);
+    border-radius:5px;padding:1px 5px;color:var(--ink)}
+  .dbform{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:14px 16px;border-bottom:1px solid var(--line)}
+  .dbform:last-child{border-bottom:0}
+  .dbform input{flex:1 1 260px;min-width:0;border:1px solid var(--line);border-radius:9px;padding:8px 11px;
+    font:inherit;font-size:.8rem;font-family:var(--mono);background:var(--card);color:var(--ink)}
+  .dbform input:focus{outline:none;border-color:var(--accent)}
+  .dbmini{border:1px solid var(--line);background:var(--paper-2);color:var(--ink);border-radius:8px;
+    padding:5px 10px;font-size:.75rem;font-weight:600;cursor:pointer;transition:.16s}
+  .dbmini:hover{border-color:var(--accent)}
+  .dbmini:disabled{opacity:.55;cursor:not-allowed}
+  .dbmini.warn{color:var(--danger);border-color:rgba(217,45,32,.3);background:transparent}
+  .dbmini.warn:hover{background:rgba(217,45,32,.08);border-color:rgba(217,45,32,.5)}
+
+  /* ---- data browser ---- */
+  .dbtable-row{display:flex;align-items:center;gap:10px;width:100%;text-align:left;cursor:pointer;
+    padding:11px 16px;border:0;border-bottom:1px solid var(--line);background:none;color:var(--ink);font:inherit}
+  .dbtable-row:last-child{border-bottom:0}
+  .dbtable-row:hover{background:var(--paper-2)}
+  .dbtable-row .nm{flex:1;min-width:0;font-family:var(--mono);font-size:.82rem;overflow:hidden;text-overflow:ellipsis}
+  .dbtable-row .meta{flex:none;color:var(--mut);font-size:.74rem;font-variant-numeric:tabular-nums}
+  .dbtable-row .go{flex:none;width:14px;height:14px;color:var(--mut)}
+  /* The grid scrolls sideways on its own. A wide table must never be what
+     makes the whole page scroll horizontally. */
+  .dbgrid-wrap{overflow-x:auto;border-bottom:1px solid var(--line);max-height:420px;overflow-y:auto}
+  table.dbgrid{border-collapse:collapse;width:100%;font-family:var(--mono);font-size:.76rem}
+  table.dbgrid th,table.dbgrid td{text-align:left;padding:7px 12px;border-bottom:1px solid var(--line);
+    white-space:nowrap;max-width:300px;overflow:hidden;text-overflow:ellipsis}
+  table.dbgrid th{position:sticky;top:0;z-index:1;background:var(--paper-2);color:var(--ink);font-weight:600}
+  table.dbgrid th .ty{display:block;font-weight:400;color:var(--mut);font-size:.67rem;letter-spacing:0}
+  table.dbgrid td{color:var(--ink-2)}
+  /* NULL is not the empty string, and a browser that renders both as an
+     empty cell hides a real difference in the data. */
+  table.dbgrid td.nul{color:var(--mut);font-style:italic}
+  table.dbgrid tr:last-child td{border-bottom:0}
+  .dbpager{display:flex;align-items:center;gap:8px;padding:10px 16px}
+  .dbpager .sp{flex:1;min-width:0;color:var(--mut);font-size:.75rem}
+  .dbcrumb{display:flex;align-items:center;gap:8px;padding:10px 16px;border-bottom:1px solid var(--line)}
+  .dbcrumb .nm{font-family:var(--mono);font-size:.82rem;color:var(--ink);flex:1;min-width:0;
+    overflow:hidden;text-overflow:ellipsis}
+
+  .res{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:14px;padding:16px}
+  .res .r-label{font-size:.75rem;color:var(--mut);font-weight:600;display:flex;justify-content:space-between;margin-bottom:7px}
+  .res .r-label span:last-child{color:var(--ink);font-variant-numeric:tabular-nums}
+  .meter{height:6px;border-radius:999px;background:var(--paper-2);overflow:hidden}
+  .meter i{display:block;height:100%;border-radius:999px;background:var(--accent);transition:width .5s var(--ease)}
+
+  /* Centred, like the empty states and the preview placeholder. Everything
+     in here is one short warning and the two controls that act on it —
+     ranged down the left edge of a full-width box it read as the start of a
+     form with the rest missing.
+
+     A faint red wash as well as the outline, so it reads as a ZONE rather
+     than as one more panel that happens to have a red border. */
+  .danger{border:1px solid rgba(217,45,32,.28);border-radius:16px;
+    background:rgba(217,45,32,.035);padding:26px 20px;margin-top:22px;text-align:center}
+  .danger-ico{width:42px;height:42px;border-radius:13px;margin:0 auto 13px;display:grid;
+    place-items:center;background:rgba(217,45,32,.1);color:var(--danger)}
+  .danger-ico svg{width:20px;height:20px}
+  .danger b{display:block;font-size:.95rem;margin-bottom:6px}
+  /* Measured, not full-bleed: centred prose running the whole width of a
+     1100px panel is three words a line and hard to track back. */
+  .danger p{margin:0 auto 14px;max-width:52ch;font-size:.84rem;color:var(--mut);line-height:1.55}
+  /* The name you have to type, shown instead of described. It used to live
+     in the placeholder, where it vanished the moment you started typing —
+     exactly when you needed to check it. */
+  .danger .danger-ask{margin-bottom:16px;font-size:.82rem;color:var(--ink-2)}
+  .danger .danger-ask code{font-family:var(--mono);font-size:.79rem;color:var(--ink);
+    background:var(--paper-2);border:1px solid var(--line);border-radius:7px;padding:3px 8px}
+  .danger-act{display:flex;justify-content:center;align-items:center;gap:10px;flex-wrap:wrap}
+  .danger input{border:1px solid var(--line);border-radius:10px;padding:9px 13px;font:inherit;
+    font-size:.85rem;background:var(--card);color:var(--ink);width:min(280px,100%);
+    text-align:center;transition:border-color .15s}
+  .danger input:focus{outline:none;border-color:var(--danger)}
+
+
+
+  .empty{text-align:center;padding:70px 20px;color:var(--ink-2)}
+  .empty h2{font-size:1.25rem;margin-bottom:8px;color:var(--ink)}
+  .empty p{font-size:.92rem;max-width:44ch;margin:0 auto 20px;line-height:1.55}
+
+  /* ---- in-place panel ----
+     Settings and plans open over the page instead of navigating away, the
+     way the builder does it. Same overlay for both: one iframe, whichever
+     page it is pointed at. Hosting the real /settings and /pricing rather
+     than re-implementing them here is what keeps a price from being right
+     on one screen and stale on another. */
+  .ag-set-overlay{position:fixed;inset:0;z-index:9999999 !important;background:var(--scrim);
+    display:flex;align-items:center;justify-content:center;padding:clamp(8px,3.5vh,40px);
+    -webkit-backdrop-filter:var(--scrim-blur);backdrop-filter:var(--scrim-blur)}
+  .ag-set-overlay[hidden]{display:none !important;pointer-events:none !important;visibility:hidden !important}
+  /* The panel is an iframe, and an iframe appears the instant it is
+     displayed — so the box snapped into place with nothing to soften it.
+     The container is what arrives and what leaves; everything inside it
+     comes along. Same motion as the builder, because it is the same
+     overlay opened from a different page.
+
+     The entrance restarts on every open by itself: the overlay is toggled
+     with [hidden], and display:none back to display re-runs a CSS
+     animation. The exit needs .closing because [hidden] would otherwise
+     cut it dead in one frame. */
+  .ag-set-overlay iframe{width:min(1393px,92vw);height:min(700px,80vh);border:0;border-radius:13px;
+    background:var(--card);box-shadow:0 30px 90px -28px rgba(0,0,0,.55);
+    animation:sqSettingsIn var(--dur-chill,.3s) var(--ease-snappy,ease-out) both}
+  @keyframes sqSettingsIn{from{opacity:0;transform:translateY(10px) scale(.985)}to{opacity:1;transform:none}}
+  .ag-set-overlay.closing iframe{animation:sqSettingsOut var(--dur-snappy,.12s) var(--ease-snappy,ease-out) both}
+  @keyframes sqSettingsOut{from{opacity:1;transform:none}to{opacity:0;transform:translateY(6px) scale(.99)}}
+  @media (prefers-reduced-motion:reduce){
+    .ag-set-overlay iframe{animation-duration:1ms;animation-name:none;opacity:1}
+    .ag-set-overlay.closing iframe{animation-name:none;opacity:0}
+  }
+  @media (max-width:900px){
+    .ag-set-overlay{padding:0}
+    .ag-set-overlay iframe{width:100%;height:100%;border-radius:0}
+  }
+
+  .toast{position:fixed;left:50%;bottom:24px;transform:translate(-50%,20px);opacity:0;pointer-events:none;
+    background:var(--ink);color:var(--paper);border-radius:10px;padding:10px 16px;font-size:.86rem;font-weight:500;
+    z-index:999999;transition:opacity .2s,transform .2s var(--ease);max-width:min(440px,90vw)}
+  .toast.on{opacity:1;transform:translate(-50%,0)}
+
+  @media (max-width:640px){
+    /* Two up. The pill collapses to its dot here: at half a phone width a
+       full pill leaves the title about 79px, which is two words a line. The
+       word it drops is on the element as a label, so the status is still
+       available to a screen reader and on long-press rather than being
+       carried by colour alone. */
+    /* ONE up, and the card turns on its side: a square thumbnail, the name
+       and its address beside it. Two-up was half a phone width per card,
+       which left a 16:9 preview about 70px tall - too small to read as the
+       app and too big to be an icon. Turned sideways the preview becomes an
+       icon on purpose, and the name and URL get the full width.
+
+       Same markup as the desktop grid, restyled, and the same shape
+       /projects uses on a phone. */
+    .grid{grid-template-columns:1fr;gap:8px;grid-auto-rows:auto}
+    .app{flex-direction:row;align-items:center;gap:12px;
+      padding:10px;min-width:0;border-radius:14px}
+    .app .thumb{width:64px;height:64px;aspect-ratio:auto;flex:none;
+      border:1px solid var(--hair);border-radius:12px}
+    .app .badge{display:none}
+    .app .pv-none i{width:34px;height:34px;border-radius:11px}
+    .app .pv-none i svg{width:17px;height:17px}
+    /* The pill collapses to its dot and pins to the thumbnail corner: at
+       64px there is no room for the word, and the word it drops is on the
+       element as a label, so the status is still available to a screen
+       reader and on long-press rather than being carried by colour alone.
+       The ring goes with the fill - a bare ring around a dot is a circle
+       around nothing. */
+    .app .thumb .pill{top:5px;right:5px;padding:0;gap:0;font-size:0;
+      background:none !important;box-shadow:none}
+    .app .thumb .pill .dot{width:8px;height:8px;box-shadow:0 0 0 2px var(--paper-2)}
+    .app .foot{flex:1;min-width:0;min-height:0;padding:0;background:transparent;gap:6px}
+    .app .nm b{font-size:.875rem}
+    /* One line, ellipsised, like the title above it. Allowed to wrap, a URL
+       plus a relative date took two lines on a 375px screen and pushed the
+       row to a height that no longer matched the thumbnail beside it. */
+    .app .nm i{font-size:.735rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .step{width:64px}
+    .step .lb{font-size:.68rem}
+
+    /* The KPI tiles read as a row of numbers, not as cards — stacked, they
+       pushed the apps themselves below the fold on a phone. flex with
+       flex:1 1 0 keeps them on ONE line whatever their count, where the
+       grid's 160px minimum forced a wrap at any phone width. */
+    .kpis{display:flex;gap:8px;margin-bottom:16px}
+    .kpi{flex:1 1 0;min-width:0;padding:10px 8px;border-radius:12px}
+    /* Two lines of label space for every tile, whether the label needs them
+       or not. "Live" and "Apps" fit on one line while "In flight" and "Host
+       memory" wrap to two, so the numbers underneath sat at three different
+       heights — a row of figures you are meant to compare at a glance, not
+       one of which lined up. min-height rather than height: a label that
+       somehow needed a third line should push the tile taller, not be cut
+       off. */
+    .k-label{font-size:.58rem;letter-spacing:.04em;line-height:1.2;min-height:2.4em}
+    .k-val{font-size:1.15rem;margin-top:3px}
+    /* The sub-line is the first thing to go: at ~80px wide it wraps to
+       three lines and says less than the number above it. */
+    .k-sub{display:none}
+    .k-meter{margin-top:6px}
+  }
+  @media (max-width:900px){
+    .ag-history.on{width:240px !important;max-width:80vw !important;height:100dvh !important}
+    .ag-history.on .ag-hist-head{flex:0 0 42px !important}
+    .ag-history.on .ag-hist-user{padding-top:3px;padding-bottom:5px}
+    .ag-history.on .ag-hist-install,.ag-history.on .ag-hist-links{white-space:nowrap;gap:3px}
+    .ag-hist-backdrop{left:min(240px,80vw) !important}
+    .ag-history.on .ag-hist-search{order:2;margin-left:auto;margin-right:0}
+    .ag-history.on .ag-hist-mark{order:3;margin-left:0}
+    #agDeskSidebarToggle{left:7px !important}
+    #agDeskSidebarToggle.on{left:7px !important}
+    #agDeskSidebarToggle:not(.on){display:none !important}
+    .ag-history:not(.on){padding-top:0 !important}
+    .ag-history.on{overflow:hidden !important;overflow-y:hidden !important}
+    .ag-history.on .ag-hist-head{padding-top:6px !important;padding-bottom:4px !important}
+    .ag-history.on .ag-ws{margin-top:4px;margin-bottom:4px}
+    .ag-history.on .ag-hist-tabs{gap:0;padding-top:0;padding-bottom:2px}
+    .ag-history.on .ag-hist-tab{padding-top:5px;padding-bottom:5px}
+    .ag-history.on .ag-hist-chats{flex:1 1 0;min-height:0}
+    .ag-history.on .ag-chats-list{min-height:0;overflow-y:auto}
+    .ag-history.on .ag-chat-item{padding-top:4px;padding-bottom:4px}
+    .ag-history.on .ag-hist-foot{padding:4px 8px}
+    .ag-history.on .ag-hist-foot .ttl{font-size:.74rem;margin-bottom:2px}
+    .ag-history.on .ag-meter-row{padding:1px 0}
+    .ag-history.on .ag-meter-row .lab{font-size:.7rem}
+    .ag-history.on .ag-meter-row .lab i{font-size:.64rem}
+    .ag-history.on .ag-upgrade{margin-top:4px;padding:6px 8px;font-size:.78rem}
+    .ag-history.on .ag-hist-install,.ag-history.on .ag-hist-links{font-size:.58rem;margin-top:3px}
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-user-gear{display:grid !important;flex:none;width:30px;height:24px}
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-user-gear{order:1}
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-user-main{order:2}
+    .ag-history:not(.on):not(:hover):not(.hover-open) .ag-hist-user{padding-bottom:8px}
+    .ag-history:not(.on) .ag-user-gear{order:1 !important}
+    .ag-history:not(.on) .ag-user-main{order:2 !important}
+    .ag-history:not(.on) .ag-hist-user{padding-bottom:8px}
+  }
+
+  /* ---- recent-projects flyout -----------------------------------------
+     Hovering Projects in the rail lists the recent ones next to it, so you
+     can reach an app without loading the page that lists them. Generated
+     into all three pages that carry the rail; edit the source, not a copy.
+
+     position:fixed and a direct child of <body>: the rail is a flex column
+     with its own stacking and overflow rules on three pages, and an
+     absolutely-positioned panel inside it was going to be clipped by one of
+     them. Fixed to the viewport sidesteps all of it. */
+  /* --fly-room is the space left of the viewport edge, written by place()
+     each frame; the fallback keeps this sane before the first one. Without
+     it a 302px panel beside an expanded 238px rail needs 548px, and in a
+     narrow window it simply ran off the screen. */
+  .ag-fly{position:fixed;z-index:120;
+    width:max-content;
+    min-width:min(252px, var(--fly-room, 252px));
+    max-width:min(302px, var(--fly-room, 302px));
+    background:var(--card);border:1px solid var(--line);border-radius:15px;
+    box-shadow:0 4px 10px -4px rgba(24,20,14,.10),0 22px 48px -20px rgba(24,20,14,.34);
+    padding:9px 8px 11px;opacity:0;visibility:hidden;transform:translateX(-6px);pointer-events:none;
+    transition:opacity .16s ease,transform .16s var(--ease,ease),visibility .16s}
+  :root[data-theme="dark"] .ag-fly{box-shadow:0 4px 10px -4px rgba(0,0,0,.5),0 24px 52px -20px rgba(0,0,0,.85)}
+  .ag-fly.open{opacity:1;visibility:visible;transform:none;pointer-events:auto}
+  /* No hover bridge: the panel is flush against the rail, so there is no gap
+     for the pointer to cross. The 14px strip that used to span it would now
+     lie ON the rail and swallow clicks meant for the tabs underneath. */
+  /* Names, at a size you read rather than scan. The coloured tile that was
+     here repeated the one on the card the link leads to and made a list of
+     six titles look like a toolbar. */
+  .ag-fly .ttl{font-size:.79rem;font-weight:450;color:var(--mut);padding:4px 12px 9px}
+  /* The list scrolls, not the panel: the hover bridge is pinned to the panel
+     and would scroll out from under the pointer along with everything else. */
+  .ag-fly .lst{max-height:min(58vh,392px);overflow-y:auto;overscroll-behavior:contain;
+    scrollbar-width:thin}
+  .ag-fly a{display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:10px;
+    color:var(--ink);text-decoration:none;font-size:.9rem;line-height:1.3}
+  .ag-fly a:hover{background:var(--paper-2)}
+  /* Where you already are. Without it the list gives no clue which of these
+     is the page you are looking at. */
+  .ag-fly a.on{background:var(--paper-2);font-weight:600}
+  .ag-fly a .tx{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  /* Only rendered when two rows would otherwise read identically - building
+     the same thing twice gave two rows both saying "build e commerce for
+     electronics" and no way to tell which was which. */
+  .ag-fly a .wh{flex:none;font-size:.76rem;color:var(--mut);font-variant-numeric:tabular-nums}
+  /* The one mark left: it says the app is live, which the name cannot. */
+  .ag-fly a .dt{width:6px;height:6px;border-radius:50%;background:var(--ok);flex:none}
+  .ag-fly .none{padding:6px 12px 8px;font-size:.85rem;color:var(--mut)}
+  /* Loading is the rail's own skeleton at this panel's scale - the same
+     sweep, rows the height of the names about to replace them. One short
+     "Loading" line is a different shape from the list, so the panel jumped
+     to three times its height under the pointer as the names landed. */
+  .ag-fly .sk-row{padding:12px 12px;border-radius:10px}
+  .ag-fly .sk-row b{height:10px}
+  .ag-fly .start{color:var(--accent)}
+  /* Touch has no hover: the panel would open on the tap that navigates and
+     then sit there over the page it opened. */
+  /* Touch only. The width half of this used to be `,(max-width:900px)`,
+     matching the breakpoint where the rail becomes a drawer — defensible,
+     but it meant a 767px desktop window never showed the panel at all, and
+     that is a real window someone works in. Below that breakpoint the rail
+     is a drawer you open, and while it is open the tab is there to hover
+     like any other, so there is nothing to hide from. Touch stays excluded
+     because there is no cursor to hover with: the panel would open on the
+     tap that navigates and then sit over the page it opened. */
+  @media (hover:none){ .ag-fly{display:none !important} }
+
+  /* ---- last resort, and it has to be last -----------------------------
+     Below this the rail is shorter than its own contents even with the
+     history at nothing, and everything still in it is load-bearing. So it
+     scrolls rather than trimming further: on a landscape phone the account
+     row was being pushed past the bottom edge with no way to reach it —
+     the same silent loss as the clipped plan card, one level up. The
+     account row stays pinned while the rest of it moves.
+
+     Position matters. The max-width:900px block above also sets overflow
+     on .ag-history.on with !important and the same specificity, so this
+     only wins by coming after it; written up beside the other height rules
+     it lost, and lost the way CSS does — the rail simply stayed unscrollable
+     with no error anywhere. Selectors are prefixed .ag-history.on for the
+     same reason: the mobile block reaches these children that way too.
+
+     The hover flyout is switched off here: it has to paint outside the rail
+     and overflow-y:auto would clip it, and a list of recent projects was
+     never going to fit in 560px of window. */
+  @media (max-height:559px){
+    .ag-history.on{overflow-y:auto !important;overflow-x:hidden !important}
+    .ag-history.on .ag-hist-chats{min-height:96px}
+    .ag-history.on .ag-hist-user{position:sticky;bottom:0;z-index:2}
+    .ag-fly{display:none !important}
+  }
+
+  /* ---- what arrives, and in what order ----------------------------------
+     Written as rules on the real selectors rather than a class in the
+     markup: a class has to be remembered on every new card, and the one
+     that gets forgotten is the one people notice.
+
+     The grid staggers because a column of cards landing together reads as
+     a page that was slow, while the same cards landing 50ms apart reads
+     as a page that is assembling itself. Six steps and then a shared
+     delay — past six the eye has stopped counting, and a 40-card grid
+     with a true per-item delay would still be arriving two seconds in. */
+  .ag-hist-foot{animation:sqFadeUp var(--dur-chill) var(--ease-snappy) both}
+  .grid > *{animation:sqFadeUp var(--dur-chill) var(--ease-snappy) both}
+  .grid > :nth-child(1){animation-delay:0ms}
+  .grid > :nth-child(2){animation-delay:50ms}
+  .grid > :nth-child(3){animation-delay:100ms}
+  .grid > :nth-child(4){animation-delay:150ms}
+  .grid > :nth-child(5){animation-delay:200ms}
+  .grid > :nth-child(6){animation-delay:250ms}
+  .grid > :nth-child(n+7){animation-delay:300ms}
+  @media (prefers-reduced-motion:reduce){
+    .ag-hist-foot,.grid > *{animation-duration:1ms;animation-delay:0ms;--fade-up-shift:0px}
+  }
+
+  /* ---- usage, the way Claude reports it ---------------------------------
+     Two limits, both shown, because both can stop a build and they stop it
+     for different lengths of time. The session bar is the one that matters
+     minute to minute — it refills — so it is first and it carries the
+     countdown. The month sits under it, quieter, because "wait three weeks"
+     is not a thing anyone can act on in the moment.
+
+     A percentage AND a bar: the bar is read at a glance, the number is what
+     you check when the bar looks close. Colour alone never carries it —
+     amber and red are reinforced by the number moving toward 100%. */
+  .ag-usage{display:flex;flex-direction:column;gap:9px;padding:10px 11px;border-radius:12px;
+    border:1px solid var(--line);background:var(--card);box-shadow:var(--sh-subtle)}
+  .ag-usage .u-top{display:flex;align-items:center;justify-content:space-between;gap:8px}
+  .ag-usage .u-plan{font-size:.78rem;font-weight:600;color:var(--ink);text-transform:capitalize}
+  .ag-usage .u-up{font-size:.72rem;font-weight:600;color:var(--accent);text-decoration:none;
+    display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
+  .ag-usage .u-up:hover{text-decoration:underline}
+  .ag-usage .u-up svg{width:12px;height:12px}
+  .u-row{display:flex;flex-direction:column;gap:4px}
+  .u-lab{display:flex;align-items:baseline;justify-content:space-between;gap:8px;
+    font-size:.71rem;color:var(--ink-2)}
+  .u-lab b{font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums}
+  .u-bar{height:5px;border-radius:99px;background:color-mix(in srgb,currentColor 12%,transparent);
+    overflow:hidden;color:var(--ink-2)}
+  .u-bar i{display:block;height:100%;border-radius:99px;background:var(--accent);
+    width:0;transition:width var(--dur-chill,.3s) var(--ease-snappy,ease-out)}
+  .u-bar i.warn{background:var(--warn)}
+  .u-bar i.hot{background:var(--danger)}
+  .u-when{font-size:.67rem;color:var(--mut);font-variant-numeric:tabular-nums}
+  .u-row.quiet .u-lab,.u-row.quiet .u-when{color:var(--mut)}
+  @media (prefers-reduced-motion:reduce){ .u-bar i{transition:none} }
+
+  /* The rail does NOT animate in.
+
+     The plan card had the same fade-up as the page's cards, and on a rail
+     that is present before you look at it — every load, every refresh —
+     an entrance is not an arrival, it is a flicker. Chrome that announces
+     itself on a page you were already on reads as cheap precisely because
+     nothing arrived: the sidebar was always going to be there.
+
+     Kept for content that genuinely appears (the card grid on /projects,
+     a settings panel you switched to); removed for furniture. */
+  .ag-hist-foot,.ag-usage{animation:none !important}
+
+  @media (max-width:900px){
+    /* The account avatar sat 4px left of the workspace one above it.
+       Same cause the .ag-ws rule already documents: .nm is still a flex
+       item at max-width:0, so the 8px gap beside it is real and the pair
+       gets centred as 30px of content rather than 22px of avatar. gap:0
+       removes the phantom half.
+
+       Sized to match the pill above too — two circles of different sizes
+       stacked in a 44px column read as a mistake even when both are
+       centred. */
+    .ag-history:not(.on) .ag-user-main{gap:0 !important;justify-content:center}
+    .ag-history:not(.on) .ag-user-main .av{width:26px;height:26px;font-size:.82rem}
+  }
+
+  /* ---- the rail's own skeleton -----------------------------------------
+     The card grids on /projects and /deployments already shimmer a
+     placeholder the shape of what is coming. The rail said the word
+     "Loading…" instead, which is the one thing a skeleton exists to avoid:
+     a line of text is not the shape of the list, so the panel jumps when
+     the real rows land.
+
+     Same sweep, same timing, at row scale — a dot for the status mark and
+     a bar for the name, because that is what a chat row is. Widths vary a
+     little per row so it reads as a list of different titles rather than
+     a stack of identical bars. */
+  .sk-row{display:flex;align-items:center;gap:10px;padding:7px 6px;border-radius:8px;
+    position:relative;overflow:hidden}
+  .sk-row::after{content:"";position:absolute;inset:0;transform:translateX(-100%);
+    background:linear-gradient(90deg,transparent,rgba(139,152,165,.13),transparent);
+    animation:sweep 1.4s var(--ease) infinite}
+  .sk-row i{width:6px;height:6px;border-radius:50%;flex:none;background:var(--line)}
+  .sk-row b{height:8px;border-radius:99px;background:var(--line);display:block}
+  .sk-row:nth-child(1) b{width:74%}
+  .sk-row:nth-child(2) b{width:58%}
+  .sk-row:nth-child(3) b{width:66%}
+  .sk-row:nth-child(4) b{width:47%}
+  .sk-row:nth-child(5) b{width:62%}
+  @media (prefers-reduced-motion:reduce){ .sk-row::after{animation:none} }
+
