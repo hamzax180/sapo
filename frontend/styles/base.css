@@ -1,0 +1,32 @@
+/* The entrance animation, shared by twelve pages.
+
+   settings.css deliberately does NOT link this. It keeps its own copy in
+   which the three classes are no-ops, because the settings panel is
+   already animated by its overlay, and a second fade read as two
+   movements for one event. That decision is documented where it lives;
+   pulling it in here would quietly undo it. */
+  /* ---- the arrival ------------------------------------------------------
+     Their fade-up, to their numbers: .3s ease-out, 10px of travel, and a
+     50ms gap between siblings so a column of cards resolves in sequence
+     rather than all at once. `both` matters — without it the element is
+     painted at its final position for one frame before the animation
+     starts, which is the flash this is meant to avoid.
+
+     Reduced-motion gets the opacity and none of the travel. Removing the
+     animation outright would leave `both` holding the from-state, i.e. an
+     invisible card, so the override sets a finished state rather than
+     `animation:none`. */
+  @keyframes sqFadeUp{from{opacity:0;transform:translateY(var(--fade-up-shift))}to{opacity:1;transform:none}}
+  .fade-up{animation:sqFadeUp var(--dur-chill) var(--ease-snappy) both}
+  .fade-in{animation:sqFadeUp var(--dur-chill) var(--ease-snappy) both;--fade-up-shift:0px}
+  .stagger > *{animation:sqFadeUp var(--dur-chill) var(--ease-snappy) both}
+  .stagger > :nth-child(1){animation-delay:0ms}
+  .stagger > :nth-child(2){animation-delay:50ms}
+  .stagger > :nth-child(3){animation-delay:100ms}
+  .stagger > :nth-child(4){animation-delay:150ms}
+  .stagger > :nth-child(5){animation-delay:200ms}
+  .stagger > :nth-child(6){animation-delay:250ms}
+  .stagger > :nth-child(n+7){animation-delay:300ms}
+  @media (prefers-reduced-motion:reduce){
+    .fade-up,.fade-in,.stagger > *{animation-duration:1ms;animation-delay:0ms;--fade-up-shift:0px}
+  }

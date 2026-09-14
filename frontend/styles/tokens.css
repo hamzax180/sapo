@@ -1,0 +1,34 @@
+/* The motion and elevation scale, shared by ten pages.
+
+   These ten declarations were byte-identical in ten separate <style>
+   blocks, which is the shape a design system takes right before it stops
+   being one: copies drift, and the drift shows up as two speeds that are
+   nearly the same rather than the same. Colour is deliberately NOT here.
+   The palettes genuinely differ per page — three different accents, and
+   login spells --paper2 where everything else spells --paper-2 — so
+   merging them would be a redesign wearing a refactor's clothes. */
+:root{
+    /* ---- motion and elevation, sampled from replit.com -----------------
+       Read out of their live stylesheet rather than guessed from a
+       screenshot, because what reads as "fancy" there is not one effect.
+       It is the SAME fade level and the SAME two speeds applied to
+       everything; picking a plausible shadow per surface is exactly what
+       makes an interface look assembled rather than designed.
+
+       Two durations carry all of it: .12s for anything answering a press,
+       .3s for anything arriving or leaving. Four shadows, one near-black
+       at rising alpha, which is why their cards read as lifted instead of
+       outlined. And the fade levels are a share of the CURRENT text
+       colour, not a fixed grey — one token that is correct on any surface
+       and in either theme. */
+    --dur-snappy:.12s; --dur-chill:.3s;
+    --ease-snappy:ease-out; --ease-chill:ease-in-out;
+    --sh-subtle:0px 1px 2px #00000008,0px 4px 8px -2px #0000000a;
+    --sh-raised:0px 2px 4px #0000000a,0px 8px 16px -4px #0000000f;
+    --sh-floating:0px 4px 6px -2px #0000000d,0px 12px 24px -6px #00000012;
+    --sh-overlay:0px 8px 16px -4px #00000014,0px 24px 48px -12px #0000001a;
+    --fade-subtle:color-mix(in srgb,currentColor 10%,transparent);
+    --fade-regular:color-mix(in srgb,currentColor 20%,transparent);
+    --fade-strong:color-mix(in srgb,currentColor 30%,transparent);
+    --fade-up-shift:10px; --fade-up-gap:50ms;
+}
