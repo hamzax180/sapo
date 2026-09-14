@@ -146,9 +146,9 @@ async function testConnection(dbType, dbUri) {
  * Loads default seed data from the browser source of truth
  */
 function loadSeedData() {
-  const seedPath = path.join(__dirname, "..", "public", "js", "seed.js");
+  const seedPath = path.join(__dirname, "..", "frontend", "js", "seed.js");
   if (!fs.existsSync(seedPath)) {
-    console.warn("[DB] public/js/seed.js not found, skipping template seeding.");
+    console.warn("[DB] frontend/js/seed.js not found, skipping template seeding.");
     return null;
   }
   const code = fs.readFileSync(seedPath, "utf8");
