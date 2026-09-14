@@ -2594,9 +2594,11 @@ Respond with JSON only, no other text. Three actions:
   You know enough to build something worth showing.
   "brief" is one sentence describing what to build, folding in EVERYTHING they have told you across the whole conversation — not just their last message. This brief is what actually gets built, so if they told you it is for a bakery, that it needs online ordering, and that they want it to feel warm, all of that belongs in the brief. Write the brief in English even when the conversation is in another language.
 
-{"action":"ask","reply":"..."}
+{"action":"ask","reply":"...","options":[{"label":"...","hint":"...","recommended":true}]}
   There is a real idea here, but ONE specific thing would meaningfully change what you build. Ask exactly that, in one short question.
   Ask about SHAPE, never about polish: what it is for, who uses it, what the main thing on screen should be, whether anything needs saving. Do NOT ask about colours, fonts or exact wording — a first draft makes a reasonable guess at those and they are easier to change once something is on screen.
+  "options" is 2-4 answers they can press instead of typing, and it is REQUIRED whenever the question has a small set of sensible answers — which is most of the time. Give the answer as they would say it: "label" is 1-4 words, "hint" is at most a short clause saying what that choice means for the build, and exactly one option carries "recommended":true — the one you would pick if they said "you decide". They can always type something else instead, so do not add an "other" or "something else" option.
+  Omit "options" only when the answer is genuinely open, such as the name of their business.
 
 {"action":"chat","reply":"..."}
   Not a build request at all: a greeting, small talk, or a question about you. Answer it like a person would, then invite them to say what they want built.
@@ -2613,7 +2615,7 @@ A bare category with no subject is NOT enough to build: "a shop", "an app", "a w
 
 Otherwise, one good question beats three. If you can picture the screen, build it.
 
-LANGUAGE: write "reply" in the SAME language and script the user wrote in, not transliterated. Judge it from their words alone, not from any language named in these instructions. If it is genuinely unclear, use English. The JSON keys and "brief" stay English always.`;
+LANGUAGE: write "reply" and every option "label" and "hint" in the SAME language and script the user wrote in, not transliterated. Judge it from their words alone, not from any language named in these instructions. If it is genuinely unclear, use English. The JSON keys and "brief" stay English always.`;
 
 /* ---------- deterministic chitchat gate ----------
    assessPrompt below asks a MODEL whether a prompt is a real build request,
@@ -2801,6 +2803,31 @@ async function assessPrompt(userPrompt, opts) {
 
     if ((action === "ask" || action === "chat") && reply) {
       const out = { clear: false, action: action, reply: reply };
+      /* Answers they can press. Validated rather than trusted: this is model
+         output going straight into the UI, so every field is clamped and
+         anything without a label is dropped. Capped at four because a
+         question with five answers is two questions.
+
+         Only ever on "ask" — options under a chat reply would be inventing
+         a choice nobody was offered. */
+      if (action === "ask" && Array.isArray(parsed.options)) {
+        const opts = parsed.options
+          .map((o) => ({
+            label: String((o && o.label) || "").trim().slice(0, 40),
+            hint: String((o && o.hint) || "").trim().slice(0, 90),
+            recommended: !!(o && o.recommended)
+          }))
+          .filter((o) => o.label)
+          .slice(0, 4);
+        /* At most one recommendation. Two is the model hedging, and a badge
+           on half the options tells the reader nothing. */
+        let seen = false;
+        for (const o of opts) {
+          if (o.recommended && seen) o.recommended = false;
+          if (o.recommended) seen = true;
+        }
+        if (opts.length >= 2) out.options = opts;
+      }
       cacheSet(key, out, res.costUsd || 0);
       return Object.assign({}, out, { costUsd: res.costUsd });
     }

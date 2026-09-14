@@ -1101,6 +1101,66 @@ const ROUTES = { prose: { baseUrl: "https://x.invalid/prose", model: "gemini-3.8
      changes something real. For most of this project's life it did not:
      AI_JSON_POWER_MODEL was unset, so "Power" ran the identical model to
      "Auto" and bought a longer prompt suffix and one extra round. */
+  /* ---- pressable answers -------------------------------------------------
+     These options are model output rendered straight into the UI, so the
+     shape is validated here rather than trusted. */
+  console.log("\n── pressable answers ───────────────────");
+
+  function askReturning(obj) {
+    return async () => ({ ok: true, json: async () => ({
+      choices: [{ message: { content: JSON.stringify(obj) }, finish_reason: "stop" }], usage: {} }) });
+  }
+
+  await check("options are clamped, and a second recommendation is dropped", async () => {
+    client.init({ enabled: true, routes: ROUTES, fetchImpl: askReturning({
+      action: "ask", reply: "One household or several?",
+      options: [
+        { label: "  One household  ", hint: "x".repeat(200), recommended: true },
+        { label: "Several groups", recommended: true },
+        { label: "y".repeat(80) },
+        { label: "" },
+        { label: "Fourth" },
+        { label: "Fifth — over the cap" }
+      ]
+    }) });
+    const r = await assessPrompt("a splitter");
+    assert.strictEqual(r.clear, false);
+    assert.strictEqual(r.options.length, 4, "more than four answers is two questions");
+    assert.strictEqual(r.options[0].label, "One household", "label was not trimmed");
+    assert.ok(r.options[0].hint.length <= 90, "hint was not clamped");
+    assert.ok(r.options[2].label.length <= 40, "a long label was not clamped");
+    const recs = r.options.filter((o) => o.recommended).length;
+    assert.strictEqual(recs, 1, "two recommendations is the model hedging; got " + recs);
+    assert.ok(!r.options.some((o) => !o.label), "an option with no label must not reach the UI");
+  });
+
+  await check("a single option is no choice at all, so none are sent", async () => {
+    client.init({ enabled: true, routes: ROUTES, fetchImpl: askReturning({
+      action: "ask", reply: "What is it called?", options: [{ label: "Only one" }] }) });
+    const r = await assessPrompt("a shop");
+    assert.strictEqual(r.options, undefined, "one button is a button, not a question");
+  });
+
+  await check("an open question still just asks", async () => {
+    client.init({ enabled: true, routes: ROUTES, fetchImpl: askReturning({
+      action: "ask", reply: "What is the business called?" }) });
+    const r = await assessPrompt("a shop");
+    assert.strictEqual(r.clear, false);
+    assert.strictEqual(r.reply, "What is the business called?");
+    assert.strictEqual(r.options, undefined);
+  });
+
+  await check("chat replies never carry options", async () => {
+    /* A greeting with buttons under it is inventing a choice nobody was
+       offered. */
+    client.init({ enabled: true, routes: ROUTES, fetchImpl: askReturning({
+      action: "chat", reply: "Hey! What should I build?",
+      options: [{ label: "A shop" }, { label: "A blog" }] }) });
+    const r = await assessPrompt("hello");
+    assert.strictEqual(r.action, "chat");
+    assert.strictEqual(r.options, undefined);
+  });
+
   console.log("\n── effort ────────────────────────────");
 
   await check("the scale is ordered, and every step changes something", () => {

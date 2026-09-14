@@ -3568,90 +3568,100 @@
      it: the fill is painted to the padding box and the gradient to the
      border box, so the 1px border IS the gradient and nothing has to be
      faked with a pseudo-element behind the card. */
+  /* ── THE PLAN CARD ────────────────────────────────────────────────────
+     A proposal you read in four seconds and answer with one click.
+
+     It used to be a 560px card with a gradient border in three hues, a
+     coloured glow, a 34px shield badge, a display-face title and two
+     uppercase kickers. All of that was announcing itself before a word of
+     it had been read — and what it announces is the least interesting
+     thing on screen, because you already know you asked for a plan. The
+     content is the title, the list and the two buttons; everything else
+     was frame. */
   .ag-plan{
-    --pl-a:34,211,238;    /* cyan   */
-    --pl-b:139,92,246;    /* violet */
-    --pl-c:236,72,153;    /* pink   */
-    position:relative;margin:12px 0 16px;padding:18px 20px 16px;
-    border:1px solid transparent;border-radius:20px;
-    background:
-      linear-gradient(var(--card),var(--card)) padding-box,
-      linear-gradient(135deg,rgba(var(--pl-a),.75),rgba(var(--pl-b),.55) 48%,rgba(var(--pl-c),.5)) border-box;
-    box-shadow:
-      0 1px 2px rgba(0,0,0,.04),
-      0 2px 10px -6px rgba(var(--pl-b),.35),
-      0 26px 50px -28px rgba(11,22,38,.55);
-    max-width:560px;animation:agIn .35s var(--ease) forwards}
-  /* A wash of the same three hues across the top, so the rim reads as
-     light falling on the card rather than a coloured outline drawn round
-     it. Behind the content, inside the radius, and it cannot intercept a
-     click on the buttons. */
-  .ag-plan::before{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;
-    background:
-      radial-gradient(120% 80% at 0% 0%,rgba(var(--pl-a),.10),transparent 60%),
-      radial-gradient(100% 70% at 100% 0%,rgba(var(--pl-c),.08),transparent 62%);
-    z-index:0}
+    position:relative;margin:10px 0 14px;padding:14px 16px 13px;
+    border:1px solid var(--line);border-radius:14px;background:var(--card);
+    box-shadow:0 1px 2px rgba(0,0,0,.03);
+    max-width:480px;animation:agIn .3s var(--ease) forwards}
   .ag-plan>*{position:relative;z-index:1}
-  .ag-plan.done{opacity:.68;box-shadow:none}
+  .ag-plan.done{opacity:.6;box-shadow:none}
 
-  .pl-head{display:flex;align-items:center;gap:11px;margin-bottom:11px}
-  /* The badge is what makes the card read as a proposal at a glance,
-     before a word of it is read. Shield-with-a-tick: this was checked. */
-  .pl-badge{flex:none;width:34px;height:34px;border-radius:11px;display:grid;place-items:center;
-    color:#fff;background:linear-gradient(140deg,rgb(var(--pl-a)),rgb(var(--pl-b)));
-    box-shadow:0 4px 12px -4px rgba(var(--pl-b),.6),inset 0 1px 0 rgba(255,255,255,.4)}
-  .pl-badge svg{width:18px;height:18px}
-  .pl-headtext{display:flex;flex-direction:column;gap:1px;min-width:0}
-  .pl-kicker{font-size:.66rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--accent)}
-  .pl-title{font-family:var(--disp);font-size:1.22rem;font-weight:800;letter-spacing:-.015em;color:var(--ink);
-    line-height:1.2;overflow-wrap:anywhere}
-  .pl-sum{margin:0 0 14px;font-size:.93rem;line-height:1.55;color:var(--ink-2)}
+  .pl-head{margin-bottom:8px}
+  .pl-kicker{display:block;font-size:.7rem;font-weight:600;color:var(--mut);margin-bottom:2px}
+  .pl-title{display:block;font-size:1rem;font-weight:650;letter-spacing:-.01em;color:var(--ink);line-height:1.3}
+  .pl-sum{margin:0 0 12px;font-size:.85rem;line-height:1.5;color:var(--ink-2)}
 
-  .pl-sec{margin:0 0 14px}
-  .pl-sec-h,.pl-assume-h{display:block;font-size:.67rem;font-weight:800;letter-spacing:.1em;
-    text-transform:uppercase;color:var(--mut);margin-bottom:8px}
-  .pl-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
-  .pl-list li{display:flex;align-items:flex-start;gap:10px;font-size:.91rem;color:var(--ink);line-height:1.45}
-  /* A filled disc rather than a bare tick: at 15px a stroked check next to
-     text reads as a stray mark, and the list needs a left edge the eye can
-     run down. */
-  .pl-tick{flex:none;width:18px;height:18px;margin-top:1px;border-radius:50%;display:grid;place-items:center;
-    background:color-mix(in srgb,#2ea87a 18%,transparent);color:#2ea87a}
-  .pl-tick svg{width:11px;height:11px}
+  .pl-sec{margin:0 0 12px}
+  .pl-sec-h,.pl-assume-h{display:block;font-size:.72rem;font-weight:600;
+    color:var(--mut);margin-bottom:6px}
+  .pl-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:5px}
+  .pl-list li{display:flex;align-items:flex-start;gap:8px;font-size:.84rem;color:var(--ink);line-height:1.45}
+  .pl-tick{flex:none;width:14px;height:14px;margin-top:2px;color:var(--accent)}
+  .pl-tick svg{width:100%;height:100%;display:block}
 
-  /* Quieter than the list above it, and marked as the soft half of the
-     plan: these are guesses, and the accent bar says so without a
-     sentence explaining it. */
-  .pl-assume{margin:0 0 16px;padding:11px 13px 11px 14px;border-radius:0 12px 12px 0;
-    background:color-mix(in srgb,var(--paper-2) 80%,transparent);
-    border-left:3px solid color-mix(in srgb,var(--accent) 45%,transparent)}
-  .pl-assume-h{margin-bottom:6px}
-  .pl-assume ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:5px}
-  .pl-assume li{font-size:.86rem;color:var(--ink-2);line-height:1.45;position:relative;padding-left:13px}
-  .pl-assume li::before{content:"";position:absolute;left:2px;top:.62em;width:4px;height:4px;border-radius:50%;
-    background:var(--mut);opacity:.6}
+  /* Assumptions are the part worth arguing with, so they stay visually
+     apart — but as a quieter block, not a second card inside the first. */
+  .pl-assume{margin:0 0 12px;padding-left:11px;border-left:2px solid var(--line)}
+  .pl-assume-h{margin-bottom:4px}
+  .pl-assume ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:3px}
+  .pl-assume li{font-size:.79rem;color:var(--mut);line-height:1.45}
 
-  .pl-actions{display:flex;flex-wrap:wrap;gap:9px;align-items:center}
-  .pl-go,.pl-edit{border:0;border-radius:12px;padding:11px 18px;font:inherit;font-size:.89rem;
-    font-weight:700;cursor:pointer;transition:transform .15s var(--ease),box-shadow .15s,background .15s,color .15s,border-color .15s}
-  .pl-go{display:inline-flex;align-items:center;gap:8px;color:#fff;
-    background:linear-gradient(135deg,var(--accent),color-mix(in srgb,rgb(var(--pl-b)) 55%,var(--accent)));
-    box-shadow:0 6px 18px -6px rgba(var(--pl-b),.6),inset 0 1px 0 rgba(255,255,255,.28)}
-  .pl-go svg{width:15px;height:15px;transition:transform .15s var(--ease)}
-  .pl-go:hover{transform:translateY(-1px);box-shadow:0 10px 24px -8px rgba(var(--pl-b),.7),inset 0 1px 0 rgba(255,255,255,.32)}
-  .pl-go:hover svg{transform:translateX(3px)}
-  .pl-go:active{transform:translateY(0)}
+  .pl-actions{display:flex;flex-wrap:wrap;gap:7px;align-items:center}
+  .pl-go,.pl-edit{border:0;border-radius:9px;padding:7px 13px;font:inherit;font-size:.82rem;
+    font-weight:600;cursor:pointer;
+    transition:background .15s var(--ease),color .15s var(--ease),border-color .15s var(--ease)}
+  .pl-go{display:inline-flex;align-items:center;gap:6px;color:#fff;background:var(--accent)}
+  .pl-go svg{width:13px;height:13px;transition:transform .15s var(--ease)}
+  .pl-go:hover{background:color-mix(in srgb,var(--accent) 88%,#000)}
+  .pl-go:hover svg{transform:translateX(2px)}
   .pl-edit{background:transparent;color:var(--ink-2);border:1px solid var(--line)}
   .pl-edit:hover{color:var(--ink);border-color:var(--mut);background:var(--paper-2)}
-  .pl-chose{display:inline-flex;align-items:center;gap:7px;font-size:.85rem;font-weight:600;color:var(--mut)}
-  .pl-chose::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--accent);opacity:.7}
+  .pl-chose{display:inline-flex;align-items:center;gap:6px;font-size:.8rem;font-weight:600;color:var(--mut)}
+  .pl-chose::before{content:"";width:5px;height:5px;border-radius:50%;background:var(--accent);opacity:.7}
+
+  /* ── A QUESTION WITH ANSWERS YOU CAN PRESS ────────────────────────────
+     The agent could already ask; the only way to answer was to type the
+     reply yourself, which is slow and invites a wording the assessor then
+     has to re-interpret. These are the same options it would have
+     described in prose, as buttons — so the common answer is one click
+     and the unusual one is still typed. */
+  .ag-ask{margin:10px 0 14px;max-width:480px;animation:agIn .3s var(--ease) forwards}
+  .ag-ask-q{font-size:.9rem;line-height:1.5;color:var(--ink);margin:0 0 10px}
+  .ag-ask-opts{display:flex;flex-direction:column;gap:6px}
+  .ag-ask-opt{display:flex;align-items:flex-start;gap:9px;width:100%;text-align:left;
+    padding:9px 11px;border-radius:10px;border:1px solid var(--line);background:var(--card);
+    font:inherit;font-size:.84rem;color:var(--ink);cursor:pointer;
+    transition:border-color .14s var(--ease),background .14s var(--ease),transform .12s var(--ease)}
+  .ag-ask-opt:hover{border-color:var(--accent);background:var(--paper-2)}
+  .ag-ask-opt:active{transform:translateY(1px)}
+  .ag-ask-opt .k{flex:none;width:17px;height:17px;border-radius:5px;margin-top:1px;
+    border:1px solid var(--line);display:grid;place-items:center;
+    font-size:.62rem;font-weight:700;color:var(--mut);background:var(--paper-2)}
+  .ag-ask-opt .t{min-width:0;display:flex;flex-direction:column;gap:1px}
+  .ag-ask-opt .t b{font-weight:600;line-height:1.35}
+  .ag-ask-opt .t small{font-size:.76rem;color:var(--mut);line-height:1.4}
+  /* Recommended is a hint, not a default that presses itself. */
+  .ag-ask-opt .rec{margin-inline-start:auto;flex:none;align-self:center;
+    font-size:.68rem;font-weight:600;color:var(--accent);
+    background:color-mix(in srgb,var(--accent) 11%,transparent);
+    border-radius:5px;padding:2px 6px;white-space:nowrap}
+  .ag-ask-opt.on{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 7%,transparent)}
+  .ag-ask-opt.on .k{background:var(--accent);border-color:var(--accent);color:#fff}
+  .ag-ask-foot{display:flex;gap:7px;align-items:center;margin-top:9px}
+  .ag-ask-send{border:0;border-radius:9px;padding:7px 13px;font:inherit;font-size:.82rem;
+    font-weight:600;color:#fff;background:var(--accent);cursor:pointer;
+    transition:background .15s var(--ease),opacity .15s}
+  .ag-ask-send[disabled]{opacity:.45;cursor:default}
+  .ag-ask-send:not([disabled]):hover{background:color-mix(in srgb,var(--accent) 88%,#000)}
+  .ag-ask-hint{font-size:.76rem;color:var(--mut)}
+  .ag-ask.done{opacity:.6;pointer-events:none}
+
   @media (prefers-reduced-motion:reduce){
-    .pl-go:hover{transform:none}
     .pl-go:hover svg{transform:none}
+    .ag-ask-opt:active{transform:none}
   }
   @media (max-width:640px){
-    .ag-plan{padding:15px 15px 13px;border-radius:17px}
-    .pl-title{font-size:1.1rem}
+    .ag-plan{padding:13px 13px 12px;border-radius:13px}
     .pl-go,.pl-edit{flex:1 1 auto;justify-content:center;text-align:center}
   }
 
@@ -5742,11 +5752,90 @@
     }
   }
 
-  function showQuestions(reply) {
+  function showQuestions(reply, options) {
     // The model's own words, rendered plainly — same as any other agent
     // line (say()), not a form. No hardcoded "Quick question:" label; a
     // greeting deserves a greeting back, not a support ticket.
     say(esc(reply));
+    if (Array.isArray(options) && options.length >= 2) showAnswerOptions(options);
+  }
+
+  /* Pressable answers under a question.
+
+     The agent could already ask; answering meant typing the reply yourself,
+     which is slow and produces a wording the assessor then has to
+     re-interpret. These are the same answers it would have listed in prose,
+     as buttons — the common one is a click, and anything unusual is still
+     typed into the composer, which stays enabled.
+
+     Multi-select because some questions genuinely take more than one answer
+     ("which of these do you need?"). The send button is what commits, so a
+     mis-click is corrected by clicking again rather than by undoing a build. */
+  function showAnswerOptions(options) {
+    const wrap = el("ag-ask");
+    const list = document.createElement("div");
+    list.className = "ag-ask-opts";
+
+    const chosen = new Set();
+    options.forEach(function (o, i) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "ag-ask-opt";
+      const key = document.createElement("span");
+      key.className = "k";
+      key.textContent = String(i + 1);
+      const t = document.createElement("span");
+      t.className = "t";
+      const lab = document.createElement("b");
+      lab.textContent = o.label;
+      t.appendChild(lab);
+      if (o.hint) { const h = document.createElement("small"); h.textContent = o.hint; t.appendChild(h); }
+      b.appendChild(key); b.appendChild(t);
+      if (o.recommended) {
+        const r = document.createElement("span");
+        r.className = "rec"; r.textContent = "Recommended";
+        b.appendChild(r);
+      }
+      b.addEventListener("click", function () {
+        if (chosen.has(o.label)) { chosen.delete(o.label); b.classList.remove("on"); }
+        else { chosen.add(o.label); b.classList.add("on"); }
+        send.disabled = chosen.size === 0;
+      });
+      list.appendChild(b);
+    });
+
+    const foot = document.createElement("div");
+    foot.className = "ag-ask-foot";
+    const send = document.createElement("button");
+    send.type = "button";
+    send.className = "ag-ask-send";
+    send.textContent = "Send";
+    send.disabled = true;
+    const hint = document.createElement("span");
+    hint.className = "ag-ask-hint";
+    hint.textContent = "or type your own answer";
+    foot.appendChild(send); foot.appendChild(hint);
+
+    send.addEventListener("click", function () {
+      if (!chosen.size) return;
+      wrap.classList.add("done");
+      // Sent as the person's own message, so the transcript reads as a
+      // conversation and the assessor sees an answer in the shape it asked
+      // for rather than a code the server would have to decode.
+      const answer = Array.from(chosen).join(", ");
+      const inp = document.getElementById("agInput");
+      if (inp) {
+        inp.value = answer;
+        inp.dispatchEvent(new Event("input", { bubbles: true }));
+      }
+      const form = document.getElementById("agForm");
+      if (form) form.requestSubmit ? form.requestSubmit() : form.dispatchEvent(new Event("submit", { cancelable: true, bubbles: true }));
+    });
+
+    wrap.appendChild(list);
+    wrap.appendChild(foot);
+    agLog.appendChild(wrap);
+    toBottom();
   }
 
   /* ---------- build confirmation card ----------
@@ -5762,17 +5851,12 @@
        decoration: a plan is a title, a shape, a list of what you get and a
        list of what was guessed, and each of those should be findable at a
        glance rather than run together as paragraphs. */
-    var MARK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" '
-      + 'stroke-linecap="round" stroke-linejoin="round">'
-      + '<path d="M12 3 4 7v6c0 4.4 3.4 7.6 8 8.5 4.6-.9 8-4.1 8-8.5V7z"/>'
-      + '<path d="m9 12 2 2 4-4"/></svg>';
-
+    /* No badge and no head wrapper. A shield-with-a-tick announcing that a
+       plan is a plan is the least interesting thing on a card you asked
+       for; the title does that work, in words. */
     let html = '<div class="pl-head">'
-      + '<span class="pl-badge">' + MARK + '</span>'
-      + '<span class="pl-headtext">'
       + '<span class="pl-kicker">Here\u2019s the plan</span>'
       + '<b class="pl-title">' + esc(plan.title || "Your app") + '</b>'
-      + '</span>'
       + '</div>';
     if (plan.summary) html += '<p class="pl-sum">' + esc(plan.summary) + '</p>';
 
@@ -5974,7 +6058,7 @@
 
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
-      let buf = "", errorMsg = "", result = null, clarifyReply = null, clarifyAction = "chat", chitchat = null, gate = null, publishRequested = false, confirmPlan = null;
+      let buf = "", errorMsg = "", result = null, clarifyReply = null, clarifyAction = "chat", clarifyOptions = null, chitchat = null, gate = null, publishRequested = false, confirmPlan = null;
       for (;;) {
         const chunk = await reader.read();
         if (chunk.done) break;
@@ -6073,7 +6157,7 @@
           }
           if (em[1] === "stage") onStage(payload.id, payload.state, payload.detail);
           else if (em[1] === "result") result = payload;
-          else if (em[1] === "needsAnswer") { clarifyReply = payload.reply; clarifyAction = payload.action || "chat"; }
+          else if (em[1] === "needsAnswer") { clarifyReply = payload.reply; clarifyAction = payload.action || "chat"; clarifyOptions = payload.options || null; }
           else if (em[1] === "confirm") confirmPlan = payload;
           else if (em[1] === "chitchat") chitchat = payload.reply;
           else if (em[1] === "publishRequest") publishRequested = true;
@@ -6112,7 +6196,7 @@
            the conversation, and the count of them is what the server uses to
            know when it has asked enough and should just build. */
         convo.push({ role: "agent", kind: clarifyAction, body: clarifyReply });
-        showQuestions(clarifyReply);
+        showQuestions(clarifyReply, clarifyOptions);
         return;
       }
       if (confirmPlan) { showPlan(confirmPlan); return; }

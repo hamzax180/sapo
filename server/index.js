@@ -4937,7 +4937,12 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
            asks to know when the budget is spent. */
         sseFrame(res, "needsAnswer", {
           reply: assessment.reply,
-          action: assessment.action || "chat"
+          action: assessment.action || "chat",
+          /* Pressable answers when the assessor offered any. Absent is the
+             normal case for an open question and for plain chat, and the
+             client renders the reply alone then — so an older client, or a
+             turn with no options, behaves exactly as before. */
+          options: Array.isArray(assessment.options) ? assessment.options : undefined
         });
         sseFrame(res, "done", {});
         return res.end();
