@@ -1559,9 +1559,59 @@ const MAX_READ_CHARS = 24000;
  * Builds the request options shared by every call in a run: which provider
  * and key to use, how big the budget is, and which tools exist.
  */
+/* ── EFFORT ───────────────────────────────────────────────────────────────
+   One scale from "get it back quickly" to "take as long as it needs", and
+   the only thing in the system that decides which model runs.
+
+   It replaces the eco/power pair. That pair was a label rather than a scale:
+   for most of this project's life AI_JSON_POWER_MODEL was unset, so Power
+   ran the identical model to Auto and bought a longer prompt suffix, more
+   tokens and one extra repair round. With deepseek-flash and deepseek-v4-pro
+   both configured the levels now select genuinely different models, which is
+   what makes the control worth putting in front of someone.
+
+   `mode` stays the approval axis — auto or plan — because that is a separate
+   question from how hard to think, and a person wants to change one without
+   disturbing the other.
+
+   Ordered, and the order is the slider. Index 0 is the left end. */
+const EFFORT = [
+  { id: "fast",     label: "Fast",     tier: "eco",   maxTokens: 16000, rounds: 1,
+    blurb: "One pass, smaller budget" },
+  { id: "balanced", label: "Balanced", tier: "eco",   maxTokens: 32000, rounds: 2,
+    blurb: "The everyday setting" },
+  { id: "smart",    label: "Smart",    tier: "power", maxTokens: 48000, rounds: 3,
+    blurb: "The stronger model, more repair passes" },
+  { id: "max",      label: "Max",      tier: "power", maxTokens: 64000, rounds: 4,
+    blurb: "Everything it has, for as long as it takes" }
+];
+const DEFAULT_EFFORT = "balanced";
+
+/**
+ * Resolve whatever the client sent into exactly one level.
+ *
+ * Accepts the old `mode` values too, because a cached page or a queued
+ * request can still be carrying them: "power" was the top half of this
+ * scale, so it lands on `smart` rather than being silently demoted to the
+ * default. Everything unrecognised is the default rather than an error — an
+ * unknown effort is not a reason to refuse to build.
+ */
+function effortFor(value, legacyMode) {
+  const want = String(value || "").toLowerCase();
+  const hit = EFFORT.find((e) => e.id === want);
+  if (hit) return hit;
+  if (String(legacyMode || "").toLowerCase() === "power") {
+    return EFFORT.find((e) => e.id === "smart");
+  }
+  return EFFORT.find((e) => e.id === DEFAULT_EFFORT);
+}
+
 function callOptions(opts) {
   const o = opts || {};
-  const isPower = String(o.mode || "").toLowerCase() === "power";
+  /* The level decides everything below. `mode` is still read, but only as the
+     legacy carrier for "power" — see effortFor. */
+  const effort = effortFor(o.effort, o.mode);
+  const isPower = effort.tier === "power";
   const tools = TOOLS_SCHEMA.concat((isPower && o.mcp) ? o.mcp.toolSchemas() : []);
   return {
     route: "json",
@@ -1580,7 +1630,10 @@ function callOptions(opts) {
     byok: o.byok || undefined,
     thinking: !!o.thinking,
     tools: tools,
-    maxTokens: o.maxTokens || (isPower ? POWER_MAX_TOKENS : MAX_TOKENS),
+    /* The level's own budget, capped by the constants above rather than
+       replacing them — those are sized against the measured provider ceiling
+       and a level must not be able to ask for more than the tier allows. */
+    maxTokens: o.maxTokens || Math.min(effort.maxTokens, isPower ? POWER_MAX_TOKENS : MAX_TOKENS),
     temperature: TEMPERATURE,
     timeoutMs: isPower ? CALL_TIMEOUT_MS * 3 : CALL_TIMEOUT_MS
   };
@@ -2118,7 +2171,7 @@ async function proposeWithRepair({ userPrompt, tools, maxRounds, onRound, mode, 
  * @param {function} [opts.onRound] - (info) => void, same shape as proposeWithRepair
  * @returns {Promise<{ok, calls?, round?, rounds, repaired?, costUsd, reason?}>}
  */
-async function proposeWithClientBuild({ userPrompt, maxRounds, onFiles, onRound, onProposal, mode, byok, thinking, mcp, onToolCall, history, hasExistingEntry, imageUrls, baseFiles }) {
+async function proposeWithClientBuild({ userPrompt, maxRounds, onFiles, onRound, onProposal, mode, effort, byok, thinking, mcp, onToolCall, history, hasExistingEntry, imageUrls, baseFiles }) {
   const cap = (maxRounds !== null && maxRounds !== undefined) ? maxRounds : 3;
   /* imageUrls has to be BOTH destructured above and carried in opts, and
      missing either one is silent. The caller passed it, this signature did not
@@ -2134,7 +2187,13 @@ async function proposeWithClientBuild({ userPrompt, maxRounds, onFiles, onRound,
      project PLUS everything written so far this turn, so two edits to one file
      compose and an edit after a write sees that write. */
   const editBase = Object.assign({}, baseFiles || {});
-  const opts = { mode, byok, thinking, mcp, onToolCall, imageUrls, files: editBase };
+  /* `effort` has to be BOTH destructured above and carried here, and missing
+     either one is silent — exactly how imageUrls was dead for a release. The
+     test that caught this asserts the max_tokens each level actually asks
+     for, because a level that does not reach callOptions still looks correct
+     everywhere else: the pill, the request body and the audit all say "max"
+     while the call goes out with the default budget. */
+  const opts = { mode, effort, byok, thinking, mcp, onToolCall, imageUrls, files: editBase };
   const hist = buildHistory(history);
   let messages = [
     { role: "system", content: systemPromptFor(mode) }
@@ -2780,7 +2839,7 @@ async function assessPrompt(userPrompt, opts) {
 module.exports = {
   quickAssess, buildPlan, proposeChanges, proposeWithRepair, proposeWithClientBuild, assessPrompt, TOOLS_SCHEMA, SYSTEM_PROMPT,
   buildHistory, buildCodebaseContext, buildImagesBlock, fixImageUrls, MAX_CLARIFYING_QUESTIONS,
-  codeBudgetChars, fitConversation,
+  codeBudgetChars, fitConversation, EFFORT, DEFAULT_EFFORT, effortFor,
   // Exported so a build outcome can record WHICH prompt produced it — without
   // that, a prompt change cannot be attributed to a change in quality.
   PROMPT_VERSION,

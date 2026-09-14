@@ -20,7 +20,7 @@
 const assert = require("assert");
 const client = require("./lib/ai/client");
 const { proposeChanges, proposeWithRepair, proposeWithClientBuild, assessPrompt, buildPlan, parseToolCalls, validateWriteFileArgs, TOOLS_SCHEMA, clearCache, cacheKey, cacheStatsSnapshot,
-  fitConversation, codeBudgetChars, systemPromptFor } = require("./lib/codeagent/model-loop");
+  fitConversation, codeBudgetChars, systemPromptFor, EFFORT, effortFor } = require("./lib/codeagent/model-loop");
 const clientMod = require("./lib/ai/client");
 
 let passed = 0, failed = 0;
@@ -1096,6 +1096,66 @@ const ROUTES = { prose: { baseUrl: "https://x.invalid/prose", model: "gemini-3.8
      These pin that the prefix survives, that a build which stopped early is
      never remembered as a design, and that a retry adds to the first
      attempt's work rather than replacing it. */
+  /* ---- effort -----------------------------------------------------------
+     The control in front of the user is only worth having if each step
+     changes something real. For most of this project's life it did not:
+     AI_JSON_POWER_MODEL was unset, so "Power" ran the identical model to
+     "Auto" and bought a longer prompt suffix and one extra round. */
+  console.log("\n── effort ────────────────────────────");
+
+  await check("the scale is ordered, and every step changes something", () => {
+    assert.deepStrictEqual(EFFORT.map((e) => e.id), ["fast", "balanced", "smart", "max"],
+      "the order IS the slider — index 0 is the left end");
+    for (let i = 1; i < EFFORT.length; i++) {
+      const prev = EFFORT[i - 1], cur = EFFORT[i];
+      assert.ok(cur.maxTokens > prev.maxTokens, cur.id + " does not raise the token budget");
+      assert.ok(cur.rounds > prev.rounds, cur.id + " does not raise the repair budget");
+    }
+    // A step that only changes a number nobody sees is not a step.
+    assert.ok(EFFORT.some((e) => e.tier === "eco") && EFFORT.some((e) => e.tier === "power"),
+      "the scale never reaches the stronger model, so it is one model with four labels");
+  });
+
+  await check("an unknown level builds anyway rather than refusing", () => {
+    // A stale client or a queued request must not be able to fail a build by
+    // naming a level this server has never heard of.
+    assert.strictEqual(effortFor("nonsense").id, "balanced");
+    assert.strictEqual(effortFor(null).id, "balanced");
+    assert.strictEqual(effortFor("").id, "balanced");
+    assert.strictEqual(effortFor(undefined).id, "balanced");
+  });
+
+  await check("the retired \"power\" mode lands on the level it meant", () => {
+    /* Power was the top half of this scale before it was a scale. A page that
+       has not reloaded still sends mode:"power" and no effort, and demoting
+       that to the default would quietly give someone the weaker model. */
+    assert.strictEqual(effortFor(null, "power").id, "smart");
+    assert.strictEqual(effortFor(undefined, "POWER").id, "smart");
+    // An explicit level always wins over the legacy field.
+    assert.strictEqual(effortFor("fast", "power").id, "fast");
+  });
+
+  await check("effort picks the model, and mode no longer does", async () => {
+    /* The bug this replaces: mode carried both "show me a plan" and "think
+       harder", so choosing Plan silently chose the weaker model too. */
+    const seen = [];
+    client.init({ enabled: true, routes: ROUTES, fetchImpl: async (u, o) => {
+      seen.push(JSON.parse(o.body));
+      return { ok: true, json: async () => ({ choices: [{ message: toolCallMsg([{ path: "src/App.tsx", content: "x" }]), finish_reason: "tool_calls" }], usage: {} }) };
+    } });
+
+    for (const id of ["fast", "balanced", "smart", "max"]) {
+      clearCache();
+      await proposeWithClientBuild({
+        userPrompt: "a site " + id, maxRounds: 0, effort: id,
+        onFiles: async () => ({ ok: true, errors: [] })
+      });
+    }
+    const budgets = seen.map((b) => b.max_tokens);
+    assert.deepStrictEqual(budgets, EFFORT.map((e) => e.maxTokens),
+      "each level must ask for its own budget; got " + JSON.stringify(budgets));
+  });
+
   console.log("\n── running out of room ──────────────────");
 
   // An assistant message whose final write_file argument stops mid-string,

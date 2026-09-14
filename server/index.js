@@ -2580,7 +2580,7 @@ app.post("/api/projects/:key/micro-claim", microClaimLimiter, verifyCaptcha(), v
    are the next thing the model needs, and dom-snapshot.js is the original
    blank-page check — the one just rebuilt in the browser. Deleting them
    would mean writing them again. */
-const { proposeChanges, proposeWithRepair, proposeWithClientBuild, assessPrompt, buildPlan, buildCodebaseContext, buildImagesBlock, codeBudgetChars, PROMPT_VERSION } = require("./lib/codeagent/model-loop");
+const { proposeChanges, proposeWithRepair, proposeWithClientBuild, assessPrompt, buildPlan, buildCodebaseContext, buildImagesBlock, codeBudgetChars, effortFor, EFFORT, PROMPT_VERSION } = require("./lib/codeagent/model-loop");
 const diffstat = require("./lib/codeagent/diffstat");
 const codeAgentUsage = require("./lib/codeagent/usage");
 codeAgentUsage.init({ getMasterDb });
@@ -5169,8 +5169,12 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
     // client stores + previews them via the project's published URL.
     const canBuild = req.body && req.body.canBuild !== false; // default true if omitted (desktop)
     // Derived from buildMode so "power" has exactly one definition.
-    const agentMode = buildMode === "power" ? "power" : "economy";
-    const thinking = buildMode === "power";
+    /* EFFORT decides the model and the budget; buildMode decides only whether
+       a plan card is shown first. They used to be one field, which is why
+       choosing Plan silently dropped you back to the weaker model. */
+    const effort = effortFor(req.body && req.body.effort, buildMode);
+    const agentMode = effort.tier === "power" ? "power" : "economy";
+    const thinking = effort.tier === "power";
     /* Reported here and not with the other opening steps: both of these are
        declared on this line, and reading them earlier is a dead-zone throw
        that takes the whole build down with it. */
@@ -5197,6 +5201,11 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
 
     const agentOpts = {
       mode: agentMode, byok: byok, thinking: thinking, mcp: mcp,
+      /* In the shared bag, not on one call site, for the same reason
+         imageUrls is below: the mobile path runs proposeChanges with this
+         whole object, and an effort level that only reached the desktop
+         build would be a setting that silently did nothing on a phone. */
+      effort: effort.id,
       hasExistingEntry: hasExistingEntry,
       /* Here rather than only on the proposeWithClientBuild call, so the
          mobile path gets it too — that branch runs proposeChanges, which
@@ -5248,7 +5257,8 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
            anchor can be expected to hit. Empty on a first build, where there
            is nothing to edit and the tool is unusable by construction. */
         baseFiles: srcFilesForEdit,
-        maxRounds: agentMode === "power" ? 3 : 2,
+        // The level's own repair budget, not a binary derived from the tier.
+        maxRounds: effort.rounds,
         onFiles: async (calls) => {
           /* The one phase with nothing to say for itself. The files have
              been written and reported, the round result has not happened
@@ -5359,7 +5369,7 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
             " — $" + (result.costUsd || 0).toFixed(4),
           meta: {
             costUsd: result.costUsd || 0, ok: result.ok, rounds: result.rounds, isFollowUp,
-            mode: agentMode, provider: byok ? byok.provider : "souqi", mcpTools: mcp.size,
+            mode: agentMode, effort: effort.id, provider: byok ? byok.provider : "souqi", mcpTools: mcp.size,
             /* fellBack was written twice in model-loop.js and read nowhere.
                It is the difference between "worked" and "gave up politely",
                and it belongs in every quality number computed from here on.
