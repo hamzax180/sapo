@@ -6,7 +6,7 @@
 #  outside, and scripts/verify.js asserts it stays that way.
 #
 #  But the main Souqi app runs OUTSIDE this compose project (node
-#  server/index.js on :4000), so on a laptop it has no way to reach
+#  backend/index.js on :4000), so on a laptop it has no way to reach
 #  the deploy API at all. This file gives it one.
 #
 #  The bind address matters. "127.0.0.1:4500" publishes to loopback
