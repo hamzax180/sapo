@@ -20,7 +20,7 @@
 const assert = require("assert");
 const client = require("../lib/ai/client");
 const { proposeChanges, proposeWithRepair, proposeWithClientBuild, assessPrompt, buildPlan, parseToolCalls, validateWriteFileArgs, TOOLS_SCHEMA, clearCache, cacheKey, cacheStatsSnapshot,
-  fitConversation, codeBudgetChars, systemPromptFor, EFFORT, effortFor } = require("../lib/codeagent/model-loop");
+  fitConversation, codeBudgetChars, systemPromptFor, EFFORT, effortFor, buildCodebaseContext } = require("../lib/codeagent/model-loop");
 const clientMod = require("../lib/ai/client");
 
 let passed = 0, failed = 0;
@@ -1662,6 +1662,39 @@ const ROUTES = { prose: { baseUrl: "https://x.invalid/prose", model: "gemini-3.8
     });
     assert.ok(res.ok, "a first build that fails should still render something");
     assert.ok(res.fellBack, "the template is the right answer when the alternative is a blank screen");
+  });
+
+  console.log("\n── the model can see the whole structure ──────────");
+
+  /* There is no list_files tool, so a file that did not fit the budget was
+     a file the model did not know existed — and "inspect before you change
+     it" is not advice you can take about a file you cannot name. */
+  await check("every file is named even when they all fit", () => {
+    const r = buildCodebaseContext({
+      "src/App.tsx": "export default function App(){ return null; }",
+      "src/lib/money.ts": "export const f = 1;"
+    }, { prompt: "tweak it", budget: 100000 });
+    assert.match(r.text, /src\/App\.tsx/);
+    assert.match(r.text, /src\/lib\/money\.ts/);
+    assert.match(r.text, /list is complete/);
+    assert.deepStrictEqual(r.omitted, [], "nothing should have been cut at this budget");
+  });
+
+  await check("a file too big to show is named with what to do about it", () => {
+    const r = buildCodebaseContext({
+      "src/App.tsx": "export default function App(){ return null; }",
+      "src/components/Hero.tsx": "x".repeat(4000)
+    }, { prompt: "change the app", budget: 600 });
+    assert.ok(r.omitted.indexOf("src/components/Hero.tsx") !== -1, "expected the big file to be cut");
+    assert.match(r.text, /src\/components\/Hero\.tsx\s+NOT shown — call read_file/);
+  });
+
+  await check("the manifest cannot push the context over its budget", () => {
+    const files = {};
+    for (let i = 0; i < 60; i++) files["src/components/C" + i + ".tsx"] = "export const C" + i + " = () => null;";
+    const budget = 3000;
+    const r = buildCodebaseContext(files, { prompt: "x", budget: budget });
+    assert.ok(r.text.length <= budget, "context is " + r.text.length + " chars against a " + budget + " budget");
   });
 
   console.log("\n── preflight reaches the loop ─────────────────────");

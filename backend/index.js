@@ -5168,9 +5168,30 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
            the code and immediately before the change request, so the photos
            sit next to the instruction that refers to them rather than tens of
            thousands of characters of source away from it. */
+        /* WHAT THE PROJECT IS FOR, WHICH A FOLLOW-UP OTHERWISE NEVER LEARNS.
+
+           A follow-up turn is assembled from the palette, the code and the
+           new sentence — and nothing else. The original brief is sitting in
+           project.prompt, where it has always been stored and never once
+           been read on this path. So "make the hero taller" arrives with no
+           indication that this is a barber shop in Kadıköy, and the model
+           infers the goal from whatever the code budget happened to leave it.
+           That is fine when the whole tree fits and progressively less fine
+           as it gets excerpted.
+
+           Framed as background and placed BEFORE the change request on
+           purpose. The other way round — brief last, nearest the writing —
+           is how a request to adjust one component becomes a rebuild of the
+           original app, because the most recent instruction the model read
+           was the one asking for the whole thing. */
+        const brief = String(project.prompt || "").trim().slice(0, 600);
+        const briefBlock = brief
+          ? "What this project is for, from the first message that started it — background only, not the task:\n" +
+            brief + "\n\n"
+          : "";
         effectivePrompt = theme.promptBlock(buildTheme) +
           "Here is the current codebase:\n\n" + ctx.text +
-          imagesBlock + "Change request: " + prompt;
+          briefBlock + imagesBlock + "Change request: " + prompt;
         if (ctx.excerpted.length || ctx.omitted.length) {
           console.warn("[codeagent] context budget hit for " + project.id +
             ": excerpted=" + ctx.excerpted.join(",") + " omitted=" + ctx.omitted.join(","));

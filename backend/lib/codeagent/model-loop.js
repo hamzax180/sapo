@@ -70,7 +70,13 @@ const { preflight } = require("./preflight");
 // v9: the language rule stopped naming Turkish as its example. It named it
 // four times in the paragraph governing UI copy, and English requests were
 // coming back as Turkish sites — so every v8 design may carry that.
-const PROMPT_VERSION = "v9";
+// v10: the working order, and what to do when a build fails. A v9 entry was
+// produced by a model with no instruction to check its own output before
+// finishing and nothing telling it not to repeat a fix that had already
+// failed — so a v9 design can carry the unresolved import or the dead nav
+// link that preflight now refuses, and was written under a codebase block
+// that did not yet list the files it was not shown.
+const PROMPT_VERSION = "v10";
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 
 // The Map was unbounded: entries expire only when something reads them again,
@@ -686,6 +692,24 @@ Rules:
 - src/App.tsx must have a default export and must compile under TypeScript strict mode.
 - DO NOT import 'lucide-react', 'heroicons', or any uninstalled packages. ONLY import from 'react' or 'react-dom'. Use inline SVG elements, emoji, or Tailwind styled elements for icons.
 - Do not write package.json, vite.config.ts, tailwind.config.js, postcss.config.js or tsconfig.json — those are fixed and already correct. index.html IS yours to write when you are building a site with pages; leave it alone when you are building a React app, where the scaffold's own copy mounts src/main.tsx.
+
+HOW TO WORK, IN ORDER. Not ceremony — every step here is one that got skipped and produced a specific broken app.
+
+1. UNDERSTAND what is being asked. When the request comes with a note about what the project is for, that is background: it tells you what the app is, not what to do today. The change request is the task.
+2. INSPECT before you write. The codebase block opens with the COMPLETE list of files in this project — read it first. A path that is not on that list does not exist, and a file marked as not shown or excerpted is one to call read_file on, not one to reconstruct from what a file with that name usually contains.
+3. PLAN which files you will create and which you will change, before writing any of them. If something on the list already does the job, import it. A second component doing what an existing one already does is how a project ends up with two headers that disagree.
+4. EXECUTE. Write them all, entry point included, in this one response.
+5. VERIFY before you finish. You cannot run the app, so check what you CAN check by rereading what you just wrote:
+   - every import points at a file that exists — one you wrote in this response, or one on the file list
+   - every page your nav links to is a page you actually wrote
+   - the entry point is there: src/App.tsx for an app, index.html for a site with pages
+   - nothing is imported from any package other than react and react-dom
+   Those four are how a generated app most often comes back broken, and all four are visible in your own output without running anything.
+
+WHEN A BUILD COMES BACK FAILING, the errors are about the files you just wrote, and they are accurate.
+- Read what the error actually says before you change anything. The file and line it names are the file and line it means.
+- Do NOT write the same file again unchanged, and do not make the same edit a second time. If a fix did not work, the next attempt has to be a different approach — not the same one done more carefully. A round spent repeating yourself is a round gone, and a run that repeats itself ends with a starter template instead of the app you were building.
+- If the error names a file you have not seen in full, call read_file on it rather than guessing at what it contains.
 
 TAKING PAYMENTS. The scaffold ships src/lib/payments.ts, already written and already correct. Do not write, rewrite or reimplement that file. When the app should sell something — a shop, a booking fee, a paid plan, a donate button — import it:
 
@@ -1391,6 +1415,17 @@ function buildCodebaseContext(files, opts) {
   });
 
   const parts = [], included = [], excerpted = [], omitted = [];
+  /* The manifest is written after this loop but paid for before it, so a
+     project large enough to need one cannot push itself over the window by
+     describing itself. 72 chars a line covers a path plus its marker.
+
+     Capped at half the budget, and the list is trimmed to fit rather
+     than allowed to run over. Without the cap the reservation can exceed
+     the whole budget — sixty files against a small window leaves nothing
+     for code and still overruns — which turns a context-fitting function
+     into the thing that breaks the context. */
+  const manifestBudget = Math.min(sorted.length * 72 + 400, Math.floor(budget / 2));
+  const budgetLeft = Math.max(0, budget - manifestBudget);
   let used = 0;
 
   for (const [p, raw] of sorted) {
@@ -1398,7 +1433,7 @@ function buildCodebaseContext(files, opts) {
     const head = "File: " + p + "\n```\n";
     const foot = "\n```\n\n";
     const whole = head.length + content.length + foot.length;
-    const left = budget - used;
+    const left = budgetLeft - used;
 
     if (whole <= left) {
       parts.push(head + content + foot);
@@ -1424,24 +1459,68 @@ function buildCodebaseContext(files, opts) {
         "   cannot see. Either change only what you can see here with\n" +
         "   edit_file, or call read_file on it to get the whole thing. ---- */\n\n";
       parts.push(head + content.slice(0, keepTop) + marker + content.slice(-keepEnd) + foot);
-      used = budget;
+      used = budgetLeft;
       excerpted.push(p);
     } else {
       omitted.push(p);
     }
   }
 
-  let text = parts.join("");
-  if (omitted.length) {
-    // Naming them matters: "there are files you cannot see" is actionable,
-    // silently shipping a partial app is not. And now the offer is real:
-    // this said "(ask if you need one)" while no tool could ask and the
-    // system prompt forbade asking in prose, so the only move it left was
-    // to write around a file it could not see.
-    text += "Also in this project, but not shown here — call read_file to see any of them:\n" +
-      omitted.map((p) => "  - " + p).join("\n") + "\n\n";
+  /* THE COMPLETE FILE LIST, FIRST, WHETHER OR NOT ANYTHING WAS CUT.
+
+     There is no list_files tool — read_file needs a path, and the only
+     paths the model ever had were the ones that fitted in the budget. So
+     "inspect the structure before you change it" was advice it could not
+     take: a file it could not see was a file it did not know existed, and
+     the tell is a component written from scratch next to the one already
+     doing the job.
+
+     A manifest costs about a line per file and removes the guessing. It
+     goes at the TOP because it is an index — the thing you read before
+     the contents, not a footnote after them.
+
+     This replaces a list of ONLY the omitted files. That list was
+     actionable, and its instruction is kept below, but it described the
+     gap rather than the project: with a budget big enough to fit
+     everything it printed nothing at all, which is exactly the case where
+     the model most confidently assumes it has seen the whole app. */
+  const mark = (p) => (excerpted.indexOf(p) !== -1
+    ? "excerpt only below — use edit_file, or read_file for the whole thing"
+    : (omitted.indexOf(p) !== -1 ? "NOT shown — call read_file to see it" : "shown in full below"));
+  const width = Math.min(52, sorted.reduce((w, e) => Math.max(w, e[0].length), 0));
+  const header = "Every file in this project. This list is complete — any path not on it does not exist:\n";
+  const rows = sorted.map(([p]) => ({
+    p,
+    line: "  " + p + " ".repeat(Math.max(1, width - p.length + 2)) + mark(p),
+    /* A file printed in full below does not need a line up here — the model
+       is about to read the whole thing. The lines that carry the weight are
+       the ones for files it will NOT otherwise see, so those survive a trim
+       and the redundant ones pay for them. */
+    vital: excerpted.indexOf(p) !== -1 || omitted.indexOf(p) !== -1
+  }));
+  const room = manifestBudget - header.length - 70;
+  const keep = new Set();
+  let spent = 0;
+  for (const pass of [true, false]) {
+    for (const r of rows) {
+      if (r.vital !== pass || keep.has(r.p)) continue;
+      if (spent + r.line.length + 1 > room) continue;
+      keep.add(r.p);
+      spent += r.line.length + 1;
+    }
   }
-  return { text, included, excerpted, omitted };
+  const kept = rows.filter((r) => keep.has(r.p)).map((r) => r.line);
+  const lostVital = rows.filter((r) => r.vital && !keep.has(r.p)).length;
+  const lostShown = rows.filter((r) => !r.vital && !keep.has(r.p)).length;
+  if (lostShown) kept.push("  … and " + lostShown + " more file(s), each shown in full below");
+  /* "Complete" stops being claimed the moment it stops being true. A list
+     that silently ends reads as the whole project, which is the same wrong
+     assumption the manifest exists to prevent — now in writing. */
+  if (lostVital) kept.push("  … and " + lostVital + " file(s) that could not be listed for space");
+  const manifest = (lostVital ? "Files in this project:\n" : header) + kept.join("\n") + "\n\n";
+
+  const text = manifest + parts.join("");
+  return { text, included, excerpted, omitted, manifest };
 }
 
 /**
