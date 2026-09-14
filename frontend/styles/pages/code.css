@@ -1117,7 +1117,14 @@
      used to. */
   .ag-box textarea{width:100%;border:0;outline:0;resize:none;background:none;font-family:var(--body);font-size:.95rem;line-height:1.5;color:var(--ink);min-height:24px;max-height:140px;overflow-y:auto;padding:0}
   .ag-box textarea::placeholder{color:var(--mut);font-weight:400}
-  .ag-brow{display:flex;align-items:center;gap:6px;padding-top:6px}
+  /* wrap, because .ag-attach-row below asks for a whole line and cannot get
+     one without it. In a nowrap row its width:100% is just a shrink target:
+     the chips ended up as a 419px block sitting BESIDE the + button, sharing
+     the line with every control, and each extra image made the strip taller
+     and pushed the buttons down instead of stacking above them. With nothing
+     attached the row still fits on one line, so this changes nothing until
+     there is something to show. */
+  .ag-brow{display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding-top:6px}
   .ag-brow-sp{flex:1}
 
   /* Attach button + the chip that replaces it once a file's picked —
@@ -1140,7 +1147,7 @@
      misses navigates the page to the file and loses the conversation. */
   .ag-composer.dropping .ag-box{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 18%,transparent)}
   .ag-attach-row{display:contents}
-  .ag-attach-row:not(:empty){display:flex;flex-wrap:wrap;gap:6px;order:-1;width:100%;margin-bottom:6px}
+  .ag-attach-row:not(:empty){display:flex;flex-wrap:wrap;gap:6px;order:-1;width:100%}
   /* Uploading: dimmed, and the remove button still works — a slow upload is
      the moment you are most likely to change your mind. */
   .ag-attach-chip.busy{opacity:.6}
@@ -1673,7 +1680,7 @@
      on the right rather than jumping to the left margin. */
   @media (max-width:640px){
     .ag-box{padding-inline:10px}
-    .ag-brow{gap:4px;flex-wrap:wrap;row-gap:6px;justify-content:flex-end}
+    .ag-brow{gap:4px;row-gap:6px;justify-content:flex-end}
     .ag-brow-sp{display:none}
     .ag-attach{margin-inline-end:auto}
     .ag-attach,.ag-voice-btn{width:28px;height:28px}
