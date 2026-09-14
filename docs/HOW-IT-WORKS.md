@@ -15,15 +15,15 @@ pushing to GitHub is neither of them.
 
 | Target | What lives there | How to deploy |
 |---|---|---|
-| **Vercel** (project `sapone`) | the platform: `server/`, `public/`, the code agent, the scaffold | `npx vercel --prod --yes` |
-| **VPS** `148.113.174.192` | the container plane: `deploy/` — Caddy, the deploy API, the worker, users' running apps | `cd deploy && SSH_USER=ubuntu bash scripts/ship.sh 148.113.174.192` |
+| **Vercel** (project `sapone`) | the platform: `backend/`, `frontend/`, the code agent, the scaffold | `npx vercel --prod --yes` |
+| **VPS** `148.113.174.192` | the container plane: `infra/deploy/` — Caddy, the deploy API, the worker, users' running apps | `cd infra/deploy && SSH_USER=ubuntu bash scripts/ship.sh 148.113.174.192` |
 
-They share a git repository and nothing else. A change under `server/` or
-`public/` needs Vercel; a change under `deploy/` needs the VPS; a change to
+They share a git repository and nothing else. A change under `backend/` or
+`frontend/` needs Vercel; a change under `infra/deploy/` needs the VPS; a change to
 both needs both.
 
 On Vercel, **only `/api/*`, `/auth/*` and `/s/*` reach Express.** Everything
-else is served statically from `public/`. A route added outside those three
+else is served statically from `frontend/`. A route added outside those three
 prefixes exists locally and 404s in production.
 
 ---
@@ -77,7 +77,7 @@ lump at the end.
 
 ## 3. The code agent
 
-`server/lib/codeagent/model-loop.js` is the core. Everything below is in it
+`backend/lib/codeagent/model-loop.js` is the core. Everything below is in it
 unless stated otherwise.
 
 ### Tools
@@ -136,16 +136,22 @@ either, because one build has to work at all three mounts.
 The model's window is finite and the conversation only ever grows, so both
 ends are bounded.
 
-| | eco | power |
-|---|---|---|
-| reply budget (`max_tokens`) | 8,000 | 16,000 |
-| codebase context | ~118,600 chars | ~69,900 chars |
-| repair rounds | 2 | 3 |
+| | fast | balanced | smart | max |
+|---|---|---|---|---|
+| reply budget (`max_tokens`) | 16,000 | 32,000 | 48,000 | 64,000 |
+| repair rounds | 1 | 2 | 3 | 4 |
+| tier | eco | eco | power | power |
+
+`balanced` is the default. The two tiers still exist underneath — they are
+what picks the model — but the person sees four steps, not two, and `mode`
+stays a separate axis because how hard to think and whether to ask first are
+different questions. The list is `EFFORT` in `model-loop.js`, and its order
+is the order of the slider.
 
 The codebase budget is **computed from the model's context window**, not
 fixed. `codeBudgetChars()` subtracts the system prompt, the tool schemas, the
 history, the errors, one reply and one accumulated attempt from the window.
-Power gets less because it reserves twice the reply.
+The upper levels get less because they reserve a larger reply.
 
 `fitConversation()` keeps it there. It drops the **oldest repair exchanges**,
 in whole groups, never single messages — an assistant message carrying
@@ -182,9 +188,19 @@ doing so burned repair rounds on nothing.
 
 | Route | Provider | Used for |
 |---|---|---|
-| `json` | DeepSeek `deepseek-chat`, or `AI_JSON_POWER_MODEL` in power | all code generation |
-| `prose` | Gemini | chat, replies, plan cards |
-| `vision` | Gemini | describing uploaded photos |
+| `json` | `deepseek-flash`, or `deepseek-v4-pro` on smart and max | all code generation |
+| `prose` | `deepseek-flash` | chat, replies, plan cards |
+| `vision` | `deepseek-flash` | describing uploaded photos |
+
+Every route is DeepSeek. Prose and vision were on Gemini for its multilingual
+range — that is what `archive/AI-PROVIDER-PLAN.md` describes — until `d48f2f4`
+moved them. The three-route *shape* was kept rather than collapsed, because it
+is what makes going back a configuration change: each route still has its own
+base URL, model, key, breaker and spend line.
+
+Vision is `deepseek-flash` and not the stronger model on purpose. Checked
+against the live API, `deepseek-flash` described a logo correctly where
+`deepseek-v4-pro` answered "NO IMAGE" to the same picture.
 
 Vision never falls back. A text-only model handed an image does not decline —
 it writes a fluent description of a photo it never received, which then gets
@@ -220,13 +236,13 @@ Two rules worth knowing about, because both were bugs:
 
 ## 4. The scaffold
 
-`server/lib/codeagent/scaffold/` — 12 files, frozen into `scaffold-data.json`
+`backend/lib/codeagent/scaffold/` — 12 files, frozen into `scaffold-data.json`
 at build time.
 
 **Regenerate after changing anything under `scaffold/`:**
 
 ```bash
-node scripts/build-scaffold-data.js
+node backend/scripts/build-scaffold-data.js
 ```
 
 The directory is not read at runtime, and on Vercel it cannot be: excluded,
@@ -235,8 +251,8 @@ the files are missing; included, the function bundler transpiles `App.tsx` to
 neither compiled nor dropped.
 
 **There are two copies of the dependency list** — `scaffold/package.json` and
-the one `public/js/codeagent/wc-runtime.js` mounts into the WebContainer.
-They must agree. `server/scaffold-contract-test.js` enforces the rule *if the
+the one `frontend/js/codeagent/wc-runtime.js` mounts into the WebContainer.
+They must agree. `backend/test/scaffold-contract-test.js` enforces the rule *if the
 prompt tells the model to import it, the build container must have it*, which
 is the test that would have caught `payments.ts` being mandated by the prompt
 and absent from the container.
@@ -265,7 +281,7 @@ or be stale in a cached bundle.
 
 ---
 
-## 6. The container plane (`deploy/`)
+## 6. The container plane (`infra/deploy/`)
 
 A separate application on the VPS. It takes a built project and runs it as a
 real Docker container on a subdomain, with its own database, network and TLS
@@ -306,7 +322,7 @@ to 40 in code; the production host sets 10.
 
 ## 7. Images
 
-Upload → R2 (S3-compatible) → Gemini describes it → the description goes into
+Upload → R2 (S3-compatible) → the vision route describes it → the description goes into
 the build prompt.
 
 ```
@@ -337,12 +353,12 @@ objects to a string.
 
 ## 8. The design system
 
-`server/lib/codeagent/theme.js` and `server/lib/design/palette.js`.
+`backend/lib/codeagent/theme.js` and `backend/lib/design/palette.js`.
 
 Every build gets a palette computed from a seed — the uploaded logo's
 dominant colour when there is one, otherwise the build type. It is generated
 in OKLCH, and **WCAG AA is proven by computation rather than judgement**: if a
-pairing fails, the fill moves until it passes. `server/theme-test.js` runs
+pairing fails, the fill moves until it passes. `backend/test/theme-test.js` runs
 every palette the module can produce and asserts the measured contrast rather
 than spot-checking one.
 
@@ -360,15 +376,15 @@ you navigate it.
 ## 9. Tests
 
 ```bash
-node server/model-loop-test.js         # the agent: 91 cases
-node server/ai-client-test.js          # routes, breaker, budget: 19
-node server/diffstat-test.js           # the build card's +/- numbers: 13
-node server/theme-test.js              # measured contrast: 12
-node server/scaffold-contract-test.js  # prompt/container agreement: 4
-node deploy/test/admission-test.js     # redeploy admission: 5
+node backend/test/model-loop-test.js         # the agent: 91 cases
+node backend/test/ai-client-test.js          # routes, breaker, budget: 19
+node backend/test/diffstat-test.js           # the build card's +/- numbers: 13
+node backend/test/theme-test.js              # measured contrast: 12
+node backend/test/scaffold-contract-test.js  # prompt/container agreement: 4
+node infra/deploy/test/admission-test.js     # redeploy admission: 5
 ```
 
-Everything under `server/*-test.js` runs without network or a key —
+Everything under `backend/test/` runs without network or a key —
 `fetchImpl` is injected. Two need a local mongod on `127.0.0.1:27017` and
 fail without one: `sse-test.js` and `smoke-test.js` (the latter fails by
 **timing out** rather than saying so, which its own header warns about).
@@ -388,9 +404,9 @@ assertion is what caught it.
 |---|---|
 | `AI_ENABLED` | `1`, or the whole agent returns `{disabled:true}` without touching the network |
 | `AI_JSON_{BASE_URL,MODEL,KEY}` | the coding route (DeepSeek) |
-| `AI_PROSE_{BASE_URL,MODEL,KEY}` | chat and plans (Gemini) |
-| `AI_VISION_{BASE_URL,MODEL,KEY}` | photo descriptions (Gemini) |
-| `AI_JSON_POWER_MODEL` | power tier, e.g. `deepseek-reasoner`. Unset means power runs the same model as eco and its "deep reasoning" is only a longer suffix |
+| `AI_PROSE_{BASE_URL,MODEL,KEY}` | chat and plans (DeepSeek) |
+| `AI_VISION_{BASE_URL,MODEL,KEY}` | photo descriptions (DeepSeek) |
+| `AI_JSON_POWER_MODEL` | the smart/max model, `deepseek-v4-pro`. Unset means those levels run the same model as the lower two and their extra effort is only a longer budget |
 | `AI_<ROUTE>_CONTEXT_TOKENS` | override a context window the table does not know |
 | `AI_MONTHLY_BUDGET_USD` | hard stop across all routes; `0` means unlimited |
 | `CODEAGENT_MAX_CODE_CHARS` | caps the computed codebase budget (cannot raise it past the window) |
@@ -412,7 +428,7 @@ ssh ubuntu@148.113.174.192 'docker logs stack-worker-1 --tail 2000 | grep dep_xx
 ```
 
 ```bash
-cd deploy && bash scripts/ship.sh 148.113.174.192 --logs
+cd infra/deploy && bash scripts/ship.sh 148.113.174.192 --logs
 ```
 
 ### Measuring the agent

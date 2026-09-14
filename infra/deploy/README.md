@@ -52,11 +52,19 @@ curl -s localhost:4500/deployments/dep_.../status -H 'x-user-id: u1'
 ## Verify the security properties
 
 ```bash
-node scripts/verify.js        # 50 checks — containers, builds, secrets, compose
-node scripts/verify-auth.js   # 21 checks — sessions, revocation, boot guards
+npm test                      # both suites
+node scripts/verify.js        # containers, builds, secrets, compose
+node scripts/verify-auth.js   # sessions, revocation, boot guards
 ```
 
-71 checks, no Docker daemon required. They assert what the code *would* run
+No Docker daemon required. Read the count the suites print — this file used
+to state it, and it was wrong: it said 71 while 145 ran. `ship.sh` was
+changed to print their own output for exactly that reason, because an
+operator told "71 checks passed" by the tool whose whole job is to reassure
+them has been told something false. The number is not written down here
+again on purpose.
+
+They assert what the code *would* run
 rather than running it, so they hold in CI and before anything is deployed —
 a guarantee you can only test with the full stack up is one that quietly
 stops being true.
@@ -237,9 +245,10 @@ victim — which, on a shared box, is usually somebody else.
 
 ## Not built yet
 
-- **Source archives are staged on the VM.** `deployments.source_key` and the
-  `S3_*` config exist; the upload path does not. Until it does, a lost VM is
-  lost source.
+Source archives used to be listed here. They are built now — `src/storage/objects.js`
+exports `putSource`/`getSource`, `src/api/server.js` calls it on every deployment,
+and `docker-compose.override.yml` wires MinIO in locally to exercise it.
+
 - **The scheduler.** `hosts` and `deployments.host_id` are already in the
   schema, and `ComputeProvider` is the interface it will use, but placement
   is hardcoded to `local`.

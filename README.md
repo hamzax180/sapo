@@ -1,118 +1,76 @@
 <div align="center">
 
-<img src="public/assets/logo.png" width="80" alt="Souqi Logo" />
+<img src="frontend/assets/logo.png" width="80" alt="Souqi" />
 
-# Souqi — Smart Commerce & Operations Platform
+# Souqi
 
-**The all-in-one cloud operations console and storefront builder.**  
+**Describe an app. Watch it get built, and put it online.**
 
-[![Deploy](https://github.com/hamzax180/sapo/actions/workflows/deploy.yml/badge.svg)](https://github.com/hamzax180/sapo/actions/workflows/deploy.yml)
-[![Vercel](https://img.shields.io/badge/Frontend-Vercel-black?logo=vercel)](https://vercel.com)
-[![Node.js](https://img.shields.io/badge/Backend-Node.js%2020-green?logo=node.js)](https://nodejs.org)
-[![MongoDB](https://img.shields.io/badge/Database-MongoDB-47A248?logo=mongodb&logoColor=white)](https://mongodb.com)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Vercel](https://img.shields.io/badge/Platform-Vercel-black?logo=vercel)](https://vercel.com)
+[![Node.js](https://img.shields.io/badge/Runtime-Node.js%2020-green?logo=node.js)](https://nodejs.org)
+[![MongoDB](https://img.shields.io/badge/Data-MongoDB-47A248?logo=mongodb&logoColor=white)](https://mongodb.com)
+[![Docker](https://img.shields.io/badge/Deploy%20plane-Docker%20%2B%20Caddy-2496ED?logo=docker&logoColor=white)](https://docker.com)
 
-[**Live Demo →**](https://souqi.site) &nbsp;|&nbsp; [**API Docs →**](#-api-reference) &nbsp;|&nbsp; [**Architecture →**](#-architecture)
+[**souqi.site**](https://souqi.site) &nbsp;·&nbsp; [How it works](docs/HOW-IT-WORKS.md) &nbsp;·&nbsp; [Architecture](docs/ARCHITECTURE.md) &nbsp;·&nbsp; [Deploying](docs/DEPLOYING.md) &nbsp;·&nbsp; [Repo map](docs/REPO-MAP.md)
 
 </div>
 
 ---
 
-## ✨ Overview
+You type what you want. An agent writes real React and TypeScript, builds it in
+your browser, shows you the result, and repairs it when the build fails. When
+you are happy with it, it goes online — either as a published page on
+`souqi.site/s/<slug>`, or as a container on a machine with its own domain,
+TLS and database.
 
-**Souqi** is a full-stack, multi-tenant eCommerce and operations platform designed to help businesses transition from fragmented spreadsheets to a **single, real-time operations screen**. 
+Two products, one repository:
 
-With Souqi, businesses can instantly generate their own storefront, manage inventory, track orders, process payments, and connect directly with their suppliers—all accompanied by a complete audit trail and a built-in AI assistant.
+- **Souqi Code** — the agent. Prompt, plan, build, preview, publish.
+- **The deploy plane** — Docker, Caddy and Postgres on a VPS, which is what
+  turns a build into a running application with a URL of its own.
 
-> **Zero-framework frontend.** No React, no build step, no webpack. Pure HTML + CSS design system + vanilla ES modules. Lightning fast, beautifully animated, and opens instantly on any device. 
-
----
-
-## 🖥️ Architecture
-
-> **Working on the code agent?** [docs/HOW-IT-WORKS.md](docs/HOW-IT-WORKS.md) describes the system as built — the two deploy targets, the build pipeline, the context budget, the container plane and the constants that matter. The other files in `docs/` are plans, not descriptions.
-
-The architecture is built for maximum performance and multi-tenancy out of the box.
-
-```text
-┌─────────────────────────────────────────────────────────────────┐
-│                     BROWSER  (Client Layer)                     │
-│                                                                 │
-│  login.html   signup.html   index.html   pricing.html           │
-│                                                                 │
-│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐            │
-│  │  app.js  │ │ views.js │ │ store.js │ │   ui.js  │            │
-│  │ (router) │ │(all pages)│ │(data lyr)│ │(kit+auth)│            │
-│  └──────────┘ └──────────┘ └──────────┘ └──────────┘            │
-│                                                                 │
-│                   Vanilla HTML · sap.css · Zero-framework       │
-└──────────────────────────┬──────────────────────────────────────┘
-                           │ HTTPS REST / JSON
-                           ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                  REST API BACKEND (Node.js / Express)           │
-│                                                                 │
-│  JWT Auth · bcrypt · CORS · Collection allowlist · AI proxy     │
-│  Multi-DB routing via x-workspace-db-type request header        │
-└──────────────┬────────────────────────────┬─────────────────────┘
-               │                            │
-               ▼                            ▼
-┌──────────────────────┐      ┌─────────────────────────┐
-│    MongoDB Atlas     │      │   PostgreSQL / Neon DB  │
-│  (Primary Default)   │      │ (Alternative, per-tenant)│
-└──────────────────────┘      └─────────────────────────┘
-```
-
----
-
-## 🗂️ Core Modules
-
-| Module | Description |
-|--------|-------------|
-| 📊 **Dashboard** | Live KPIs — active orders, inventory value, receivables. |
-| 🚢 **Shipments** | Track status, routes, loads, and advance tracking updates in real-time. |
-| 📦 **Inventory** | Automated stock tracking, reorder thresholds, low-stock flags across multiple warehouses. |
-| 🛒 **Orders & Commerce** | Customer purchase orders, cart integrations, and payment tracking. |
-| 👥 **Clients & CRM** | Multinational accounts, ratings, order counts, and contact management. |
-| 🏭 **Suppliers** | Procurement & sourcing partners management. |
-| 💰 **Finance** | Invoices, receivables, mark-paid, overdue tracking, and dynamic pricing rules. |
-| 🤖 **AI Assistant** | Built-in Gemini-powered chat — query your platform with plain language. |
-| 🌐 **Localization** | Built-in complete support for English, Arabic (RTL), and Turkish. |
-
----
-
-## 🚀 Quick Start
-
-### Run the Frontend (Demo Mode — no backend needed)
-
-You can run the web app immediately without any backend dependencies. Souqi's frontend is fully independent.
+## Running it
 
 ```bash
-# Serve the public/ folder with any static server
-cd public
-python -m http.server 8080
-# → open http://localhost:8080/login.html
+cd backend && npm install && npm start
 ```
 
----
+That serves the pages and the API on `http://localhost:4000`. You will need a
+`backend/.env` — copy `backend/.env.example` and fill in at minimum a MongoDB
+URI and an AI key. Without a key the pages render and the agent does not build.
 
-## 🔗 Live Site
-Check out the fully operational live platform at **[souqi.site](https://souqi.site)**. 
+```bash
+cd backend && npm test
+```
 
-Experience the interactive device animations, seamless language switching (including deep Arabic RTL support), and responsive design directly from your browser.
+The plane is a separate stack with its own manifest:
 
----
+```bash
+cd infra/deploy && docker compose up
+```
 
-## 🔒 Security Notes
+## The layout
 
-- Passwords are unconditionally hashed with **bcrypt** before storage.
-- JWT tokens are signed securely and verified upon every protected request.
-- The API enforces a strict **collection allowlist**—unknown or unauthorized routes return `404` immediately.
-- `GEMINI_API_KEY` is kept exclusively server-side and never exposed to the client.
-- **Demo mode** operations run entirely client-side leveraging `localStorage`—no sensitive local testing data ever leaves the device.
+| | |
+|---|---|
+| `backend/` | the application — Express, the agent, the AI routing, the tests |
+| `frontend/` | what gets served — sixteen pages, no build step |
+| `infra/deploy/` | the container plane, its own app on its own machine |
+| `api/index.js` | the Vercel function; one line, requiring `backend/` |
+| `docs/` | how it works, how it is shaped, how it ships |
 
----
+[`docs/REPO-MAP.md`](docs/REPO-MAP.md) has the rest, including which files are
+generated and must not be hand-edited.
 
-## 📄 License
+## Deploying
 
-MIT © 2026 Souqi Cloud Operations Platform
+**`git push` deploys nothing.** There are two targets and each has its own
+command — see [`docs/DEPLOYING.md`](docs/DEPLOYING.md), which also covers how to
+check that a deploy actually landed, because a page that loads is not evidence.
+
+## A note on the docs
+
+`docs/archive/` holds nine planning documents. They are history, kept for the
+reasoning rather than the instructions — a single commit removed the storefront
+and portal subsystem they were written against. Where a document and the code
+disagree, the code is right.
