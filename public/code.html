@@ -1291,92 +1291,110 @@
   .ag-effort-track .dots::before,
   .ag-effort-track .dots::after{
     position:absolute;inset:0;border-radius:8px;content:"";pointer-events:none}
-  /* A FILLED BAND WITH GRAIN IN IT — not dots on a pale ground.
+  /* THE GRAIN IS THE SCALE. THE BLUE IS MAX.
 
-     Two separate mistakes got fixed here. The first was scale: a 7px pitch
-     with dots at 26/33/40% of the cell is 3.6 to 5.6px across, about three
-     and a half rows on a 26px track, and at that size you do not read a
-     density, you read a printed halftone. 4px pitch at ~17% is roughly
-     1.4px across and six and a half rows, which is fine enough to read as
-     texture.
+     The ramp is a dot grain that densifies toward "Smarter" — that is the
+     scale itself, and it is there at every level, because it is what makes
+     the positions mean something. What it is NOT is blue: a filled band at
+     every level said "full power" four times over and left the top of the
+     scale with nothing of its own to say.
 
-     The second was that there was no BODY to it. Dots alone, however fine,
-     leave the control looking like an empty track someone sprinkled on;
-     what makes the reference read as stored energy is that the right-hand
-     half is genuinely FILLED, and the grain is texture within that fill
-     rather than the whole substance of it. So: a fixed gradient carries the
-     body, accent grain carries the faint left end, and light speckle punches
-     through the filled right end.
+     The fill belongs to Max alone, and it arrives rather than appearing —
+     wiped in from the left over about a second and a half, with the bright
+     head of the run travelling just ahead of it. That is the whole point of
+     it: you see the track charge.
 
-     The fill is STATIC, and that is the distinction from the overlay
-     documented above. That one filled to the THUMB, so at the top of the
-     scale it painted the whole width and Max became indistinguishable from
-     Fast. This one is the same shape at every level and never tracks the
-     handle; what the level changes is the grain, the travelling light and
-     the glow.
+     On scale: the pitch was 7px with dots at 26/33/40% of the cell, 3.6 to
+     5.6px across and about three and a half rows on a 26px track. At that
+     size you do not read a density, you read a printed halftone. 4px pitch
+     at ~17% is roughly 1.4px across and six and a half rows, fine enough to
+     read as texture.
 
-     Every layer sits on the SAME 4px lattice, aligned. Offsetting the
+     Every grain layer sits on the SAME 4px lattice, aligned. Offsetting the
      heavier ones by half a cell was tried and is worse: it puts dots
      BETWEEN the existing dots, so the layers stop being one field at
      several strengths and become overlapping grids — and grids of
      different pitch beat into a plaid you can see at a glance. */
   .ag-effort-track .dots{
-    overflow:hidden;
-    background:
-      linear-gradient(90deg,
-        transparent 0%,
-        color-mix(in srgb,var(--accent) 5%,transparent) 20%,
-        color-mix(in srgb,var(--accent) 19%,transparent) 44%,
-        color-mix(in srgb,var(--accent) 42%,transparent) 70%,
-        color-mix(in srgb,var(--accent) 62%,transparent) 100%),
-      var(--paper-2)}
-  /* The faint left end, in accent over the bare ground. Faded out by the
-     time the fill takes over, so the two never both claim the same stretch. */
+    background:var(--paper-2);overflow:hidden;
+    background-image:radial-gradient(circle at center,
+      color-mix(in srgb,var(--accent) 42%,transparent) 17%, transparent 19%);
+    background-size:4px 4px;
+    -webkit-mask-image:linear-gradient(90deg,rgba(0,0,0,.13) 0%,rgba(0,0,0,.44) 42%,#000 88%);
+    mask-image:linear-gradient(90deg,rgba(0,0,0,.13) 0%,rgba(0,0,0,.44) 42%,#000 88%)}
   .ag-effort-track .dots::before{
     background-image:radial-gradient(circle at center,
-      color-mix(in srgb,var(--accent) 60%,transparent) 17%,transparent 19%);
+      color-mix(in srgb,var(--accent) 66%,transparent) 18%, transparent 20%);
     background-size:4px 4px;
-    -webkit-mask-image:linear-gradient(90deg,rgba(0,0,0,.42) 0%,rgba(0,0,0,.5) 30%,rgba(0,0,0,.16) 64%,transparent 86%);
-    mask-image:linear-gradient(90deg,rgba(0,0,0,.42) 0%,rgba(0,0,0,.5) 30%,rgba(0,0,0,.16) 64%,transparent 86%)}
-  /* Speckle THROUGH the fill. Light rather than accent, because a darker
-     dot on a dark fill is invisible — the reference's texture reads as
-     pixels of the surface showing through, and that is a lighter tone in
-     both themes. */
+    -webkit-mask-image:linear-gradient(90deg,transparent 14%,rgba(0,0,0,.5) 52%,#000 88%);
+    mask-image:linear-gradient(90deg,transparent 14%,rgba(0,0,0,.5) 52%,#000 88%)}
   .ag-effort-track .dots::after{
     background-image:radial-gradient(circle at center,
-      rgba(255,255,255,.62) 17%,transparent 19%);
+      var(--accent) 19%, transparent 21%);
     background-size:4px 4px;
-    -webkit-mask-image:linear-gradient(90deg,transparent 26%,rgba(0,0,0,.45) 52%,#000 82%);
-    mask-image:linear-gradient(90deg,transparent 26%,rgba(0,0,0,.45) 52%,#000 82%)}
+    -webkit-mask-image:linear-gradient(90deg,transparent 48%,rgba(0,0,0,.45) 76%,#000 100%);
+    mask-image:linear-gradient(90deg,transparent 48%,rgba(0,0,0,.45) 76%,#000 100%)}
+
+  /* ── THE CHARGE ───────────────────────────────────────────────────────
+     Max only, and it fills in rather than switching on.
+
+     clip-path rather than a mask or a width: it animates on the compositor,
+     it cannot disturb the layout of anything beside it, and unlike opacity
+     on this element it does not get pinned by a stuck transition (see the
+     note on .particles). inset(0 100% 0 0) is fully clipped from the right,
+     so the reveal runs left to right — the direction the scale reads.
+
+     No transition on the way out. Dragging off Max drops it immediately,
+     which is correct: the band means "this one setting", and a band fading
+     away over a third of a second while you are already on Smart is the
+     band lying about the level. */
+  .ag-effort-track .fill{
+    position:absolute;inset:0;border-radius:8px;pointer-events:none;z-index:1;
+    opacity:0;
+    background:linear-gradient(90deg,
+      transparent 0%,
+      color-mix(in srgb,var(--accent) 6%,transparent) 18%,
+      color-mix(in srgb,var(--accent) 22%,transparent) 44%,
+      color-mix(in srgb,var(--accent) 46%,transparent) 70%,
+      color-mix(in srgb,var(--accent) 66%,transparent) 100%);
+    clip-path:inset(0 100% 0 0)}
+  .ag-effort-track[data-heat="max"] .fill{
+    opacity:1;animation:effCharge 1.45s cubic-bezier(.33,1,.68,1) forwards}
+  .ag-effort-track.dragging[data-heat="max"] .fill{animation-duration:.75s}
+  @keyframes effCharge{
+    from{clip-path:inset(0 100% 0 0)}
+    to{clip-path:inset(0 0 0 0)}
+  }
 
   /* ── THE FIELD ────────────────────────────────────────────────────────
-     The ramp above says what a POSITION means. This says the machine is
-     running, and how hard: a grain drifting through the fill, a twinkle on
-     its own period, and — this is the part you are meant to actually see —
-     a bright streak running the length of the track at the top of the
-     scale.
-
-     Intensity is stepped off data-heat, which paintEffort() already writes
-     on every frame of a drag. Nothing here interpolates through a custom
-     property; see the thumb notes below for why that is not reliable on
-     this element. */
+     Light speckle and a bright head, both of which live ON the charge — a
+     white mote over the bare ground is invisible, so this is Max-only too.
+     It has to be: the charge is what these are texture and motion FOR. */
   .ag-effort-track .particles{
     position:absolute;inset:0;border-radius:8px;overflow:hidden;
-    pointer-events:none;z-index:1;opacity:0;
-    /* NO TRANSITION ON OPACITY. It does not ease, it STICKS: the element
-       lives inside a popover that animates visibility, and a transition
-       started while that subtree is hidden never completes. Measured, with
-       data-heat cycling, computed opacity stayed at one value for all four
-       levels while animation-duration from the SAME four rules stepped
-       correctly — a running CSSTransition outranks the cascade. Stepping
-       instantly is also the better behaviour: the field answers the finger. */
+    pointer-events:none;z-index:2;opacity:0;
+    /* No transition on opacity, because the field is either on or off and
+       a fade buys nothing: it belongs to Max alone, and the charge beneath
+       it is already the thing that arrives gradually.
+
+       An earlier comment here claimed a transition on this property "sticks
+       because the popover subtree is hidden". That was wrong, and it is
+       worth saying so rather than deleting it: the measurement behind it
+       was taken in a browser tab that was not painting, where every
+       animation clock is throttled to a standstill - a plain <div> created
+       on the spot showed currentTime 0 after 900ms and rAF fired once in
+       800ms. Nothing about this element is special. Anyone re-measuring
+       animation timing on this page should check document.visibilityState
+       and rAF cadence first. */
     background-image:radial-gradient(circle at center,
       rgba(255,255,255,.55) 16%,transparent 18%);
     background-size:4px 4px;
     background-position:0 0;
     -webkit-mask-image:linear-gradient(90deg,transparent 22%,rgba(0,0,0,.5) 52%,#000 92%);
     mask-image:linear-gradient(90deg,transparent 22%,rgba(0,0,0,.5) 52%,#000 92%);
-    animation:effDrift 10s linear infinite}
+    animation:effDrift 4s linear infinite}
+  .ag-effort-track[data-heat="max"] .particles{opacity:1}
+  .ag-effort-track.dragging[data-heat="max"] .particles{animation-duration:1.7s}
   /* Exactly one cell, so it loops seamlessly and the motion reads as the
      grain travelling rather than the whole panel sliding. */
   @keyframes effDrift{ to{background-position:4px 0} }
@@ -1393,15 +1411,14 @@
     animation:effTwinkle 2.6s ease-in-out infinite}
   @keyframes effTwinkle{ 0%,100%{opacity:.16} 50%{opacity:.66} }
 
-  /* THE RUN. A bright head with a tail behind it, travelling the length of
-     the track on a loop — the one element here whose whole job is to be
-     noticed, because "this is at full power" is a thing the control has to
-     SAY and a density alone does not say it. Linear timing on purpose:
-     an eased sweep reads as a shine passing over glass, a constant one
-     reads as something moving under its own power.
+  /* THE HEAD. A bright leading edge with a tail behind it. Its first pass
+     is timed to the charge - same 1.45s, both starting the moment the level
+     becomes Max - so the light arrives and the band is left behind it. It
+     keeps looping after that, which is what stops a charged track looking
+     like a finished progress bar.
 
-     Off below Smart. If it ran at every level it would stop meaning the
-     top of the scale, which is the only thing it is for. */
+     Linear on purpose: an eased sweep reads as a shine passing over glass,
+     a constant one reads as something moving under its own power. */
   .ag-effort-track .particles::after{
     content:"";position:absolute;top:-2px;bottom:-2px;width:15%;
     background:linear-gradient(90deg,
@@ -1412,43 +1429,28 @@
       transparent);
     filter:blur(1.5px);
     transform:translateX(-200%);opacity:0}
-  .ag-effort-track[data-heat="smart"] .particles::after{
-    opacity:.45;animation:effRun 2.6s linear infinite}
   .ag-effort-track[data-heat="max"] .particles::after{
-    opacity:1;animation:effRun 1.7s linear infinite}
-  .ag-effort-track.dragging[data-heat="max"] .particles::after{animation-duration:1.05s}
+    opacity:1;animation:effRun 1.45s linear infinite}
+  .ag-effort-track.dragging[data-heat="max"] .particles::after{animation-duration:.9s}
   @keyframes effRun{
     0%{transform:translateX(-200%)}
     100%{transform:translateX(800%)}
   }
 
-  /* Four steps of the same field. Brighter AND faster together, because
-     either one alone reads as a different control rather than as the same
-     one working harder. */
-  .ag-effort-track[data-heat="fast"] .particles{opacity:.18;animation-duration:15s}
-  .ag-effort-track[data-heat="balanced"] .particles{opacity:.4;animation-duration:10s}
-  .ag-effort-track[data-heat="smart"] .particles{opacity:.7;animation-duration:6.5s}
-  .ag-effort-track[data-heat="max"] .particles{opacity:1;animation-duration:4s}
-
-  /* Under the finger everything steps up one notch, so the drag itself is
-     what shows the power rising. These come after the heat rules on
-     purpose: same specificity, later wins. */
-  .ag-effort-track.dragging .particles{animation-duration:3.2s}
-  .ag-effort-track.dragging[data-heat="max"] .particles{animation-duration:1.7s}
-
-  /* At the top the track itself is lit, not just its contents. */
+  /* At the top the track itself is lit, not just its contents. Max only,
+     for the same reason as everything else here. */
   .ag-effort-track .dots{transition:box-shadow .35s var(--ease)}
-  .ag-effort-track[data-heat="smart"] .dots{
-    box-shadow:0 0 0 1px color-mix(in srgb,var(--accent) 14%,transparent),
-      0 0 9px -3px color-mix(in srgb,var(--accent) 32%,transparent)}
   .ag-effort-track[data-heat="max"] .dots{
     box-shadow:0 0 0 1px color-mix(in srgb,var(--accent) 26%,transparent),
       0 0 15px -2px color-mix(in srgb,var(--accent) 55%,transparent)}
 
-  /* A slow sheen travelling the length of the ramp. Transform only, so it is
-     composited, and it is the one thing here that moves on its own. */
+  /* The slow ambient sheen, under the head and over the charge. It is drawn
+     in accent, so like everything else blue here it is Max only - at the
+     lower levels it was a blue wash crossing a track that is supposed to
+     have no blue in it at all. */
   .ag-effort-track .sheen{position:absolute;inset:0;border-radius:8px;overflow:hidden;
-    pointer-events:none;z-index:2}
+    pointer-events:none;z-index:3;opacity:0}
+  .ag-effort-track[data-heat="max"] .sheen{opacity:1}
   .ag-effort-track .sheen::after{content:"";position:absolute;top:0;bottom:0;width:38%;
     background:linear-gradient(100deg,transparent,
       color-mix(in srgb,var(--accent) 26%,transparent) 45%,transparent);
@@ -1532,8 +1534,10 @@
        and animations do not. */
     .ag-effort-pop,.ag-effort-tip,.ag-effort-head .v,.ag-effort-thumb,
     .ag-effort-pill,.ag-effort-track .dots{transition:none;animation:none}
-    /* These two exist only in order to move, so there is nothing left of
-       them to keep. */
+    /* These exist only in order to move, so there is nothing left of them
+       to keep. The charge goes with them: a band that is supposed to arrive
+       is not worth having if it cannot. */
+    .ag-effort-track .fill,
     .ag-effort-track .particles,
     .ag-effort-track .sheen{display:none}
   }
@@ -4502,6 +4506,7 @@
               <div class="ag-effort-row">
                 <div class="ag-effort-track" id="agEffortTrack">
                   <div class="dots" aria-hidden="true"></div>
+                  <div class="fill" aria-hidden="true"></div>
                   <div class="particles" aria-hidden="true"></div>
                   <div class="sheen" aria-hidden="true"></div>
                   <!-- step is fine-grained so the thumb tracks the finger
