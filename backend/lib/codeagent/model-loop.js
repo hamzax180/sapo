@@ -2524,6 +2524,21 @@ async function proposeWithClientBuild({ userPrompt, maxRounds, onFiles, onRound,
   /* Once per turn, never reset. A reviewer that gets a second look at the
      repair it asked for is a reviewer that can keep asking. */
   let reviewed = false;
+  /* Every distinct thing that went wrong this turn, in the order it first
+     appeared. The loop knew all of it and told nobody: on success the return
+     said `repaired: true` and dropped what was repaired, so a project that
+     hits the same structural mistake every single turn looked identical to
+     one that got it right first time. */
+  const seenFailures = [];
+  const noteFailure = (errors) => {
+    for (const e of errors || []) {
+      const text = String((e && e.message) || "").trim().slice(0, 160);
+      if (!text) continue;
+      const entry = { code: (e && e.code) || "", message: text };
+      if (seenFailures.some((f) => f.code === entry.code && f.message === entry.message)) continue;
+      if (seenFailures.length < 12) seenFailures.push(entry);
+    }
+  };
   const signature = (parts) => crypto.createHash("sha256").update(parts.join(" ")).digest("hex");
   /* Captured BEFORE the loop mutates editBase. "Did this project have an
      app when the turn started" is the question, and editBase stops being
@@ -2742,6 +2757,8 @@ async function proposeWithClientBuild({ userPrompt, maxRounds, onFiles, onRound,
        still come back, so a retry resumes from real work rather than nothing,
        and the reason names the cause rather than implying the request was at
        fault. */
+    if (!build.ok) noteFailure(build.errors);
+
     if (build.infra) {
       return {
         ok: false, infra: true, calls: allCalls, round, rounds: round + 1,
@@ -2796,7 +2813,7 @@ async function proposeWithClientBuild({ userPrompt, maxRounds, onFiles, onRound,
       /* verified rides along so the audit can tell a real passing build from a
          device that never compiled anything. build.verified is false only on
          the no-SharedArrayBuffer path, where ok:true is a formality. */
-      return { ok: true, calls: allCalls, suggestions: attempt.suggestions || [], note: attempt.note, round, rounds: round + 1, repaired: round > 0, costUsd: totalCost, jsonRetries, verified: build.verified !== false };
+      return { ok: true, calls: allCalls, suggestions: attempt.suggestions || [], note: attempt.note, round, rounds: round + 1, repaired: round > 0, costUsd: totalCost, jsonRetries, verified: build.verified !== false, failures: seenFailures };
     }
     /* Did this round move? Writes sorted so the model reordering its tool
        calls does not read as a change, and errors sorted because the

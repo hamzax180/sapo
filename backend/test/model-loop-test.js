@@ -1863,6 +1863,39 @@ const ROUTES = { prose: { baseUrl: "https://x.invalid/prose", model: "gemini-3.8
     assert.ok(r.text.length <= budget, "context is " + r.text.length + " chars against a " + budget + " budget");
   });
 
+  console.log("\n── the turn reports what it had to repair ─────────");
+
+  /* The loop knew every failure it fixed and told nobody: on success the
+     return said repaired:true and dropped WHAT was repaired, so a project
+     making the same structural mistake every turn was indistinguishable
+     from one that got it right first time. memory.js needs the difference. */
+  await check("a repaired structural failure comes back on the result", async () => {
+    client.init({ enabled: true, routes: ROUTES, fetchImpl: fetchReturning([
+      toolCallMsg([{ path: "src/App.tsx", content: 'import { t } from "./lib/gone";\nexport default function App(){ return <p>{t}</p>; }' }]),
+      toolCallMsg([{ path: "src/App.tsx", content: "export default function App(){ return <p>ok</p>; }" }])
+    ]) });
+    const res = await proposeWithClientBuild({
+      userPrompt: "a tracker", maxRounds: 2, baseFiles: {}, hasExistingEntry: true,
+      onFiles: async () => ({ ok: true, errors: [] })
+    });
+    assert.ok(res.ok, "the second round should have compiled");
+    assert.ok(Array.isArray(res.failures), "no failures array came back");
+    assert.ok(res.failures.some((f) => f.code === "UNRESOLVED_IMPORT"),
+      "the unresolved import was repaired and then forgotten: " + JSON.stringify(res.failures));
+  });
+
+  await check("a turn that went right first time reports nothing", async () => {
+    client.init({ enabled: true, routes: ROUTES, fetchImpl: fetchReturning([
+      toolCallMsg([{ path: "src/App.tsx", content: "export default function App(){ return <p>ok</p>; }" }])
+    ]) });
+    const res = await proposeWithClientBuild({
+      userPrompt: "a clean one", maxRounds: 2, baseFiles: {}, hasExistingEntry: true,
+      onFiles: async () => ({ ok: true, errors: [] })
+    });
+    assert.ok(res.ok);
+    assert.deepStrictEqual(res.failures, [], "invented a failure on a clean build");
+  });
+
   console.log("\n── preflight reaches the loop ─────────────────────");
 
   await check("an import of a file nobody wrote never reaches the compiler", async () => {

@@ -2593,6 +2593,7 @@ app.post("/api/projects/:key/micro-claim", microClaimLimiter, verifyCaptcha(), v
    would mean writing them again. */
 const { proposeChanges, proposeWithRepair, proposeWithClientBuild, assessPrompt, buildPlan, buildCodebaseContext, buildImagesBlock, codeBudgetChars, effortFor, EFFORT, PROMPT_VERSION } = require("./lib/codeagent/model-loop");
 const diffstat = require("./lib/codeagent/diffstat");
+const codeMemory = require("./lib/codeagent/memory");
 const codeAgentUsage = require("./lib/codeagent/usage");
 codeAgentUsage.init({ getMasterDb });
 
@@ -5189,9 +5190,14 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
           ? "What this project is for, from the first message that started it — background only, not the task:\n" +
             brief + "\n\n"
           : "";
+
+        /* What has broken here before, beside the brief. Both are the
+           project talking about itself rather than instructions, and both
+           sit before the change request so neither reads as the task. */
+        const lessonsBlock = codeMemory.promptBlock(project.memory);
         effectivePrompt = theme.promptBlock(buildTheme) +
           "Here is the current codebase:\n\n" + ctx.text +
-          briefBlock + imagesBlock + "Change request: " + prompt;
+          briefBlock + lessonsBlock + imagesBlock + "Change request: " + prompt;
         if (ctx.excerpted.length || ctx.omitted.length) {
           console.warn("[codeagent] context budget hit for " + project.id +
             ": excerpted=" + ctx.excerpted.join(",") + " omitted=" + ctx.omitted.join(","));
@@ -5549,6 +5555,22 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
       fileStats: fileStats,
       revisionId: revision.id, chatId: chatId
     });
+    /* WHAT THIS PROJECT KEEPS GETTING WRONG.
+
+       The loop repaired these and then dropped them, so a project that
+       imports a helper it never wrote on every single turn was
+       indistinguishable from one that got it right first time — and paid
+       for the lesson again on the next message. Only structural failures
+       survive the filter; see memory.js for why a type error is not one.
+
+       Written after the revision and the turn on purpose: it is the least
+       important thing on this path, and a failure here must not cost
+       someone the build that just succeeded. */
+    try {
+      const learned = codeMemory.merge(project.memory, result.failures);
+      if (learned) await projects.patch(project.id, { memory: learned });
+    } catch (e) { /* remembering is a nicety; the build is not */ }
+
     try { await projects.ensureIndexes(); } catch(e) {}
     try { await codeAgentUsage.ensureIndexes(); } catch(e) {}
     try { await uploads.ensureIndexes(); } catch(e) {}
