@@ -1654,6 +1654,34 @@
     .ag-send.sent svg{animation:none}
   }
 
+  /* The button row kept desktop metrics all the way down to 320px.
+
+     It is a nowrap flex row of fixed-width controls needing a constant
+     264px, and .ag-box offers 262 at 375, 246 at 360 and 206 at 320. So the
+     send button sat 2px past the rounded edge on an iPhone SE and 58px past
+     it on anything smaller — the arrow bolted to the outside of the composer.
+     Nothing above 640px changes.
+
+     .ag-brow-sp is a zero-width spacer that was still charged a gap on each
+     side; an auto margin on the attach button does the same job with one
+     fewer child in the row.
+
+     wrap is the floor, not the plan. Below about 340px the row runs out of
+     width whatever the metrics are, and a second line is a better answer
+     than a control sitting outside the box it belongs to. The row packs to
+     the end so that when it does wrap, send stays under the other buttons
+     on the right rather than jumping to the left margin. */
+  @media (max-width:640px){
+    .ag-box{padding-inline:10px}
+    .ag-brow{gap:4px;flex-wrap:wrap;row-gap:6px;justify-content:flex-end}
+    .ag-brow-sp{display:none}
+    .ag-attach{margin-inline-end:auto}
+    .ag-attach,.ag-voice-btn{width:28px;height:28px}
+    .ag-send{width:30px;height:30px}
+    .ag-effort-pill{padding-inline:7px}
+    .ag-model-pill{padding-inline:7px}
+  }
+
   .ag-empty{position:relative;padding:44px 20px 36px;color:var(--ink-2);text-align:center}
   .ag-empty::before{
     content:"";position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
