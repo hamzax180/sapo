@@ -2053,6 +2053,23 @@
                   message: "The app compiled but threw when it loaded: " + m +
                     " — fix the cause; the page renders nothing until you do."
                 }));
+              } else if (render.known && render.interactive && (render.interactive.threw || []).length) {
+                /* It painted, it type-checked, and it broke the first time
+                   anything was pressed. Every other check in this loop runs
+                   at mount and then stops watching, so a handler reading a
+                   property off something undefined shipped as a clean build
+                   and failed for the person instead of for us.
+
+                   Named with the control that did it, because "Add to cart
+                   throws" points at a handler and a bare stack trace points
+                   at the bundle. */
+                ok = false;
+                errors = render.interactive.threw.map((m) => ({
+                  file: "src/App.tsx", line: 1, col: 1, code: "RUNTIME",
+                  message: "The app renders, but clicking \"" + (render.interactive.clicked || "a button") +
+                    "\" threw: " + m + " — the page looks fine and breaks the first time anyone uses it. " +
+                    "Fix the handler behind that control."
+                }));
               } else if (render.known && render.empty) {
                 ok = false;
                 errors = [{

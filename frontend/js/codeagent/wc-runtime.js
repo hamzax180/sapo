@@ -137,6 +137,79 @@ const indexHtml = `<!doctype html>
           push("unhandled promise rejection: " + ((e && e.reason && e.reason.message) || e.reason || "unknown"));
         });
 
+        /* DOES IT SURVIVE BEING USED?
+           --------------------------------------------------------------
+           Everything above this answers "did it paint", and an app can pass
+           that and still be broken the first time anybody touches it. A
+           handler reading a property off something undefined renders
+           perfectly, compiles perfectly, and throws the moment someone
+           clicks Add to cart. Nothing in the loop could see that, because
+           every check ran at mount and then stopped watching.
+
+           So: press one thing, and see what happens.
+
+           The selection is deliberately timid, because this runs in the
+           SAME iframe the person is about to look at.
+             - No anchors. A link navigates, and the preview would be
+               sitting on another page by the time they saw it. Nav links
+               are preflight's job anyway.
+             - Nothing that reads as paying, ordering or deleting. checkout()
+               in the scaffold's payments.ts genuinely navigates to Stripe;
+               a smoke test that buys something is not a smoke test.
+             - Nothing hidden or disabled: a zero-size button is usually
+               inside a closed menu, and clicking it proves nothing.
+
+           preventDefault on the capture phase stops navigation and form
+           submission without stopping React, which delegates from the root
+           on the bubble phase and never sees the difference. */
+        function smoke(done) {
+          var all, safe, el, label, before;
+          try {
+            all = [].slice.call(document.querySelectorAll("button, [role=button], input[type=button]"));
+          } catch (e) { return done({ found: 0 }); }
+          safe = all.filter(function (c) {
+            if (c.disabled) return false;
+            var t = ((c.innerText || c.value || "") + " " + (c.getAttribute("aria-label") || "")).trim();
+            if (/pay|checkout|buy|order|purchase|donate|subscrib|delet|remove|sign out|log ?out/i.test(t)) return false;
+            var cs = window.getComputedStyle(c);
+            if (cs.display === "none" || cs.visibility === "hidden" || parseFloat(cs.opacity) === 0) return false;
+            var r = c.getBoundingClientRect();
+            /* Not `!r.width`. A button styled width:0;height:0 still reports a
+               rect, because the UA stylesheet's border and padding sit outside
+               the content box — so the first version of this cheerfully
+               clicked a hidden button and reported the app fine. A control a
+               person could actually hit is bigger than this. */
+            if (r.width < 12 || r.height < 12) return false;
+            var cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+            if (cx < 0 || cy < 0 || cx > window.innerWidth || cy > window.innerHeight) return false;
+            /* And it has to be the thing at that point. Inside a closed
+               drawer, or under a modal backdrop, an element is the right size
+               and the right shape and still unreachable. */
+            var top = document.elementFromPoint(cx, cy);
+            return !!top && (top === c || c.contains(top));
+          });
+          if (!safe.length) return done({ found: 0 });
+          /* The biggest one, not the first. Document order hands back the
+             hamburger and the skip link; the primary action on a generated
+             page is almost always the largest control on it. */
+          safe.sort(function (a, b) {
+            var ra = a.getBoundingClientRect(), rb = b.getBoundingClientRect();
+            return (rb.width * rb.height) - (ra.width * ra.height);
+          });
+          el = safe[0];
+          label = ((el.innerText || el.value || "").trim() || "a button").slice(0, 40);
+          before = errors.length;
+          var guard = function (e) { e.preventDefault(); };
+          document.addEventListener("click", guard, true);
+          try { el.click(); } catch (e) { push(e && e.message ? e.message : "the click threw"); }
+          document.removeEventListener("click", guard, true);
+          /* A handler that sets state throws on the render that follows, not
+             on the click, so the report has to wait for that render. */
+          setTimeout(function () {
+            done({ found: safe.length, clicked: label, threw: errors.slice(before) });
+          }, 250);
+        }
+
         function report() {
           var root = document.getElementById("root");
           var text = (document.body.innerText || "").trim();
@@ -144,15 +217,29 @@ const indexHtml = `<!doctype html>
              misses an app that is entirely images or canvas; element count
              alone passes a root containing one empty wrapper div. */
           var nodes = root ? root.querySelectorAll("*").length : 0;
-          try {
-            parent.postMessage({
-              source: "souqi:render",
-              empty: text.length === 0 && nodes < 3,
-              textLength: text.length,
-              nodes: nodes,
-              errors: errors
-            }, "*");
-          } catch (e) { /* nothing we can do from in here */ }
+          /* Read BEFORE the click, so a button that legitimately empties the
+             screen — clearing a list, closing a panel — is not reported as an
+             app that renders nothing. */
+          var empty = text.length === 0 && nodes < 3;
+          /* Frozen before the click, because the two kinds of failure want
+             two different messages. Everything here happened at MOUNT — the
+             page is broken before anyone touches it. What the click adds is
+             reported separately as interactive.threw, and sending one merged
+             list made a handler bug read as "it threw when it loaded", which
+             sends the model looking in the wrong place entirely. */
+          var mountErrors = errors.slice();
+          smoke(function (interactive) {
+            try {
+              parent.postMessage({
+                source: "souqi:render",
+                empty: empty,
+                textLength: text.length,
+                nodes: nodes,
+                errors: mountErrors,
+                interactive: interactive
+              }, "*");
+            } catch (e) { /* nothing we can do from in here */ }
+          });
         }
 
         /* React mounts in a microtask after load, and an app that fetches on
@@ -570,7 +657,7 @@ class WCRuntime {
         onMsg = (e) => {
           const d = e && e.data;
           if (!d || d.source !== "souqi:render") return;
-          done({ known: true, empty: !!d.empty, errors: d.errors || [], textLength: d.textLength || 0, nodes: d.nodes || 0 });
+          done({ known: true, empty: !!d.empty, errors: d.errors || [], textLength: d.textLength || 0, nodes: d.nodes || 0, interactive: d.interactive || null });
         };
         window.addEventListener("message", onMsg);
       });
