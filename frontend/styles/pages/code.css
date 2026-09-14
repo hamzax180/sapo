@@ -2680,8 +2680,8 @@
        The log is given matching room underneath so the last line is never
        hidden behind it.
 
-       left:var(--rail) because the icon rail is a fixed column on the left;
-       the composer starts where the chat does. */
+       It starts at var(--rail) because .ag-main reserves that much for the
+       icon rail, plus a small inset — see the left/right declarations. */
     /* THE one that broke the phone layout for months of screenshots.
 
        .ag-split.has-preview .ag{flex:0 0 clamp(340px,34vw,460px)} is a WIDTH:
@@ -2702,8 +2702,31 @@
     .ag.has-convo .ag-composer,
     .ag:has(#agLog > *:not(.ag-empty)) .ag-composer {
       position: fixed;
-      left: var(--rail);
-      right: 0;
+      /* var(--rail) alone was 20px short at each end.
+
+         The rail is the easy half and it was already right: .ag-main
+         reserves var(--rail) on a phone, the rail itself is position:fixed
+         and overlays that reservation, so the chat column genuinely starts
+         at 44. What was missing is .ag's OWN horizontal padding, which every
+         message is inset by and the bar was not. So the bar ran 20px wider
+         than the conversation at each end — hard against the icon rail on
+         one side and against the screen edge on the other, while the
+         bubbles above it sat neatly inside both.
+
+         margin:0 auto below was an earlier attempt at this same symptom and
+         could never fix it: max-width never binds at phone widths, so there
+         is no free space for auto to distribute.
+
+         HALF .ag's padding, not all of it, and that is measured rather than
+         chosen. .ag-brow needs about 234px to keep the attach button, both
+         pills, the mic and send on one row; insetting the full 20px leaves
+         it 228 and the send button drops to a second row, making the bar
+         34px taller to buy 20px of symmetry. 10px clears it with room and
+         still reads as inset from both the rail and the screen edge, which
+         is the whole point. The bar sitting a little wider than the bubbles
+         is ordinary for a composer; sitting hard against one edge is not. */
+      left: calc(var(--rail) + 10px);
+      right: 10px;
       /* Lifted, like the desktop rule — plus the home-indicator inset, so
          the gap is a real gap on a phone rather than one the system UI
          sits in. */
