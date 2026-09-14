@@ -174,7 +174,13 @@ const indexHtml = `<!doctype html>
             var cs = window.getComputedStyle(c);
             if (cs.display === "none" || cs.visibility === "hidden" || parseFloat(cs.opacity) === 0) return false;
             var r = c.getBoundingClientRect();
-            /* Not `!r.width`. A button styled width:0;height:0 still reports a
+            /* A zero-width test is not enough, and NO BACKTICKS IN HERE:
+               this whole document is a template literal, so one closes it and
+               the comment becomes live JS. That shipped once, as
+               "Unexpected token !" at load, which takes out the runtime and
+               leaves the agent sitting there with no thinking animation.
+
+               A button styled width:0;height:0 still reports a non-zero
                rect, because the UA stylesheet's border and padding sit outside
                the content box — so the first version of this cheerfully
                clicked a hidden button and reported the app fine. A control a
