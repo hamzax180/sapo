@@ -1078,6 +1078,13 @@
           <span class="d" id="profUsage">—</span>
           <span class="meter"><i id="pUsageBar" style="width:0%"></i></span>
         </div>
+        <!-- Signing out existed only in the phone sheet (#mrtLogout). On a
+             desktop the Profile panel is where you look for it, and there
+             was no way out of the account from anywhere on this page. -->
+        <div class="srow">
+          <span class="txt"><span class="t">Log out</span><span class="d">End this session on this browser.</span></span>
+          <button type="button" class="btn" id="pLogout">Log out</button>
+        </div>
       </div>
     </section>
 
@@ -1400,7 +1407,7 @@
     if (row) { sheetOpen(row.dataset.p); return; }
     var th = e.target.closest(".theme");
     if (th) { applyTheme(th.dataset.theme); return; }
-    if (e.target.closest("#mrtLogout")) { e.preventDefault(); logOut(); }
+    if (e.target.closest("#mrtLogout")) { e.preventDefault(); logOut($("mrtLogout")); }
   });
   if ($("mheadBack")) $("mheadBack").addEventListener("click", sheetRoot);
   /* The tick pops the same way the chevron does. It is a Done, not a Save:
@@ -1416,8 +1423,11 @@
   /* Real sign-out: the session is an httpOnly cookie, so only the server
      can drop it. /login rather than a reload — a signed-out settings sheet
      is a list of things you cannot do. */
-  function logOut() {
-    var b = $("mrtLogout"); if (b) { b.disabled = true; b.textContent = "Logging out…"; }
+  function logOut(btn) {
+    /* The button varies by surface - the phone sheet's row, the desktop
+       Profile panel's - so the caller hands over the one it clicked rather
+       than this reaching for a single hard-coded id. */
+    var b = btn || $("mrtLogout"); if (b) { b.disabled = true; b.textContent = "Logging out…"; }
     fetch("/auth/logout", { method: "POST", credentials: "same-origin" })
       .catch(function () {})
       .then(function () {
@@ -1425,6 +1435,14 @@
         catch (e) { location.href = "/login"; }
       });
   }
+  /* Delegated, not bound to the element. signedOutPanel() replaces the whole
+     of #profileBody when there is no session, which would take a directly
+     bound listener with it - and the panel is rebuilt on the way back in.
+     The phone sheet's Log out is delegated for the same reason. */
+  document.addEventListener("click", function (e) {
+    var b = e.target.closest("#pLogout"); if (!b) return;
+    logOut(b);
+  });
 
   /* ---- sub-nav ---- */
   $("snav").addEventListener("click", function (e) {
