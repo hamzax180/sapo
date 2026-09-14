@@ -2324,7 +2324,27 @@ async function proposeWithClientBuild({ userPrompt, maxRounds, onFiles, onRound,
           disabled: attempt.disabled
         };
       }
-      // Fallback: if LLM provider is overloaded or failing, generate clean fallback App.tsx
+      /* Never ship a starter template over an app that already exists.
+
+         Observed: an 18-file barber booking app, a follow-up whose two tool
+         calls came back malformed, and the answer was src/App.tsx +187 -41 —
+         a stock template written over eleven working components, with
+         "I couldn't reach the AI model" on top of it. Losing the work is
+         worse than any message about it, and the work is right here in
+         baseFiles.
+
+         The template is for the one case it was written for: a FIRST build
+         that produced nothing, where the alternative is a blank screen. */
+      const hasExistingApp = editBase && Object.keys(editBase).length > 0;
+      if (hasExistingApp) {
+        return {
+          ok: false, reason: attempt.reason, round, rounds: round + 1, costUsd: totalCost,
+          keptExisting: true,
+          disabled: attempt.disabled, breakerOpen: attempt.breakerOpen,
+          budgetExceeded: attempt.budgetExceeded
+        };
+      }
+
       const fallbackContent = getFallbackAppCode(userPrompt);
       // Onto the accumulated tree, not instead of it: a bare App.tsx as
       // the whole project throws away every other file the model wrote.
@@ -2332,7 +2352,21 @@ async function proposeWithClientBuild({ userPrompt, maxRounds, onFiles, onRound,
       const fallbackBuild = await onFiles(fallbackCalls);
       if (fallbackBuild.ok) {
         if (onRound) onRound({ round, ok: true, calls: fallbackCalls });
-        return { ok: true, calls: fallbackCalls, note: "⚠️ I couldn't reach the AI model, so this is a starter template rather than what you asked for. Reason: " + (attempt.reason || "unknown"), fellBack: true, round, rounds: round + 1, repaired: false, costUsd: 0, jsonRetries: 0 };
+        /* Say which thing went wrong. "I couldn't reach the AI model" was
+           printed for every failure here, including the common one where the
+           model answered perfectly promptly and its tool calls were
+           malformed — sending someone to check an API key that is working.
+           disabled / breakerOpen / budgetExceeded are the three that really
+           mean the request never got an answer. */
+        const neverReached = !!(attempt.disabled || attempt.breakerOpen || attempt.budgetExceeded);
+        const lead = neverReached
+          ? "⚠️ I couldn't reach the AI model, so this is a starter template rather than what you asked for."
+          : "⚠️ The model answered but I couldn't get usable files out of it, so this is a starter template rather than what you asked for.";
+        return {
+          ok: true, calls: fallbackCalls,
+          note: lead + " Reason: " + (attempt.reason || "unknown"),
+          fellBack: true, round, rounds: round + 1, repaired: false, costUsd: totalCost, jsonRetries: 0
+        };
       }
       return {
         ok: false, reason: attempt.reason, round, rounds: round + 1, costUsd: totalCost,
