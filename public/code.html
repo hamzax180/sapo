@@ -1291,23 +1291,40 @@
   .ag-effort-track .dots::before,
   .ag-effort-track .dots::after{
     position:absolute;inset:0;border-radius:8px;content:"";pointer-events:none}
+  /* GRAIN, NOT HALFTONE. The pitch was 7px with dots at 26/33/40% of the
+     cell - 3.6 to 5.6px across, about three and a half rows on a 26px
+     track. At that size you do not read a density, you read a printed dot
+     screen: every dot is individually visible, the lattice lines up in
+     obvious rows and columns, and the right-hand end looks like a coarser
+     pattern rather than a denser one.
+
+     4px pitch with dots at ~18% is roughly 1.4px across and six and a half
+     rows, which is fine enough to read as texture.
+
+     Every layer sits on the SAME lattice, aligned. Offsetting the heavier
+     two by half a cell was tried and is worse: it puts dots BETWEEN the
+     existing dots, so the three stop being one field at three strengths
+     and become three overlapping grids - and grids of different pitch beat
+     into a plaid you can see at a glance. Aligned, the right-hand end is
+     the same dots grown heavier, which is what reads as a density rather
+     than as a pattern. */
   .ag-effort-track .dots{
     background:var(--paper-2);overflow:hidden;
     background-image:radial-gradient(circle at center,
-      color-mix(in srgb,var(--accent) 45%,transparent) 26%, transparent 28%);
-    background-size:7px 7px;
-    -webkit-mask-image:linear-gradient(90deg,rgba(0,0,0,.16) 0%,rgba(0,0,0,.45) 40%,#000 85%);
-    mask-image:linear-gradient(90deg,rgba(0,0,0,.16) 0%,rgba(0,0,0,.45) 40%,#000 85%)}
+      color-mix(in srgb,var(--accent) 42%,transparent) 17%, transparent 19%);
+    background-size:4px 4px;
+    -webkit-mask-image:linear-gradient(90deg,rgba(0,0,0,.13) 0%,rgba(0,0,0,.44) 42%,#000 88%);
+    mask-image:linear-gradient(90deg,rgba(0,0,0,.13) 0%,rgba(0,0,0,.44) 42%,#000 88%)}
   .ag-effort-track .dots::before{
     background-image:radial-gradient(circle at center,
-      color-mix(in srgb,var(--accent) 72%,transparent) 33%, transparent 35%);
-    background-size:7px 7px;
+      color-mix(in srgb,var(--accent) 66%,transparent) 18%, transparent 20%);
+    background-size:4px 4px;
     -webkit-mask-image:linear-gradient(90deg,transparent 14%,rgba(0,0,0,.5) 52%,#000 88%);
     mask-image:linear-gradient(90deg,transparent 14%,rgba(0,0,0,.5) 52%,#000 88%)}
   .ag-effort-track .dots::after{
     background-image:radial-gradient(circle at center,
-      var(--accent) 40%, transparent 42%);
-    background-size:7px 7px;
+      var(--accent) 19%, transparent 21%);
+    background-size:4px 4px;
     -webkit-mask-image:linear-gradient(90deg,transparent 48%,rgba(0,0,0,.45) 76%,#000 100%);
     mask-image:linear-gradient(90deg,transparent 48%,rgba(0,0,0,.45) 76%,#000 100%)}
 
@@ -1353,39 +1370,44 @@
        to answer the finger, and a 350ms fade chasing a drag lags it for the
        same reason the thumb drops its easing while dragging. */
     background-repeat:repeat;
+    /* One layer on the ramp's own 4px lattice. Three layers at 9/13/17 -
+       and then at 4/6/8 - were a second and third grid over the static
+       one, and grids of different pitch beat into a plaid you can see at a
+       glance. One aligned layer drifting a whole cell per cycle reads as
+       the field itself moving. */
     background-image:
-      radial-gradient(circle at center,color-mix(in srgb,var(--accent) 88%,transparent) 16%,transparent 18%),
-      radial-gradient(circle at center,color-mix(in srgb,var(--accent) 58%,transparent) 13%,transparent 15%),
-      radial-gradient(circle at center,var(--accent) 11%,transparent 13%);
-    background-size:9px 9px,13px 13px,17px 17px;
-    background-position:0 0,0 4px,0 8px;
+      radial-gradient(circle at center,color-mix(in srgb,var(--accent) 70%,transparent) 16%,transparent 18%);
+    background-size:4px 4px;
+    background-position:0 0;
     /* Only in the dense half. A mote drifting through the faint speckle at
        the "Faster" end would claim the low setting is working hard too. */
     -webkit-mask-image:linear-gradient(90deg,transparent 10%,rgba(0,0,0,.5) 48%,#000 92%);
     mask-image:linear-gradient(90deg,transparent 10%,rgba(0,0,0,.5) 48%,#000 92%);
     animation:effDrift 10s linear infinite}
-  @keyframes effDrift{ to{background-position:27px 0,13px 4px,34px 8px} }
+  /* Exactly one cell, so it loops seamlessly and the motion reads as the
+     grain travelling rather than as the whole panel sliding. */
+  @keyframes effDrift{ to{background-position:4px 0} }
 
   /* Individual motes flickering, not the whole field breathing: a coarser
      pitch on a period that does not divide the drift's, so the two never
      line up into one pulse. */
   .ag-effort-track .particles::before{
     content:"";position:absolute;inset:0;
-    background-image:radial-gradient(circle at center,var(--accent) 12%,transparent 14%);
-    background-size:11px 11px;background-position:5px 2px;
+    background-image:radial-gradient(circle at center,var(--accent) 15%,transparent 17%);
+    background-size:4px 4px;
     -webkit-mask-image:linear-gradient(90deg,transparent 24%,rgba(0,0,0,.4) 60%,#000 100%);
     mask-image:linear-gradient(90deg,transparent 24%,rgba(0,0,0,.4) 60%,#000 100%);
     animation:effTwinkle 2.6s ease-in-out infinite}
-  @keyframes effTwinkle{ 0%,100%{opacity:.24} 50%{opacity:.9} }
+  @keyframes effTwinkle{ 0%,100%{opacity:.18} 50%{opacity:.62} }
 
   /* The charge. Max only - it is the one thing on the control that exists
      purely to say you are at the top of the scale, so it must not appear
      anywhere else or it stops meaning that. */
   .ag-effort-track .particles::after{
-    content:"";position:absolute;top:0;bottom:0;width:24%;
+    content:"";position:absolute;top:0;bottom:0;width:30%;
     background:linear-gradient(100deg,transparent,
-      color-mix(in srgb,var(--accent) 72%,transparent) 50%,transparent);
-    filter:blur(1px);transform:translateX(-170%);opacity:0}
+      color-mix(in srgb,var(--accent) 42%,transparent) 50%,transparent);
+    filter:blur(3px);transform:translateX(-170%);opacity:0}
   .ag-effort-track[data-heat="max"] .particles::after{
     opacity:1;animation:effSurge 1.6s cubic-bezier(.45,0,.25,1) infinite}
   @keyframes effSurge{ 0%{transform:translateX(-170%)} 66%,100%{transform:translateX(430%)} }
@@ -1393,10 +1415,10 @@
   /* Four steps of the same field. Brighter AND faster together, because
      either one alone reads as a different control rather than as the same
      one working harder. */
-  .ag-effort-track[data-heat="fast"] .particles{opacity:.2;animation-duration:15s}
-  .ag-effort-track[data-heat="balanced"] .particles{opacity:.45;animation-duration:10s}
-  .ag-effort-track[data-heat="smart"] .particles{opacity:.76;animation-duration:6.5s}
-  .ag-effort-track[data-heat="max"] .particles{opacity:1;animation-duration:4s}
+  .ag-effort-track[data-heat="fast"] .particles{opacity:.16;animation-duration:15s}
+  .ag-effort-track[data-heat="balanced"] .particles{opacity:.34;animation-duration:10s}
+  .ag-effort-track[data-heat="smart"] .particles{opacity:.58;animation-duration:6.5s}
+  .ag-effort-track[data-heat="max"] .particles{opacity:.82;animation-duration:4s}
 
   /* Under the finger everything steps up one notch, so the drag itself is
      what shows the power rising. These come after the heat rules on
