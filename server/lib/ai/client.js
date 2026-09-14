@@ -1,21 +1,25 @@
 /* =================================================================
    ai/client.js — one adapter, two providers, routed by task
    -----------------------------------------------------------------
-   docs/AI-PROVIDER-PLAN.md §3. The split is by WHO the output is for:
+   docs/AI-PROVIDER-PLAN.md §3 split this by WHO the output is for, with
+   prose and vision on Gemini for its multilingual range. EVERY ROUTE IS
+   DEEPSEEK NOW, by decision, until that is revisited:
 
-     • "prose" -> Gemini Flash. Everything the user reads or confirms:
-       the agent's conversational replies and the pre-build plan.
-       Gemini is here for its multilingual range — a user who writes
-       in Turkish or Arabic gets answered in it, which is the whole
-       point of routing this away from the code model.
+     • "prose"  -> deepseek-flash. Replies, plan cards, the assessor.
+     • "json"   -> deepseek-flash, or deepseek-v4-pro on the upper effort
+       levels. Tool calls and write_file rounds; judged on structured
+       output, and the prefix cache makes the long system prompt cheap.
+     • "vision" -> deepseek-flash, which does read images — verified
+       against the live API, where it described a logo correctly while
+       deepseek-v4-pro answered "NO IMAGE" to the same picture.
 
-     • "json"  -> DeepSeek. The build worker: tool calls, write_file
-       rounds, the refine grammar's fallback. Nobody reads this prose;
-       it is judged on structured output, and DeepSeek's prefix caching
-       makes the long repeated system prompt cheap.
+   The three-route SHAPE is kept rather than collapsed, because it is
+   what makes going back a configuration change: each route still has
+   its own base URL, model, key, breaker and spend line, so pointing
+   prose at another provider is three environment variables and no code.
 
-   Both speak the OpenAI chat-completions shape, so this is one HTTP
-   client and a routing table — nothing else in the codebase is
+   Everything speaks the OpenAI chat-completions shape, so this is one
+   HTTP client and a routing table — nothing else in the codebase is
    allowed to know a provider's name or URL.
 
    OFF BY DEFAULT: `init()` with no AI_ENABLED=1 in the environment
@@ -40,17 +44,19 @@ const BREAKER_COOLDOWN_MS = 10 * 60 * 1000;
 // produce an estimated costUsd on each call for the budget guard and for
 // observability (docs/AI-PROVIDER-PLAN.md §7); never billed against directly.
 const PRICING = {
-  // Gemini 3.8 Flash. NOTE: $0.75/$3.75 is an introductory rate that Google
-  // has said doubles to $1.50/$7.50 on 2027-01-01 — revisit this line then,
-  // or the budget guard will quietly undercount by 2× from that date.
-  prose: { inputPerM: 0.75, outputPerM: 3.75 },                       // Gemini 3.8 Flash
-  json: { inputPerM: 0.27, inputCachedPerM: 0.07, outputPerM: 1.10 }, // DeepSeek chat
-  /* Gemini Flash, the intended vision provider. An image is billed as input
-     tokens, so a photo is worth roughly a few hundred to a couple of thousand
-     of them depending on resolution — which is the real reason the client
-     downscales before upload, not just transfer time. Same caveat as the
-     lines above: verify against the current rate card. */
-  vision: { inputPerM: 0.30, outputPerM: 2.50 }
+  /* All three are DeepSeek now, so all three carry DeepSeek's rate.
+     prose was billed at Gemini's $0.75/$3.75 while running DeepSeek, which
+     over-counted every reply and plan card by roughly 3x — and this table
+     feeds the budget guard, so the effect was a monthly cap that tripped
+     early on spend that had not happened. */
+  prose: { inputPerM: 0.27, inputCachedPerM: 0.07, outputPerM: 1.10 },
+  json: { inputPerM: 0.27, inputCachedPerM: 0.07, outputPerM: 1.10 },
+  /* Same rate again. An image is billed as input tokens — a photo is worth
+     a few hundred to a couple of thousand depending on resolution, which is
+     the real reason the client downscales before upload, not just transfer
+     time. Verify against the current rate card before trusting any of this
+     for real budgeting. */
+  vision: { inputPerM: 0.27, inputCachedPerM: 0.07, outputPerM: 1.10 }
 };
 
 /* Context windows, in tokens, by model-id substring — first match wins.
@@ -76,6 +82,10 @@ const CONTEXT_WINDOWS = [
      Held at the measured floor rather than a guessed ceiling: 400k is proven,
      anything above it is not, and this is the number a 400 depends on. */
   [/deepseek/i, 400000],
+  /* Kept even though no route points at Gemini any more: this table is keyed
+     on the MODEL id, not the route, so it is still the right answer for
+     anyone who brings their own Gemini key through BYOK. Removing it would
+     drop those callers to the pessimistic unknown default. */
   [/gemini/i, 1048576],
   [/gpt-4o|gpt-4\.1|o[34]-/i, 128000],
   [/claude/i, 200000]
@@ -227,12 +237,23 @@ function resolveRoute(route) {
 
      That reasoning — answering from whichever route is configured beats not
      answering — holds when the routes differ in cost and temperament but can
-     both do the job. Vision is not that. Both other routes are text-only
-     here, and a text-only model handed an image does not decline: it writes a
-     fluent description of a photo it never received, which is then cached on
-     the upload row and used to place that photo in someone's website. A
-     confident invention is far worse than an honest blank, and unlike a
-     missing plan card there is nothing downstream that could notice.
+     both do the job. Vision is not that, and the reason is not the one that
+     used to be written here.
+
+     It said both other routes were text-only. That is no longer true now
+     that everything is DeepSeek: prose is deepseek-flash, which reads images
+     perfectly well. But json is not always — the upper effort levels run
+     deepseek-v4-pro, which answered "NO IMAGE" to a picture deepseek-flash
+     described correctly. So a fallback would be right some of the time and
+     silently wrong the rest, depending on which effort level the person
+     happened to pick.
+
+     And the failure is the bad kind. A model that cannot see does not
+     decline: it writes a fluent description of a photo it never received,
+     which is then cached on the upload row and used to place that photo in
+     someone's website. A confident invention is far worse than an honest
+     blank, and unlike a missing plan card there is nothing downstream that
+     could notice.
 
      Returning the unconfigured route makes configured() fail below and the
      caller degrade on purpose. */

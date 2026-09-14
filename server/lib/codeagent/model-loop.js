@@ -2499,7 +2499,7 @@ LANGUAGE: the person reads title, summary, features and assumptions verbatim, so
 async function buildPlan(prompt, buildType) {
   const clean = String(prompt || "").trim();
 
-  // Cached on the prose route, which is the one billed to Gemini. Every build
+  // Cached on the prose route. Every build
   // asks for a plan, and the plan is a pure function of (prompt, build type) —
   // so the second person to ask for "a landing page for a bakery" costs $0.
   // buildType is in the key because it changes the fallback AND steers the
