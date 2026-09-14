@@ -4621,10 +4621,31 @@ app.post("/api/codeagent/build-feedback", express.json({ limit: "1mb" }), (req, 
  * plus the new request, so the model re-orients from real state each
  * turn rather than from memory of the first message.
  */
+/* What the whole turn has to finish inside.
+
+   vercel.json gives this function maxDuration:300 and the platform does not
+   negotiate: at the ceiling the process is killed mid-stream. No result
+   frame, no error frame — just a socket that stops, and a client that throws
+   "No result came back" over a build that may have finished two minutes
+   earlier. Max effort made it the normal outcome rather than an edge case:
+   four repair rounds, each allowed three minutes for the browser build,
+   against a five minute ceiling.
+
+   The reserve is for everything that happens AFTER the loop returns — the
+   revision write, the audit row, the closing frames. Overrunning there loses
+   the result exactly as completely as overrunning inside the loop.
+
+   Both are env-tunable because the ceiling is a deployment property: a
+   self-hosted box has no 300s limit and should not inherit one. */
+const TURN_BUDGET_MS = Number(process.env.CODEAGENT_TURN_BUDGET_MS || 300000);
+const TURN_RESERVE_MS = Number(process.env.CODEAGENT_TURN_RESERVE_MS || 25000);
+
 app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
   /* Which conversation in the project this message belongs to. "" is the
      original thread and the default, so a client that never sends one keeps
      working exactly as before. */
+  const turnStartedAt = Date.now();
+  const turnDeadlineAt = turnStartedAt + TURN_BUDGET_MS - TURN_RESERVE_MS;
   const chatId = String((req.body && req.body.chatId) || "").slice(0, 40);
 
   /* The three modes the composer offers, normalised here so every read of
@@ -5221,6 +5242,11 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
          imageUrls is below: the mobile path runs proposeChanges with this
          whole object, and an effort level that only reached the desktop
          build would be a setting that silently did nothing on a phone. */
+      /* Passed in the shared bag so BOTH paths get it — the mobile branch
+         runs proposeChanges with this same object, and a budget that only
+         reached the desktop loop would be a guard that silently did nothing
+         on a phone. */
+      deadlineAt: turnDeadlineAt,
       effort: effort.id,
       hasExistingEntry: hasExistingEntry,
       /* Here rather than only on the proposeWithClientBuild call, so the
@@ -5330,11 +5356,18 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
           filesObj["__souqi_fonts__"] = theme.fontLinkTag(buildTheme);
           for (const c of calls) filesObj[c.path] = c.content;
           const buildId = crypto.randomBytes(16).toString("hex");
+          /* Three minutes was the wait whatever else was going on, which is
+             how a single round could eat most of the turn and leave the
+             function to be killed during the next one. It still cannot
+             exceed three minutes; it just cannot outlive the turn either,
+             and 15s is kept in hand so the loop gets the timeout as a
+             RESULT rather than having the platform take the process. */
+          const buildWaitMs = Math.max(20000, Math.min(180000, turnDeadlineAt - Date.now() - 15000));
           return new Promise((resolve) => {
             const timer = setTimeout(() => {
               pendingBuildResults.delete(buildId);
-              resolve({ ok: false, infra: true, errors: [{ file: "", line: 0, col: 0, code: "INFRA", message: "build timed out (client did not respond in 3 minutes)" }], raw: "" });
-            }, 180000);
+              resolve({ ok: false, infra: true, errors: [{ file: "", line: 0, col: 0, code: "INFRA", message: "build timed out (the browser did not report back within " + Math.round(buildWaitMs / 1000) + "s)" }], raw: "" });
+            }, buildWaitMs);
             pendingBuildResults.set(buildId, { resolve, timer });
             sseFrame(res, "files", { buildId, files: filesObj });
           });

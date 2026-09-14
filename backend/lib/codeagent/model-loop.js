@@ -1662,6 +1662,10 @@ function callOptions(opts) {
    because it was large enough to be worth keeping. */
 const SAFETY_MARGIN_TOKENS = 512;
 
+/* The least time a repair round has ever plausibly needed: one model call
+   and one browser build. Used only until a real round has been measured. */
+const MIN_ROUND_MS = 45000;
+
 /**
  * Drop the oldest repair exchanges until the conversation fits.
  *
@@ -2171,7 +2175,7 @@ async function proposeWithRepair({ userPrompt, tools, maxRounds, onRound, mode, 
  * @param {function} [opts.onRound] - (info) => void, same shape as proposeWithRepair
  * @returns {Promise<{ok, calls?, round?, rounds, repaired?, costUsd, reason?}>}
  */
-async function proposeWithClientBuild({ userPrompt, maxRounds, onFiles, onRound, onProposal, mode, effort, byok, thinking, mcp, onToolCall, history, hasExistingEntry, imageUrls, baseFiles }) {
+async function proposeWithClientBuild({ userPrompt, maxRounds, onFiles, onRound, onProposal, mode, effort, byok, thinking, mcp, onToolCall, history, hasExistingEntry, imageUrls, baseFiles, deadlineAt }) {
   const cap = (maxRounds !== null && maxRounds !== undefined) ? maxRounds : 3;
   /* imageUrls has to be BOTH destructured above and carried in opts, and
      missing either one is silent. The caller passed it, this signature did not
@@ -2270,7 +2274,43 @@ async function proposeWithClientBuild({ userPrompt, maxRounds, onFiles, onRound,
   let entryRounds = 0;
   const MAX_ENTRY_ROUNDS = 2;
 
+  /* The wall clock, because something else is keeping it whether this loop
+     does or not.
+
+     The function this runs inside is killed at a fixed ceiling. When that
+     happened mid-round the SSE stream simply stopped: no result frame, no
+     error frame, and a client that had watched eleven files get written
+     threw "No result came back" over a tree that was sitting right here.
+     Max effort made it reliable rather than rare — four repair rounds, each
+     waiting up to three minutes for a browser build, against a five minute
+     ceiling.
+
+     So: never START a round there is no time to finish. The estimate is the
+     slowest round so far rather than a guessed constant, because what a
+     round costs depends on the model, the effort level and how fast the
+     visitor's laptop compiles — none of which this file can know up front.
+     Round 0 always runs; without it there is nothing to hand back. */
+  let slowestRoundMs = 0;
+  let lastCalls = null;
+  let lastBuild = null;
+
   for (let round = 0; round <= cap + entryRounds; round++) {
+    if (deadlineAt && round > 0 && lastCalls && lastCalls.length) {
+      const msLeft = deadlineAt - Date.now();
+      if (msLeft < Math.max(slowestRoundMs, MIN_ROUND_MS)) {
+        const firstError = lastBuild && lastBuild.errors && lastBuild.errors[0];
+        return {
+          ok: true, calls: lastCalls, suggestions: [],
+          note: "I ran out of time to finish repairing this one, so here is the app as it " +
+            "stands — it may still have a build error. Ask me to fix it and I will pick up " +
+            "from here." + (firstError && firstError.message ? " Last error: " + firstError.message : ""),
+          round, rounds: round, repaired: round > 0, costUsd: totalCost, jsonRetries,
+          verified: false, ranOutOfTime: true,
+          lastErrors: (lastBuild && lastBuild.errors) || []
+        };
+      }
+    }
+    const roundStartedAt = Date.now();
     const attempt = await attemptOnce(messages, opts);
     if (!attempt.ok) {
       // A BYOK failure is the USER's key, model or credit — never Souqi's
@@ -2361,6 +2401,11 @@ async function proposeWithClientBuild({ userPrompt, maxRounds, onFiles, onRound,
     } else {
       build = await onFiles(allCalls);
     }
+    /* Held outside the loop so the deadline branch above has something to
+       hand back. Whatever the last round produced beats nothing at all. */
+    lastCalls = allCalls;
+    lastBuild = build;
+    slowestRoundMs = Math.max(slowestRoundMs, Date.now() - roundStartedAt);
 
     /* A tree that type-checks but has no entry point is not a build that
        succeeded.

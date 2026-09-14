@@ -96,6 +96,67 @@ const ROUTES = { prose: { baseUrl: "https://x.invalid/prose", model: "gemini-3.8
       "the earlier files were dropped instead of accumulated");
   });
 
+  /* The turn is killed at a fixed ceiling by the platform, and until this
+     guard existed the loop had no idea. It would start a fourth repair round
+     with forty seconds left, get the process taken out from under it, and the
+     client — which had just watched eleven files get written — threw "No
+     result came back" over a tree that was sitting in memory the whole time.
+
+     Six minutes of Max effort for nothing, twice in a row, is what this is. */
+  await check("out of time mid-repair -> hands back the files it has, not nothing", async () => {
+    const first = toolCallMsg([
+      { path: "src/App.tsx", content: "export default function App(){return <div/>}" },
+      { path: "src/Header.tsx", content: "export default function H(){return <h1/>}" }
+    ]);
+    client.init({ enabled: true, routes: ROUTES, fetchImpl: fetchReturning([first]) });
+
+    let builds = 0;
+    const res = await proposeWithClientBuild({
+      userPrompt: "build a five star restaurant site",
+      hasExistingEntry: true,
+      maxRounds: 4,
+      // Always fails, so without a deadline this would run every round.
+      onFiles: async () => { builds++; return { ok: false, errors: [{ file: "src/App.tsx", line: 2, message: "Cannot find name 'x'." }] }; },
+      // Already spent by the time round 1 would start.
+      deadlineAt: Date.now() + 500
+    });
+
+    assert.strictEqual(res.ok, true, "a turn that ran out of time returned no files at all");
+    assert.strictEqual(res.ranOutOfTime, true, "the result does not say it was cut short");
+    assert.ok(res.calls.some((c) => c.path === "src/App.tsx"), "App.tsx was thrown away");
+    assert.ok(res.calls.some((c) => c.path === "src/Header.tsx"), "Header.tsx was thrown away");
+    assert.strictEqual(res.verified, false, "a tree that never compiled was reported as verified");
+    assert.ok(/Cannot find name/.test(res.note || ""), "the note does not carry the last build error");
+    assert.strictEqual(builds, 1, "it started another round it had no time to finish");
+  });
+
+  await check("round 0 always runs, however little time is left", async () => {
+    const first = toolCallMsg([{ path: "src/App.tsx", content: "export default function App(){return null}" }]);
+    client.init({ enabled: true, routes: ROUTES, fetchImpl: fetchReturning([first]) });
+    const res = await proposeWithClientBuild({
+      userPrompt: "build a landing page for a bakery",
+      hasExistingEntry: true,
+      onFiles: async () => ({ ok: true, errors: [] }),
+      deadlineAt: Date.now() - 60000   // already past
+    });
+    assert.strictEqual(res.ok, true, "an expired deadline skipped the only round that produces anything");
+    assert.ok(!res.ranOutOfTime, "a build that finished was reported as cut short");
+    assert.ok(res.calls.some((c) => c.path === "src/App.tsx"));
+  });
+
+  await check("no deadline -> unchanged, every repair round still runs", async () => {
+    const bad = toolCallMsg([{ path: "src/App.tsx", content: "export default function App(){return <div/>}" }]);
+    client.init({ enabled: true, routes: ROUTES, fetchImpl: fetchReturning([bad]) });
+    let builds = 0;
+    await proposeWithClientBuild({
+      userPrompt: "build a portfolio with a projects grid",
+      hasExistingEntry: true,
+      maxRounds: 2,
+      onFiles: async () => { builds++; return { ok: false, errors: [{ file: "src/App.tsx", line: 1, message: "boom" }] }; }
+    });
+    assert.ok(builds >= 3, "the repair budget shrank when no deadline was given (built " + builds + " times)");
+  });
+
   /* The case the first version of this guard missed. It gated on "is there
      conversation history", which is false only on the very first message — so
      a project whose first build produced no App.tsx had history from message
