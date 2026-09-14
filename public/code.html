@@ -1228,11 +1228,15 @@
      to know to pair with something else. Reads as a value, not a menu: no
      chevron, because it opens a slider and not a list. */
   .ag-effort-wrap{position:relative;display:inline-flex;flex:none}
+  /* Bordered at rest, like the two controls beside it. Transparent until
+     hover, it was the only thing on that row that did not look pressable
+     until you had already found it - and the row reads as a set of three
+     buttons, so one of them being a bare word broke the set. */
   .ag-effort-pill{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:8px;
-    border:1px solid transparent;background:transparent;cursor:pointer;
+    border:1px solid var(--line);background:var(--card);cursor:pointer;
     font:inherit;font-size:.78rem;font-weight:600;color:var(--ink-2);
     transition:background .18s var(--ease),border-color .18s var(--ease),color .18s var(--ease)}
-  .ag-effort-pill:hover{background:var(--paper-2);border-color:var(--line)}
+  .ag-effort-pill:hover{background:var(--paper-2);border-color:var(--line-hover)}
   .ag-effort-pill.open{background:var(--paper-2);border-color:var(--line-hover)}
   /* No indicator dot. The level's NAME is the indicator — a coloured bead
      beside a word that already says the same thing is one signal too many,
@@ -1307,6 +1311,105 @@
     -webkit-mask-image:linear-gradient(90deg,transparent 48%,rgba(0,0,0,.45) 76%,#000 100%);
     mask-image:linear-gradient(90deg,transparent 48%,rgba(0,0,0,.45) 76%,#000 100%)}
 
+  /* ── THE FIELD ────────────────────────────────────────────────────────
+     The ramp above says what a POSITION means. This says the machine is
+     running, and how hard.
+
+     Three grids of motes drifting toward "Smarter" at three different
+     speeds, a coarser grid twinkling over them on its own period, and -
+     only at the top of the scale - a charge sweeping the full width.
+
+     Parallax out of ONE animation: each grid is translated by a whole
+     multiple of its own tile (27=3x9, 13=1x13, 34=2x17), so all three
+     loop seamlessly over the same duration while appearing to move at
+     three different speeds. One animation, three depths, no JS.
+
+     Intensity is stepped off data-heat, which paintEffort() already
+     writes on every frame of a drag. Nothing here interpolates through a
+     custom property - see the thumb comment below for why that route is
+     not reliable on this element.
+
+     This is layered OVER the static ramp, never instead of it. An overlay
+     that FILLED to the thumb was tried and is documented above: at the top
+     of the scale it painted the whole width at full strength and Max
+     became indistinguishable from Fast. The gradient underneath stays
+     static; only the motes move. */
+  .ag-effort-track .particles{
+    position:absolute;inset:0;border-radius:8px;overflow:hidden;
+    pointer-events:none;z-index:1;opacity:0;
+    /* NO TRANSITION ON OPACITY. This is the third thing on this control that
+       cannot be driven the obvious way - see the two notes on the thumb
+       below. A transition here does not ease the intensity, it STICKS: the
+       element is inside a popover that animates visibility, and a transition
+       started while that subtree is hidden never completes. Measured, with
+       data-heat cycling fast/balanced/smart/max, computed opacity stayed at
+       .45 for all four while animation-duration from the SAME four rules
+       stepped 15s/10s/6.5s/4s correctly - a running CSSTransition outranks
+       the cascade, so the rules were applying and being overridden. Even an
+       inline opacity read back as .45. Cancelling the transition made all
+       four land immediately.
+
+       Stepping instantly is also the better behaviour: the field is supposed
+       to answer the finger, and a 350ms fade chasing a drag lags it for the
+       same reason the thumb drops its easing while dragging. */
+    background-repeat:repeat;
+    background-image:
+      radial-gradient(circle at center,color-mix(in srgb,var(--accent) 88%,transparent) 16%,transparent 18%),
+      radial-gradient(circle at center,color-mix(in srgb,var(--accent) 58%,transparent) 13%,transparent 15%),
+      radial-gradient(circle at center,var(--accent) 11%,transparent 13%);
+    background-size:9px 9px,13px 13px,17px 17px;
+    background-position:0 0,0 4px,0 8px;
+    /* Only in the dense half. A mote drifting through the faint speckle at
+       the "Faster" end would claim the low setting is working hard too. */
+    -webkit-mask-image:linear-gradient(90deg,transparent 10%,rgba(0,0,0,.5) 48%,#000 92%);
+    mask-image:linear-gradient(90deg,transparent 10%,rgba(0,0,0,.5) 48%,#000 92%);
+    animation:effDrift 10s linear infinite}
+  @keyframes effDrift{ to{background-position:27px 0,13px 4px,34px 8px} }
+
+  /* Individual motes flickering, not the whole field breathing: a coarser
+     pitch on a period that does not divide the drift's, so the two never
+     line up into one pulse. */
+  .ag-effort-track .particles::before{
+    content:"";position:absolute;inset:0;
+    background-image:radial-gradient(circle at center,var(--accent) 12%,transparent 14%);
+    background-size:11px 11px;background-position:5px 2px;
+    -webkit-mask-image:linear-gradient(90deg,transparent 24%,rgba(0,0,0,.4) 60%,#000 100%);
+    mask-image:linear-gradient(90deg,transparent 24%,rgba(0,0,0,.4) 60%,#000 100%);
+    animation:effTwinkle 2.6s ease-in-out infinite}
+  @keyframes effTwinkle{ 0%,100%{opacity:.24} 50%{opacity:.9} }
+
+  /* The charge. Max only - it is the one thing on the control that exists
+     purely to say you are at the top of the scale, so it must not appear
+     anywhere else or it stops meaning that. */
+  .ag-effort-track .particles::after{
+    content:"";position:absolute;top:0;bottom:0;width:24%;
+    background:linear-gradient(100deg,transparent,
+      color-mix(in srgb,var(--accent) 72%,transparent) 50%,transparent);
+    filter:blur(1px);transform:translateX(-170%);opacity:0}
+  .ag-effort-track[data-heat="max"] .particles::after{
+    opacity:1;animation:effSurge 1.6s cubic-bezier(.45,0,.25,1) infinite}
+  @keyframes effSurge{ 0%{transform:translateX(-170%)} 66%,100%{transform:translateX(430%)} }
+
+  /* Four steps of the same field. Brighter AND faster together, because
+     either one alone reads as a different control rather than as the same
+     one working harder. */
+  .ag-effort-track[data-heat="fast"] .particles{opacity:.2;animation-duration:15s}
+  .ag-effort-track[data-heat="balanced"] .particles{opacity:.45;animation-duration:10s}
+  .ag-effort-track[data-heat="smart"] .particles{opacity:.76;animation-duration:6.5s}
+  .ag-effort-track[data-heat="max"] .particles{opacity:1;animation-duration:4s}
+
+  /* Under the finger everything steps up one notch, so the drag itself is
+     what shows the power rising. These come after the heat rules on
+     purpose: same specificity, later wins. */
+  .ag-effort-track.dragging .particles{animation-duration:3.2s}
+  .ag-effort-track.dragging[data-heat="max"] .particles{animation-duration:1.7s}
+
+  /* At the top the track itself is lit, not just its contents. */
+  .ag-effort-track .dots{transition:box-shadow .35s var(--ease)}
+  .ag-effort-track[data-heat="max"] .dots{
+    box-shadow:0 0 0 1px color-mix(in srgb,var(--accent) 22%,transparent),
+      0 0 14px -2px color-mix(in srgb,var(--accent) 48%,transparent)}
+
   /* A slow sheen travelling the length of the ramp. Transform only, so it is
      composited, and it is the one thing here that moves on its own. */
   .ag-effort-track .sheen{position:absolute;inset:0;border-radius:8px;overflow:hidden;
@@ -1358,6 +1461,12 @@
     box-shadow:0 1px 3px rgba(23,23,23,.22),0 0 8px color-mix(in srgb,var(--accent) 34%,transparent)}
   .ag-effort-track[data-heat="max"] .ag-effort-thumb{
     box-shadow:0 1px 3px rgba(23,23,23,.22),0 0 13px color-mix(in srgb,var(--accent) 52%,transparent)}
+  /* Dragging AT max: the halo gains a hard ring as well as the bloom, so the
+     handle reads as charged rather than merely glowing. */
+  .ag-effort-track.dragging[data-heat="max"] .ag-effort-thumb{
+    box-shadow:0 1px 3px rgba(23,23,23,.22),
+      0 0 0 3px color-mix(in srgb,var(--accent) 26%,transparent),
+      0 0 18px color-mix(in srgb,var(--accent) 72%,transparent)}
   /* No easing while dragging — a 260ms ease chasing a pointer trails behind
      it, which reads as stutter rather than as smoothness. */
   .ag-effort-track.dragging .ag-effort-thumb{transition:box-shadow .24s var(--ease)}
@@ -1381,8 +1490,16 @@
   .ag-effort-enter{flex:none;width:15px;height:15px;color:var(--mut);opacity:.5}
 
   @media (prefers-reduced-motion:reduce){
+    /* Reduced motion means no motion, not no control. This group used to be
+       display:none in one rule - pill, popover, thumb and all - so anyone
+       with the OS setting on lost the ability to change effort at all
+       rather than losing the animation. The control stays; its transitions
+       and animations do not. */
     .ag-effort-pop,.ag-effort-tip,.ag-effort-head .v,.ag-effort-thumb,
-    .ag-effort-pill,
+    .ag-effort-pill,.ag-effort-track .dots{transition:none;animation:none}
+    /* These two exist only in order to move, so there is nothing left of
+       them to keep. */
+    .ag-effort-track .particles,
     .ag-effort-track .sheen{display:none}
   }
   @media (max-width:900px){
@@ -4350,6 +4467,7 @@
               <div class="ag-effort-row">
                 <div class="ag-effort-track" id="agEffortTrack">
                   <div class="dots" aria-hidden="true"></div>
+                  <div class="particles" aria-hidden="true"></div>
                   <div class="sheen" aria-hidden="true"></div>
                   <!-- step is fine-grained so the thumb tracks the finger
                        instead of jumping between four stops; the LEVEL still
