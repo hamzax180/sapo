@@ -144,8 +144,26 @@
      forty of them read as forty error states. */
   .pv-none{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
 
+  /* The mark on the thumbnail carries the identity colour twice: once as the
+     glyph, once as a light source.
+
+     It was a flat black square with a coloured glyph in the middle, which is
+     a smaller version of the badge rather than the thing the card is built
+     around. The small .tile in the footer already had the coloured drop glow
+     and this, the one you actually look at, did not.
+
+     The wash is a share of --tile rather than a second colour per type, so
+     six build types get six lit tiles out of one declaration, and anything
+     unclassified still lights up in its hashed colour. */
   .pv-none i{width:54px;height:54px;border-radius:16px;display:grid;place-items:center;
-    flex:none;background:#0f0f0f;color:var(--tile);box-shadow:inset 0 0 0 1px rgba(255,255,255,.07)}
+    flex:none;color:var(--tile);
+    background:
+      radial-gradient(125% 125% at 30% 18%,color-mix(in srgb,var(--tile) 26%,transparent),transparent 62%),
+      #0f0f0f;
+    box-shadow:
+      0 10px 26px -12px var(--tile),
+      inset 0 1px 0 rgba(255,255,255,.10),
+      inset 0 0 0 1px rgba(255,255,255,.07)}
 
   .pv-none i svg{width:27px;height:27px}
 
