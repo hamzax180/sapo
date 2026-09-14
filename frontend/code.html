@@ -473,6 +473,34 @@
   "use strict";
   const $ = (id) => document.getElementById(id);
   const agLog = $("agLog"), agForm = $("agForm"), agInput = $("agInput"), agSend = $("agSend");
+
+  /* How wide the log's reserved scrollbar gutter is, published as a CSS
+     variable so the composer can line up with the words above it.
+
+     .ag-log reserves the gutter on both edges, which centres the messages
+     inside its content box. The composer is the same 720px box but reserves
+     nothing, so its card ran 6px wider on each side and covered the scroll
+     track — the thumb passed underneath the rounded corner on the way down.
+
+     CSS cannot read a scrollbar's width, and hardcoding one is wrong on
+     three platforms at once: Chromium honours the 6px this page styles,
+     Firefox uses its own, and macOS overlay scrollbars reserve nothing at
+     all. So measure it, with a probe carrying the log's own class so it gets
+     the log's own scrollbar rules. Both-edges means the difference covers
+     two gutters; the variable is one. */
+  function publishLogGutter() {
+    const probe = document.createElement("div");
+    probe.className = "ag-log";
+    probe.style.cssText = "position:absolute;top:-9999px;left:-9999px;width:120px;height:80px;overflow-y:scroll";
+    document.body.appendChild(probe);
+    const gutter = Math.max(0, (probe.offsetWidth - probe.clientWidth) / 2);
+    probe.remove();
+    document.documentElement.style.setProperty("--log-gutter", gutter.toFixed(2) + "px");
+  }
+  publishLogGutter();
+  // Scrollbars can change width when the window moves between displays with
+  // different settings, and a stale gutter is a misaligned composer.
+  window.addEventListener("resize", publishLogGutter);
   /* The plan's prompt ceiling, and the best one on offer. Starts at the
      free value: guessing high and being refused is worse than guessing
      low and being told there is more available. Replaced by the server's

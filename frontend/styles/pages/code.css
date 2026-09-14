@@ -646,6 +646,14 @@
 
   ::-webkit-scrollbar-corner{background:transparent !important}
   .ag-composer{flex:0 0 auto;position:relative;bottom:0;z-index:10;background:var(--paper);padding:8px 0 calc(12px + env(safe-area-inset-bottom));overflow:visible}
+  /* Inset by the log's own scrollbar gutter, measured at runtime and
+     published as --log-gutter (see publishLogGutter in code.html).
+
+     The log reserves that gutter on both edges and the composer did not, so
+     the card was 6px wider on each side than the messages and the scroll
+     thumb travelled underneath its rounded corner. Falls back to 0, which is
+     correct on overlay-scrollbar platforms where there is no gutter to match. */
+  .ag-composer{padding-inline:var(--log-gutter, 0px)}
   /* Lifted off the page for the length of the travel: the shadow grows as it
      leaves the middle of the screen and settles as it lands, so the move
      reads as the composer being placed rather than teleporting. will-change
