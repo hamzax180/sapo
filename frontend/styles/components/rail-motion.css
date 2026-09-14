@@ -1,0 +1,125 @@
+/* How the rail opens.
+
+   Four pages carry the same expanding sidebar — code, projects, deployments
+   and security — and seventy identical rules each. The motion lives here so
+   the four cannot disagree about it, and it is linked AFTER each page sheet
+   on purpose: everything below is an override of timing those copies already
+   set, and it has to win.
+
+   Nothing here changes what the rail looks like at rest or when open. It
+   changes only how it gets between the two. */
+
+:root{
+  /* Expo-out. The old curve was already a decelerating one, but it spent
+     most of its time near the end — the panel arrived at full width and
+     then crept the last few pixels, which reads as a slow computer rather
+     than as a slow animation. This front-loads the travel and lands long. */
+  --ease-sb:cubic-bezier(.16, 1, .3, 1);
+  /* Closing is not the same gesture and does not want the same curve. */
+  --ease-sb-close:cubic-bezier(.4, 0, .2, 1);
+
+  --sb-open:.52s;
+  --sb-close:.28s;
+  /* One row behind the next. 34ms is about two frames at 60Hz: enough to
+     read as a cascade, short enough that the last of seven rows is in
+     before the width has finished moving. Any longer and the bottom of the
+     list is visibly still arriving after the panel has stopped. */
+  --sb-stagger:34ms;
+  --sb-lead:.08s;
+}
+
+@media (min-width: 901px){
+
+  /* ---- the panel itself --------------------------------------------------
+     Asymmetric, and not for the sake of it. Opening is something you asked
+     for and want to watch land. Closing is the panel getting out of your
+     way, and at the same duration it felt like it was dawdling in front of
+     whatever you had just moved the pointer towards. */
+  .ag-history{
+    transition-duration: var(--sb-close) !important;
+    transition-timing-function: var(--ease-sb-close) !important;
+  }
+  .ag-history.on,
+  .ag-history:not(.on):not(.hover-suppressed):hover,
+  .ag-history.hover-open:not(.on):not(.hover-suppressed){
+    transition-duration: var(--sb-open) !important;
+    transition-timing-function: var(--ease-sb) !important;
+  }
+
+  /* ---- the labels --------------------------------------------------------
+     They used to arrive together, on one delay, which made the panel read as
+     a box that changed size with the text already inside it. Each row now
+     starts a beat after the one above, and travels the last few pixels in as
+     it fades, so the rail unfolds rather than resizes. */
+  .ag-hist-tabs .ag-hist-tab:nth-child(1){ --row:0 }
+  .ag-hist-tabs .ag-hist-tab:nth-child(2){ --row:1 }
+  .ag-hist-tabs .ag-hist-tab:nth-child(3){ --row:2 }
+  .ag-hist-tabs .ag-hist-tab:nth-child(4){ --row:3 }
+  .ag-hist-tabs .ag-hist-tab:nth-child(5){ --row:4 }
+  .ag-hist-tabs .ag-hist-tab:nth-child(6){ --row:5 }
+  .ag-hist-tabs .ag-hist-tab:nth-child(7){ --row:6 }
+
+  .ag-hist-tab .lbl{
+    transition:
+      max-width var(--sb-open) var(--ease-sb),
+      opacity   .30s ease      calc(var(--sb-lead) + var(--row, 0) * var(--sb-stagger)),
+      transform .46s var(--ease-sb) calc(var(--sb-lead) + var(--row, 0) * var(--sb-stagger));
+  }
+  /* The brand and the account name are not in the cascade — they sit at the
+     two ends of the rail and reading them as "row zero" and "row eight"
+     would stretch the sequence past the width it is riding on. */
+  .ag-hist-brand-text,
+  .ag-user-main .nm,
+  .ag-ws .nm{
+    transition:
+      max-width var(--sb-open) var(--ease-sb),
+      opacity   .30s ease      var(--sb-lead),
+      transform .46s var(--ease-sb) var(--sb-lead);
+  }
+
+  .ag-history:not(.on):not(:hover):not(.hover-open) .ag-hist-tab .lbl,
+  .ag-history:not(.on):not(:hover):not(.hover-open) .ag-hist-brand-text,
+  .ag-history:not(.on):not(:hover):not(.hover-open) .ag-user-main .nm,
+  .ag-history:not(.on):not(:hover):not(.hover-open) .ag-ws .nm{
+    transform: translateX(-10px);
+    /* No cascade on the way out. A staggered close leaves the bottom of the
+       list still visible after the panel has narrowed past it, which looks
+       like the text is being clipped rather than dismissed. */
+    transition-delay: 0s !important;
+  }
+  .ag-history.on .ag-hist-tab .lbl,
+  .ag-history:hover .ag-hist-tab .lbl,
+  .ag-history.hover-open .ag-hist-tab .lbl,
+  .ag-history.on .ag-hist-brand-text,
+  .ag-history:hover .ag-hist-brand-text,
+  .ag-history.hover-open .ag-hist-brand-text,
+  .ag-history.on .ag-user-main .nm,
+  .ag-history:hover .ag-user-main .nm,
+  .ag-history.hover-open .ag-user-main .nm,
+  .ag-history.on .ag-ws .nm,
+  .ag-history:hover .ag-ws .nm,
+  .ag-history.hover-open .ag-ws .nm{
+    transform: none;
+  }
+}
+
+/* The whole point of this file is movement, so there is a lot of it to turn
+   off. Durations rather than `none`: the labels are collapsed to max-width:0
+   when shut, and a transition removed outright can leave one mid-collapse. */
+@media (prefers-reduced-motion: reduce){
+  :root{ --sb-open:1ms; --sb-close:1ms; --sb-stagger:0ms; --sb-lead:0s }
+  .ag-history,
+  .ag-history.on,
+  .ag-history:hover,
+  .ag-history.hover-open{
+    transition-duration:1ms !important;
+  }
+  .ag-hist-tab .lbl,
+  .ag-hist-brand-text,
+  .ag-user-main .nm,
+  .ag-ws .nm{
+    transition-duration:1ms !important;
+    transition-delay:0s !important;
+    transform:none !important;
+  }
+}
