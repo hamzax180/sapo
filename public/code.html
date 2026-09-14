@@ -1338,11 +1338,21 @@
   /* ── THE CHARGE ───────────────────────────────────────────────────────
      Max only, and it fills in rather than switching on.
 
-     clip-path rather than a mask or a width: it animates on the compositor,
-     it cannot disturb the layout of anything beside it, and unlike opacity
-     on this element it does not get pinned by a stuck transition (see the
-     note on .particles). inset(0 100% 0 0) is fully clipped from the right,
-     so the reveal runs left to right — the direction the scale reads.
+     A MASK, NOT A CLIP. clip-path did the job but its edge is a hard
+     vertical line, and a hard line travelling across a track reads as a
+     progress bar filling — mechanical, and the one thing this should not
+     look like. The mask carries a soft falloff about a third of the track
+     wide, so what moves is a gradient shoulder rather than a cut, and the
+     band appears to soak across instead of being wiped in.
+
+     The geometry: the mask is 240% of the element, opaque to 42% of its own
+     width and transparent by 56%. At mask-position 100% the element shows
+     the image's last 41.67%, which is entirely past the fade — fully
+     hidden. At 0% it shows the first 41.67%, entirely inside the opaque
+     run — fully lit. Sliding between the two therefore reveals left to
+     right, the direction the scale reads, with the shoulder sweeping
+     across. Both numbers matter: a shorter mask leaves the charged state
+     faded at its right edge, a longer one starts already partly visible.
 
      No transition on the way out. Dragging off Max drops it immediately,
      which is correct: the band means "this one setting", and a band fading
@@ -1351,19 +1361,38 @@
   .ag-effort-track .fill{
     position:absolute;inset:0;border-radius:8px;pointer-events:none;z-index:1;
     opacity:0;
-    background:linear-gradient(90deg,
-      transparent 0%,
-      color-mix(in srgb,var(--accent) 6%,transparent) 18%,
-      color-mix(in srgb,var(--accent) 22%,transparent) 44%,
-      color-mix(in srgb,var(--accent) 46%,transparent) 70%,
-      color-mix(in srgb,var(--accent) 66%,transparent) 100%);
-    clip-path:inset(0 100% 0 0)}
+    /* Eight stops rather than four. The ramp is the full width of a small
+       control, so four left visible steps between them; at this count the
+       transition between any two is under the threshold where an edge
+       shows. The 180deg layer on top is a single soft highlight along the
+       upper edge, which is what stops the band reading as flat ink. */
+    background-image:
+      linear-gradient(180deg,rgba(255,255,255,.13),rgba(255,255,255,0) 62%),
+      linear-gradient(90deg,
+        transparent 0%,
+        color-mix(in srgb,var(--accent) 4%,transparent) 14%,
+        color-mix(in srgb,var(--accent) 11%,transparent) 28%,
+        color-mix(in srgb,var(--accent) 21%,transparent) 42%,
+        color-mix(in srgb,var(--accent) 34%,transparent) 56%,
+        color-mix(in srgb,var(--accent) 47%,transparent) 70%,
+        color-mix(in srgb,var(--accent) 58%,transparent) 85%,
+        color-mix(in srgb,var(--accent) 66%,transparent) 100%);
+    -webkit-mask-image:linear-gradient(90deg,#000 0%,#000 42%,
+      rgba(0,0,0,.72) 47%,rgba(0,0,0,.28) 52%,rgba(0,0,0,0) 56%);
+    mask-image:linear-gradient(90deg,#000 0%,#000 42%,
+      rgba(0,0,0,.72) 47%,rgba(0,0,0,.28) 52%,rgba(0,0,0,0) 56%);
+    -webkit-mask-size:240% 100%;mask-size:240% 100%;
+    -webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;
+    -webkit-mask-position:100% 0;mask-position:100% 0}
+  /* Eased at BOTH ends. A pure ease-out leaves at full speed from a
+     standing start, which is the abrupt part of a wipe however soft its
+     edge; this leans in, runs, and settles. */
   .ag-effort-track[data-heat="max"] .fill{
-    opacity:1;animation:effCharge 1.45s cubic-bezier(.33,1,.68,1) forwards}
-  .ag-effort-track.dragging[data-heat="max"] .fill{animation-duration:.75s}
+    opacity:1;animation:effCharge 1.6s cubic-bezier(.4,0,.2,1) forwards}
+  .ag-effort-track.dragging[data-heat="max"] .fill{animation-duration:.85s}
   @keyframes effCharge{
-    from{clip-path:inset(0 100% 0 0)}
-    to{clip-path:inset(0 0 0 0)}
+    from{-webkit-mask-position:100% 0;mask-position:100% 0}
+    to{-webkit-mask-position:0% 0;mask-position:0% 0}
   }
 
   /* ── THE FIELD ────────────────────────────────────────────────────────
@@ -1412,7 +1441,7 @@
   @keyframes effTwinkle{ 0%,100%{opacity:.16} 50%{opacity:.66} }
 
   /* THE HEAD. A bright leading edge with a tail behind it. Its first pass
-     is timed to the charge - same 1.45s, both starting the moment the level
+     is timed to the charge - same 1.6s, both starting the moment the level
      becomes Max - so the light arrives and the band is left behind it. It
      keeps looping after that, which is what stops a charged track looking
      like a finished progress bar.
@@ -1430,8 +1459,8 @@
     filter:blur(1.5px);
     transform:translateX(-200%);opacity:0}
   .ag-effort-track[data-heat="max"] .particles::after{
-    opacity:1;animation:effRun 1.45s linear infinite}
-  .ag-effort-track.dragging[data-heat="max"] .particles::after{animation-duration:.9s}
+    opacity:1;animation:effRun 1.6s linear infinite}
+  .ag-effort-track.dragging[data-heat="max"] .particles::after{animation-duration:.95s}
   @keyframes effRun{
     0%{transform:translateX(-200%)}
     100%{transform:translateX(800%)}
