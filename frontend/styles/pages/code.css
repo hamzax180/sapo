@@ -1833,70 +1833,13 @@
     border: 1px dashed var(--line);
     border-radius: 14px;
   }
-  .ag-recent-card {
-    display: block;
-    text-align: left;
-    border: 1px solid var(--line);
-    background: var(--paper-2);
-    border-radius: 14px;
-    overflow: hidden;
-    cursor: pointer;
-    transition: 0.15s;
-    min-width: 0;
-    width: 100%;
-    box-sizing: border-box;
-  }
-  .ag-recent-card:hover {
-    border-color: #cfc7ba;
-    box-shadow: 0 6px 18px -10px rgba(11, 22, 38, 0.22);
-  }
-  .ag-recent-thumb {
-    height: 135px;
-    display: grid;
-    place-items: center;
-    border-bottom: 1px solid var(--line);
-  }
-  .ag-recent-thumb i {
-    width: 56px;
-    height: 56px;
-    border-radius: 14px;
-    display: grid;
-    place-items: center;
-    font-family: var(--body);
-    font-style: normal;
-    font-weight: 700;
-    font-size: 1.7rem;
-    background: #0f0f0f;
-    line-height: 1;
-  }
-  .ag-recent-thumb i svg {
-    width: 30px;
-    height: 30px;
-  }
-  .ag-recent-body {
-    padding: 12px 14px 14px;
-  }
-  .ag-recent-body .t {
-    font-size: 0.9rem;
-    font-weight: 400;
-    color: var(--ink);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .ag-recent-body .m {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 0.78rem;
-    color: var(--mut);
-    margin-top: 4px;
-  }
-  .ag-recent-body .m svg {
-    width: 13px;
-    height: 13px;
-    flex: none;
-  }
+  /* The card itself is styles/components/project-card.css now, the same file
+     projects.html and deployments.html use. What stood here was a third copy
+     that had drifted — a flat 135px band instead of a 16/9 frame, a 56px tile
+     instead of 54, no inner highlight, no badge, and none of the sheen or
+     hover glow — so the same app looked like a different project depending on
+     which page you opened it from. The grid above stays: how many columns the
+     builder's landing screen wants is a page decision, not a card one. */
 
   /* DESKTOP VIEW: 3 cards when preview is closed, 2 cards when preview is open */
   @media (min-width: 901px) {
@@ -1910,25 +1853,8 @@
       grid-template-columns: repeat(2, 1fr) !important;
       gap: 10px !important;
     }
-    .has-preview .ag-recent-thumb,
-    .ag-split.has-preview .ag-recent-thumb {
-      height: 105px !important;
-    }
-    .has-preview .ag-recent-thumb i,
-    .ag-split.has-preview .ag-recent-thumb i {
-      width: 48px !important;
-      height: 48px !important;
-      border-radius: 12px !important;
-    }
-    .has-preview .ag-recent-thumb i svg,
-    .ag-split.has-preview .ag-recent-thumb i svg {
-      width: 26px !important;
-      height: 26px !important;
-    }
-    .has-preview .ag-recent-body,
-    .ag-split.has-preview .ag-recent-body {
-      padding: 9px 10px 11px !important;
-    }
+    /* Only the column count is a page decision. The card sizes itself from
+       its own stylesheet, including beside an open preview. */
   }
 
   /* MOBILE VIEW: ONLY 2 FIT HORIZONTALLY */
@@ -1941,28 +1867,9 @@
       grid-template-columns: repeat(2, 1fr) !important;
       gap: 10px !important;
     }
-    .ag-recent-thumb {
-      height: 105px !important;
-    }
-    .ag-recent-thumb i {
-      width: 48px !important;
-      height: 48px !important;
-      border-radius: 12px !important;
-    }
-    .ag-recent-thumb i svg {
-      width: 26px !important;
-      height: 26px !important;
-    }
-    .ag-recent-body {
-      padding: 9px 10px 11px !important;
-    }
-    .ag-recent-body .t {
-      font-size: 0.84rem !important;
-    }
-    .ag-recent-body .m {
-      font-size: 0.74rem !important;
-      margin-top: 2px !important;
-    }
+    /* The card's own phone sizing lives with the card now; project-card.css
+       carries a max-width:640px block of its own. What was here scaled a
+       thumb and a body that this page no longer builds. */
   }
 
   /* No own height/sticky — the app shell (html/body/.ag-main, below) is
@@ -3022,16 +2929,11 @@
        line in the common case instead of relying on the wrap. */
     .ag-pv-publish{right:96px;padding:0 10px;font-size:.78rem}
     /* Recent-project cards: auto-fill's 258px minimum only ever leaves
-       room for a single column on a phone. Forcing 2 columns and scaling
-       the thumbnail/text down keeps the two most recent builds visible
-       side by side instead of stacked full-width. */
+       room for a single column on a phone. Forcing 2 columns keeps the two
+       most recent builds visible side by side instead of stacked full-width;
+       the card scales itself, in project-card.css. */
     .ag-recent-grid{grid-template-columns:repeat(2,1fr);gap:10px}
-    .ag-recent-thumb{height:90px}
-    .ag-recent-thumb i{width:46px;height:46px;border-radius:12px}
-    .ag-recent-thumb i svg{width:24px;height:24px}
-    .ag-recent-body{padding:9px 10px 11px}
-    .ag-recent-body .t{font-size:.85rem}
-    .ag-recent-body .m{font-size:.74rem;margin-top:3px}
+
   }
 
   /* Account sidebar. This block is a verbatim copy of the sidebar CSS on

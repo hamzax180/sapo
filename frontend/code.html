@@ -17,6 +17,7 @@
 </script>
 <link rel="stylesheet" href="/styles/tokens.css">
 <link rel="stylesheet" href="/styles/base.css">
+<link rel="stylesheet" href="/styles/components/project-card.css">
 <link rel="stylesheet" href="/styles/pages/code.css">
 <link rel="stylesheet" href="/styles/components/upgrade-modal.css">
 </head>
@@ -3568,11 +3569,29 @@
         const meta = p.published
           ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 0 1 0 18 15 15 0 0 1 0-18z"/></svg>Published'
           : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>Private';
-        return '<a class="ag-recent-card" href="/agent/' + esc(p.slug) + '">'
-          + '<span class="ag-recent-thumb"><i style="color:' + color + '">'
-          + (TYPE_GLYPH[p.buildType] || esc(title.charAt(0).toUpperCase() || "A")) + '</i></span>'
-          + '<span class="ag-recent-body"><span class="t">' + esc(title) + '</span>'
-          + '<span class="m">' + meta + ' · ' + esc(timeAgo(p.updatedAt)) + '</span></span></a>';
+        /* The same card projects.html and deployments.html draw, from the
+           same stylesheet — see styles/components/project-card.css. This grid
+           used to build its own: a flat 135px band, a 56px tile, no badge and
+           none of the sheen, so one app looked like two different projects
+           depending on which page you opened it from.
+
+           The thumb shows .pv-none, which is what the other two pages show
+           for anything without a running deployment — the common case, and
+           the large glyph on a dark tile is the look being matched. No
+           iframe here on purpose: this is the landing screen, and three
+           live previews of deployed sites is not what it is for. */
+        var kind = p.buildType && p.buildType !== "website" ? esc(p.buildType) + ' · ' : '';
+        var glyph = TYPE_GLYPH[p.buildType] || TYPE_GLYPH.webapp;
+        return '<a class="pcard" href="/agent/' + esc(p.slug) + '" title="' + esc(title) + '"'
+          + ' style="--tile:' + color + '">'
+          + '<span class="thumb">'
+          + '<span class="pv"><span class="pv-none"><i>' + glyph + '</i></span></span>'
+          + '<span class="badge">' + glyph + '</span>'
+          + '</span>'
+          + '<span class="foot">'
+          + '<span class="nm"><b>' + esc(title) + '</b>'
+          + '<i>' + meta + ' · ' + kind + esc(timeAgo(p.updatedAt)) + '</i></span>'
+          + '</span></a>';
       }).join("") : '<div class="ag-recent-empty">No recent projects yet — what you build will show up here.</div>';
       $("agRecent").hidden = false;
     }).catch(() => { /* the rest of the new-chat screen still works without it */ });
