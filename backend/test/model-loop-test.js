@@ -20,7 +20,7 @@
 const assert = require("assert");
 const client = require("../lib/ai/client");
 const { proposeChanges, proposeWithRepair, proposeWithClientBuild, assessPrompt, buildPlan, parseToolCalls, validateWriteFileArgs, TOOLS_SCHEMA, clearCache, cacheKey, cacheStatsSnapshot,
-  fitConversation, codeBudgetChars, systemPromptFor, EFFORT, effortFor, buildCodebaseContext } = require("../lib/codeagent/model-loop");
+  fitConversation, codeBudgetChars, systemPromptFor, EFFORT, effortFor, buildCodebaseContext, reviewBuild } = require("../lib/codeagent/model-loop");
 const clientMod = require("../lib/ai/client");
 
 let passed = 0, failed = 0;
@@ -1662,6 +1662,81 @@ const ROUTES = { prose: { baseUrl: "https://x.invalid/prose", model: "gemini-3.8
     });
     assert.ok(res.ok, "a first build that fails should still render something");
     assert.ok(res.fellBack, "the template is the right answer when the alternative is a blank screen");
+  });
+
+  console.log("\n── the reviewer, and its bias toward silence ──────");
+
+  /* One stub, two answers: the reviewer's system prompt is unmistakable, so
+     the same transport can serve the builder and the review of what it built. */
+  function fetchBuildThenReview(reviewContent) {
+    const build = fetchReturning([toolCallMsg([
+      { path: "src/App.tsx", content: "export default function App(){ return <p>hi</p>; }" }
+    ])]);
+    return async (u, o) => {
+      const body = JSON.parse(o.body);
+      const isReview = (body.messages || []).some(
+        (m) => m.role === "system" && String(m.content).indexOf("ALREADY COMPILED") !== -1);
+      if (!isReview) return build();
+      return { ok: true, json: async () => ({
+        choices: [{ message: { role: "assistant", content: reviewContent }, finish_reason: "stop" }],
+        usage: { prompt_tokens: 100, completion_tokens: 20 } }) };
+    };
+  }
+  const runReviewed = (mode) => proposeWithClientBuild({
+    userPrompt: "a booking page with a form", maxRounds: 2, baseFiles: {},
+    hasExistingEntry: true, mode: mode,
+    onFiles: async () => ({ ok: true, errors: [] })
+  });
+
+  await check("eco never spends a call reviewing", async () => {
+    let reviews = 0;
+    const inner = fetchBuildThenReview('{"ok":true}');
+    client.init({ enabled: true, routes: ROUTES, fetchImpl: async (u, o) => {
+      if (String(o.body).indexOf("ALREADY COMPILED") !== -1) reviews++;
+      return inner(u, o);
+    } });
+    const res = await runReviewed("economy");
+    assert.ok(res.ok);
+    assert.strictEqual(reviews, 0, "Eco paid for a review it was never meant to run");
+  });
+
+  await check("power reviews once and a clean verdict ends the turn", async () => {
+    let reviews = 0;
+    const inner = fetchBuildThenReview('{"ok":true}');
+    client.init({ enabled: true, routes: ROUTES, fetchImpl: async (u, o) => {
+      if (String(o.body).indexOf("ALREADY COMPILED") !== -1) reviews++;
+      return inner(u, o);
+    } });
+    const res = await runReviewed("power");
+    assert.ok(res.ok, "a clean review must not fail the build");
+    assert.strictEqual(reviews, 1, "expected exactly one review, got " + reviews);
+  });
+
+  await check("a finding sends it back, and says the build passed", async () => {
+    const bodies = [];
+    const inner = fetchBuildThenReview('{"ok":false,"missing":["No booking form in src/App.tsx"]}');
+    client.init({ enabled: true, routes: ROUTES, fetchImpl: async (u, o) => { bodies.push(JSON.parse(o.body)); return inner(u, o); } });
+    await runReviewed("power");
+    const told = bodies.some((b) => (b.messages || []).some(
+      (m) => m.role === "user" && typeof m.content === "string" && m.content.indexOf("The app compiled, but it is missing") !== -1));
+    assert.ok(told, "the repair round was told the build FAILED, which it did not");
+  });
+
+  /* The whole design bias: this runs on an app that already works, so every
+     way of not knowing has to mean "leave it alone". */
+  await check("an unparseable verdict leaves the working build alone", async () => {
+    const inner = fetchBuildThenReview("I think it looks great honestly");
+    client.init({ enabled: true, routes: ROUTES, fetchImpl: inner });
+    const res = await runReviewed("power");
+    assert.ok(res.ok, "a reviewer that answered gibberish failed a build that compiled");
+  });
+
+  await check("an empty missing list is not a finding", async () => {
+    const r = await (async () => {
+      client.init({ enabled: true, routes: ROUTES, fetchImpl: fetchBuildThenReview('{"ok":false,"missing":[]}') });
+      return reviewBuild("a page", [{ path: "src/App.tsx", content: "x" }], {});
+    })();
+    assert.ok(r.ok, "ok:false with nothing named is not something a model can act on");
   });
 
   console.log("\n── the model can see the whole structure ──────────");

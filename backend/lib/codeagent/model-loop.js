@@ -2390,6 +2390,9 @@ async function proposeWithClientBuild({ userPrompt, maxRounds, onFiles, onRound,
   let priorWriteSig = null;
   let priorErrorSig = null;
   let stalls = 0;
+  /* Once per turn, never reset. A reviewer that gets a second look at the
+     repair it asked for is a reviewer that can keep asking. */
+  let reviewed = false;
   const signature = (parts) => crypto.createHash("sha256").update(parts.join(" ")).digest("hex");
   /* Captured BEFORE the loop mutates editBase. "Did this project have an
      app when the turn started" is the question, and editBase stops being
@@ -2618,6 +2621,40 @@ async function proposeWithClientBuild({ userPrompt, maxRounds, onFiles, onRound,
     }
 
     if (build.ok) {
+      /* ONE LOOK AT WHETHER IT IS THE RIGHT APP, before the turn ends.
+
+         Hedged on all four sides, because this runs on a build that already
+         works and the only way it can hurt is by sending one back:
+
+           power only   — it costs a call, and Eco exists to be cheap
+           once a turn  — reviewed is never reset
+           rounds left  — nothing to gain from a finding with no round to fix it
+           time left    — a review that overruns the deadline loses the app
+
+         MIN_ROUND_MS is the bar for time, not the review's own cost: a
+         finding is only worth having if there is room for the repair round
+         it implies as well. */
+      const canReview = !reviewed && mode === "power" && round < cap + entryRounds &&
+        (!deadlineAt || deadlineAt - Date.now() > MIN_ROUND_MS + 20000);
+      if (canReview) {
+        reviewed = true;
+        const verdict = await reviewBuild(userPrompt, allCalls, {});
+        totalCost += verdict.costUsd || 0;
+        if (!verdict.ok) {
+          /* Shaped as build errors so it re-enters the existing repair path
+             rather than growing a second one. NOT attributed to a file: the
+             whole point of these is that they are about something absent,
+             and pointing at a line implies the defect is on it. */
+          build = {
+            ok: false,
+            errors: verdict.missing.map((m) => ({ file: "", line: 0, col: 0, code: "INCOMPLETE", message: m }))
+          };
+          if (onRound) onRound({ round, ok: false, calls: allCalls, errors: build.errors });
+        }
+      }
+    }
+
+    if (build.ok) {
       /* The whole accumulated tree, and only now that it compiled. Never a
          truncated one: a response cut at the token ceiling is a design that
          stopped early, and replaying it would serve someone else the same
@@ -2683,10 +2720,17 @@ async function proposeWithClientBuild({ userPrompt, maxRounds, onFiles, onRound,
       return { ok: false, reason: "build still failing after " + (cap + 1) + " attempt(s)", round, rounds: round + 1, lastErrors: build.errors, costUsd: totalCost };
     }
 
-    const toolResponses = (attempt.message.tool_calls || []).map((c) => ({
-      role: "tool", tool_call_id: c.id, content: "File written, but the build failed — see the next message for the errors."
-    }));
     const errorsToReport = build.errors || [];
+    /* A review finding is not a build failure, and telling the model its
+       build failed sends it hunting for a compiler error that does not
+       exist. The app compiled; it is missing something that was asked for. */
+    const onlyReview = errorsToReport.length > 0 && errorsToReport.every((e) => e.code === "INCOMPLETE");
+    const toolResponses = (attempt.message.tool_calls || []).map((c) => ({
+      role: "tool", tool_call_id: c.id,
+      content: onlyReview
+        ? "File written and the build passed — see the next message."
+        : "File written, but the build failed — see the next message for the errors."
+    }));
     const errorSummary = errorsToReport.slice(0, 8)
       .map((e) => (e.file ? e.file + ":" + e.line + " — " + e.message : e.message))
       .join("\n");
@@ -2722,9 +2766,94 @@ async function proposeWithClientBuild({ userPrompt, maxRounds, onFiles, onRound,
         "touch the cause. Do not repeat that edit. Say what the error actually means, then fix " +
         "the thing it names rather than the thing near it.");
 
+    const lead = onlyReview
+      ? "The app compiled, but it is missing something that was asked for:\n" + errorSummary +
+        "\n\nAdd it. Change only what is needed — everything else already works, so do not rewrite files that are fine."
+      : "The build failed with these errors:\n" + errorSummary + rawTail + stallNote +
+        "\n\nFix them. Call write_file again with the corrected file(s) — rewrite each WHOLE file you change, not a diff. Only rewrite the files that actually need fixing.";
+
     messages = (attempt.messages || messages).concat([attempt.message], toolResponses, [
-      { role: "user", content: "The build failed with these errors:\n" + errorSummary + rawTail + stallNote + "\n\nFix them. Call write_file again with the corrected file(s) — rewrite each WHOLE file you change, not a diff. Only rewrite the files that actually need fixing." }
+      { role: "user", content: lead }
     ]);
+  }
+}
+
+/* THE ONE FAILURE A COMPILE CANNOT SEE: the wrong app, built well.
+
+   preflight catches the app that is broken. This catches the app that
+   works and is not what was asked for — "add a booking form" answered
+   with a beautiful page that has no form on it. Nothing else in the loop
+   has an opinion about that, because the first green compile ends the turn.
+
+   Everything about this prompt is tuned AGAINST false positives, and that
+   asymmetry is deliberate. A missed omission costs the person a follow-up
+   message they were going to send anyway. An invented one spends a repair
+   round telling a model to add something that is already there, on an app
+   that had just compiled — so the failure mode of a keen reviewer is
+   damaging a working build, and the failure mode of a lazy one is silence. */
+const REVIEW_SYSTEM_PROMPT = `You are reviewing an app that has ALREADY COMPILED successfully. Your only job is to catch the one case where it does not do what was asked for.
+
+Respond with JSON only, no other text:
+
+{"ok":true}
+
+or, only when something explicitly requested is genuinely absent:
+
+{"ok":false,"missing":["..."]}
+
+- Judge ONLY against the request. Not against what you would have built, not against best practice, not against how finished it looks.
+- Each "missing" entry names one thing the request asked for that is not in the files, and where it should go, in under 15 words. At most 3 entries.
+- Styling, spacing, colour, wording, code structure, accessibility, extra features and polish are NEVER missing items. Neither is anything the request did not ask for.
+- If the request was vague and what was built is a reasonable reading of it, answer {"ok":true}. A different reasonable interpretation is not a defect.
+- If you are not CERTAIN that something was asked for and is absent, answer {"ok":true}. Saying nothing is the safe answer here; a wrong one damages a working app.`;
+
+/**
+ * One review pass over a build that compiled. Power tier only, once per turn.
+ *
+ * Fails open in every direction — an outage, a timeout, unparseable JSON, a
+ * shape that is not what was asked for, all return ok:true. Same policy
+ * assessPrompt applies for the same reason: this runs on an app that already
+ * works, so "could not check" must never become "send it back".
+ */
+async function reviewBuild(userPrompt, calls, opts) {
+  const o = opts || {};
+  const listed = (calls || [])
+    .map((c) => "File: " + c.path + "\n" + String(c.content || "").slice(0, 2500))
+    .join("\n\n")
+    .slice(0, 14000);
+  if (!listed) return { ok: true, skipped: true, costUsd: 0 };
+
+  let res;
+  try {
+    res = await client.chat({
+      route: "json", model: POWER_MODEL || undefined,
+      messages: [
+        { role: "system", content: REVIEW_SYSTEM_PROMPT },
+        { role: "user", content: "The request was:\n" + String(userPrompt || "").slice(0, 2000) +
+          "\n\nThese are the files that were built:\n\n" + listed }
+      ],
+      responseFormat: { type: "json_object" },
+      maxTokens: 250, temperature: 0, timeoutMs: o.timeoutMs || 45000
+    });
+  } catch (e) {
+    return { ok: true, skipped: true, costUsd: 0 };
+  }
+
+  const costUsd = (res && res.costUsd) || 0;
+  if (!res || !res.ok || !res.message || typeof res.message.content !== "string") {
+    return { ok: true, skipped: true, costUsd };
+  }
+  try {
+    const r = JSON.parse(res.message.content);
+    if (!r || r.ok !== false || !Array.isArray(r.missing)) return { ok: true, costUsd };
+    const missing = r.missing
+      .filter((m) => typeof m === "string" && m.trim())
+      .map((m) => m.trim().slice(0, 120))
+      .slice(0, 3);
+    if (!missing.length) return { ok: true, costUsd };
+    return { ok: false, missing, costUsd };
+  } catch (e) {
+    return { ok: true, skipped: true, costUsd };
   }
 }
 
@@ -3129,5 +3258,6 @@ module.exports = {
   // Exported so a build outcome can record WHICH prompt produced it — without
   // that, a prompt change cannot be attributed to a change in quality.
   PROMPT_VERSION,
-  systemPromptFor, parseToolCalls, validateWriteFileArgs, cacheKey, clearCache, cacheStatsSnapshot
+  systemPromptFor, parseToolCalls, validateWriteFileArgs, cacheKey, clearCache, cacheStatsSnapshot,
+  reviewBuild
 };
