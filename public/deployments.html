@@ -836,11 +836,16 @@
      gradient rather than a colour, a lit top edge, a tray under the hairline,
      and a tile that has depth instead of being a coloured square.
      =================================================================== */
-  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}
+  /* grid-auto-rows:1fr is what makes every card the SAME size rather than
+     merely the same width. The thumbnail is a fixed ratio and the footer a
+     fixed two lines, so the content already wants one height - this stops a
+     row with a short title from collapsing under its neighbours. */
+  .grid{display:grid;grid-auto-rows:1fr;
+    grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}
 
   .app{position:relative;isolation:isolate;display:flex;flex-direction:column;text-align:left;
     border:1px solid var(--line);border-radius:16px;background:var(--card-surface);
-    padding:15px 16px 0;cursor:pointer;width:100%;
+    padding:0;overflow:hidden;cursor:pointer;width:100%;
     box-shadow:var(--card-rest-shadow);
     transition:transform .24s var(--ease),box-shadow .24s var(--ease),border-color .18s}
   /* Above the glow. Both pseudo-elements are positioned and the children are
@@ -877,6 +882,25 @@
   .app:focus-visible{outline:2px solid var(--accent);outline-offset:2px;
     box-shadow:var(--card-hover-shadow)}
 
+  /* ---- the thumbnail --------------------------------------------------
+     The card leads with the app, not with its name. .thumb is the frame and
+     .pv is the preview inside it - two elements rather than one, because
+     pvMount()/pvFallback() replace .pv's innerHTML wholesale and anything
+     that must survive that (the type badge, the status pill) has to be a
+     SIBLING of it, not a child. Same shape as /projects, deliberately: one
+     app looks the same on both pages. */
+  .app .thumb{position:relative;width:100%;aspect-ratio:16/9;flex:none;
+    overflow:hidden;background:var(--paper-2);border-bottom:1px solid var(--hair)}
+  .app .badge{position:absolute;left:10px;bottom:10px;z-index:2;
+    width:26px;height:26px;border-radius:8px;display:grid;place-items:center;
+    background:var(--card);border:1px solid var(--line);color:var(--ink-2);
+    box-shadow:0 1px 3px rgba(0,0,0,.12)}
+  .app .badge svg{width:14px;height:14px}
+  /* Status is the whole point of this page, so unlike /projects the pill is
+     on every card whatever state it is in. */
+  .app .thumb .pill{position:absolute;top:9px;right:9px;z-index:2;
+    box-shadow:0 1px 4px rgba(0,0,0,.12)}
+
   .app .top{display:flex;align-items:flex-start;gap:11px;padding-bottom:13px}
   /* One inline --tile drives the fill, the inner highlight and the drop glow.
      The wash over it is fixed white-to-black, so every identity colour gets
@@ -903,8 +927,10 @@
      one revision in this database holds an .html file — so there is no
      document to put in a frame, and a grey placeholder dressed up as a
      screenshot would be a lie about that. */
-  .pv{position:relative;display:block;width:100%;aspect-ratio:16/10;overflow:hidden;
-    border-radius:10px;background:var(--paper-2);border:1px solid var(--line);margin:10px 0 0}
+  /* Fills its .thumb frame. The frame owns the ratio and the clipping now,
+     so this is a bare surface - pvScale() still measures clientWidth off it
+     and gets the frame's width, which is what it always measured. */
+  .pv{position:absolute;inset:0;display:block;overflow:hidden;background:var(--paper-2)}
   /* pointer-events:none — the card is the click target, and a live app inside
      it must not swallow the click or scroll the grid. */
   .pv iframe{position:absolute;top:0;left:0;width:1280px;height:800px;border:0;
@@ -912,12 +938,15 @@
   .pv.loading::after{content:"";position:absolute;inset:0;
     background:linear-gradient(90deg,transparent,rgba(139,152,165,.10),transparent);
     transform:translateX(-100%);animation:sweep 1.4s var(--ease) infinite}
-  .pv-none{position:absolute;inset:0;display:flex;flex-direction:column;
-    align-items:center;justify-content:center;gap:10px;padding:0 14px}
-  .pv-none i{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;
+  /* One large mark, centred, and nothing else. The "Deploy to show preview
+     here" caption moved to the card's title attribute - the footer under it
+     already says what state the deployment is in, so printing an
+     instruction as well said the same thing twice. */
+  .pv-none{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
+  .pv-none i{width:54px;height:54px;border-radius:16px;display:grid;place-items:center;
     flex:none;background:#0f0f0f;color:var(--tile);box-shadow:inset 0 0 0 1px rgba(255,255,255,.07)}
-  .pv-none i svg{width:18px;height:18px}
-  .pv-none b{font-size:.72rem;font-weight:500;color:var(--mut);text-align:center;line-height:1.4}
+  .pv-none i svg{width:27px;height:27px}
+  .pv-none b{display:none}
 
   /* Open sits in the card header now, beside the status pill, rather than in
      a panel header the card no longer has. */
@@ -998,30 +1027,38 @@
     background:rgba(217,45,32,.07)}
   @media (prefers-reduced-motion:reduce){ .pv.loading::after{animation:none} }
   .app .nm{flex:1;min-width:0}
-  /* Two lines, then ellipsis. One nowrap line cut "A portfolio site for a
-     photographer" mid-word with nowhere to recover it from; the element also
-     carries a title attribute now. */
-  .app .nm b{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;
-    overflow:hidden;font-size:.925rem;font-weight:600;line-height:1.32;
-    letter-spacing:-.006em;word-break:break-word}
-  .app .nm i{display:block;font-style:normal;font-size:.735rem;color:var(--mut);margin-top:4px;
+  /* ONE line, not two. The footer has to be exactly as tall on every card in
+     the grid or the cards stop matching, and a title that is allowed a
+     second line decides that per card. The full string is on the card's
+     title attribute, which is where a truncated name is recoverable. */
+  .app .nm b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+    font-size:.9rem;font-weight:600;line-height:1.35;letter-spacing:-.006em}
+  .app .nm i{display:flex;align-items:center;gap:5px;font-style:normal;
+    font-size:.745rem;color:var(--mut);margin-top:2px;min-width:0;
     letter-spacing:.004em;font-variant-numeric:tabular-nums}
+  .app .nm i svg{width:11px;height:11px;flex:none}
 
-  /* The footer is a tray, not a fourth line of text: a hairline above it, its
-     own ground, bled out to the card's edges. That separation is most of what
-     makes a console card look like one. */
-  .app .foot{display:flex;align-items:center;gap:8px;font-size:.765rem;color:var(--mut);
-    min-height:22px;margin:0 -16px;padding:9px 16px 10px;
-    border-top:1px solid var(--hair);background:var(--card-tray);
-    border-radius:0 0 15px 15px}
+  /* The footer is the caption under the thumbnail: name on the first line,
+     the address or the state on the second. Its own ground and a hairline
+     above separate it from the preview, which is most of what makes a
+     console card look like one.
+
+     flex:1 and a fixed min-height together are what keep the grid even: the
+     footer takes whatever is left under a fixed-ratio thumbnail, and the two
+     lines inside it never change count. */
+  .app .foot{display:flex;align-items:center;gap:10px;flex:1;
+    font-size:.765rem;color:var(--mut);
+    min-height:58px;box-sizing:border-box;padding:10px 13px 11px;
+    background:var(--card-tray)}
   .app .foot .sp{flex:1}
   /* An unconstrained inline SVG fills its flex line. META_PRIV's padlock did
      exactly that the moment the old .body .m svg rule went with .body - a
-     12px lock became a 200px one and the card grew around it. */
-  .app .foot svg{width:12px;height:12px;flex:none}
+     12px lock became a 200px one and the card grew around it. Scoped to the
+     meta line so nothing else in the footer is caught by it. */
+  .app .foot .nm svg{width:12px;height:12px;flex:none}
 
   .app .foot .url{color:var(--accent-2);font-weight:500;white-space:nowrap;
-    overflow:hidden;text-overflow:ellipsis}
+    overflow:hidden;text-overflow:ellipsis;min-width:0}
   :root[data-theme="dark"] .app .foot .url{color:var(--accent)}
 
   /* ---- skeletons: a shape that says "nearly there", not a spinner ---- */
@@ -1496,21 +1533,37 @@
        word it drops is on the element as a label, so the status is still
        available to a screen reader and on long-press rather than being
        carried by colour alone. */
-    .grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
-    .app{padding:11px 12px 0;min-width:0;border-radius:14px}
-    .app .top{gap:8px;padding-bottom:10px}
-    .app .tile{width:28px;height:28px;font-size:.82rem;border-radius:9px}
-    .app .nm b{font-size:.82rem;line-height:1.3}
-    .app .nm i{font-size:.69rem;margin-top:2px}
-    /* The ring goes with the fill - a bare ring around a dot is a circle
+    /* ONE up, and the card turns on its side: a square thumbnail, the name
+       and its address beside it. Two-up was half a phone width per card,
+       which left a 16:9 preview about 70px tall - too small to read as the
+       app and too big to be an icon. Turned sideways the preview becomes an
+       icon on purpose, and the name and URL get the full width.
+
+       Same markup as the desktop grid, restyled, and the same shape
+       /projects uses on a phone. */
+    .grid{grid-template-columns:1fr;gap:8px;grid-auto-rows:auto}
+    .app{flex-direction:row;align-items:center;gap:12px;
+      padding:10px;min-width:0;border-radius:14px}
+    .app .thumb{width:64px;height:64px;aspect-ratio:auto;flex:none;
+      border:1px solid var(--hair);border-radius:12px}
+    .app .badge{display:none}
+    .app .pv-none i{width:34px;height:34px;border-radius:11px}
+    .app .pv-none i svg{width:17px;height:17px}
+    /* The pill collapses to its dot and pins to the thumbnail corner: at
+       64px there is no room for the word, and the word it drops is on the
+       element as a label, so the status is still available to a screen
+       reader and on long-press rather than being carried by colour alone.
+       The ring goes with the fill - a bare ring around a dot is a circle
        around nothing. */
-    .app .pill{padding:0;background:none !important;box-shadow:none;font-size:0;gap:0;margin-top:4px}
-    .app .pill .dot{width:8px;height:8px}
-    .app .foot{font-size:.71rem;gap:6px;min-height:18px;
-      margin:0 -12px;padding:7px 12px 8px;border-radius:0 0 13px 13px}
-    .app .foot svg{width:11px;height:11px}
-    .app .foot{gap:4px;font-size:.66rem}
-    .app .foot .url{min-width:0}
+    .app .thumb .pill{top:5px;right:5px;padding:0;gap:0;font-size:0;
+      background:none !important;box-shadow:none}
+    .app .thumb .pill .dot{width:8px;height:8px;box-shadow:0 0 0 2px var(--paper-2)}
+    .app .foot{flex:1;min-width:0;min-height:0;padding:0;background:transparent;gap:6px}
+    .app .nm b{font-size:.875rem}
+    /* One line, ellipsised, like the title above it. Allowed to wrap, a URL
+       plus a relative date took two lines on a 375px screen and pushed the
+       row to a height that no longer matched the thumbnail beside it. */
+    .app .nm i{font-size:.735rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .step{width:64px}
     .step .lb{font-size:.68rem}
 
@@ -2303,29 +2356,45 @@
       return;
     }
 
+    /* The card leads with the app itself: a fixed-ratio thumbnail carrying
+       the live preview (or the type mark when there is nothing running to
+       show), then one caption line of name and one of address-or-state.
+       Every card is therefore exactly the same size, and an app looks the
+       same here as it does on /projects. */
     $("listBody").innerHTML = '<div class="grid">' + list.map(function (r) {
       var title = r.title || "Untitled app";
       var live = r.status === "RUNNING" && r.url;
+      /* The caption that used to print under the mark is the tooltip now -
+         see .pv-none. The footer already says what state this is in. */
+      var tip = title + (live ? "" : " \u2014 deploy to show a preview here");
       return '<button type="button" class="app" data-key="' + esc(r.key) + '"' +
-        ' title="' + esc(title) + '" style="--tile:' + tileTint(r, r.key) + '">' +
-        '<span class="top">' +
-          '<span class="tile">' + tileMark(r) + '</span>' +
-          '<span class="nm"><b>' + esc(title) + '</b><i>' + esc(timeAgo(r.updatedAt)) + '</i></span>' +
+        ' title="' + esc(tip) + '" style="--tile:' + tileTint(r, r.key) + '">' +
+        '<span class="thumb">' +
+          '<span class="pv" data-key="' + esc(r.key) + '"' +
+            (live ? ' data-url="' + esc(r.url) + '"' : '') +
+            ' data-glyph=\'' + tileMark(r) + '\'' +
+            ' data-label="Deploy to show preview here"></span>' +
+          '<span class="badge">' + tileMark(r) + '</span>' +
           pill(r.status) +
         '</span>' +
-        '<span class="pv" data-key="' + esc(r.key) + '"' +
-          (live ? ' data-url="' + esc(r.url) + '"' : '') +
-          ' data-glyph=\'' + tileMark(r) + '\'' +
-          ' data-label="Deploy to show preview here"></span>' +
         '<span class="foot">' +
-          /* Never an empty row. A deployment with a status but no URL - stopped,
-             failed, mid-build - used to render an empty span here, so the card
-             had a blank strip where every other card said something. */
+          '<span class="nm"><b>' + esc(title) + '</b><i>' +
+          /* Never an empty line. A deployment with a status but no URL -
+             stopped, failed, mid-build - used to render an empty span here,
+             so the card had a blank strip where every other card spoke. */
           (live ? '<span class="url">' + esc(String(r.url).replace(/^https?:\/\//, "")) + "</span>"
                 : '<span>' + esc(r.status ? FOOT_NOTE[r.status] || "not running" : "never deployed") + "</span>") +
+          ' \u00b7 ' + esc(timeAgo(r.updatedAt)) +
+          '</i></span>' +
         "</span></button>";
     }).join("") + "</div>";
     wirePreviews($("listBody"));
+    /* The phone layout turns each card on its side, so a preview that is
+       already mounted has a new width to be scaled into. A no-op before
+       anything has mounted, which is the common case on first paint. */
+    requestAnimationFrame(function () {
+      $("listBody").querySelectorAll(".pv iframe").forEach(function (f) { pvScale(f.parentNode, f); });
+    });
   }
 
   /* ---- card previews ----------------------------------------------------
