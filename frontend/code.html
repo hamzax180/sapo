@@ -2428,6 +2428,14 @@
         if (flat.modules.length > 1) {
           console.log("[preview] inlined " + flat.modules.length + " modules: " + flat.modules.join(", "));
         }
+        // A collision that was renamed is a repair, not a warning — the
+        // preview is correct afterwards, so putting it in inlineWarnings
+        // would alarm someone about a problem that no longer exists. It
+        // still belongs in the console, because "why is this identifier
+        // called toneClasses$1" is a question someone will eventually ask.
+        if (flat.renamed && flat.renamed.length) {
+          console.log("[preview] renamed to avoid collisions:\n  " + flat.renamed.join("\n  "));
+        }
       } else {
         // The module script has not loaded yet. Render the entry alone
         // rather than nothing, and say so — this is the old behaviour,

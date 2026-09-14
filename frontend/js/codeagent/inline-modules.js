@@ -21,8 +21,12 @@
 
    Not supported, on purpose, and reported in `warnings`:
      - circular imports (the cycle is broken, order may be wrong)
-     - two modules declaring the same top-level name
      - `export * from`, namespace imports, dynamic import()
+
+   Repaired rather than reported, and listed in `renamed`:
+     - two modules declaring the same top-level name. This used to be a
+       warning saying "the later one wins", which was never true: one
+       scope, two consts, SyntaxError, nothing renders. See renameTopLevel.
    ================================================================= */
 "use strict";
 
@@ -62,6 +66,79 @@ function declaredNames(code) {
   let m;
   while ((m = re.exec(code))) names.add(m[1]);
   return names;
+}
+
+/**
+ * Rename one top-level identifier throughout a single module's source.
+ *
+ * Everything lands in one shared scope, so two modules that both declare
+ * `const toneClasses` produce `Identifier 'toneClasses' has already been
+ * declared` — a hard parse error, which in the preview is a black frame with
+ * a stack trace printed over it. Not hypothetical: an 18-file barber booking
+ * app failed exactly this way, two step components each keeping their own
+ * little tone map.
+ *
+ * Scanned rather than regexed, because a blind replace corrupts the places an
+ * identifier-shaped run of characters is not a reference to that binding:
+ * inside a string, inside a comment, after a dot, or as an object key.
+ */
+function renameTopLevel(code, from, to) {
+  const isWord = (ch) => /[\w$]/.test(ch);
+  const NL = String.fromCharCode(10);
+  let out = "";
+  let i = 0;
+  while (i < code.length) {
+    const ch = code[i];
+
+    // string and template literals: copied through untouched
+    if (ch === '"' || ch === "'" || ch === "`") {
+      const quote = ch;
+      out += ch;
+      i++;
+      while (i < code.length) {
+        if (code[i] === "\\") { out += code.slice(i, i + 2); i += 2; continue; }
+        out += code[i];
+        if (code[i] === quote) { i++; break; }
+        i++;
+      }
+      continue;
+    }
+
+    // comments: likewise
+    if (ch === "/" && code[i + 1] === "/") {
+      const nlAt = code.indexOf(NL, i);
+      const end = nlAt === -1 ? code.length : nlAt;
+      out += code.slice(i, end);
+      i = end;
+      continue;
+    }
+    if (ch === "/" && code[i + 1] === "*") {
+      const close = code.indexOf("*/", i + 2);
+      const end = close === -1 ? code.length : close + 2;
+      out += code.slice(i, end);
+      i = end;
+      continue;
+    }
+
+    if (isWord(ch)) {
+      let j = i;
+      while (j < code.length && isWord(code[j])) j++;
+      const word = code.slice(i, j);
+      const prev = code.slice(0, i).replace(/\s+$/, "").slice(-1);
+      let k = j;
+      while (k < code.length && /\s/.test(code[k])) k++;
+      const isProperty = prev === ".";
+      // `{ toneClasses: x }` is a key. `cond ? toneClasses : y` is not.
+      const isObjectKey = code[k] === ":" && prev !== "?";
+      out += (word === from && !isProperty && !isObjectKey) ? to : word;
+      i = j;
+      continue;
+    }
+
+    out += ch;
+    i++;
+  }
+  return out;
 }
 
 /**
@@ -199,6 +276,7 @@ function aliasNamed(inner, out) {
  */
 export function inlineModules(entry, files) {
   const ctx = {
+    renamed: [],
     files: files,
     reactNames: new Set(),
     lucideNames: new Set(),
@@ -242,9 +320,20 @@ export function inlineModules(entry, files) {
     const out = transformModule(src, path, index++, ctx);
     defaults.set(path, out.defaultName);
 
+    /* "the later one wins" was never true. Two const declarations in one
+       scope is a SyntaxError, not a shadow — the whole bundle fails to
+       parse, so neither one wins and the preview renders nothing at all.
+       Rename the later one instead of narrating the collision. */
     declaredNames(out.code).forEach((n) => {
       if (seenNames.has(n)) {
-        ctx.warnings.push('"' + n + '" is declared in more than one module — the later one wins');
+        let renamed = n + "$" + (index - 1);
+        while (seenNames.has(renamed)) renamed += "_";
+        out.code = renameTopLevel(out.code, n, renamed);
+        if (out.defaultName === n) { out.defaultName = renamed; defaults.set(path, renamed); }
+        out.localBindings.forEach((b) => { if (b.local === n) b.local = renamed; });
+        ctx.renamed.push(path + ': "' + n + '" renamed to "' + renamed + '" - already declared elsewhere');
+        seenNames.add(renamed);
+        return;
       }
       seenNames.add(n);
     });
@@ -291,7 +380,8 @@ export function inlineModules(entry, files) {
   return {
     code: prelude.concat(pieces, aliases).join("\n\n"),
     modules: order,
-    warnings: ctx.warnings
+    warnings: ctx.warnings,
+    renamed: ctx.renamed
   };
 }
 

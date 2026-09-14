@@ -2,6 +2,7 @@
    No framework on purpose — it mirrors deploy/scripts/verify*.js, which
    assert what the code WOULD do rather than needing a browser. */
 import assert from "node:assert";
+const NEWLINE = String.fromCharCode(10);
 import { readFileSync } from "node:fs";
 import { inlineModules } from "../../frontend/js/codeagent/inline-modules.js";
 
@@ -92,12 +93,56 @@ check("a circular import is broken and reported", () => {
   assert.ok(r3.warnings.some((w) => /circular/.test(w)), JSON.stringify(r3.warnings));
 });
 
-check("a duplicate top-level name is reported", () => {
+/* This used to assert a WARNING and leave the collision in place, which was
+   the wrong contract. Everything lands in one scope, so two `const styles`
+   is "Identifier 'styles' has already been declared": the whole bundle fails
+   to parse and the preview is a black frame with a stack trace over it.
+   Neither one wins, which is what "the later one wins" got wrong.
+
+   Found in production on an 18-file barber booking app — two step components
+   each keeping their own tone map. The build passed clean and the preview
+   never rendered. */
+check("a duplicate top-level name is renamed, not just warned about", () => {
   const r4 = inlineModules("src/App.tsx", {
-    "src/App.tsx": 'import H from "./h";\nconst styles = 1;\nexport default function App(){}',
-    "src/h.tsx": 'const styles = 2;\nexport default function H(){}'
+    "src/App.tsx": [
+      'import H from "./h";',
+      "const styles = 1;",
+      "export default function App(){ return styles; }"
+    ].join(NEWLINE),
+    "src/h.tsx": [
+      "const styles = 2;",
+      "export default function H(){ return styles; }"
+    ].join(NEWLINE)
   });
-  assert.ok(r4.warnings.some((w) => /more than one module/.test(w)), JSON.stringify(r4.warnings));
+  const decls = r4.code.match(/const\s+styles[\w$]*/g) || [];
+  assert.strictEqual(new Set(decls).size, decls.length,
+    "two modules still declare the same name: " + JSON.stringify(decls));
+  assert.ok(r4.renamed.length >= 1,
+    "the rename was not reported: " + JSON.stringify(r4.renamed));
+});
+
+/* The rename has to be a rename, not a find-and-replace. An identifier-shaped
+   run of characters is not a reference to the binding when it sits inside a
+   string, inside a comment, after a dot, or as an object key. */
+check("renaming leaves strings, properties and keys alone", () => {
+  const r = inlineModules("src/App.tsx", {
+    "src/App.tsx": [
+      'import H from "./h";',
+      "const tone = 1;",
+      "export default function App(){ return tone; }"
+    ].join(NEWLINE),
+    "src/h.tsx": [
+      "const tone = { a: 1 };",
+      'const label = "tone";',
+      "const viaProp = theme.tone;",
+      "const obj = { tone: 5 };",
+      "export default function H(){ return tone.a + label + viaProp + obj.tone; }"
+    ].join(NEWLINE)
+  });
+  assert.ok(/const\s+tone\$\d/.test(r.code), "the colliding declaration was not renamed");
+  assert.ok(/=\s*"tone"/.test(r.code), "a string literal was rewritten");
+  assert.ok(/theme\.tone\b/.test(r.code), "a property access was rewritten");
+  assert.ok(/\{\s*tone:\s*5\s*\}/.test(r.code), "an object key was rewritten");
 });
 
 // Found in production: a generated src/data.ts carried `export interface`
