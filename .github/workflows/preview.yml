@@ -24,7 +24,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: server
+        working-directory: backend
 
     steps:
       - uses: actions/checkout@v4
@@ -33,7 +33,7 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
-          cache-dependency-path: server/package-lock.json
+          cache-dependency-path: backend/package-lock.json
 
       - run: npm install --prefer-offline
       - run: npm test

@@ -2,7 +2,7 @@
 #  SAPO — Continuous Integration
 #  Runs on every push and PR to main / dev branches.
 #  Jobs:
-#    1. lint         → ESLint (server) + secret scan
+#    1. lint         → ESLint (backend) + secret scan
 #    2. unit-tests   → Mocked unit tests (no DB needed)
 #    3. smoke-tests  → Full stack with MongoDB in-memory
 #    4. security     → npm audit + eval check
@@ -31,7 +31,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: server
+        working-directory: backend
 
     steps:
       - name: Checkout
@@ -45,7 +45,7 @@ jobs:
       - name: Install dependencies
         run: npm install --prefer-offline
 
-      - name: Run ESLint on server
+      - name: Run ESLint on backend
         run: npx eslint . --ext .js --max-warnings 50 --ignore-pattern node_modules
         continue-on-error: true
 
@@ -70,7 +70,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: server
+        working-directory: backend
 
     steps:
       - name: Checkout
@@ -96,7 +96,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: unit-test-log-${{ github.run_id }}
-          path: server/**/*.log
+          path: backend/**/*.log
           if-no-files-found: ignore
           retention-days: 7
 
@@ -123,7 +123,7 @@ jobs:
 
     defaults:
       run:
-        working-directory: server
+        working-directory: backend
 
     steps:
       - name: Checkout
@@ -156,7 +156,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: server
+        working-directory: backend
 
     steps:
       - name: Checkout

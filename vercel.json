@@ -1,7 +1,7 @@
 {
   "cleanUrls": true,
   "trailingSlash": false,
-  "outputDirectory": "public",
+  "outputDirectory": "frontend",
   "headers": [
     {
       "source": "/(.*)",

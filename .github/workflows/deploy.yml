@@ -4,7 +4,7 @@
 #  Requires all CI checks to pass first.
 #
 #  What it does:
-#    1. frontend-deploy → Vercel (static public/ folder)
+#    1. frontend-deploy → Vercel (static frontend/ folder)
 #    2. backend-deploy  → Generic webhook/script deploy
 #       Replace the "deploy-backend" step with your platform:
 #       Render, Railway, Fly.io, DigitalOcean, etc.
@@ -80,7 +80,7 @@ jobs:
 
     defaults:
       run:
-        working-directory: server
+        working-directory: backend
 
     steps:
       - uses: actions/checkout@v4
@@ -89,7 +89,7 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
-          cache-dependency-path: server/package-lock.json
+          cache-dependency-path: backend/package-lock.json
 
       - run: npm install --prefer-offline
       - run: npm test

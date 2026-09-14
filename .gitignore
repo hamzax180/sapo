@@ -8,20 +8,20 @@ node_modules/
 .env
 .env.local
 .env.*.local
-server/.env
+backend/.env
 
 .vercel
 .kilo
 job_log.txt
 
 # MCP server config — entries can carry bearer tokens in `headers`
-# (see server/mcp.example.json, which IS tracked as the template).
-server/mcp.json
+# (see backend/mcp.example.json, which IS tracked as the template).
+backend/mcp.json
 
 # Deployment plane: real secrets and staged user source
-deploy/.env
-deploy/node_modules/
-deploy/builds/
+infra/deploy/.env
+infra/deploy/node_modules/
+infra/deploy/builds/
 
 # Never commit private keys or env backups.
 *.pem

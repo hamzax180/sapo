@@ -13,4 +13,4 @@
    directly out of public/, which is both faster and keeps this
    function's cold start small.
    ================================================================= */
-module.exports = require("../server/index.js");
+module.exports = require("../backend/index.js");

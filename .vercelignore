@@ -1,24 +1,21 @@
-# server/ is NO LONGER excluded — api/index.js require()s it, so the
+# backend/ is NO LONGER excluded — api/index.js require()s it, so the
 # Express app now ships as a Vercel serverless function. Excluding it
 # would build a frontend whose every /api call 404s.
 
 # The container deployment plane. It is a Docker stack that runs on its own
-# VM — compose file, worker, Postgres schema — and nothing under server/ or
+# VM — compose file, worker, Postgres schema — and nothing under backend/ or
 # api/ require()s it. On Vercel it is 4MB of source that can never execute,
 # and its own package.json sitting in the tree only gives the build another
 # manifest to get confused by.
-deploy/
-
-# Dev/build scratch
-scratch/
-*.py
+infra/
 
 # Local tooling
 .claude/
 node_modules/
 
 # Tests and docs never need to reach a deployment
-server/tests/
+backend/test/
+backend/demos/
 docs/
 
 # The scaffold directory is excluded, and nothing at runtime reads it:
@@ -32,9 +29,5 @@ docs/
 # empty dist. Excluding it without the JSON is the opposite failure:
 # "Rollup failed to resolve import /src/main.tsx". The blob avoids both,
 # because a .json is neither compiled nor dropped.
-server/lib/codeagent/scaffold/
+backend/lib/codeagent/scaffold/
 
-# Test and demo scripts — not imported by the app, just inflate the bundle.
-server/*-test.js
-server/*-demo.js
-server/dev-admin-verify.js

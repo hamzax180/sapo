@@ -4,7 +4,7 @@
     {
       "name": "souqi-server",
       "runtimeExecutable": "node",
-      "runtimeArgs": ["server/index.js"],
+      "runtimeArgs": ["backend/index.js"],
       "port": 4000,
       "autoPort": true
     }
