@@ -26,6 +26,7 @@
 
 const crypto = require("crypto");
 const client = require("../ai/client");
+const { preflight } = require("./preflight");
 
 /* ---------- response cache (docs/AI-PROVIDER-PLAN.md §4.1) ----------
    "Don't call it" is the biggest cost lever there is — cheaper than any
@@ -2294,6 +2295,28 @@ async function proposeWithClientBuild({ userPrompt, maxRounds, onFiles, onRound,
   let lastCalls = null;
   let lastBuild = null;
 
+  /* REPEATING A FAILED ACTION IS NOT AN ATTEMPT.
+
+     Nothing in this loop ever noticed that a round had achieved nothing.
+     A model that rewrites the same file with the same bytes, or produces
+     the identical error list twice running, was spending a full round —
+     a model call plus up to three minutes of browser compile — to arrive
+     back where it started, and the loop's whole answer to that was to run
+     out of rounds and ship a starter template.
+
+     Two signatures, because the two stalls look different. Identical
+     WRITES mean it did not change its mind. Identical ERRORS mean it
+     changed something that did not matter. Both want the same response:
+     say so plainly, and stop asking the same question a third time. */
+  let priorWriteSig = null;
+  let priorErrorSig = null;
+  let stalls = 0;
+  const signature = (parts) => crypto.createHash("sha256").update(parts.join(" ")).digest("hex");
+  /* Captured BEFORE the loop mutates editBase. "Did this project have an
+     app when the turn started" is the question, and editBase stops being
+     able to answer it the moment round 0 writes a file. */
+  const hadExistingApp = !!(baseFiles && Object.keys(baseFiles).length);
+
   for (let round = 0; round <= cap + entryRounds; round++) {
     if (deadlineAt && round > 0 && lastCalls && lastCalls.length) {
       const msLeft = deadlineAt - Date.now();
@@ -2433,7 +2456,33 @@ async function proposeWithClientBuild({ userPrompt, maxRounds, onFiles, onRound,
         }]
       };
     } else {
-      build = await onFiles(allCalls);
+      /* CHECK WHAT THE COMPILER CANNOT, AND WHAT IT WOULD ONLY SAY LATE.
+
+         editBase is the live tree — the project this turn started from with
+         every write laid on top — which is exactly what the browser is about
+         to mount. See preflight.js for why each check is there.
+
+         Hard findings skip the compile for the same reason the entry guard
+         above does: an import of a file nobody wrote fails `vite build`
+         with certainty, so paying thirteen seconds of install-and-compile
+         establishes nothing that the file map did not already know. */
+      const gate = preflight(editBase);
+      if (gate.hard.length) {
+        build = { ok: false, errors: gate.hard };
+      } else {
+        build = await onFiles(allCalls);
+        /* A soft finding is a green build that is still wrong — a nav
+           promising a page nobody wrote. It waits for the compile, because
+           a type error is the more urgent news and would be buried under it.
+
+           And it is never raised on the LAST round. Falling off the end of
+           the loop replaces the whole tree with a starter template, so
+           insisting on one dead link there would trade a site with a 404 for
+           no site at all. At the cap it ships, link and all. */
+        if (build.ok && gate.soft.length && round < cap + entryRounds) {
+          build = { ok: false, errors: gate.soft };
+        }
+      }
     }
     /* Held outside the loop so the deadline branch above has something to
        hand back. Whatever the last round produced beats nothing at all. */
@@ -2502,7 +2551,43 @@ async function proposeWithClientBuild({ userPrompt, maxRounds, onFiles, onRound,
          the no-SharedArrayBuffer path, where ok:true is a formality. */
       return { ok: true, calls: allCalls, suggestions: attempt.suggestions || [], note: attempt.note, round, rounds: round + 1, repaired: round > 0, costUsd: totalCost, jsonRetries, verified: build.verified !== false };
     }
-    if (round >= cap + entryRounds) {
+    /* Did this round move? Writes sorted so the model reordering its tool
+       calls does not read as a change, and errors sorted because the
+       compiler does not promise an order either. */
+    const writeSig = signature((attempt.calls || []).map((c) => c.path + " " + c.content).sort());
+    const errorSig = signature((build.errors || []).map((e) => e.file + ":" + e.line + " " + e.message).sort());
+    const sameWrites = priorWriteSig !== null && writeSig === priorWriteSig;
+    const sameErrors = priorErrorSig !== null && errorSig === priorErrorSig;
+    if (sameWrites || sameErrors) stalls++; else stalls = 0;
+    priorWriteSig = writeSig;
+    priorErrorSig = errorSig;
+    /* Twice is the evidence. Once can be a model that fixed one of two
+       errors and left the other reporting identically; twice in a row is a
+       loop that has stopped converging, and every further round costs a
+       call and a compile to confirm it. */
+    const stalled = stalls >= 2;
+
+    if (round >= cap + entryRounds || stalled) {
+      /* NEVER TEMPLATE OVER AN APP THAT ALREADY EXISTED.
+
+         The same defect this loop was just fixed for on the model-failure
+         path lives here too: at the cap, getFallbackAppCode is written onto
+         the accumulated tree, and for a FOLLOW-UP that tree is the person's
+         working application. A build that kept failing is a bad turn; a
+         starter template where their app used to be is a lost project.
+
+         Only a first build takes the template, which is the case it was
+         written for — there the alternative is a blank screen. */
+      if (hadExistingApp) {
+        return {
+          ok: false,
+          reason: stalled
+            ? "the same fix was attempted twice with the same result"
+            : "build still failing after " + (cap + 1) + " attempt(s)",
+          round, rounds: round + 1, lastErrors: build.errors, costUsd: totalCost,
+          keptExisting: true, stalled: stalled
+        };
+      }
       // Final Fallback if repair attempts failed: return guaranteed compiling fallback App.tsx
       const fallbackContent = getFallbackAppCode(userPrompt);
       // Onto the accumulated tree, not instead of it: a bare App.tsx as
@@ -2542,8 +2627,24 @@ async function proposeWithClientBuild({ userPrompt, maxRounds, onFiles, onRound,
         String(build.raw).trim().split("\n").slice(-40).join("\n").slice(-3000)
       : "";
 
+    /* Name the stall. Without this the next round is handed the identical
+       error list with the identical instruction and no indication that it
+       has already been down this road — so the likeliest thing it does is
+       write the same file again, which is precisely the behaviour being
+       spent rounds on. Saying which of the two stalls happened matters:
+       "you changed nothing" and "you changed something irrelevant" call for
+       different next moves. */
+    const stallNote = !stalls ? "" : (sameWrites
+      ? "\n\nSTOP. You just wrote the same file(s), byte for byte, as the round before. " +
+        "Rewriting them again will fail again. Read the file with read_file if you have not " +
+        "seen it in full, work out what the error is ACTUALLY saying, and take a different " +
+        "approach this time."
+      : "\n\nSTOP. These are the same errors as the round before — whatever you changed did not " +
+        "touch the cause. Do not repeat that edit. Say what the error actually means, then fix " +
+        "the thing it names rather than the thing near it.");
+
     messages = (attempt.messages || messages).concat([attempt.message], toolResponses, [
-      { role: "user", content: "The build failed with these errors:\n" + errorSummary + rawTail + "\n\nFix them. Call write_file again with the corrected file(s) — rewrite each WHOLE file you change, not a diff. Only rewrite the files that actually need fixing." }
+      { role: "user", content: "The build failed with these errors:\n" + errorSummary + rawTail + stallNote + "\n\nFix them. Call write_file again with the corrected file(s) — rewrite each WHOLE file you change, not a diff. Only rewrite the files that actually need fixing." }
     ]);
   }
 }

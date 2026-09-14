@@ -934,8 +934,13 @@ const ROUTES = { prose: { baseUrl: "https://x.invalid/prose", model: "gemini-3.8
     return { role: "assistant", tool_calls: calls.map((c, i) => ({
       id: "e_" + i, type: "function", function: { name: "edit_file", arguments: JSON.stringify(c) } })) };
   }
+  /* hasExistingEntry, because every case below hands it a project that
+     HAS a src/App.tsx and the route computes this from exactly that.
+     Without it the entry guard fires on any round whose writes do not
+     include App.tsx — which for an edit test is most of them — and the
+     turn under test becomes a NO_ENTRY repair instead. */
   const runEdit = (calls, files) => proposeWithClientBuild({
-    userPrompt: "change it", maxRounds: 0, baseFiles: files,
+    userPrompt: "change it", maxRounds: 0, baseFiles: files, hasExistingEntry: true,
     onFiles: async () => ({ ok: true, errors: [] })
   });
 
@@ -1596,6 +1601,100 @@ const ROUTES = { prose: { baseUrl: "https://x.invalid/prose", model: "gemini-3.8
     // Nothing was attached, so there is no way to tell a real URL from an
     // invented one and the guard must not guess.
     assert.match(res.calls[0].content, /example\.com/);
+  });
+
+  /* ---- discipline -----------------------------------------------------
+     Two things the loop never used to know: that a round had achieved
+     nothing, and that the tree it was about to overwrite belonged to
+     somebody. Both were paid for in real projects. */
+  console.log("\n── the loop notices it is going in circles ─────────");
+
+  const brokenApp = toolCallMsg([{ path: "src/App.tsx", content: "export default function App(){ return <Foo/>; }" }]);
+  const sameErr = [{ file: "src/App.tsx", line: 3, col: 1, code: "TS2304", message: "Cannot find name 'Foo'" }];
+
+  await check("the same write and the same errors twice stops the run early", async () => {
+    client.init({ enabled: true, routes: ROUTES, fetchImpl: fetchReturning([brokenApp]) });
+    let builds = 0;
+    const res = await proposeWithClientBuild({
+      userPrompt: "fix it", maxRounds: 3, baseFiles: { "src/App.tsx": "old" }, hasExistingEntry: true,
+      onFiles: async () => { builds++; return { ok: false, errors: sameErr }; }
+    });
+    assert.strictEqual(res.ok, false);
+    assert.ok(res.stalled, "the loop never noticed it was repeating itself");
+    // maxRounds 3 is four rounds. Detecting at the second repeat spends three.
+    assert.ok(builds < 4, "spent every round on a loop that had stopped converging: " + builds);
+  });
+
+  await check("the model is told it is repeating, not just handed the errors again", async () => {
+    const bodies = [];
+    const inner = fetchReturning([brokenApp]);
+    client.init({ enabled: true, routes: ROUTES, fetchImpl: async (u, o) => { bodies.push(JSON.parse(o.body)); return inner(); } });
+    await proposeWithClientBuild({
+      userPrompt: "fix it", maxRounds: 3, baseFiles: { "src/App.tsx": "old" }, hasExistingEntry: true,
+      onFiles: async () => ({ ok: false, errors: sameErr })
+    });
+    const said = bodies.some((b) => (b.messages || []).some(
+      (m) => m.role === "user" && typeof m.content === "string" && m.content.indexOf("STOP.") !== -1));
+    assert.ok(said, "the repeat was detected but never mentioned to the model");
+  });
+
+  await check("a build that keeps failing never templates over an existing app", async () => {
+    client.init({ enabled: true, routes: ROUTES, fetchImpl: fetchReturning([brokenApp]) });
+    let n = 0;
+    const res = await proposeWithClientBuild({
+      userPrompt: "add a footer", maxRounds: 1, hasExistingEntry: true,
+      baseFiles: { "src/App.tsx": "the person's real app", "src/components/Header.tsx": "export const Header = () => null;" },
+      // A different error each round, so this tests the cap and not the stall.
+      onFiles: async () => ({ ok: false, errors: [{ file: "src/App.tsx", line: ++n, col: 1, message: "error " + n }] })
+    });
+    assert.strictEqual(res.ok, false);
+    assert.ok(res.keptExisting, "the turn did not report that the project was left alone");
+    assert.ok(!res.fellBack, "a starter template was shipped over a working project");
+  });
+
+  await check("a first build with nothing to lose still gets the starter template", async () => {
+    client.init({ enabled: true, routes: ROUTES, fetchImpl: fetchReturning([brokenApp]) });
+    let k = 0;
+    const res = await proposeWithClientBuild({
+      userPrompt: "a landing page", maxRounds: 0, baseFiles: {}, hasExistingEntry: true,
+      // Round 0 fails; the fallback App.tsx that follows compiles.
+      onFiles: async () => (++k >= 2 ? { ok: true, errors: [] } : { ok: false, errors: sameErr })
+    });
+    assert.ok(res.ok, "a first build that fails should still render something");
+    assert.ok(res.fellBack, "the template is the right answer when the alternative is a blank screen");
+  });
+
+  console.log("\n── preflight reaches the loop ─────────────────────");
+
+  await check("an import of a file nobody wrote never reaches the compiler", async () => {
+    client.init({ enabled: true, routes: ROUTES, fetchImpl: fetchReturning([
+      toolCallMsg([{ path: "src/App.tsx", content: 'import { total } from "./lib/helpers";\nexport default function App(){ return <p>{total()}</p>; }' }])
+    ]) });
+    let builds = 0;
+    const res = await proposeWithClientBuild({
+      userPrompt: "a tracker", maxRounds: 0, baseFiles: {}, hasExistingEntry: true,
+      onFiles: async () => { builds++; return { ok: true, errors: [] }; }
+    });
+    // Round 0 is caught before onFiles; only the fallback build spends one.
+    assert.strictEqual(builds, 1, "paid for a compile guaranteed to fail");
+    assert.ok(res.fellBack, "expected the unresolved import to fail the round");
+  });
+
+  await check("a dead nav link waits for the compile and does not cost the site", async () => {
+    const page = '<!doctype html><html><body><nav><a href="menu.html">Menu</a></nav></body></html>';
+    client.init({ enabled: true, routes: ROUTES, fetchImpl: fetchReturning([
+      toolCallMsg([{ path: "index.html", content: page }])
+    ]) });
+    let builds = 0;
+    const res = await proposeWithClientBuild({
+      userPrompt: "a cafe site", maxRounds: 0, baseFiles: {}, hasExistingEntry: true,
+      onFiles: async () => { builds++; return { ok: true, errors: [] }; }
+    });
+    assert.ok(builds >= 1, "a soft finding must not pre-empt the compile");
+    // maxRounds 0 is the last round, where shipping a 404 beats shipping
+    // a starter template in place of the whole site.
+    assert.ok(res.ok, "a missing page cost the site at the cap");
+    assert.ok(!res.fellBack, "a dead link replaced the site with a template");
   });
 
   console.log("\n" + (failed === 0 ? "✓ ALL MODEL-LOOP TESTS PASSED (" + passed + ")" : "✗ " + failed + " FAILED, " + passed + " passed"));
