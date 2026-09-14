@@ -803,12 +803,16 @@
      Narrow, half a row wins and lands on precisely two, at whatever
      width that takes. The band cannot reopen because the breakpoint that
      used to define it is no longer what decides. */
-  .grid{display:grid;gap:14px;
+  /* grid-auto-rows:1fr is what makes every card the SAME size rather than
+     merely the same width. The thumbnail is a fixed ratio and the footer a
+     fixed two lines, so the content already wants one height - this stops a
+     row with a short title from collapsing under its neighbours. */
+  .grid{display:grid;gap:14px;grid-auto-rows:1fr;
     grid-template-columns:repeat(auto-fill,minmax(min(300px,(100% - 14px)/2),1fr))}
 
   .card{position:relative;isolation:isolate;display:flex;flex-direction:column;text-align:left;
     border:1px solid var(--line);border-radius:16px;background:var(--card-surface);
-    padding:15px 16px 0;cursor:pointer;width:100%;
+    padding:0;overflow:hidden;cursor:pointer;width:100%;
     box-shadow:var(--card-rest-shadow);
     transition:transform .24s var(--ease),box-shadow .24s var(--ease),border-color .18s}
   /* Above the glow. Both pseudo-elements are positioned and the children are
@@ -845,6 +849,25 @@
   .card:focus-visible{outline:2px solid var(--accent);outline-offset:2px;
     box-shadow:var(--card-hover-shadow)}
 
+  /* ---- the thumbnail --------------------------------------------------
+     The card leads with the app, not with its name. .thumb is the frame and
+     .pv is the preview inside it - two elements rather than one, because
+     pvMount()/pvFallback() replace .pv's innerHTML wholesale and anything
+     that must survive that (the type badge, the live pill) has to be a
+     SIBLING of it, not a child. */
+  .card .thumb{position:relative;width:100%;aspect-ratio:16/9;flex:none;
+    overflow:hidden;background:var(--paper-2);border-bottom:1px solid var(--hair)}
+  /* The type mark, bottom-left, the way a file icon sits on a thumbnail. */
+  .card .badge{position:absolute;left:10px;bottom:10px;z-index:2;
+    width:26px;height:26px;border-radius:8px;display:grid;place-items:center;
+    background:var(--card);border:1px solid var(--line);color:var(--ink-2);
+    box-shadow:0 1px 3px rgba(0,0,0,.12)}
+  .card .badge svg{width:14px;height:14px}
+  /* Only a RUNNING app gets a pill. A "not deployed" badge on three quarters
+     of the grid is a label that says nothing, and the reference carries none. */
+  .card .thumb .pill{position:absolute;top:9px;right:9px;z-index:2;
+    box-shadow:0 1px 4px rgba(0,0,0,.12)}
+
   .card .top{display:flex;align-items:flex-start;gap:11px;padding-bottom:13px}
   /* One inline --tile drives the fill, the inner highlight and the drop glow.
      The wash over it is fixed white-to-black, so every identity colour gets
@@ -872,8 +895,10 @@
      it — not one revision in this database contains an .html file — so there
      is genuinely no document to put in a frame yet, and a grey placeholder
      dressed up as a screenshot would be a lie about that. */
-  .pv{position:relative;display:block;width:100%;aspect-ratio:16/10;overflow:hidden;
-    border-radius:10px;background:var(--paper-2);border:1px solid var(--line);margin:10px 0 0}
+  /* Fills its .thumb frame. The frame owns the ratio and the clipping now,
+     so this is a bare surface - pvScale() still measures clientWidth off it
+     and gets the frame's width, which is what it always measured. */
+  .pv{position:absolute;inset:0;display:block;overflow:hidden;background:var(--paper-2)}
   /* pointer-events:none — the card is the click target, and a live app inside
      it must not swallow the click or scroll the grid. */
   .pv iframe{position:absolute;top:0;left:0;width:1280px;height:800px;border:0;
@@ -881,35 +906,60 @@
   .pv.loading::after{content:"";position:absolute;inset:0;
     background:linear-gradient(90deg,transparent,rgba(139,152,165,.10),transparent);
     transform:translateX(-100%);animation:sweep 1.4s var(--ease) infinite}
-  .pv-none{position:absolute;inset:0;display:flex;flex-direction:column;
-    align-items:center;justify-content:center;gap:10px;padding:0 14px}
-  .pv-none i{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;
+  /* One large mark, centred, and nothing else. The "Deploy to show preview
+     here" caption moved to the card's title attribute: printed under the
+     icon it turned every undeployed card into an instruction, and a grid of
+     forty of them read as forty error states. */
+  .pv-none{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
+  .pv-none i{width:54px;height:54px;border-radius:16px;display:grid;place-items:center;
     flex:none;background:#0f0f0f;color:var(--tile);box-shadow:inset 0 0 0 1px rgba(255,255,255,.07)}
-  .pv-none i svg{width:18px;height:18px}
-  .pv-none b{font-size:.72rem;font-weight:500;color:var(--mut);text-align:center;line-height:1.4}
+  .pv-none i svg{width:27px;height:27px}
+  .pv-none b{display:none}
   @media (prefers-reduced-motion:reduce){ .pv.loading::after{animation:none} }
   .card .nm{flex:1;min-width:0}
-  /* Two lines, then ellipsis. One nowrap line cut "A portfolio site for a
-     photographer" mid-word with nowhere to recover it from; the element also
-     carries a title attribute now. */
-  .card .nm b{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;
-    overflow:hidden;font-size:.925rem;font-weight:600;line-height:1.32;
-    letter-spacing:-.006em;word-break:break-word}
-  .card .nm i{display:block;font-style:normal;font-size:.735rem;color:var(--mut);margin-top:4px;
+  /* ONE line, not two. The footer has to be exactly as tall on every card in
+     the grid or the cards stop matching, and a title that is allowed a
+     second line decides that per card. The full string is on the card's
+     title attribute, which is where a truncated name is recoverable. */
+  .card .nm b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+    font-size:.9rem;font-weight:600;line-height:1.35;letter-spacing:-.006em}
+  .card .nm i{display:flex;align-items:center;gap:5px;font-style:normal;
+    font-size:.745rem;color:var(--mut);margin-top:2px;
     letter-spacing:.004em;font-variant-numeric:tabular-nums}
+  .card .nm i svg{width:11px;height:11px;flex:none}
 
-  /* The footer is a tray, not a fourth line of text: a hairline above it, its
-     own ground, bled out to the card's edges. That separation is most of what
-     makes a console card look like one. */
-  .card .foot{display:flex;align-items:center;gap:8px;font-size:.765rem;color:var(--mut);
-    min-height:22px;margin:0 -16px;padding:9px 16px 10px;
-    border-top:1px solid var(--hair);background:var(--card-tray);
-    border-radius:0 0 15px 15px}
+  /* The footer is the caption under the thumbnail: name on the first line,
+     who-can-see-it and when on the second, actions on the right. Its own
+     ground and a hairline above separate it from the preview, which is most
+     of what makes a console card look like one.
+
+     flex:1 and a fixed min-height together are what keep the grid even: the
+     footer takes whatever is left under a fixed-ratio thumbnail, and the two
+     lines inside it never change count. */
+  .card .foot{display:flex;align-items:center;gap:10px;flex:1;
+    font-size:.765rem;color:var(--mut);
+    min-height:58px;box-sizing:border-box;padding:10px 13px 11px;
+    background:var(--card-tray)}
   .card .foot .sp{flex:1}
   /* An unconstrained inline SVG fills its flex line. META_PRIV's padlock did
      exactly that the moment the old .body .m svg rule went with .body - a
-     12px lock became a 200px one and the card grew around it. */
-  .card .foot svg{width:12px;height:12px;flex:none}
+     12px lock became a 200px one and the card grew around it. Scoped to the
+     meta line so the action buttons keep their own sizes. */
+  .card .foot .nm svg{width:12px;height:12px;flex:none}
+
+  /* Actions arrive on hover, the way the reference does it - at rest the row
+     is the name and the date, and three grey glyphs on every card in a grid
+     of forty is most of what makes a gallery look busy. Keyboard focus counts
+     as hover, and a touch device (which has no hover to give) keeps them. */
+  .card .acts{display:flex;align-items:center;gap:1px;flex:none;
+    opacity:0;transition:opacity .16s var(--ease)}
+  .card:hover .acts,.card:focus-within .acts{opacity:1}
+  @media (hover:none){ .card .acts{opacity:1} }
+  .card .lnk{border:0;background:transparent;color:var(--mut);flex:none;
+    width:26px;height:26px;border-radius:8px;display:grid;place-items:center;cursor:pointer;
+    transition:background .15s,color .15s}
+  .card .lnk:hover{background:var(--tint-2);color:var(--ink)}
+  .card .lnk svg{width:15px;height:15px}
 
   .card .star{border:0;background:transparent;color:var(--mut);flex:none;
     width:26px;height:26px;border-radius:8px;display:grid;place-items:center;cursor:pointer;
@@ -1037,32 +1087,87 @@
      selector is no more specific than those, so source order decides —
      an identical block sitting earlier in the file did nothing at all. */
   @media (max-width:640px){
-    /* Two up. The pill collapses to its dot here: at half a phone width a
-       full pill leaves the title about 79px, which is two words a line. The
-       word it drops is on the element as a label, so the status is still
-       available to a screen reader and on long-press rather than being
-       carried by colour alone. */
-    .grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
-    .card{padding:11px 12px 0;min-width:0;border-radius:14px}
-    .card .top{gap:8px;padding-bottom:10px}
-    .card .tile{width:28px;height:28px;font-size:.82rem;border-radius:9px}
-    .card .nm b{font-size:.82rem;line-height:1.3}
-    .card .nm i{font-size:.69rem;margin-top:2px}
-    /* The ring goes with the fill - a bare ring around a dot is a circle
-       around nothing. */
-    .card .pill{padding:0;background:none !important;box-shadow:none;font-size:0;gap:0;margin-top:4px}
-    .card .pill .dot{width:8px;height:8px}
-    .card .foot{font-size:.71rem;gap:6px;min-height:18px;
-      margin:0 -12px;padding:7px 12px 8px;border-radius:0 0 13px 13px}
-    .card .foot svg{width:11px;height:11px}
-    .card .star{width:22px;height:22px}
-    .card .star svg{width:13px;height:13px}
+    /* ONE up, and the card turns on its side: a square thumbnail, the name
+       and its date beside it, actions at the end. Two-up was half a phone
+       width per card, which left a 16:9 preview about 70px tall - too small
+       to read as the app and too big to be an icon. Turned sideways the
+       preview becomes an icon on purpose, and the name gets the full width.
+
+       Same markup as the desktop grid, restyled. A second renderer would be
+       a second place for the preview observer to be wired up wrong. */
+    .grid{grid-template-columns:1fr;gap:8px;grid-auto-rows:auto}
+    .card{flex-direction:row;align-items:center;gap:12px;
+      padding:10px;border-radius:14px}
+    .card .thumb{width:64px;height:64px;aspect-ratio:auto;flex:none;
+      border:1px solid var(--hair);border-radius:12px}
+    .card .badge{display:none}
+    .card .pv-none i{width:34px;height:34px;border-radius:11px}
+    .card .pv-none i svg{width:17px;height:17px}
+    /* The pill collapses to its dot and pins to the thumbnail corner: at
+       64px there is no room for the word, and the word it drops is on the
+       element as a label, so the status is still available to a screen
+       reader and on long-press rather than being carried by colour alone. */
+    .card .thumb .pill{top:5px;right:5px;padding:0;gap:0;font-size:0;
+      background:none !important;box-shadow:none}
+    .card .thumb .pill .dot{width:8px;height:8px;
+      box-shadow:0 0 0 2px var(--paper-2)}
+    .card .foot{flex:1;min-width:0;min-height:0;padding:0;background:transparent;gap:6px}
+    .card .nm b{font-size:.875rem}
+    /* One line, ellipsised, like the title above it. Allowed to wrap, "Private
+       \u00b7 1 second ago" took two lines on a 375px screen and pushed the row
+       to a height that no longer matched the thumbnail beside it. */
+    .card .nm i{font-size:.735rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .card .acts{opacity:1}
+    /* Two controls, not three. The star is the one that has a home elsewhere
+       (the Favorites tab), and on a phone the third button is 26px taken
+       straight off the title. */
+    .card .acts .star{display:none}
   }
 
+  /* ---- list view: a real table ------------------------------------------
+     The grid answers "which one is it"; this answers "what state is it in".
+     Five columns with a header, because a strip of name-plus-date repeated
+     forty times is the grid again with the pictures taken out.
+
+     One grid-template shared by the header and every row, declared once and
+     re-declared at each breakpoint, so a column can be dropped by hiding the
+     cell AND shortening the template together - they have to move as a pair
+     or the remaining cells slide under the wrong headings. */
   .rows{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:14px;overflow:hidden;background:var(--card)}
-  .row{display:flex;align-items:center;gap:12px;padding:12px 14px;border-bottom:1px solid var(--line);cursor:pointer;transition:.15s}
+  .rhead,.row{display:grid;align-items:center;gap:14px;padding:0 14px;
+    grid-template-columns:minmax(0,2.4fr) 104px minmax(0,1.5fr) 128px 116px 34px}
+  .rhead{height:38px;font-size:.755rem;font-weight:600;color:var(--mut);
+    letter-spacing:.01em;background:var(--paper-2);border-bottom:1px solid var(--line)}
+  .row{height:54px;border-bottom:1px solid var(--hair);cursor:pointer;transition:background .15s}
   .row:last-child{border-bottom:0}
   .row:hover{background:var(--paper-2)}
+  .row .c-name{display:flex;align-items:center;gap:11px;min-width:0}
+  .row .c-pub,.row .c-open,.row .c-made{font-size:.82rem;color:var(--ink-2);
+    white-space:nowrap;font-variant-numeric:tabular-nums}
+  .row .c-url{min-width:0;font-size:.82rem}
+  .row .c-url .u{color:var(--accent);cursor:pointer;
+    display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .row .c-url .u:hover{text-decoration:underline}
+  .row .c-url .none{color:var(--mut)}
+  .row .c-act{display:flex;align-items:center;justify-content:flex-end;gap:1px}
+  /* Hidden cells must not leave a track behind them, so each breakpoint
+     restates the template with exactly the columns it still shows. */
+  @media (max-width:1100px){
+    .rhead,.row{grid-template-columns:minmax(0,2.4fr) 104px 128px 116px 34px}
+    .rhead .h-url,.row .c-url{display:none}
+  }
+  @media (max-width:900px){
+    .rhead,.row{grid-template-columns:minmax(0,1fr) 104px 128px 34px}
+    .rhead .h-made,.row .c-made{display:none}
+  }
+  @media (max-width:640px){
+    /* No header on a phone: five labels over four columns is a second row of
+       text competing with the names under it. */
+    .rhead{display:none}
+    .rhead,.row{grid-template-columns:minmax(0,1fr) auto 34px;gap:10px;padding:0 11px}
+    .row .c-pub{display:none}
+    .row{height:52px}
+  }
   /* Same treatment as the grid tile, round instead of squircle: the colour
      comes from the row's inline --tile so both views paint one app one way. */
   .row .tile{width:34px;height:34px;border-radius:99px;display:grid;place-items:center;flex:none;
@@ -1531,6 +1636,11 @@
         <option value="portfolio">Portfolio</option>
         <option value="mobile">Mobile</option>
       </select>
+      <select class="fsel" id="fOwner" aria-label="Filter by ownership">
+        <option value="">All projects</option>
+        <option value="claimed">Saved to account</option>
+        <option value="anon">Not yet saved</option>
+      </select>
       <span class="sp"></span>
       <div class="viewtog" role="group" aria-label="View">
         <button type="button" id="vGrid" class="on" aria-label="Grid view" title="Grid view">
@@ -1712,19 +1822,31 @@
   }
 
   var all = [];
+  /* Which view you last chose is a preference, not a page-load default -
+     someone who works in the table had to switch back to it on every visit. */
+  var VIEW_KEY = "souqi_projects_view";
   var view = "grid";
+  try { if (localStorage.getItem(VIEW_KEY) === "list") view = "list"; } catch (e) { /* private mode */ }
   var STAR = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01z"/></svg>';
+  var LINK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg>';
   var META_PUB = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 0 1 0 18 15 15 0 0 1 0-18z"/></svg>Published';
   var META_PRIV = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>Private';
 
   function currentFiltered() {
     var q = $("q").value.trim().toLowerCase();
     var status = $("fStatus").value, type = $("fType").value;
+    /* The listing ORs account-owned projects with ones still held by the
+       browser cookie (see the comment on GET /api/projects), so a signed-in
+       person can be looking at both at once with no way to tell them apart.
+       `claimed` is the flag that separates them. */
+    var owner = $("fOwner") ? $("fOwner").value : "";
     return all.filter(function (p) {
       if (q && (p.title || "").toLowerCase().indexOf(q) < 0) return false;
       if (status === "published" && !p.published) return false;
       if (status === "private" && p.published) return false;
       if (type && p.buildType !== type) return false;
+      if (owner === "claimed" && !p.claimed) return false;
+      if (owner === "anon" && p.claimed) return false;
       return true;
     });
   }
@@ -1911,43 +2033,87 @@
   function pvLabel() {
     return "Deploy to show preview here";
   }
+  /* The controls that sit at the end of a card. Shared so the grid and the
+     phone list cannot drift apart on what a project lets you do. */
+  function actions(p) {
+    var star = p.favorite ? "on" : "";
+    return '<button type="button" class="star ' + star + '" data-slug="' + esc(p.slug)
+      + '" data-fav="' + (p.favorite ? "1" : "0") + '" aria-label="Favorite" '
+      + 'onclick="event.preventDefault()">' + STAR + '</button>'
+      + '<button type="button" class="lnk" data-copy="' + esc(p.slug) + '"'
+      + ' aria-label="Copy link" title="Copy link" onclick="event.preventDefault()">' + LINK + '</button>'
+      + menuBtn(p.slug);
+  }
+
+  /* A published project is served from /s/<slug>. A container deployment has
+     its own address, but this endpoint does not carry it - /deployments is
+     where that lives - so the cell is honestly empty rather than guessed. */
+  function publicUrl(p) {
+    return p.published ? (location.origin + "/s/" + p.slug) : "";
+  }
+
+  /* The card leads with the app itself: a fixed-ratio thumbnail carrying the
+     live preview (or the type mark when there is nothing running to show),
+     then one caption line of name and one of who-can-see-it and when. Every
+     card is therefore exactly the same size, which is the whole point of a
+     gallery - a grid where the tiles disagree about their height reads as a
+     list that went wrong. */
   function renderGrid(list) {
     return '<div class="grid">' + list.map(function (p) {
       var title = p.title || "Untitled app";
-      var star = p.favorite ? "on" : "";
-      var kind = p.buildType && p.buildType !== "website" ? esc(p.buildType) + " \u00b7 " : "";
-      return '<a class="card" href="/agent/' + esc(p.slug) + '" title="' + esc(title) + '"'
+      var kind = p.buildType && p.buildType !== "website" ? esc(p.buildType) + " · " : "";
+      /* The caption that used to print under the mark is the card's tooltip
+         now - see .pv-none. Undeployed is the normal state, not a fault, and
+         forty cards each spelling out an instruction read as forty errors. */
+      var tip = title + (p.deployed ? "" : " — " + pvLabel(p));
+      return '<a class="card" href="/agent/' + esc(p.slug) + '" title="' + esc(tip) + '"'
         + ' style="--tile:' + tileTint(p, p.slug || p.id) + '">'
-        + '<span class="top">'
-        + '<span class="tile">' + tileMark(p) + '</span>'
-        + '<span class="nm"><b>' + esc(title) + '</b>'
-        + '<i>' + kind + esc(timeAgo(p.updatedAt)) + '</i></span>'
-        + statusPill(p)
-        + '</span>'
+        + '<span class="thumb">'
         + '<span class="pv" data-key="' + esc(p.slug || p.id) + '"'
         + ' data-glyph=\'' + tileMark(p) + '\' data-label="' + esc(pvLabel(p)) + '"></span>'
-        + '<span class="foot">' + (p.published ? META_PUB : META_PRIV)
-        + '<span class="sp"></span>'
-        + '<button type="button" class="star ' + star + '" data-slug="' + esc(p.slug)
-        + '" data-fav="' + (p.favorite ? "1" : "0") + '" aria-label="Favorite" '
-        + 'onclick="event.preventDefault()">' + STAR + '</button>'
-        + menuBtn(p.slug)
+        + '<span class="badge">' + tileMark(p) + '</span>'
+        + (p.deployed ? statusPill(p) : "")
+        + '</span>'
+        + '<span class="foot">'
+        + '<span class="nm"><b>' + esc(title) + '</b>'
+        + '<i>' + (p.published ? META_PUB : META_PRIV) + ' · ' + kind
+        + esc(timeAgo(p.updatedAt)) + '</i></span>'
+        + '<span class="acts">' + actions(p) + '</span>'
         + '</span></a>';
     }).join("") + '</div>';
   }
 
+  /* The grid answers "which one is it". This answers "what state is it in":
+     five columns and a header, because a strip of name-plus-date repeated
+     forty times is the grid again with the pictures taken out. */
   function renderRows(list) {
-    return '<div class="rows">' + list.map(function (p) {
+    return '<div class="rows">'
+      + '<div class="rhead" aria-hidden="true">'
+      + '<span>Name</span><span>Published</span><span class="h-url">Published URL</span>'
+      + '<span>Last opened</span><span class="h-made">Created</span><span></span>'
+      + '</div>'
+      + list.map(function (p) {
       var title = p.title || "Untitled app";
       var color = tileTint(p, p.slug || p.id);
-      var star = p.favorite ? "on" : "";
-      var meta = p.published ? META_PUB : META_PRIV;
-      return '<a class="row" href="/agent/' + esc(p.slug) + '" style="--tile:' + color + '">'
-        + '<span class="tile">' + tileMark(p) + '</span>'
-        + '<span class="t">' + esc(title) + '</span>'
-        + '<span class="m">' + meta + ' · ' + esc(timeAgo(p.updatedAt)) + '</span>'
-        + '<button type="button" class="star ' + star + '" data-slug="' + esc(p.slug) + '" data-fav="' + (p.favorite ? "1" : "0") + '" aria-label="Favorite" onclick="event.preventDefault()">' + STAR + '</button>'
-        + menuBtn(p.slug) + '</a>';
+      var url = publicUrl(p);
+      return '<a class="row" href="/agent/' + esc(p.slug) + '" title="' + esc(title) + '" style="--tile:' + color + '">'
+        + '<span class="c-name"><span class="tile">' + tileMark(p) + '</span>'
+        + '<span class="t">' + esc(title) + '</span></span>'
+        + '<span class="c-pub">' + (p.published ? "Published" : "Draft") + '</span>'
+        /* NOT an <a>. The row itself is an anchor, and the HTML parser
+           auto-closes an open <a> the moment it meets another one - so a
+           nested link did not merely fail validation, it ended the row
+           early and dumped the remaining four cells out of the grid as
+           loose text. (A <button> is tolerated in the same position, which
+           is why the menu button beside it is fine.) A span plus a
+           delegated handler keeps the link behaviour and the row intact. */
+        + '<span class="c-url">' + (url
+            ? '<span class="u" data-open="' + esc(url) + '" title="' + esc(url) + '">'
+              + esc(url.replace(/^https?:\/\//, "")) + '</span>'
+            : '<span class="none">—</span>') + '</span>'
+        + '<span class="c-open">' + esc(timeAgo(p.updatedAt)) + '</span>'
+        + '<span class="c-made">' + esc(timeAgo(p.createdAt || p.updatedAt)) + '</span>'
+        + '<span class="c-act">' + menuBtn(p.slug) + '</span></a>';
     }).join("") + '</div>';
   }
 
@@ -1968,6 +2134,12 @@
     container.innerHTML = view === "list" ? renderRows(list) : renderGrid(list);
     // Only the grid carries previews; the list view is a dense text layout.
     if (view !== "list") wirePreviews(container);
+    /* The phone layout turns each card on its side, so a preview that is
+       already mounted has a new width to be scaled into. A no-op before
+       anything has mounted, which is the common case on first paint. */
+    requestAnimationFrame(function () {
+      container.querySelectorAll(".pv iframe").forEach(function (f) { pvScale(f.parentNode, f); });
+    });
   }
 
   fetch("/api/projects?kind=code&limit=200").then(function (r) { return r.json(); }).then(function (d) {
@@ -2106,8 +2278,19 @@
   $("q").addEventListener("input", render);
   $("fStatus").addEventListener("change", render);
   $("fType").addEventListener("change", render);
-  $("vGrid").addEventListener("click", function () { view = "grid"; $("vGrid").classList.add("on"); $("vList").classList.remove("on"); render(); });
-  $("vList").addEventListener("click", function () { view = "list"; $("vList").classList.add("on"); $("vGrid").classList.remove("on"); render(); });
+  if ($("fOwner")) $("fOwner").addEventListener("change", render);
+  function setView(next) {
+    view = next;
+    $("vGrid").classList.toggle("on", next === "grid");
+    $("vList").classList.toggle("on", next === "list");
+    try { localStorage.setItem(VIEW_KEY, next); } catch (e) { /* private mode */ }
+    render();
+  }
+  $("vGrid").addEventListener("click", function () { setView("grid"); });
+  $("vList").addEventListener("click", function () { setView("list"); });
+  // The markup ships with Grid lit; a restored preference has to move it.
+  $("vGrid").classList.toggle("on", view === "grid");
+  $("vList").classList.toggle("on", view === "list");
 
   /* ---- per-project menu ------------------------------------------------
      Rename, Copy link, Favorite, Delete. One menu element and one dialog for
@@ -2406,6 +2589,41 @@
   // Anchored to a card that moves when the page does.
   addEventListener("scroll", closeMenu, { passive: true });
   addEventListener("resize", closeMenu);
+
+  /* Copy the project's address without leaving the page. The builder URL is
+     what a person means by "the link to this" - a published project also has
+     a /s/ address, but that one is on the card's own menu where it can be
+     labelled, and silently copying a different URL than the card points at
+     is the kind of thing nobody notices until it is pasted somewhere. */
+  /* The published-URL cell. It is a span rather than an anchor because the
+     row around it already is one - see the note in renderRows. */
+  document.addEventListener("click", function (e) {
+    var u = e.target.closest("[data-open]"); if (!u) return;
+    e.preventDefault(); e.stopPropagation();
+    window.open(u.getAttribute("data-open"), "_blank", "noopener");
+  });
+
+  document.addEventListener("click", function (e) {
+    var lnk = e.target.closest(".lnk"); if (!lnk) return;
+    e.preventDefault();
+    var url = location.origin + "/agent/" + lnk.dataset.copy;
+    var done = function () {
+      var was = lnk.getAttribute("title");
+      lnk.setAttribute("title", "Copied");
+      setTimeout(function () { lnk.setAttribute("title", was || "Copy link"); }, 1400);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(url).then(done).catch(function () {});
+    } else {
+      /* No clipboard API on an insecure origin, which is exactly where this
+         runs in local development. */
+      var ta = document.createElement("textarea");
+      ta.value = url; ta.style.position = "fixed"; ta.style.opacity = "0";
+      document.body.appendChild(ta); ta.select();
+      try { document.execCommand("copy"); done(); } catch (err) { /* nothing to offer */ }
+      document.body.removeChild(ta);
+    }
+  });
 
   document.addEventListener("click", function (e) {
     var star = e.target.closest(".star"); if (!star) return;

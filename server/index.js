@@ -1890,7 +1890,10 @@ app.get("/api/projects", async (req, res, next) => {
         // deploymentId instead, so a rail keyed only on `published` shows
         // a running app as if it had never shipped.
         deployed: !!p.deploymentId,
-        claimed: !!p.wsId, updatedAt: p.updatedAt
+        // createdAt as well as updatedAt: the projects table shows "Last
+        // opened" and "Created" as separate columns, and one timestamp
+        // cannot answer both. projects.create() has always written it.
+        claimed: !!p.wsId, updatedAt: p.updatedAt, createdAt: p.createdAt
       }))
     });
   } catch (e) { next(e); }
