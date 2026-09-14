@@ -1090,6 +1090,99 @@ const ROUTES = { prose: { baseUrl: "https://x.invalid/prose", model: "gemini-3.8
     }
   });
 
+  /* ---- running out of room ----------------------------------------------
+     A completion cut at the token ceiling ends mid-string in the LAST tool
+     call. Everything before it is a whole file that parsed and validated.
+     These pin that the prefix survives, that a build which stopped early is
+     never remembered as a design, and that a retry adds to the first
+     attempt's work rather than replacing it. */
+  console.log("\n── running out of room ──────────────────");
+
+  // An assistant message whose final write_file argument stops mid-string,
+  // exactly as a provider cuts one at max_tokens.
+  function cutBatch(wholeFiles, cutPath) {
+    const calls = wholeFiles.map((f, i) => ({
+      id: "w" + i, type: "function",
+      function: { name: "write_file", arguments: JSON.stringify(f) }
+    }));
+    calls.push({
+      id: "cut", type: "function",
+      function: { name: "write_file", arguments: '{"path":"' + cutPath + '","content":"export default function App(){ return <di' }
+    });
+    return { role: "assistant", tool_calls: calls };
+  }
+
+  await check("a cut-off last file does not destroy the files before it", () => {
+    const msg = cutBatch([
+      { path: "src/types.ts", content: "export type A = 1;" },
+      { path: "src/data.ts", content: "export const d = [];" }
+    ], "src/App.tsx");
+
+    // Without the truncation flag this is still all-or-nothing, which is the
+    // right default: a malformed call in a COMPLETE response is a real fault.
+    const blind = parseToolCalls(msg, null, {});
+    assert.strictEqual(blind.ok, false, "a malformed call in a complete response must still fail the batch");
+
+    const known = parseToolCalls(msg, null, { truncated: true });
+    assert.strictEqual(known.ok, true, "the complete prefix was thrown away");
+    assert.deepStrictEqual(known.calls.map((c) => c.path), ["src/types.ts", "src/data.ts"]);
+    assert.strictEqual(known.droppedTail, "src/App.tsx",
+      "the caller needs the cut file's name to say what is still missing");
+  });
+
+  await check("a truncated response with nothing salvageable still fails", () => {
+    // Only the cut call. There is no prefix to keep, so this must not be
+    // dressed up as a success with zero files.
+    const msg = cutBatch([], "src/App.tsx");
+    const r = parseToolCalls(msg, null, { truncated: true });
+    assert.strictEqual(r.ok, false, "zero salvaged files is not a usable turn");
+  });
+
+  await check("a build that ran out of room is not cached as the design", async () => {
+    /* The old code cached round 0 unconditionally, which is precisely the
+       round that is incomplete whenever a build needs a second one. */
+    const cut = cutBatch([{ path: "src/App.tsx", content: "export default function App(){return null}" }], "src/Extra.tsx");
+    let calls = 0;
+    client.init({ enabled: true, routes: ROUTES, fetchImpl: async () => {
+      calls++;
+      return { ok: true, json: async () => ({ choices: [{ message: cut, finish_reason: "length" }], usage: {} }) };
+    } });
+
+    const opts = { userPrompt: "a site that ran out of room", maxRounds: 0, hasExistingEntry: true,
+      onFiles: async () => ({ ok: true, errors: [] }) };
+    const first = await proposeWithClientBuild(opts);
+    assert.strictEqual(first.ok, true, "the salvaged file should still build");
+    const after = calls;
+    await proposeWithClientBuild(opts);
+    assert.ok(calls > after, "a truncated build was served from cache — it would replay a half-written app");
+  });
+
+  await check("a complete build IS cached, and caches the whole accumulated tree", async () => {
+    /* Two rounds: the first fails to build, the second fixes it. What gets
+       remembered must be both rounds' files, not round 0's broken draft. */
+    const first = toolCallMsg([{ path: "src/App.tsx", content: "export default function App(){return <p>v1</p>}" }]);
+    const second = toolCallMsg([{ path: "src/components/Fixed.tsx", content: "export const Fixed = () => null;" }]);
+    let calls = 0, builds = 0;
+    const respond = fetchReturning([first, second]);
+    client.init({ enabled: true, routes: ROUTES, fetchImpl: async () => { calls++; return respond(); } });
+
+    const opts = {
+      userPrompt: "a two round build", maxRounds: 2, hasExistingEntry: true,
+      onFiles: async () => { builds++; return builds === 1 ? { ok: false, errors: [{ message: "boom" }] } : { ok: true, errors: [] }; }
+    };
+    const res = await proposeWithClientBuild(opts);
+    assert.strictEqual(res.ok, true);
+    assert.strictEqual(res.calls.length, 2, "the result should carry both rounds' files");
+
+    const modelCallsBefore = calls;
+    const again = await proposeWithClientBuild(Object.assign({}, opts, {
+      onFiles: async () => ({ ok: true, errors: [] })
+    }));
+    assert.strictEqual(calls, modelCallsBefore, "the completed build was not cached");
+    assert.strictEqual(again.calls.length, 2,
+      "the cache kept round 0 only — the repair round's file was lost");
+  });
+
   console.log("\n── pages, not just one app ──────────────");
 
   await check("a page at the root is writable; a nested one is not", () => {

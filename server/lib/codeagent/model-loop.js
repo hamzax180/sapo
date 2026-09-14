@@ -1053,6 +1053,28 @@ function applyEditFileArgs(args, current, opts) {
  * reversed — it changes nothing in the project, so it degrades to an error
  * string the model can read and retry.
  */
+/**
+ * The path out of a tool-call argument string that stopped mid-JSON.
+ *
+ * Regex rather than a parser, deliberately: the string is by definition not
+ * valid JSON, and "path" is emitted before "content" by every model that
+ * writes this schema, so it is intact in the part that did arrive.
+ */
+function pathFromPartial(raw) {
+  /* Scanned rather than matched: the string is by definition not valid JSON,
+     and a regex for a quoted value needs escape handling this does not. A
+     generated file path has no escapes in it. */
+  const t = String(raw || "");
+  const k = t.indexOf('"path"');
+  if (k < 0) return null;
+  const colon = t.indexOf(":", k);
+  if (colon < 0) return null;
+  const open = t.indexOf('"', colon + 1);
+  if (open < 0) return null;
+  const close = t.indexOf('"', open + 1);
+  return close > open ? t.slice(open + 1, close) : null;
+}
+
 function parseToolCalls(message, mcp, opts) {
   const calls = (message && message.tool_calls) || [];
   if (!calls.length) return { ok: false, reason: "model returned no tool calls", content: message && message.content };
@@ -1068,9 +1090,28 @@ function parseToolCalls(message, mcp, opts) {
      because answering them here would mean parseToolCalls making a decision
      about conversation flow that belongs one level up. */
   const readCalls = [];
-  for (const c of calls) {
+  /* WAS THE COMPLETION CUT OFF? The caller knows (finish_reason === "length")
+     and this function cannot tell. It changes exactly one judgement: a final
+     tool call whose arguments will not parse.
+
+     Normally that is a hard failure, and the comment above explains why — a
+     half-applied write set is worse than none. But a completion cut at the
+     token ceiling ends mid-string in the LAST call, and the calls before it
+     are whole files that parsed and validated. Throwing those away meant
+     seven good files plus one cut-off eighth produced zero files, and the
+     retry started from nothing. The prefix is not a half-applied set; it is
+     a complete set that stops early. */
+  const truncated = !!(opts && opts.truncated);
+  const lastIndex = calls.length - 1;
+  let droppedTail = null;
+  for (let ci = 0; ci < calls.length; ci++) {
+    const c = calls[ci];
+    const isTruncatedTail = truncated && ci === lastIndex;
     const name = c.function && c.function.name;
-    if (!name) return { ok: false, reason: "tool call had no function name" };
+    if (!name) {
+      if (isTruncatedTail && writes.length) { droppedTail = "(unnamed)"; break; }
+      return { ok: false, reason: "tool call had no function name" };
+    }
 
     /* Never fatal. A suggestion is a nicety on top of a build that has
        already succeeded, so a malformed one is dropped rather than
@@ -1134,9 +1175,15 @@ function parseToolCalls(message, mcp, opts) {
 
     let args;
     try { args = JSON.parse(c.function.arguments); }
-    catch (e) { return { ok: false, reason: "malformed JSON in tool call arguments: " + e.message, raw: c.function.arguments }; }
+    catch (e) {
+      if (isTruncatedTail && writes.length) { droppedTail = pathFromPartial(c.function.arguments); break; }
+      return { ok: false, reason: "malformed JSON in tool call arguments: " + e.message, raw: c.function.arguments };
+    }
     try { writes.push(validateWriteFileArgs(args, opts)); }
-    catch (e) { return { ok: false, reason: e.message, raw: c.function.arguments }; }
+    catch (e) {
+      if (isTruncatedTail && writes.length) { droppedTail = (args && args.path) || null; break; }
+      return { ok: false, reason: e.message, raw: c.function.arguments };
+    }
   }
 
   // A turn that ONLY called MCP tools is valid and expected — the model is
@@ -1156,7 +1203,11 @@ function parseToolCalls(message, mcp, opts) {
     return { ok: true, calls: [], mcpCalls: mcpCalls, readCalls: readCalls, toolsOnly: true, suggestions: suggestions };
   }
   if (!writes.length) return { ok: false, reason: "model returned no write_file calls" };
-  return { ok: true, calls: writes, mcpCalls: mcpCalls, readCalls: readCalls, suggestions: suggestions, editErrors: editErrors };
+  return { ok: true, calls: writes, mcpCalls: mcpCalls, readCalls: readCalls, suggestions: suggestions,
+    editErrors: editErrors,
+    /* The file the cut landed in, when one was salvaged past. The caller needs
+       it to say what is still missing rather than guessing. */
+    droppedTail: droppedTail, truncated: truncated };
 }
 
 // 8000, not an initial 3000: found live, not by estimate — a real
@@ -1821,7 +1872,15 @@ async function attemptOnce(messages, opts) {
     return { ok: false, reason: sanitized, disabled: res.disabled, breakerOpen: res.breakerOpen, budgetExceeded: res.budgetExceeded };
   }
 
-  const parsed = parseToolCalls(res.message, o.mcp, o);
+  /* READ BEFORE THE SUCCESS RETURN, not after it.
+     This used to be computed below the early return, so a completion cut at
+     the token ceiling whose last tool call happened to land on a boundary
+     came back ok:true with a partial app and no indication anything was
+     missing. The caller then cached it as the design. Knowing this here is
+     also what lets parseToolCalls keep the complete prefix of a cut batch
+     instead of discarding every file in it. */
+  const truncated = res.finishReason === "length";
+  const parsed = parseToolCalls(res.message, o.mcp, Object.assign({}, o, { truncated: truncated }));
   // `note` is the model's own prose alongside its tool calls — what it
   // built and why, or a judgement call it made. It was being discarded
   // entirely (only .calls was ever read), which is why the agent could
@@ -1832,11 +1891,13 @@ async function attemptOnce(messages, opts) {
       // `messages` is the conversation the model actually wrote against,
       // MCP tool exchanges included. The repair loop continues from here.
       messages: convo, retried: false, usage: res.usage,
+      /* Travels with the result so the caller can tell a finished app from
+         one that ran out of room, and decline to cache the second. */
+      truncated: truncated, droppedTail: parsed.droppedTail || null,
       costUsd: (res.costUsd || 0) + mcpCost
     };
   }
 
-  const truncated = res.finishReason === "length";
   const retryMaxTokens = truncated ? retryTokensFor(base.maxTokens) : base.maxTokens;
   const retryReason = parsed.ok ? "you called tools but never wrote any files" : parsed.reason;
 
@@ -1855,7 +1916,8 @@ async function attemptOnce(messages, opts) {
   const retryMessages = convo.concat([res.message], toolResponses, [{ role: "user", content: retryAsk }]);
   const retryRes = await client.chat(Object.assign({}, base, { messages: fitFor(retryMessages, base, o, retryMaxTokens), maxTokens: retryMaxTokens }));
   if (!retryRes.ok) return { ok: false, reason: retryRes.reason || "retry call failed" };
-  const retryParsed = parseToolCalls(retryRes.message, o.mcp, o);
+  const retryTruncatedTail = retryRes.finishReason === "length";
+  const retryParsed = parseToolCalls(retryRes.message, o.mcp, Object.assign({}, o, { truncated: retryTruncatedTail }));
   if (!retryParsed.ok || !retryParsed.calls.length) {
     const retryTruncated = retryRes.finishReason === "length";
     const reason = retryTruncated
@@ -1863,9 +1925,21 @@ async function attemptOnce(messages, opts) {
       : "malformed tool call twice in a row: " + (retryParsed.reason || "no files written");
     return { ok: false, reason: reason };
   }
+  /* MERGE, do not replace. The first attempt's files were being dropped on
+     the floor: a truncated response whose complete prefix parsed fine still
+     returned only the retry's calls, so files the model had already written
+     and been billed for were thrown away and it had to write them twice.
+     The retry's version wins on a collision — it is the newer one, and the
+     ask that produced it named the problem. */
+  const merged = [];
+  const seen = new Set();
+  for (const c of retryParsed.calls) { merged.push(c); seen.add(c.path); }
+  for (const c of (parsed.ok && parsed.calls) || []) { if (!seen.has(c.path)) merged.push(c); }
+
   return {
-    ok: true, calls: retryParsed.calls, suggestions: retryParsed.suggestions || [], note: modelNote(retryRes.message), message: retryRes.message,
+    ok: true, calls: merged, suggestions: retryParsed.suggestions || [], note: modelNote(retryRes.message), message: retryRes.message,
     messages: retryMessages, retried: true,
+    truncated: retryTruncatedTail, droppedTail: retryParsed.droppedTail || null,
     usage: retryRes.usage, costUsd: (res.costUsd || 0) + (retryRes.costUsd || 0) + mcpCost
   };
 }
@@ -2169,9 +2243,16 @@ async function proposeWithClientBuild({ userPrompt, maxRounds, onFiles, onRound,
     totalCost += attempt.costUsd || 0;
     if (attempt.retried) jsonRetries += 1;
 
-    if (round === 0) {
-      cacheSet(key, { ok: true, calls: attempt.calls, retried: attempt.retried, cached: false, usage: attempt.usage, costUsd: attempt.costUsd }, attempt.costUsd || 0);
-    }
+    /* CACHING MOVED TO THE SUCCESSFUL BUILD, below.
+
+       It used to happen here, unconditionally, on round 0 — which is exactly
+       the round that is INCOMPLETE on every build that needs a second one. So
+       the 42% of builds that get repaired cached their broken first draft as
+       "the design" for the next 24 hours, and a repeat of the same request
+       replayed the draft, failed the same way, and re-cached it.
+
+       A design is worth remembering when it compiled, not when it was first
+       attempted. */
 
     // The client gets the accumulated tree too. Handing it one round's
     // subset would type-check a file against components that are not
@@ -2271,6 +2352,13 @@ async function proposeWithClientBuild({ userPrompt, maxRounds, onFiles, onRound,
     }
 
     if (build.ok) {
+      /* The whole accumulated tree, and only now that it compiled. Never a
+         truncated one: a response cut at the token ceiling is a design that
+         stopped early, and replaying it would serve someone else the same
+         half-written app. */
+      if (!attempt.truncated) {
+        cacheSet(key, { ok: true, calls: allCalls, retried: attempt.retried, cached: false, usage: attempt.usage, costUsd: totalCost }, totalCost || 0);
+      }
       /* verified rides along so the audit can tell a real passing build from a
          device that never compiled anything. build.verified is false only on
          the no-SharedArrayBuffer path, where ok:true is a formality. */
