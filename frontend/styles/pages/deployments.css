@@ -78,7 +78,6 @@
     --card-hover-shadow:0 2px 6px rgba(0,0,0,.35),0 16px 34px -16px rgba(0,0,0,.8);
   }
 
-
   /* clip, not hidden. overflow-x:hidden turns the element into a scroll
      container, and a scroll container silently breaks position:sticky in
      every descendant — which is why the rail rode up off the top of the page
@@ -486,7 +485,6 @@
        are what pushes it off centre. */
     .ag-history:not(.on):not(:hover):not(.hover-open) .ag-chat-item .sdot{margin:0}
 
-
     /* Collapsed: the toggle is an icon, not a labelled button. Same as
        the builder — the word "Sidebar" beside a 44px rail is wider than
        the rail it describes. */
@@ -777,12 +775,6 @@
      row with a short title from collapsing under its neighbours. */
   .grid{display:grid;grid-auto-rows:1fr;
     grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}
-
-  .app{position:relative;isolation:isolate;display:flex;flex-direction:column;text-align:left;
-    border:1px solid var(--line);border-radius:16px;background:var(--card-surface);
-    padding:0;overflow:hidden;cursor:pointer;width:100%;
-    box-shadow:var(--card-rest-shadow);
-    transition:transform .24s var(--ease),box-shadow .24s var(--ease),border-color .18s}
   /* Above the glow. Both pseudo-elements are positioned and the children are
      not, so without this the spotlight paints over the title. */
   .app>*{position:relative;z-index:1}
@@ -810,8 +802,6 @@
      under the cursor, and on a grid of these the whole page twitched as the
      pointer crossed it. */
   .app:hover{border-color:var(--card-hover-border);box-shadow:var(--card-hover-shadow)}
-  .app:hover::after{opacity:.09}
-  .app:hover .tile{transform:none}
   /* A focus ring is not a hover state. Keyboard users were getting the mouse
      treatment and no ring at all. */
   .app:focus-visible{outline:2px solid var(--accent);outline-offset:2px;
@@ -826,17 +816,10 @@
      app looks the same on both pages. */
   .app .thumb{position:relative;width:100%;aspect-ratio:16/9;flex:none;
     overflow:hidden;background:var(--paper-2);border-bottom:1px solid var(--hair)}
-  .app .badge{position:absolute;left:10px;bottom:10px;z-index:2;
-    width:26px;height:26px;border-radius:8px;display:grid;place-items:center;
-    background:var(--card);border:1px solid var(--line);color:var(--ink-2);
-    box-shadow:0 1px 3px rgba(0,0,0,.12)}
-  .app .badge svg{width:14px;height:14px}
   /* Status is the whole point of this page, so unlike /projects the pill is
      on every card whatever state it is in. */
   .app .thumb .pill{position:absolute;top:9px;right:9px;z-index:2;
     box-shadow:0 1px 4px rgba(0,0,0,.12)}
-
-  .app .top{display:flex;align-items:flex-start;gap:11px;padding-bottom:13px}
   /* One inline --tile drives the fill, the inner highlight and the drop glow.
      The wash over it is fixed white-to-black, so every identity colour gets
      the same light without needing a second value per card. */
@@ -849,7 +832,6 @@
     color:var(--tile);background:#0f0f0f;
     box-shadow:0 4px 12px -6px var(--tile),inset 0 0 0 1px rgba(255,255,255,.07);
     transition:transform .24s var(--ease)}
-  .app .tile svg{width:20px;height:20px}
 
   /* ---- card preview -----------------------------------------------------
      A real miniature of the running app: the deployed site itself in an
@@ -866,22 +848,11 @@
      so this is a bare surface - pvScale() still measures clientWidth off it
      and gets the frame's width, which is what it always measured. */
   .pv{position:absolute;inset:0;display:block;overflow:hidden;background:var(--paper-2)}
-  /* pointer-events:none — the card is the click target, and a live app inside
-     it must not swallow the click or scroll the grid. */
-  .pv iframe{position:absolute;top:0;left:0;width:1280px;height:800px;border:0;
-    transform-origin:0 0;pointer-events:none;background:#fff}
-  .pv.loading::after{content:"";position:absolute;inset:0;
-    background:linear-gradient(90deg,transparent,rgba(139,152,165,.10),transparent);
-    transform:translateX(-100%);animation:sweep 1.4s var(--ease) infinite}
   /* One large mark, centred, and nothing else. The "Deploy to show preview
      here" caption moved to the card's title attribute - the footer under it
      already says what state the deployment is in, so printing an
      instruction as well said the same thing twice. */
   .pv-none{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
-  .pv-none i{width:54px;height:54px;border-radius:16px;display:grid;place-items:center;
-    flex:none;background:#0f0f0f;color:var(--tile);box-shadow:inset 0 0 0 1px rgba(255,255,255,.07)}
-  .pv-none i svg{width:27px;height:27px}
-  .pv-none b{display:none}
 
   /* Open sits in the card header now, beside the status pill, rather than in
      a panel header the card no longer has. */
@@ -916,7 +887,6 @@
      reason. Bounded again, and it scrolls inside itself. */
   .dt-logs .logs{min-height:clamp(220px,26vh,320px);
     max-height:clamp(280px,40vh,460px);overflow-y:auto;overflow-x:auto}
-
 
   /* A scrollbar worth looking at, on a terminal that is worth reading.
      A gradient pill floating inside a transparent border, brightening under
@@ -960,8 +930,7 @@
      disarms on its own if it was a misclick. */
   .btn-g.arming{border-color:rgba(217,45,32,.5);color:var(--danger);
     background:rgba(217,45,32,.07)}
-  @media (prefers-reduced-motion:reduce){ .pv.loading::after{animation:none} }
-  .app .nm{flex:1;min-width:0}
+  @media (prefers-reduced-motion:reduce){ }
   /* ONE line, not two. The footer has to be exactly as tall on every card in
      the grid or the cards stop matching, and a title that is allowed a
      second line decides that per card. The full string is on the card's
@@ -971,7 +940,6 @@
   .app .nm i{display:flex;align-items:center;gap:5px;font-style:normal;
     font-size:.745rem;color:var(--mut);margin-top:2px;min-width:0;
     letter-spacing:.004em;font-variant-numeric:tabular-nums}
-  .app .nm i svg{width:11px;height:11px;flex:none}
 
   /* The footer is the caption under the thumbnail: name on the first line,
      the address or the state on the second. Its own ground and a hairline
@@ -985,7 +953,6 @@
     font-size:.765rem;color:var(--mut);
     min-height:58px;box-sizing:border-box;padding:10px 13px 11px;
     background:var(--card-tray)}
-  .app .foot .sp{flex:1}
   /* An unconstrained inline SVG fills its flex line. META_PRIV's padlock did
      exactly that the moment the old .body .m svg rule went with .body - a
      12px lock became a 200px one and the card grew around it. Scoped to the
@@ -1415,8 +1382,6 @@
     font-size:.85rem;background:var(--card);color:var(--ink);width:min(280px,100%);
     text-align:center;transition:border-color .15s}
   .danger input:focus{outline:none;border-color:var(--danger)}
-
-
 
   .empty{text-align:center;padding:70px 20px;color:var(--ink-2)}
   .empty h2{font-size:1.25rem;margin-bottom:8px;color:var(--ink)}

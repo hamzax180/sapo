@@ -7,10 +7,10 @@
    highlight ring, no badge, and none of the sheen or hover glow. Same
    app, three different cards, depending on which page you opened.
 
-   Scoped under .pcard rather than the bare .card/.thumb/.nm the pages
-   used, because code.html already has .nm, .foot and .pv of its own —
-   all descendant-scoped, so nothing leaks either way, but only while
-   this file stays scoped too. */
+   .pcard is the name the builder uses; .card and .app are what
+   projects.html and deployments.html already had in their markup, kept so
+   neither page had to be re-templated. Children stay scoped under those
+   three, because code.html has .nm, .foot and .pv of its own. */
 
   /* The card's own surface tokens, so the component carries what it needs.
 
@@ -37,24 +37,24 @@
     --card-hover-shadow:0 2px 6px rgba(0,0,0,.35),0 16px 34px -16px rgba(0,0,0,.8);
   }
 
-  .pcard{position:relative;isolation:isolate;display:flex;flex-direction:column;text-align:left;
+  .pcard,.card,.app{position:relative;isolation:isolate;display:flex;flex-direction:column;text-align:left;
     border:1px solid var(--line);border-radius:16px;background:var(--card-surface);
     padding:0;overflow:hidden;cursor:pointer;width:100%;
     box-shadow:var(--card-rest-shadow);
     transition:transform .24s var(--ease),box-shadow .24s var(--ease),border-color .18s}
   /* Above the glow. Both pseudo-elements are positioned and the children are
      not, so without this the spotlight paints over the title. */
-  .pcard>*{position:relative;z-index:1}
+  .pcard>*,.card>*,.app>*{position:relative;z-index:1}
 
   /* The lit top edge, as a pseudo-element rather than a second border: no
      layout cost and it follows the radius for free. */
-  .pcard::before{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;
+  .pcard::before,.card::before,.app::before{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;
     box-shadow:inset 0 1px 0 var(--card-sheen)}
   /* Under the cursor the card glows in ITS OWN colour - --tile is the identity
      colour the tile is painted with, set inline per card. --mx/--my track the
      pointer; with no JS they fall back to the tile's corner, so this degrades
      to a fixed corner glow rather than to nothing. */
-  .pcard::after{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;
+  .pcard::after,.card::after,.app::after{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;
     z-index:0;opacity:0;transition:opacity .3s var(--ease);
     /* A neutral wash, not the type colour. --tile still identifies the app on
        its tile mark, but bathing the whole card in cyan or magenta on hover
@@ -68,12 +68,14 @@
      tile's scale-and-rotate meant the icon you were pointing at slid out from
      under the cursor, and on a grid of these the whole page twitched as the
      pointer crossed it. */
-  .pcard:hover{border-color:var(--card-hover-border);box-shadow:var(--card-hover-shadow)}
-  .pcard:hover::after{opacity:.09}
-  .pcard:hover .tile{transform:none}
+  .pcard:hover,.card:hover,.app:hover{border-color:var(--card-hover-border);box-shadow:var(--card-hover-shadow)}
+
+  .pcard:hover::after,.card:hover::after,.app:hover::after{opacity:.09}
+
+  .pcard:hover .tile,.card:hover .tile,.app:hover .tile{transform:none}
   /* A focus ring is not a hover state. Keyboard users were getting the mouse
      treatment and no ring at all. */
-  .pcard:focus-visible{outline:2px solid var(--accent);outline-offset:2px;
+  .pcard:focus-visible,.card:focus-visible,.app:focus-visible{outline:2px solid var(--accent);outline-offset:2px;
     box-shadow:var(--card-hover-shadow)}
 
   /* ---- the thumbnail --------------------------------------------------
@@ -82,20 +84,21 @@
      pvMount()/pvFallback() replace .pv's innerHTML wholesale and anything
      that must survive that (the type badge, the live pill) has to be a
      SIBLING of it, not a child. */
-  .pcard .thumb{position:relative;width:100%;aspect-ratio:16/9;flex:none;
+  .pcard .thumb,.card .thumb,.app .thumb{position:relative;width:100%;aspect-ratio:16/9;flex:none;
     overflow:hidden;background:var(--paper-2);border-bottom:1px solid var(--hair)}
   /* The type mark, bottom-left, the way a file icon sits on a thumbnail. */
-  .pcard .badge{position:absolute;left:10px;bottom:10px;z-index:2;
+  .pcard .badge,.card .badge,.app .badge{position:absolute;left:10px;bottom:10px;z-index:2;
     width:26px;height:26px;border-radius:8px;display:grid;place-items:center;
     background:var(--card);border:1px solid var(--line);color:var(--ink-2);
     box-shadow:0 1px 3px rgba(0,0,0,.12)}
-  .pcard .badge svg{width:14px;height:14px}
+
+  .pcard .badge svg,.card .badge svg,.app .badge svg{width:14px;height:14px}
   /* Only a RUNNING app gets a pill. A "not deployed" badge on three quarters
      of the grid is a label that says nothing, and the reference carries none. */
-  .pcard .thumb .pill{position:absolute;top:9px;right:9px;z-index:2;
+  .pcard .thumb .pill,.card .thumb .pill,.app .thumb .pill{position:absolute;top:9px;right:9px;z-index:2;
     box-shadow:0 1px 4px rgba(0,0,0,.12)}
 
-  .pcard .top{display:flex;align-items:flex-start;gap:11px;padding-bottom:13px}
+  .pcard .top,.card .top,.app .top{display:flex;align-items:flex-start;gap:11px;padding-bottom:13px}
   /* One inline --tile drives the fill, the inner highlight and the drop glow.
      The wash over it is fixed white-to-black, so every identity colour gets
      the same light without needing a second value per card. */
@@ -103,12 +106,13 @@
      the builder's recent-projects grid uses. --tile is still the card's
      identity colour (it drives the hover glow below), but it now means
      something: a website card glows cyan, a game card red. */
-  .pcard .tile{width:36px;height:36px;border-radius:11px;display:grid;place-items:center;flex:none;
+  .pcard .tile,.card .tile,.app .tile{width:36px;height:36px;border-radius:11px;display:grid;place-items:center;flex:none;
     font-family:var(--disp);font-weight:700;font-size:1.02rem;
     color:var(--tile);background:#0f0f0f;
     box-shadow:0 4px 12px -6px var(--tile),inset 0 0 0 1px rgba(255,255,255,.07);
     transition:transform .24s var(--ease)}
-  .pcard .tile svg{width:20px;height:20px}
+
+  .pcard .tile svg,.card .tile svg,.app .tile svg{width:20px;height:20px}
 
   /* ---- card preview -----------------------------------------------------
      A real miniature of the running app: the deployed site itself in an
@@ -130,6 +134,7 @@
      it must not swallow the click or scroll the grid. */
   .pv iframe{position:absolute;top:0;left:0;width:1280px;height:800px;border:0;
     transform-origin:0 0;pointer-events:none;background:#fff}
+
   .pv.loading::after{content:"";position:absolute;inset:0;
     background:linear-gradient(90deg,transparent,rgba(139,152,165,.10),transparent);
     transform:translateX(-100%);animation:sweep 1.4s var(--ease) infinite}
@@ -138,22 +143,28 @@
      icon it turned every undeployed card into an instruction, and a grid of
      forty of them read as forty error states. */
   .pv-none{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
+
   .pv-none i{width:54px;height:54px;border-radius:16px;display:grid;place-items:center;
     flex:none;background:#0f0f0f;color:var(--tile);box-shadow:inset 0 0 0 1px rgba(255,255,255,.07)}
+
   .pv-none i svg{width:27px;height:27px}
+
   .pv-none b{display:none}
   @media (prefers-reduced-motion:reduce){ .pv.loading::after{animation:none} }
-  .pcard .nm{flex:1;min-width:0}
+
+  .pcard .nm,.card .nm,.app .nm{flex:1;min-width:0}
   /* ONE line, not two. The footer has to be exactly as tall on every card in
      the grid or the cards stop matching, and a title that is allowed a
      second line decides that per card. The full string is on the card's
      title attribute, which is where a truncated name is recoverable. */
-  .pcard .nm b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  .pcard .nm b,.card .nm b,.app .nm b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
     font-size:.9rem;font-weight:600;line-height:1.35;letter-spacing:-.006em}
-  .pcard .nm i{display:flex;align-items:center;gap:5px;font-style:normal;
+
+  .pcard .nm i,.card .nm i,.app .nm i{display:flex;align-items:center;gap:5px;font-style:normal;
     font-size:.745rem;color:var(--mut);margin-top:2px;
     letter-spacing:.004em;font-variant-numeric:tabular-nums}
-  .pcard .nm i svg{width:11px;height:11px;flex:none}
+
+  .pcard .nm i svg,.card .nm i svg,.app .nm i svg{width:11px;height:11px;flex:none}
 
   /* The footer is the caption under the thumbnail: name on the first line,
      who-can-see-it and when on the second, actions on the right. Its own
@@ -163,39 +174,47 @@
      flex:1 and a fixed min-height together are what keep the grid even: the
      footer takes whatever is left under a fixed-ratio thumbnail, and the two
      lines inside it never change count. */
-  .pcard .foot{display:flex;align-items:center;gap:10px;flex:1;
+  .pcard .foot,.card .foot,.app .foot{display:flex;align-items:center;gap:10px;flex:1;
     font-size:.765rem;color:var(--mut);
     min-height:58px;box-sizing:border-box;padding:10px 13px 11px;
     background:var(--card-tray)}
-  .pcard .foot .sp{flex:1}
+
+  .pcard .foot .sp,.card .foot .sp,.app .foot .sp{flex:1}
   /* An unconstrained inline SVG fills its flex line. META_PRIV's padlock did
      exactly that the moment the old .body .m svg rule went with .body - a
      12px lock became a 200px one and the card grew around it. Scoped to the
      meta line so the action buttons keep their own sizes. */
-  .pcard .foot .nm svg{width:12px;height:12px;flex:none}
+  .pcard .foot .nm svg,.card .foot .nm svg,.app .foot .nm svg{width:12px;height:12px;flex:none}
 
   /* Actions arrive on hover, the way the reference does it - at rest the row
      is the name and the date, and three grey glyphs on every card in a grid
      of forty is most of what makes a gallery look busy. Keyboard focus counts
      as hover, and a touch device (which has no hover to give) keeps them. */
-  .pcard .acts{display:flex;align-items:center;gap:1px;flex:none;
+  .pcard .acts,.card .acts,.app .acts{display:flex;align-items:center;gap:1px;flex:none;
     opacity:0;transition:opacity .16s var(--ease)}
-  .pcard:hover .acts,.pcard:focus-within .acts{opacity:1}
-  @media (hover:none){ .pcard .acts{opacity:1} }
-  .pcard .lnk{border:0;background:transparent;color:var(--mut);flex:none;
+
+  .pcard:hover .acts,.card:hover .acts,.app:hover .acts,.pcard:focus-within .acts,.card:focus-within .acts,.app:focus-within .acts{opacity:1}
+  @media (hover:none){.pcard .acts,.card .acts,.app .acts{opacity:1} }
+
+  .pcard .lnk,.card .lnk,.app .lnk{border:0;background:transparent;color:var(--mut);flex:none;
     width:26px;height:26px;border-radius:8px;display:grid;place-items:center;cursor:pointer;
     transition:background .15s,color .15s}
-  .pcard .lnk:hover{background:var(--tint-2);color:var(--ink)}
-  .pcard .lnk svg{width:15px;height:15px}
 
-  .pcard .star{border:0;background:transparent;color:var(--mut);flex:none;
+  .pcard .lnk:hover,.card .lnk:hover,.app .lnk:hover{background:var(--tint-2);color:var(--ink)}
+
+  .pcard .lnk svg,.card .lnk svg,.app .lnk svg{width:15px;height:15px}
+
+  .pcard .star,.card .star,.app .star{border:0;background:transparent;color:var(--mut);flex:none;
     width:26px;height:26px;border-radius:8px;display:grid;place-items:center;cursor:pointer;
     transition:background .15s,color .15s}
-  .pcard .star:hover{background:var(--tint-2);color:var(--ink)}
-  .pcard .star.on{color:#e0a11a}
-  .pcard .star svg{width:15px;height:15px}
-  .pcard .star.on svg{fill:currentColor}
 
-  @media (hover:none){
-    .pcard .acts{opacity:1}
+  .pcard .star:hover,.card .star:hover,.app .star:hover{background:var(--tint-2);color:var(--ink)}
+
+  .pcard .star.on,.card .star.on,.app .star.on{color:#e0a11a}
+
+  .pcard .star svg,.card .star svg,.app .star svg{width:15px;height:15px}
+
+  .pcard .star.on svg,.card .star.on svg,.app .star.on svg{fill:currentColor}
+
+  @media (hover:none){.pcard .acts,.card .acts,.app .acts{opacity:1}
   }

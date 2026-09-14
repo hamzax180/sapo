@@ -76,7 +76,6 @@
     --accent:#1aa6df; --accent-2:#118cc0; --accent-ink:#e6edf3;
   }
 
-
   /* clip, not hidden. overflow-x:hidden turns the element into a scroll
      container, and a scroll container silently breaks position:sticky in
      every descendant — which is why the rail rode up off the top of the page
@@ -484,7 +483,6 @@
        are what pushes it off centre. */
     .ag-history:not(.on):not(:hover):not(.hover-open) .ag-chat-item .sdot{margin:0}
 
-
     /* Collapsed: the toggle is an icon, not a labelled button. Same as
        the builder — the word "Sidebar" beside a 44px rail is wider than
        the rail it describes. */
@@ -749,12 +747,6 @@
      row with a short title from collapsing under its neighbours. */
   .grid{display:grid;gap:14px;grid-auto-rows:1fr;
     grid-template-columns:repeat(auto-fill,minmax(min(300px,(100% - 14px)/2),1fr))}
-
-  .card{position:relative;isolation:isolate;display:flex;flex-direction:column;text-align:left;
-    border:1px solid var(--line);border-radius:16px;background:var(--card-surface);
-    padding:0;overflow:hidden;cursor:pointer;width:100%;
-    box-shadow:var(--card-rest-shadow);
-    transition:transform .24s var(--ease),box-shadow .24s var(--ease),border-color .18s}
   /* Above the glow. Both pseudo-elements are positioned and the children are
      not, so without this the spotlight paints over the title. */
   .card>*{position:relative;z-index:1}
@@ -782,8 +774,6 @@
      under the cursor, and on a grid of these the whole page twitched as the
      pointer crossed it. */
   .card:hover{border-color:var(--card-hover-border);box-shadow:var(--card-hover-shadow)}
-  .card:hover::after{opacity:.09}
-  .card:hover .tile{transform:none}
   /* A focus ring is not a hover state. Keyboard users were getting the mouse
      treatment and no ring at all. */
   .card:focus-visible{outline:2px solid var(--accent);outline-offset:2px;
@@ -802,13 +792,10 @@
     width:26px;height:26px;border-radius:8px;display:grid;place-items:center;
     background:var(--card);border:1px solid var(--line);color:var(--ink-2);
     box-shadow:0 1px 3px rgba(0,0,0,.12)}
-  .card .badge svg{width:14px;height:14px}
   /* Only a RUNNING app gets a pill. A "not deployed" badge on three quarters
      of the grid is a label that says nothing, and the reference carries none. */
   .card .thumb .pill{position:absolute;top:9px;right:9px;z-index:2;
     box-shadow:0 1px 4px rgba(0,0,0,.12)}
-
-  .card .top{display:flex;align-items:flex-start;gap:11px;padding-bottom:13px}
   /* One inline --tile drives the fill, the inner highlight and the drop glow.
      The wash over it is fixed white-to-black, so every identity colour gets
      the same light without needing a second value per card. */
@@ -821,52 +808,13 @@
     color:var(--tile);background:#0f0f0f;
     box-shadow:0 4px 12px -6px var(--tile),inset 0 0 0 1px rgba(255,255,255,.07);
     transition:transform .24s var(--ease)}
-  .card .tile svg{width:20px;height:20px}
-
-  /* ---- card preview -----------------------------------------------------
-     A real miniature of the running app: the deployed site itself in an
-     iframe, scaled down. A full 1280px frame scaled with transform, not a
-     small iframe — a 300px-wide viewport makes a responsive site render its
-     MOBILE layout, which is not what the app looks like and reads as a
-     different site altogether.
-
-     Only a project with a RUNNING deployment gets one. Everything else shows
-     its type mark: a Souqi Code project is React/TSX until something builds
-     it — not one revision in this database contains an .html file — so there
-     is genuinely no document to put in a frame yet, and a grey placeholder
-     dressed up as a screenshot would be a lie about that. */
-  /* Fills its .thumb frame. The frame owns the ratio and the clipping now,
-     so this is a bare surface - pvScale() still measures clientWidth off it
-     and gets the frame's width, which is what it always measured. */
-  .pv{position:absolute;inset:0;display:block;overflow:hidden;background:var(--paper-2)}
-  /* pointer-events:none — the card is the click target, and a live app inside
-     it must not swallow the click or scroll the grid. */
-  .pv iframe{position:absolute;top:0;left:0;width:1280px;height:800px;border:0;
-    transform-origin:0 0;pointer-events:none;background:#fff}
-  .pv.loading::after{content:"";position:absolute;inset:0;
-    background:linear-gradient(90deg,transparent,rgba(139,152,165,.10),transparent);
-    transform:translateX(-100%);animation:sweep 1.4s var(--ease) infinite}
-  /* One large mark, centred, and nothing else. The "Deploy to show preview
-     here" caption moved to the card's title attribute: printed under the
-     icon it turned every undeployed card into an instruction, and a grid of
-     forty of them read as forty error states. */
-  .pv-none{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
-  .pv-none i{width:54px;height:54px;border-radius:16px;display:grid;place-items:center;
-    flex:none;background:#0f0f0f;color:var(--tile);box-shadow:inset 0 0 0 1px rgba(255,255,255,.07)}
-  .pv-none i svg{width:27px;height:27px}
-  .pv-none b{display:none}
-  @media (prefers-reduced-motion:reduce){ .pv.loading::after{animation:none} }
-  .card .nm{flex:1;min-width:0}
+  @media (prefers-reduced-motion:reduce){ }
   /* ONE line, not two. The footer has to be exactly as tall on every card in
      the grid or the cards stop matching, and a title that is allowed a
      second line decides that per card. The full string is on the card's
      title attribute, which is where a truncated name is recoverable. */
   .card .nm b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
     font-size:.9rem;font-weight:600;line-height:1.35;letter-spacing:-.006em}
-  .card .nm i{display:flex;align-items:center;gap:5px;font-style:normal;
-    font-size:.745rem;color:var(--mut);margin-top:2px;
-    letter-spacing:.004em;font-variant-numeric:tabular-nums}
-  .card .nm i svg{width:11px;height:11px;flex:none}
 
   /* The footer is the caption under the thumbnail: name on the first line,
      who-can-see-it and when on the second, actions on the right. Its own
@@ -880,7 +828,6 @@
     font-size:.765rem;color:var(--mut);
     min-height:58px;box-sizing:border-box;padding:10px 13px 11px;
     background:var(--card-tray)}
-  .card .foot .sp{flex:1}
   /* An unconstrained inline SVG fills its flex line. META_PRIV's padlock did
      exactly that the moment the old .body .m svg rule went with .body - a
      12px lock became a 200px one and the card grew around it. Scoped to the
@@ -893,21 +840,7 @@
      as hover, and a touch device (which has no hover to give) keeps them. */
   .card .acts{display:flex;align-items:center;gap:1px;flex:none;
     opacity:0;transition:opacity .16s var(--ease)}
-  .card:hover .acts,.card:focus-within .acts{opacity:1}
-  @media (hover:none){ .card .acts{opacity:1} }
-  .card .lnk{border:0;background:transparent;color:var(--mut);flex:none;
-    width:26px;height:26px;border-radius:8px;display:grid;place-items:center;cursor:pointer;
-    transition:background .15s,color .15s}
-  .card .lnk:hover{background:var(--tint-2);color:var(--ink)}
-  .card .lnk svg{width:15px;height:15px}
-
-  .card .star{border:0;background:transparent;color:var(--mut);flex:none;
-    width:26px;height:26px;border-radius:8px;display:grid;place-items:center;cursor:pointer;
-    transition:background .15s,color .15s}
-  .card .star:hover{background:var(--tint-2);color:var(--ink)}
-  .card .star.on{color:#e0a11a}
-  .card .star svg{width:15px;height:15px}
-  .card .star.on svg{fill:currentColor}
+  @media (hover:none){ }
 
   /* ---- per-project menu ----------------------------------------------
      Rename and Delete had no way in from this page at all: the only way to
@@ -998,7 +931,6 @@
   .pdlg .go:hover{background:var(--accent-2)}
   .pdlg .go.danger{background:var(--danger)}
   .pdlg .go[disabled]{opacity:.55;cursor:default}
-
 
   /* ---- status, worded the same on both pages ---- */
   .pill{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:3px 9px 3px 7px;
@@ -1157,7 +1089,6 @@
   .row .star svg{width:15px;height:15px}
   .row .star.on svg{fill:currentColor}
 
-
   /* ---- in-place panel ----
      Settings and plans open over the page instead of navigating away, the
      way the builder does it. One overlay, one iframe, pointed at the real
@@ -1191,8 +1122,6 @@
     .ag-set-overlay{padding:0}
     .ag-set-overlay iframe{width:100%;height:100%;border-radius:0}
   }
-
-
 
   .empty{text-align:center;padding:80px 20px;color:var(--ink-2)}
   .empty h2{font-size:1.3rem;margin-bottom:8px;color:var(--ink)}
