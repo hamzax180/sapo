@@ -718,11 +718,31 @@
   .search input:focus{outline:none;border-color:var(--accent)}
   .search kbd{position:absolute;right:10px;top:50%;transform:translateY(-50%);font-family:var(--mono);font-size:.7rem;color:var(--mut);
     border:1px solid var(--line);border-radius:5px;padding:1px 5px;background:var(--paper-2)}
-  .chips{display:flex;gap:6px;flex-wrap:wrap}
-  .fchip{border:1px solid var(--line);background:var(--card);color:var(--ink-2);border-radius:999px;padding:6px 13px;font-size:.82rem;font-weight:500;cursor:pointer;transition:.15s}
-  .fchip:hover{border-color:var(--line-hover);color:var(--ink)}
-  .fchip.on{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+  /* The status filter, and it is /projects' .fsel to the character.
+
+     This was five pills and that page was three dropdowns, so the two
+     halves of the same product disagreed about what a filter looks like.
+     Copied rather than shared because the two pages' toolbars are still
+     separate sheets; if a third page grows one, move all three into
+     styles/components/ then. */
+  .fsel{border:1px solid var(--line);border-radius:10px;padding:9px 12px;font:inherit;font-size:.87rem;
+    background:var(--card);color:var(--ink);cursor:pointer}
+  .fsel:focus{outline:none;border-color:var(--accent)}
+  /* display:contents, so the select stays a direct flex child of .toolbar
+     and the row lays out exactly as it did with the pills. */
+  .filters{display:contents}
   .toolbar .sp{margin-left:auto}
+  /* On a phone the search is 260px and the select ~130, which is wider
+     than the screen — so the toolbar's flex-wrap dropped the filter onto
+     a line of its own with the rest of the row empty. Let the search
+     give way instead and they stay on one line, at /projects' phone
+     sizing. The slash hint goes: it advertises a key the device does not
+     have, and it is exactly the width the select needs. */
+  @media (max-width:640px){
+    .search{width:auto;flex:1 1 0;min-width:0}
+    .search kbd{display:none}
+    .fsel{flex:none;font-size:.82rem;padding:8px 10px;border-radius:9px}
+  }
 
   /* ---- status pills ----
      Colour carries the meaning; motion carries "this is still moving".

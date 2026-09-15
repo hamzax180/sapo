@@ -152,12 +152,16 @@
         <input type="search" id="q" placeholder="Search apps…" aria-label="Search apps">
         <kbd>/</kbd>
       </div>
-      <div class="chips" id="chips">
-        <button type="button" class="fchip on" data-f="all">All</button>
-        <button type="button" class="fchip" data-f="live">Live</button>
-        <button type="button" class="fchip" data-f="building">Building</button>
-        <button type="button" class="fchip" data-f="stopped">Stopped</button>
-        <button type="button" class="fchip" data-f="undeployed">Not deployed</button>
+      <!-- One select rather than five pills, to match /projects. The five
+           were mutually exclusive all along — one dimension, one control. -->
+      <div class="filters">
+        <select class="fsel" id="fStatus" aria-label="Filter by status">
+          <option value="all">Any status</option>
+          <option value="live">Live</option>
+          <option value="building">Building</option>
+          <option value="stopped">Stopped</option>
+          <option value="undeployed">Not deployed</option>
+        </select>
       </div>
     </div>
 
@@ -1702,12 +1706,10 @@
     }
     if (e.target.closest("#agUserGear")) { openPanel("/settings"); return; }
 
-    var chip = e.target.closest(".fchip");
-    if (chip) {
-      filter = chip.dataset.f;
-      Array.prototype.forEach.call(document.querySelectorAll(".fchip"), function (c) { c.classList.toggle("on", c === chip); });
-      renderList(); return;
-    }
+    /* The status filter is a <select> now, so it reports through `change`
+       rather than through this delegated click — see the listener beside
+       the search input. A click handler cannot serve a native dropdown:
+       on a phone the options are an OS sheet that never dispatches one. */
 
     var seg = e.target.closest("[data-phase]");
     if (seg) { logPhase = seg.dataset.phase; logPinned = true; refreshDetail().catch(function () { }); return; }
@@ -2030,6 +2032,7 @@
   }, true);
 
   $("q").addEventListener("input", renderList);
+  $("fStatus").addEventListener("change", function (e) { filter = e.target.value; renderList(); });
 
   document.addEventListener("keydown", function (e) {
     if (e.key === "/" && document.activeElement !== $("q")) { e.preventDefault(); $("q").focus(); return; }
