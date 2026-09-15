@@ -2752,6 +2752,43 @@
          solid var(--paper) and a 1px rule, which is exactly the floor the
          log is no longer supposed to hit. */
     }
+    /* FOLLOW THE RAIL OUT.
+
+       During a build the rail gets out of the way completely — .focus takes
+       it to width:0 and translates it off-screen — and .ag-main drops the
+       padding that was reserving its column, so the conversation widens by
+       var(--rail) and slides left into the space.
+
+       Every message did that and the composer did not. It is position:fixed
+       with a constant left, so it cannot inherit a padding change the way
+       the log does: the bubbles moved 44px left, the bar stayed where it
+       was, and for the whole length of a build they were out of line with
+       each other. The one moment someone is watching the screen closely is
+       the one where the two halves disagreed.
+
+       Transitioned on the rail's own duration and curve so the bar travels
+       WITH the panel rather than snapping to its new place after it.
+
+       #agMain rather than .ag-main, and that is specificity rather than
+       taste. One of the three selectors this has to beat is
+       `.ag:has(#agLog > *:not(.ag-empty)) .ag-composer`, and :has() takes
+       the specificity of its most specific argument — so that ID inside it
+       scores the whole rule (1,2,0) and quietly outranks any number of
+       classes. Written with .ag-main this lost at (0,4,0) and the bar sat
+       still while the messages moved, which looked exactly like the rule
+       not existing. */
+    .ag-history.focus ~ #agMain .ag-composer { left: 10px; }
+    .ag:not(.is-new) .ag-composer,
+    .ag.has-convo .ag-composer,
+    .ag:has(#agLog > *:not(.ag-empty)) .ag-composer {
+      transition: left var(--sb-dur, .26s) var(--sb-ease, ease-in-out);
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .ag:not(.is-new) .ag-composer,
+      .ag.has-convo .ag-composer,
+      .ag:has(#agLog > *:not(.ag-empty)) .ag-composer { transition: none; }
+    }
+
     /* The preview takes the whole screen on a phone and the chat is hidden
        behind it — but a fixed element does not care that its ancestor is
        display:none unless it is told to. It is. */
