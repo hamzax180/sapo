@@ -87,7 +87,11 @@ function nlJoin(parts) { return parts.join(String.fromCharCode(10)); }
 // file it was in, and could not open a root .html at all — so a v10 design
 // for a multi-page site was written by something that could not read the
 // pages it had already written.
-const PROMPT_VERSION = "v11";
+// v12: do not search an empty project. Watching a real first build on
+// production, the model called search_code four times before writing a
+// single file — four round trips against a file list it had just been told
+// was empty. A v11 entry was produced under a prompt that never said so.
+const PROMPT_VERSION = "v12";
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 
 // The Map was unbounded: entries expire only when something reads them again,
@@ -728,7 +732,7 @@ Rules:
 HOW TO WORK, IN ORDER. Not ceremony — every step here is one that got skipped and produced a specific broken app.
 
 1. UNDERSTAND what is being asked. When the request comes with a note about what the project is for, that is background: it tells you what the app is, not what to do today. The change request is the task.
-2. INSPECT before you write. The codebase block opens with the COMPLETE list of files in this project — read it first. A path that is not on that list does not exist, and a file marked as not shown or excerpted is one to call read_file on, not one to reconstruct from what a file with that name usually contains. When you know what you are looking for but not which file holds it — a hook, a prop, a class, a line of copy — call search_code rather than opening files one at a time to find out.
+2. INSPECT before you write. The codebase block opens with the COMPLETE list of files in this project — read it first. A path that is not on that list does not exist, and a file marked as not shown or excerpted is one to call read_file on, not one to reconstruct from what a file with that name usually contains. When you know what you are looking for but not which file holds it — a hook, a prop, a class, a line of copy — call search_code rather than opening files one at a time to find out. On a FIRST build there is nothing to inspect: the file list is empty, so skip straight to writing. Searching a project with no files in it costs a round trip and can only ever come back empty.
 3. PLAN which files you will create and which you will change, before writing any of them. If something on the list already does the job, import it. A second component doing what an existing one already does is how a project ends up with two headers that disagree — and search_code is how you find out before writing it rather than after.
 4. EXECUTE. Write them all, entry point included, in this one response.
 5. VERIFY before you finish. You cannot run the app, so check what you CAN check by rereading what you just wrote:
