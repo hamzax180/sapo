@@ -421,6 +421,11 @@ async function chat(req) {
   const t0 = Date.now();
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), req.timeoutMs || DEFAULT_TIMEOUT_MS);
+  const onParentAbort = () => controller.abort();
+  if (req.signal) {
+    if (req.signal.aborted) controller.abort();
+    else req.signal.addEventListener("abort", onParentAbort, { once: true });
+  }
   try {
     const res = await CONFIG.fetchImpl(r.baseUrl.replace(/\/$/, "") + "/chat/completions", {
       method: "POST",
@@ -445,7 +450,6 @@ async function chat(req) {
       }),
       signal: controller.signal
     });
-    clearTimeout(timer);
 
     if (!res.ok) {
       /* Only an outage advances the breaker — see countsAsProviderFailure.
@@ -485,10 +489,14 @@ async function chat(req) {
       latencyMs: Date.now() - t0
     };
   } catch (e) {
-    clearTimeout(timer);
     recordFailure(route);
     const timedOut = e.name === "AbortError";
     return { ok: false, error: true, timedOut: timedOut, reason: timedOut ? "timed out after " + (req.timeoutMs || DEFAULT_TIMEOUT_MS) + "ms" : e.message, latencyMs: Date.now() - t0 };
+  } finally {
+    clearTimeout(timer);
+    if (req.signal && typeof req.signal.removeEventListener === "function") {
+      req.signal.removeEventListener("abort", onParentAbort);
+    }
   }
 }
 
@@ -518,6 +526,11 @@ async function chatByok(req) {
   const t0 = Date.now();
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), req.timeoutMs || DEFAULT_TIMEOUT_MS);
+  const onParentAbort = () => controller.abort();
+  if (req.signal) {
+    if (req.signal.aborted) controller.abort();
+    else req.signal.addEventListener("abort", onParentAbort, { once: true });
+  }
   try {
     const res = await CONFIG.fetchImpl(p.baseUrl.replace(/\/$/, "") + "/chat/completions", {
       method: "POST",
@@ -532,7 +545,6 @@ async function chatByok(req) {
       }),
       signal: controller.signal
     });
-    clearTimeout(timer);
 
     if (!res.ok) {
       let detail = "";
@@ -559,13 +571,17 @@ async function chatByok(req) {
       latencyMs: Date.now() - t0
     };
   } catch (e) {
-    clearTimeout(timer);
     const timedOut = e.name === "AbortError";
     return {
       ok: false, error: true, timedOut: timedOut,
       reason: timedOut ? p.label + " timed out after " + (req.timeoutMs || DEFAULT_TIMEOUT_MS) + "ms" : e.message,
       latencyMs: Date.now() - t0
     };
+  } finally {
+    clearTimeout(timer);
+    if (req.signal && typeof req.signal.removeEventListener === "function") {
+      req.signal.removeEventListener("abort", onParentAbort);
+    }
   }
 }
 

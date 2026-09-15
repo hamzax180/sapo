@@ -19,7 +19,7 @@
 "use strict";
 const assert = require("assert");
 const client = require("../lib/ai/client");
-const { proposeChanges, proposeWithRepair, proposeWithClientBuild, assessPrompt, buildPlan, parseToolCalls, validateWriteFileArgs, TOOLS_SCHEMA, clearCache, cacheKey, cacheStatsSnapshot,
+const { proposeChanges, proposeWithRepair, proposeWithClientBuild, repairProposal, assessPrompt, buildPlan, parseToolCalls, validateWriteFileArgs, TOOLS_SCHEMA, clearCache, cacheKey, cacheStatsSnapshot,
   fitConversation, codeBudgetChars, systemPromptFor, EFFORT, effortFor, buildCodebaseContext, reviewBuild } = require("../lib/codeagent/model-loop");
 const clientMod = require("../lib/ai/client");
 
@@ -1979,6 +1979,29 @@ const ROUTES = { prose: { baseUrl: "https://x.invalid/prose", model: "gemini-3.8
     // a starter template in place of the whole site.
     assert.ok(res.ok, "a missing page cost the site at the cap");
     assert.ok(!res.fellBack, "a dead link replaced the site with a template");
+  });
+
+  console.log("\n── repairProposal (WebContainer decoupled repair) ──");
+
+  await check("repairProposal returns immediately if no errors", async () => {
+    const res = await repairProposal({ files: { "src/App.tsx": "export default function App(){return <div/>;}" }, errors: [] });
+    assert.strictEqual(res.ok, true);
+    assert.strictEqual(res.calls.length, 0);
+  });
+
+  await check("repairProposal sends structured compiler errors and updates files", async () => {
+    const fixedApp = toolCallMsg([{ path: "src/App.tsx", content: "export default function App(){return <div>fixed</div>;}" }]);
+    client.init({ enabled: true, routes: ROUTES, fetchImpl: fetchReturning([fixedApp]) });
+    const res = await repairProposal({
+      files: { "src/App.tsx": "export default function App(){return <div>broken</div>;}" },
+      errors: [{ file: "src/App.tsx", line: 1, col: 1, code: "TS2304", message: "Cannot find name 'broken'" }],
+      userPrompt: "landing page",
+      mode: "auto"
+    });
+    assert.strictEqual(res.ok, true);
+    assert.strictEqual(res.calls.length, 1);
+    assert.strictEqual(res.calls[0].path, "src/App.tsx");
+    assert.ok(res.updatedFiles["src/App.tsx"].includes("fixed"));
   });
 
   console.log("\n" + (failed === 0 ? "✓ ALL MODEL-LOOP TESTS PASSED (" + passed + ")" : "✗ " + failed + " FAILED, " + passed + " passed"));

@@ -1,0 +1,422 @@
+/* =================================================================
+   codeagent/agent-runner.js — Autonomous ReAct execution loop
+   -----------------------------------------------------------------
+   Docs/DYNAMIC-AGENT-PLAN.md §5.
+   Executes dynamic multi-turn agent tasks with progressive tool calls:
+   list_files, read_file, search_code, write_file, edit_file, check_project.
+   Connects browser WebContainer compilation to verify candidate files.
+   ================================================================= */
+"use strict";
+
+const runStore = require("./run-store");
+const client = require("../ai/client");
+const { preflight } = require("./preflight");
+const { statsFor } = require("./diffstat");
+const scaffoldFiles = require("./scaffold-files");
+const theme = require("./theme");
+const {
+  systemPromptFor,
+  parseToolCalls,
+  validateWriteFileArgs,
+  buildCodebaseContext,
+  codeBudgetChars,
+  effortFor,
+  buildHistory
+} = require("./model-loop");
+
+// Extended dynamic tools schema including list_files and check_project
+const DYNAMIC_TOOLS_SCHEMA = [
+  {
+    type: "function",
+    function: {
+      name: "write_file",
+      description: "Write or overwrite a file in the project. Paths are relative to the project root (e.g. \"src/App.tsx\", \"src/components/Hero.tsx\").",
+      parameters: {
+        type: "object",
+        properties: {
+          path: { type: "string", description: "Relative file path, e.g. src/App.tsx" },
+          content: { type: "string", description: "The full, final content of the file." }
+        },
+        required: ["path", "content"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "edit_file",
+      description: "Change part of an existing file by searching for an exact unique text snippet and replacing it. Faster and safer for incremental changes.",
+      parameters: {
+        type: "object",
+        properties: {
+          path: { type: "string", description: "Relative file path" },
+          find: { type: "string", description: "Exact unique text to replace" },
+          replace: { type: "string", description: "What to put there instead" }
+        },
+        required: ["path", "find", "replace"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "read_file",
+      description: "Read the entire content of a file from the project.",
+      parameters: {
+        type: "object",
+        properties: {
+          path: { type: "string", description: "Relative file path, e.g. src/App.tsx" }
+        },
+        required: ["path"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "list_files",
+      description: "List all existing files in the current project directory tree.",
+      parameters: {
+        type: "object",
+        properties: {
+          dir: { type: "string", description: "Optional subfolder to list (default: root)" }
+        }
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "search_code",
+      description: "Search for a string or regex pattern across all project files.",
+      parameters: {
+        type: "object",
+        properties: {
+          query: { type: "string", description: "The string or regex pattern to search for" }
+        },
+        required: ["query"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "check_project",
+      description: "Trigger TypeScript compilation and browser render check to verify that all current files compile and render without errors.",
+      parameters: {
+        type: "object",
+        properties: {
+          reason: { type: "string", description: "Why you are checking (e.g. 'Verifying App component imports')" }
+        }
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "complete_task",
+      description: "Declare the task complete when all user requirements are satisfied and code compiles cleanly.",
+      parameters: {
+        type: "object",
+        properties: {
+          summary: { type: "string", description: "A friendly, user-facing summary of what was created or changed" }
+        },
+        required: ["summary"]
+      }
+    }
+  }
+];
+
+// Pending check-result callbacks (runId -> { resolve, timer })
+const pendingCheckWaiters = new Map();
+
+/**
+ * Called by index.js when browser WebContainer finishes a compile check.
+ */
+function reportCheckResult(runId, checkResult) {
+  const pending = pendingCheckWaiters.get(runId);
+  if (!pending) return false;
+  pendingCheckWaiters.delete(runId);
+  clearTimeout(pending.timer);
+  pending.resolve(checkResult);
+  return true;
+}
+
+/**
+ * Runs the autonomous dynamic agent loop for a runId.
+ */
+async function executeRun(runId, opts = {}) {
+  const run = await runStore.getRun(runId);
+  if (!run) throw new Error("Run not found: " + runId);
+
+  await runStore.updateRun(runId, { status: "running", phase: "planning" });
+  await runStore.appendEvent(runId, "stage", { id: "planning", state: "start", detail: "Analyzing requirements..." });
+
+  // Materialize starting files from checkpoint 0 or empty
+  const latestChk = await runStore.getLatestCheckpoint(runId);
+  const currentFiles = Object.assign({}, (latestChk && latestChk.files) || {});
+  const turnBaseFiles = Object.assign({}, currentFiles);
+
+  const effort = effortFor(run.effort, run.mode);
+  const isPower = effort.tier === "power";
+  const maxTurns = effort.id === "fast" ? 5 : effort.id === "balanced" ? 8 : effort.id === "smart" ? 12 : 16;
+
+  let totalCostUsd = 0;
+  let messages = [
+    {
+      role: "system",
+      content: systemPromptFor(run.mode) +
+        "\n\nDYNAMIC AGENT EXECUTION (Effort: " + effort.label + "):\n" +
+        (effort.id === "fast"
+          ? "You are in Fast mode: solve the task cleanly in as few tool calls as possible. Write the essential files directly.\n"
+          : "You have full autonomy to inspect files (`list_files`, `read_file`, `search_code`), create or edit files modularly (`write_file`, `edit_file`), and verify your work (`check_project`).\n") +
+        "Always ensure src/App.tsx exists to render your components. When you finish, call `check_project` to test the build. Once verified, call `complete_task` with a clear summary."
+    }
+  ];
+
+  if (opts.history && Array.isArray(opts.history)) {
+    messages = messages.concat(buildHistory(opts.history));
+  }
+
+  // Include starting codebase if any files exist
+  const codebaseCtx = buildCodebaseContext(currentFiles, codeBudgetChars(effort.id));
+  if (codebaseCtx && codebaseCtx.text && codebaseCtx.text.trim()) {
+    messages.push({ role: "user", content: codebaseCtx.text });
+  }
+
+  messages.push({
+    role: "user",
+    content: "Task: " + run.prompt + "\n\nBegin by inspecting the workspace or writing the initial components."
+  });
+
+  let taskCompleted = false;
+  let finalSummary = "";
+
+  for (let turn = 1; turn <= maxTurns; turn++) {
+    // Check for cancellation
+    const currentRun = await runStore.getRun(runId);
+    if (currentRun && currentRun.cancelled) {
+      await runStore.appendEvent(runId, "stage", { id: "turn-" + turn, state: "cancelled", detail: "Run was cancelled by user." });
+      return { ok: false, cancelled: true };
+    }
+
+    await runStore.appendEvent(runId, "stage", {
+      id: "turn-" + turn,
+      state: "start",
+      detail: "Step " + turn + " of " + maxTurns + " — reasoning and selecting actions..."
+    });
+
+    // Call model
+    const callOpts = {
+      route: "json",
+      tools: DYNAMIC_TOOLS_SCHEMA,
+      model: isPower ? process.env.AI_JSON_POWER_MODEL : undefined,
+      maxTokens: effort.id === "max" ? 5000 : effort.id === "smart" ? 4000 : 2500,
+      temperature: 0.3,
+      timeoutMs: 90000
+    };
+
+    const aiRes = await client.chat(Object.assign({}, callOpts, { messages }));
+    totalCostUsd += aiRes.costUsd || 0;
+
+    if (!aiRes.ok) {
+      await runStore.updateRun(runId, { status: "failed", latestError: aiRes.reason });
+      await runStore.appendEvent(runId, "error", { error: aiRes.reason || "Model call failed" });
+      return { ok: false, reason: aiRes.reason };
+    }
+
+    const assistantMsg = aiRes.message || { role: "assistant", content: "" };
+    messages.push(assistantMsg);
+
+    const toolCalls = assistantMsg.tool_calls || [];
+    const hasEntry = !!currentFiles["src/App.tsx"] || !!currentFiles["index.html"];
+
+    if (!toolCalls.length) {
+      // Natural text response without tools — could be finishing or a question
+      if (/done|finished|completed|here is the app/i.test(assistantMsg.content || "")) {
+        if (hasEntry) {
+          taskCompleted = true;
+          finalSummary = assistantMsg.content || "Task completed.";
+          break;
+        } else {
+          messages.push({
+            role: "user",
+            content: "You have created the components, but src/App.tsx does not exist yet. Please use write_file to create src/App.tsx so the application can render."
+          });
+          continue;
+        }
+      }
+      // Ask model to proceed with tools
+      messages.push({
+        role: "user",
+        content: hasEntry
+          ? "Please proceed with writing, editing, or checking the required files using the available tools."
+          : "Please write src/App.tsx to import and render your components using write_file."
+      });
+      continue;
+    }
+
+    // Execute tool calls in order
+    const toolResults = [];
+    let needsBrowserCheck = false;
+
+    for (const tc of toolCalls) {
+      const fnName = tc.function && tc.function.name;
+      let args = {};
+      try {
+        args = JSON.parse(tc.function && tc.function.arguments || "{}");
+      } catch (e) {
+        toolResults.push({ role: "tool", tool_call_id: tc.id, content: "Error: malformed JSON arguments" });
+        continue;
+      }
+
+      await runStore.appendEvent(runId, "tool_start", { tool: fnName, args });
+
+      if (fnName === "list_files") {
+        const fileList = Object.keys(currentFiles);
+        const resText = fileList.length ? fileList.join("\n") : "(empty project)";
+        toolResults.push({ role: "tool", tool_call_id: tc.id, content: resText });
+      } else if (fnName === "read_file") {
+        const filePath = String(args.path || "").trim();
+        const content = currentFiles[filePath];
+        if (content !== undefined) {
+          toolResults.push({ role: "tool", tool_call_id: tc.id, content });
+        } else {
+          toolResults.push({ role: "tool", tool_call_id: tc.id, content: "File not found: " + filePath });
+        }
+      } else if (fnName === "search_code") {
+        const query = String(args.query || "").toLowerCase();
+        const hits = [];
+        for (const [p, c] of Object.entries(currentFiles)) {
+          const lines = c.split("\n");
+          for (let i = 0; i < lines.length; i++) {
+            if (lines[i].toLowerCase().includes(query)) {
+              hits.push(p + ":" + (i + 1) + " " + lines[i].trim().slice(0, 80));
+              if (hits.length >= 10) break;
+            }
+          }
+        }
+        toolResults.push({ role: "tool", tool_call_id: tc.id, content: hits.length ? hits.join("\n") : "No matches found." });
+      } else if (fnName === "write_file") {
+        const filePath = String(args.path || "").trim();
+        const content = String(args.content || "");
+        currentFiles[filePath] = content;
+        await runStore.appendEvent(runId, "file_written", { path: filePath, bytes: content.length });
+        toolResults.push({ role: "tool", tool_call_id: tc.id, content: "Successfully wrote " + filePath });
+      } else if (fnName === "edit_file") {
+        const filePath = String(args.path || "").trim();
+        const find = String(args.find || "");
+        const replace = String(args.replace || "");
+        const text = currentFiles[filePath];
+        if (!text) {
+          toolResults.push({ role: "tool", tool_call_id: tc.id, content: "Error: file " + filePath + " does not exist." });
+        } else if (!text.includes(find)) {
+          toolResults.push({ role: "tool", tool_call_id: tc.id, content: "Error: find snippet not found in " + filePath });
+        } else {
+          currentFiles[filePath] = text.replace(find, replace);
+          await runStore.appendEvent(runId, "file_edited", { path: filePath });
+          toolResults.push({ role: "tool", tool_call_id: tc.id, content: "Successfully edited " + filePath });
+        }
+      } else if (fnName === "check_project") {
+        needsBrowserCheck = true;
+        toolResults.push({ role: "tool", tool_call_id: tc.id, content: "check_project initiated." });
+      } else if (fnName === "complete_task") {
+        if (!currentFiles["src/App.tsx"] && !currentFiles["index.html"]) {
+          toolResults.push({ role: "tool", tool_call_id: tc.id, content: "Error: Cannot complete task yet. src/App.tsx does not exist. Please write src/App.tsx using write_file to import and display your components before completing." });
+        } else {
+          taskCompleted = true;
+          finalSummary = args.summary || "Task completed successfully.";
+          toolResults.push({ role: "tool", tool_call_id: tc.id, content: "Task marked complete." });
+        }
+      } else {
+        toolResults.push({ role: "tool", tool_call_id: tc.id, content: "Unknown tool: " + fnName });
+      }
+    }
+
+    // Save checkpoint of current files after tool batch
+    await runStore.saveCheckpoint(runId, currentFiles, "Step " + turn + " tool updates");
+    await runStore.recordStep(runId, { turn, toolCalls, toolResults, costUsd: aiRes.costUsd || 0 });
+
+    messages = messages.concat(toolResults);
+
+    // If check_project was requested or if we are nearing the cap with written files
+    if (needsBrowserCheck) {
+      await runStore.updateRun(runId, { status: "waiting_for_check" });
+      const fullBundle = scaffoldFiles.withScaffold(currentFiles);
+      const buildSeedHex = (run.meta && run.meta.seedHex) || "#0f172a";
+      const buildType = (run.meta && run.meta.buildType) || "website";
+      const buildTheme = theme.forBuild({ buildType, seedHex: buildSeedHex });
+      fullBundle["tailwind.config.js"] = theme.tailwindConfig(buildTheme);
+      fullBundle["__souqi_fonts__"] = theme.fontLinkTag(buildTheme);
+
+      await runStore.appendEvent(runId, "check_needed", { files: fullBundle });
+
+      // Wait for browser WebContainer feedback (up to 45 seconds)
+      const checkOutcome = await new Promise((resolve) => {
+        const timer = setTimeout(() => {
+          pendingCheckWaiters.delete(runId);
+          resolve({ ok: true, errors: [], note: "Browser check timed out; continuing." });
+        }, 45000);
+        pendingCheckWaiters.set(runId, { resolve, timer });
+      });
+
+      await runStore.updateRun(runId, { status: "running" });
+
+      if (checkOutcome.ok) {
+        messages.push({ role: "user", content: "Browser check PASSED. The app compiles and renders cleanly." });
+        await runStore.appendEvent(runId, "stage", { id: "check-" + turn, state: "done", detail: "Verification passed" });
+      } else {
+        const errSummary = (checkOutcome.errors || []).map((e) => (e.file ? e.file + ":" + e.line + " — " + e.message : e.message)).join("\n");
+        messages.push({ role: "user", content: "Browser check FAILED with these errors:\n" + errSummary + "\n\nFix them using edit_file or write_file." });
+        await runStore.appendEvent(runId, "stage", { id: "check-" + turn, state: "failed", detail: "Compilation errors detected — repairing..." });
+      }
+    }
+
+    if (taskCompleted) break;
+  }
+
+  // Final validation
+  const finalGate = preflight(currentFiles);
+  const diff = statsFor(
+    Object.entries(currentFiles).map(([path, content]) => ({ path, content })),
+    turnBaseFiles
+  );
+
+  const fullBundle = scaffoldFiles.withScaffold(currentFiles);
+  const buildSeedHex = (run.meta && run.meta.seedHex) || "#0f172a";
+  const buildType = (run.meta && run.meta.buildType) || "website";
+  const buildTheme = theme.forBuild({ buildType, seedHex: buildSeedHex });
+  fullBundle["tailwind.config.js"] = theme.tailwindConfig(buildTheme);
+  fullBundle["__souqi_fonts__"] = theme.fontLinkTag(buildTheme);
+
+  await runStore.updateRun(runId, {
+    status: "succeeded",
+    costUsd: totalCostUsd,
+    phase: "completed"
+  });
+
+  await runStore.appendEvent(runId, "result", {
+    ok: true,
+    summary: finalSummary || "Build completed successfully.",
+    files: currentFiles,
+    fileContents: fullBundle,
+    fileStats: diff,
+    costUsd: totalCostUsd,
+    warnings: finalGate.soft || []
+  });
+
+  return {
+    ok: true,
+    files: currentFiles,
+    fileContents: fullBundle,
+    summary: finalSummary,
+    fileStats: diff,
+    costUsd: totalCostUsd
+  };
+}
+
+module.exports = {
+  DYNAMIC_TOOLS_SCHEMA,
+  executeRun,
+  reportCheckResult
+};

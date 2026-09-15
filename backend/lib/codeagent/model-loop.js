@@ -3446,8 +3446,71 @@ async function assessPrompt(userPrompt, opts) {
   }
 }
 
+/**
+ * Standalone repair proposal: takes current project files and structured errors
+ * from a WebContainer build, prompts the model with the exact compiler errors,
+ * and proposes targeted write_file or edit_file fixes.
+ *
+ * This allows the client to drive repair rounds as bounded, independent HTTP
+ * requests without holding a single serverless connection open across multiple builds.
+ */
+async function repairProposal({ files, errors, userPrompt, mode, effort, byok, thinking, mcp, history, imageUrls }) {
+  const editBase = Object.assign({}, files || {});
+  const errorList = Array.isArray(errors) ? errors : [];
+  if (!errorList.length) {
+    return { ok: true, calls: [], updatedFiles: editBase, note: "No errors to repair.", costUsd: 0 };
+  }
+
+  const errorSummary = errorList.slice(0, 8)
+    .map((e) => (e.file ? e.file + (e.line ? ":" + e.line : "") + " — " + e.message : e.message))
+    .join("\n");
+
+  const opts = {
+    mode, effort, byok, thinking, mcp, imageUrls,
+    files: editBase
+  };
+
+  const codebase = buildCodebaseContext(editBase, codeBudgetChars(effort));
+  const hist = buildHistory(history);
+  const userContent = (userPrompt ? "Original brief: " + String(userPrompt).slice(0, 500) + "\n\n" : "") +
+    "The build in the browser failed with these errors:\n" + errorSummary +
+    "\n\nFix them. Use write_file or edit_file to update ONLY the files that need fixing. Make sure all imports exist and all components render correctly.";
+
+  const messages = [
+    { role: "system", content: systemPromptFor(mode) }
+  ].concat(hist, codebase ? [{ role: "user", content: codebase }] : [], [
+    { role: "user", content: userContent }
+  ]);
+
+  opts.headLen = messages.length;
+
+  const attempt = await attemptOnce(messages, opts);
+  if (!attempt.ok) {
+    return {
+      ok: false,
+      reason: attempt.reason || "Repair attempt failed to generate usable code",
+      calls: [],
+      updatedFiles: editBase,
+      costUsd: attempt.costUsd || 0
+    };
+  }
+
+  const updatedFiles = Object.assign({}, editBase);
+  for (const c of attempt.calls || []) {
+    updatedFiles[c.path] = c.content;
+  }
+
+  return {
+    ok: true,
+    calls: attempt.calls || [],
+    updatedFiles: updatedFiles,
+    note: attempt.note || "",
+    costUsd: attempt.costUsd || 0
+  };
+}
+
 module.exports = {
-  quickAssess, buildPlan, proposeChanges, proposeWithRepair, proposeWithClientBuild, assessPrompt, TOOLS_SCHEMA, SYSTEM_PROMPT,
+  quickAssess, buildPlan, proposeChanges, proposeWithRepair, proposeWithClientBuild, repairProposal, assessPrompt, TOOLS_SCHEMA, SYSTEM_PROMPT,
   buildHistory, buildCodebaseContext, buildImagesBlock, fixImageUrls, MAX_CLARIFYING_QUESTIONS,
   codeBudgetChars, fitConversation, EFFORT, DEFAULT_EFFORT, effortFor,
   // Exported so a build outcome can record WHICH prompt produced it — without

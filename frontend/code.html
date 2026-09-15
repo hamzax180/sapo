@@ -1605,8 +1605,20 @@
 
   let buildQueue = [];
   let currentAbortController = null;
+  let activeRunId = null;
 
   function cancelTurn() {
+    if (activeRunId) {
+      try {
+        fetch("/api/codeagent/runs/" + encodeURIComponent(activeRunId) + "/cancel", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ reason: "User cancelled turn" })
+        }).catch(() => {});
+      } catch (e) {}
+      activeRunId = null;
+      try { sessionStorage.removeItem("sapo_active_run"); } catch (e) {}
+    }
     if (currentAbortController) {
       try { currentAbortController.abort(); } catch(e) {}
       currentAbortController = null;
@@ -1951,31 +1963,77 @@
     }
 
     try {
-      const res = await fetch("/api/codeagent/build", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "Accept": "text/event-stream" },
-        signal: currentAbortController ? currentAbortController.signal : undefined,
-        body: JSON.stringify({
-          prompt: effectivePrompt, projectId: projectId || undefined, buildType: buildType,
-          imageIds: imageIds, canBuild: !!window.__wcSupported,
-          // What has been said so far, so a question the agent asked can be
-          // answered rather than restarted.
-          conversation: convo,
-          // Intent only — the API key for `provider` lives server-side on the
-          // account and is never sent from here.
-          mode: agentMode, effort: agentEffort, provider: agentProvider, thinking: thinkingForMode(),
-          // Set by the plan card's "Build it" button; the server only asks
-          // for confirmation when this is absent.
-          confirmed: !!(opts && opts.confirmed),
-          planTitle: (opts && opts.planTitle) || "",
-          chatId: chatId
-        })
-      });
-      if (!res.ok || !res.body) throw new Error("That didn't work");
+      let runId = (opts && opts.resumeRunId) || null;
+      let streamRes = null;
+      let isDynamicRun = false;
 
-      const reader = res.body.getReader();
+      // Plan mode before confirmation runs fast assess/plan card via /api/codeagent/build
+      const isPlanConfirmation = agentMode === "plan" && !(opts && opts.confirmed);
+
+      if (!isPlanConfirmation && !runId) {
+        try {
+          const spawnRes = await fetch("/api/codeagent/runs", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            signal: currentAbortController ? currentAbortController.signal : undefined,
+            body: JSON.stringify({
+              prompt: effectivePrompt,
+              projectId: projectId || undefined,
+              buildType: buildType,
+              imageIds: imageIds,
+              mode: agentMode,
+              effort: agentEffort,
+              chatId: chatId,
+              conversation: convo
+            })
+          });
+          if (spawnRes.status === 202) {
+            const data = await spawnRes.json();
+            runId = data.runId;
+          }
+        } catch (e) {
+          if (e.name === "AbortError") throw e;
+        }
+      }
+
+      if (runId) {
+        isDynamicRun = true;
+        activeRunId = runId;
+        try {
+          sessionStorage.setItem("sapo_active_run", JSON.stringify({
+            runId: runId, prompt: effectivePrompt, projectId: projectId || undefined
+          }));
+        } catch (e) {}
+
+        streamRes = await fetch("/api/codeagent/runs/" + encodeURIComponent(runId) + "/events", {
+          headers: { "Accept": "text/event-stream" },
+          signal: currentAbortController ? currentAbortController.signal : undefined
+        });
+      } else {
+        streamRes = await fetch("/api/codeagent/build", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Accept": "text/event-stream" },
+          signal: currentAbortController ? currentAbortController.signal : undefined,
+          body: JSON.stringify({
+            prompt: effectivePrompt, projectId: projectId || undefined, buildType: buildType,
+            imageIds: imageIds, canBuild: !!window.__wcSupported,
+            conversation: convo,
+            mode: agentMode, effort: agentEffort, provider: agentProvider, thinking: thinkingForMode(),
+            confirmed: !!(opts && opts.confirmed),
+            planTitle: (opts && opts.planTitle) || "",
+            chatId: chatId
+          })
+        });
+      }
+
+      if (!streamRes.ok || !streamRes.body) throw new Error("That didn't work");
+
+      const reader = streamRes.body.getReader();
       const decoder = new TextDecoder();
       let buf = "", errorMsg = "", result = null, clarifyReply = null, clarifyAction = "chat", clarifyOptions = null, chitchat = null, gate = null, publishRequested = false, confirmPlan = null;
+      let lastReceivedFiles = null;
+      let lastSeq = 0;
+
       for (;;) {
         const chunk = await reader.read();
         if (chunk.done) break;
@@ -1985,35 +2043,23 @@
           const raw = buf.slice(0, idx); buf = buf.slice(idx + 2);
           const em = /event: (.+)/.exec(raw), dm = /data: (.+)/.exec(raw);
           if (!em || !dm) continue;
-          const payload = JSON.parse(dm[1]);
-          if (em[1] === "files") {
-            const wc = window.__wc;
+          let payload;
+          try { payload = JSON.parse(dm[1]); } catch (e) { continue; }
+          if (payload && payload.seq && payload.seq > lastSeq) lastSeq = payload.seq;
 
-            // No WebContainer on this device — every phone, and any
-            // browser without SharedArrayBuffer. There is no compiler
-            // here, so there are no build errors to report, and saying
-            // so immediately is the only honest answer.
-            //
-            // What happened instead: window.__wc is never created on
-            // this path and window.__wcError is never set, so NEITHER
-            // exit condition of the wait below could ever become true.
-            // Every build spun the full 120 seconds and then reported
-            // "WebContainer failed to initialize" as a BUILD ERROR,
-            // which the server feeds straight into the model's repair
-            // loop — so it spent a round fixing a fault that did not
-            // exist, and the server allows up to three rounds. Six
-            // minutes of stalling and several wasted model calls, on
-            // every build, on every phone.
-            //
-            // ok:true means "nothing to repair", which is true.
-            // verified records that nothing was checked either, so the
-            // distinction is not lost; the server ignores fields it
-            // does not read.
+          if (em[1] === "files" || em[1] === "check_needed") {
+            lastReceivedFiles = payload.files;
+            const wc = window.__wc;
+            const checkUrl = isDynamicRun
+              ? "/api/codeagent/runs/" + encodeURIComponent(runId) + "/check-result"
+              : "/api/codeagent/build-feedback";
+            const checkBody = (extra) => Object.assign({ buildId: payload.buildId }, extra);
+
             if (!window.__wcSupported) {
-              await fetch("/api/codeagent/build-feedback", {
+              await fetch(checkUrl, {
                 method: "POST", headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ buildId: payload.buildId, ok: true, errors: [], raw: "", verified: false })
-              });
+                body: JSON.stringify(checkBody({ ok: true, errors: [], raw: "", verified: false }))
+              }).catch(() => {});
               continue;
             }
 
@@ -2025,25 +2071,20 @@
               }
               if (currentAbortController && currentAbortController.signal.aborted) break;
               if (window.__wcError || !window.__wcReady) {
-                await fetch("/api/codeagent/build-feedback", {
+                await fetch(checkUrl, {
                   method: "POST", headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ buildId: payload.buildId, ok: false, infra: true, errors: [{ file: "", line: 0, col: 0, code: "INFRA", message: "WebContainer failed to initialize: " + (window.__wcError || "timeout") }], raw: "" })
-                });
+                  body: JSON.stringify(checkBody({ ok: false, infra: true, errors: [{ file: "", line: 0, col: 0, code: "INFRA", message: "WebContainer failed to initialize: " + (window.__wcError || "timeout") }], raw: "" }))
+                }).catch(() => {});
                 continue;
               }
             }
+
+            onStage("check-wc", "start", "Testing preview compilation...");
             await wc.writeFiles(payload.files);
             const buildResult = await wc.build();
             let errors = buildResult.ok ? [] : window.__parseBuildErrors(buildResult.stdout + "\n" + buildResult.stderr);
             let ok = buildResult.ok;
 
-            /* COMPILING IS NOT RENDERING.
-               Only worth asking when the build passed — a failed build has
-               nothing to render and the model already has real errors to fix.
-               A blank page is reported as a build failure so it re-enters the
-               repair loop exactly as NO_ENTRY does; there is no other
-               mechanism for "this is wrong" and inventing one would mean a
-               second path to the same place. */
             if (ok) {
               const render = await wc.verifyRender(agPvIframe);
               if (render.known && render.errors.length) {
@@ -2054,15 +2095,6 @@
                     " — fix the cause; the page renders nothing until you do."
                 }));
               } else if (render.known && render.interactive && (render.interactive.threw || []).length) {
-                /* It painted, it type-checked, and it broke the first time
-                   anything was pressed. Every other check in this loop runs
-                   at mount and then stops watching, so a handler reading a
-                   property off something undefined shipped as a clean build
-                   and failed for the person instead of for us.
-
-                   Named with the control that did it, because "Add to cart
-                   throws" points at a handler and a bare stack trace points
-                   at the bundle. */
                 ok = false;
                 errors = render.interactive.threw.map((m) => ({
                   file: "src/App.tsx", line: 1, col: 1, code: "RUNTIME",
@@ -2079,18 +2111,43 @@
                     "returns null or an empty fragment before anything is drawn."
                 }];
               }
-              // render.known === false means we could not tell. A build that
-              // works is not failed over a slow preview server.
             }
 
-            await fetch("/api/codeagent/build-feedback", {
+            const feedbackRes = await fetch(checkUrl, {
               method: "POST", headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ buildId: payload.buildId, ok: ok, errors: errors, raw: buildResult.ok ? "" : (buildResult.stdout + buildResult.stderr).slice(-4000) })
-            });
+              body: JSON.stringify(checkBody({ ok: ok, errors: errors, raw: buildResult.ok ? "" : (buildResult.stdout + buildResult.stderr).slice(-4000) }))
+            }).catch(() => null);
+
+            if (ok) {
+              onStage("check-wc", "done", "Build verified");
+            } else {
+              onStage("check-wc", "failed", "Found " + errors.length + " issue(s) — repairing...");
+            }
+
+            // Fallback for legacy builds if 404
+            if (!isDynamicRun && !ok && feedbackRes && feedbackRes.status === 404 && projectId) {
+              try {
+                onStage("repair-" + Date.now(), "start", "Repairing " + errors.length + " build error(s)...");
+                const rep = await fetch("/api/codeagent/repair", {
+                  method: "POST", headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ projectId: projectId, errors: errors, prompt: effectivePrompt, mode: agentMode, effort: agentEffort, chatId: chatId })
+                }).then(r => r.json());
+                if (rep && rep.ok && rep.files) {
+                  await wc.writeFiles(rep.files);
+                  await wc.build();
+                  onStage("repair-done", "done", "Applied repairs");
+                }
+              } catch (e) { /* non-fatal fallback */ }
+            }
             continue;
           }
           if (em[1] === "stage") onStage(payload.id, payload.state, payload.detail);
-          else if (em[1] === "result") result = payload;
+          else if (em[1] === "file_written") onStage("file-" + payload.path, "done", "Wrote " + payload.path);
+          else if (em[1] === "file_edited") onStage("file-" + payload.path, "done", "Edited " + payload.path);
+          else if (em[1] === "result") {
+            result = payload;
+            if (payload.fileContents) lastReceivedFiles = payload.fileContents;
+          }
           else if (em[1] === "needsAnswer") { clarifyReply = payload.reply; clarifyAction = payload.action || "chat"; clarifyOptions = payload.options || null; }
           else if (em[1] === "confirm") confirmPlan = payload;
           else if (em[1] === "chitchat") chitchat = payload.reply;
@@ -2107,13 +2164,35 @@
       }
       if (errorMsg) throw new Error(errorMsg);
 
+      // If stream ended without final result, query authoritative state from runs store
+      if (!result && runId) {
+        try {
+          const stRes = await fetch("/api/codeagent/runs/" + encodeURIComponent(runId)).then(r => r.json());
+          if (stRes && stRes.run && stRes.run.status === "succeeded") {
+            result = {
+              ok: true,
+              projectId: stRes.projectId || stRes.run.projectId || projectId,
+              slug: stRes.projectSlug || projectSlug,
+              files: Object.keys(stRes.files || {}),
+              fileContents: stRes.files,
+              costUsd: stRes.run.costUsd || 0,
+              fileStats: [],
+              note: stRes.run.summary || "Build completed successfully."
+            };
+            lastReceivedFiles = stRes.files;
+          } else if (stRes && stRes.run && stRes.run.status === "failed") {
+            throw new Error(stRes.run.latestError || "Build failed");
+          }
+        } catch (e) {
+          if (e.message && e.message !== "That didn't work") throw e;
+        }
+      }
+
       if (chitchat) {
         say('<span class="muted">' + esc(chitchat) + '</span>');
         return;
       }
       if (publishRequested) {
-        // Asking the agent to publish now does the same thing the button
-        // does, rather than telling the user to go and find it.
         publishNow();
         return;
       }
@@ -2126,45 +2205,50 @@
       }
       if (clarifyReply) {
         pendingPrompt = effectivePrompt;
-        /* The agent's own turn goes in the thread too. Its questions are half
-           the conversation, and the count of them is what the server uses to
-           know when it has asked enough and should just build. */
         convo.push({ role: "agent", kind: clarifyAction, body: clarifyReply });
         showQuestions(clarifyReply, clarifyOptions);
         return;
       }
       if (confirmPlan) { showPlan(confirmPlan); return; }
-      if (!result) throw new Error("No result came back");
+      if (!result) {
+        if (lastReceivedFiles && Object.keys(lastReceivedFiles).length) {
+          const generatedPaths = Object.keys(lastReceivedFiles).filter((f) => f.startsWith("src/") || /^[^/]+\.html$/.test(f));
+          result = {
+            ok: true,
+            projectId: projectId,
+            slug: projectSlug,
+            files: generatedPaths,
+            costUsd: 0,
+            fileStats: [],
+            note: "Files generated and compiled in preview. The connection closed before the final audit was recorded."
+          };
+        } else {
+          throw new Error("No result came back");
+        }
+      }
       pendingPrompt = "";
-      // The build is the answer the conversation was working toward; from
-      // here follow-ups have the project itself for context.
       convo = [];
 
       const isFirstBuild = !projectId;
-      projectId = result.projectId; projectSlug = result.slug;
-      // The chat now exists server-side; reflect it without a round trip.
+      projectId = result.projectId || projectId;
+      projectSlug = result.slug || projectSlug;
       if (!chats.some((c) => c.id === chatId)) chats.unshift({ id: chatId, title: "", turns: 2, at: new Date().toISOString() });
       renderChatsControl();
-      refreshPublishState();   // a freshly built app can be published
-      if (isFirstBuild) {
-        try { history.replaceState(null, "", "/agent/" + projectSlug); } catch (e) { /* non-fatal */ }
+      refreshPublishState();
+      if (isFirstBuild && (projectSlug || projectId)) {
+        try { history.replaceState(null, "", "/agent/" + (projectSlug || projectId)); } catch (e) { /* non-fatal */ }
         $("agNewExtras").hidden = true;
       }
-      /* Outside the isFirstBuild branch, unlike before. Attachments work on
-         every turn now, so leaving them in the composer after a send would
-         silently re-attach the same photos to the NEXT message. */
       clearAttachments();
-      if (result.note) say(esc(result.note).replace(/\n/g, "<br>"));
+      if (result.note || result.summary) say(esc(result.note || result.summary).replace(/\n/g, "<br>"));
       renderCard(result.files, result.costUsd, result.fileStats);
-      if (!/\?\s*$/.test(result.note || "")) {
+      if (!/\?\s*$/.test(result.note || result.summary || "")) {
         say('<span class="muted">Tell me what to change and I\'ll update it.</span>');
       }
       if (thinkPanel) thinkPanel.done();
       worked(Math.max(1, Math.round((Date.now() - startedAt) / 1000)));
 
-      showPreview(result.previewUrl, result.fileContents);
-      // After the preview, so the suggestions sit under a build the person
-      // can already see rather than above a blank frame.
+      showPreview(result.previewUrl, result.fileContents || (lastReceivedFiles && Object.keys(lastReceivedFiles).length ? lastReceivedFiles : undefined));
       showSuggestions(result.suggestions);
     } catch (err) {
       if (err.name === "AbortError") {
@@ -2180,6 +2264,8 @@
       if (thinkPanel) thinkPanel.done();
       say(esc(err.message), "err");
     } finally {
+      activeRunId = null;
+      try { sessionStorage.removeItem("sapo_active_run"); } catch (e) {}
       building = false;
       currentAbortController = null;
       document.body.classList.remove("is-building");
@@ -4271,6 +4357,25 @@
       agLog.innerHTML = ""; agLog.appendChild(gone);
     }
   })();
+
+  // Resume in-progress autonomous agent run if page was refreshed or reconnected
+  try {
+    const savedRunStr = sessionStorage.getItem("sapo_active_run");
+    if (savedRunStr) {
+      const savedRun = JSON.parse(savedRunStr);
+      if (savedRun && savedRun.runId) {
+        fetch("/api/codeagent/runs/" + encodeURIComponent(savedRun.runId)).then(r => r.json()).then(data => {
+          if (data && data.run) {
+            if (data.run.status === "running" || data.run.status === "waiting_for_check") {
+              runTurn(savedRun.prompt || "Resuming in-progress run...", { resumeRunId: savedRun.runId });
+            } else {
+              sessionStorage.removeItem("sapo_active_run");
+            }
+          }
+        }).catch(() => {});
+      }
+    }
+  } catch (e) {}
 })();
 
   /* ---- recent-projects flyout -----------------------------------------

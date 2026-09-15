@@ -2591,11 +2591,15 @@ app.post("/api/projects/:key/micro-claim", microClaimLimiter, verifyCaptcha(), v
    are the next thing the model needs, and dom-snapshot.js is the original
    blank-page check — the one just rebuilt in the browser. Deleting them
    would mean writing them again. */
-const { proposeChanges, proposeWithRepair, proposeWithClientBuild, assessPrompt, buildPlan, buildCodebaseContext, buildImagesBlock, codeBudgetChars, effortFor, EFFORT, PROMPT_VERSION } = require("./lib/codeagent/model-loop");
+const { proposeChanges, proposeWithRepair, proposeWithClientBuild, repairProposal, assessPrompt, buildPlan, buildCodebaseContext, buildImagesBlock, codeBudgetChars, effortFor, EFFORT, PROMPT_VERSION } = require("./lib/codeagent/model-loop");
 const diffstat = require("./lib/codeagent/diffstat");
 const codeMemory = require("./lib/codeagent/memory");
 const codeAgentUsage = require("./lib/codeagent/usage");
 codeAgentUsage.init({ getMasterDb });
+const runStore = require("./lib/codeagent/run-store");
+const agentRunner = require("./lib/codeagent/agent-runner");
+runStore.init({ getMasterDb });
+runStore.ensureIndexes().catch(() => {});
 
 /* Ten per fifteen minutes PER ADDRESS was too tight for the thing it
    guards, and the counter it shares is the reason.
@@ -4610,6 +4614,293 @@ app.post("/api/codeagent/build-feedback", express.json({ limit: "1mb" }), (req, 
 });
 
 /**
+ * POST /api/codeagent/repair
+ * Body: { projectId, errors, prompt?, mode?, effort?, chatId? }
+ * SSE or JSON.
+ *
+ * Dedicated repair endpoint for WebContainer builds:
+ * When WebContainer in the browser detects a TypeScript compile or runtime error,
+ * it calls this endpoint directly with the structured errors.
+ * This runs a single, bounded repair turn (~25-35s) completely decoupled from
+ * the initial build's HTTP lifetime, preventing 300s serverless timeouts.
+ */
+app.post("/api/codeagent/repair", codeAgentLimiter, async (req, res) => {
+  const owner = appOwnerOf(req, res);
+  const projectId = String((req.body && req.body.projectId) || "").trim();
+  if (!projectId) return res.status(400).json({ error: "projectId required" });
+
+  const project = await resolveProject(projectId, owner);
+  if (!project) return res.status(404).json({ error: "project not found" });
+  if (!projects.owns(project, owner)) return res.status(403).json({ error: "not your project" });
+
+  const errors = Array.isArray(req.body && req.body.errors) ? req.body.errors : [];
+  if (!errors.length) return res.status(400).json({ error: "errors array required" });
+
+  const isStream = wantsStream(req);
+  if (isStream) sseOpen(res);
+
+  try {
+    if (isStream) {
+      sseFrame(res, "stage", {
+        id: "repair-" + Date.now(), state: "start",
+        detail: "Repairing " + errors.length + " build error" + (errors.length === 1 ? "" : "s") + "..."
+      });
+    }
+
+    const full = await projects.materialize(project.id);
+    const baseFiles = (full && full.files) || {};
+
+    const rawMode = String((req.body && req.body.mode) || "").toLowerCase();
+    const buildMode = (rawMode === "power" || (req.body && req.body.thinking)) ? "power" : "auto";
+    const effort = effortFor(req.body && req.body.effort, buildMode);
+
+    const repairRes = await repairProposal({
+      files: baseFiles,
+      errors: errors,
+      userPrompt: req.body && req.body.prompt,
+      mode: buildMode,
+      effort: effort.id,
+      byok: req.byok || undefined
+    });
+
+    if (!repairRes.ok || !repairRes.calls.length) {
+      const errMsg = repairRes.reason || "Unable to repair build errors automatically";
+      if (isStream) {
+        sseFrame(res, "error", { error: errMsg });
+        return res.end();
+      }
+      return res.status(500).json({ error: errMsg });
+    }
+
+    // Save repaired files as a new revision
+    const revision = await projects.addRevision(
+      project.id,
+      { files: repairRes.updatedFiles },
+      "Repaired " + errors.length + " issue" + (errors.length === 1 ? "" : "s")
+    );
+
+    const chatId = String((req.body && req.body.chatId) || "").slice(0, 40);
+    const summary = "Repaired " + repairRes.calls.length + " file" + (repairRes.calls.length === 1 ? "" : "s") + " based on compiler feedback.";
+    await projects.addTurn(project.id, {
+      role: "agent", kind: "result",
+      body: repairRes.note ? repairRes.note + "\n\n" + summary : summary,
+      revisionId: revision.id, chatId: chatId
+    });
+
+    // Merge scaffold runtime files and theme so WebContainer has full bundle
+    const filesObj = Object.assign({}, repairRes.updatedFiles);
+    for (const p of SCAFFOLD_RUNTIME_FILES) {
+      const content = scaffoldAll[p];
+      if (typeof content === "string") filesObj[p] = content;
+    }
+    const buildSeedHex = (project.meta && project.meta.seedHex) || "#0f172a";
+    const buildType = (project.meta && project.meta.buildType) || "website";
+    const buildTheme = theme.forBuild({ buildType, seedHex: buildSeedHex });
+    filesObj["tailwind.config.js"] = theme.tailwindConfig(buildTheme);
+    filesObj["__souqi_fonts__"] = theme.fontLinkTag(buildTheme);
+
+    if (isStream) {
+      sseFrame(res, "stage", { id: "repair-done", state: "done", detail: "Applied repairs" });
+      sseFrame(res, "files", { buildId: "rep-" + Date.now(), files: filesObj });
+      sseFrame(res, "result", {
+        ok: true,
+        calls: repairRes.calls,
+        repaired: true,
+        revisionId: revision.id,
+        note: repairRes.note
+      });
+      return res.end();
+    }
+
+    return res.json({
+      ok: true,
+      calls: repairRes.calls,
+      files: filesObj,
+      revisionId: revision.id,
+      note: repairRes.note
+    });
+  } catch (err) {
+    if (isStream) {
+      sseFrame(res, "error", { error: err.message || "Repair encountered an internal error" });
+      return res.end();
+    }
+    return res.status(500).json({ error: err.message || "Repair error" });
+  }
+});
+
+/**
+ * POST /api/codeagent/runs
+ * Starts an autonomous dynamic agent run. Returns 202 Accepted.
+ */
+app.post("/api/codeagent/runs", codeAgentLimiter, express.json({ limit: "1mb" }), async (req, res) => {
+  const owner = appOwnerOf(req, res);
+  const prompt = String((req.body && req.body.prompt) || "").trim();
+  if (!prompt) return res.status(400).json({ error: "prompt required" });
+
+  const existingKey = String((req.body && req.body.projectId) || "");
+  let project = null;
+  let baseFiles = {};
+  if (existingKey) {
+    project = await resolveProject(existingKey, owner);
+    if (!project) return res.status(404).json({ error: "project not found" });
+    if (!projects.owns(project, owner)) return res.status(403).json({ error: "not your project" });
+    const full = await projects.materialize(project.id);
+    baseFiles = (full && full.files) || {};
+  }
+
+  const rawMode = String((req.body && req.body.mode) || "").toLowerCase();
+  const buildMode = (rawMode === "power" || (req.body && req.body.thinking)) ? "power" : "auto";
+  const effort = effortFor(req.body && req.body.effort, buildMode);
+
+  const run = await runStore.createRun({
+    projectId: project ? project.id : null,
+    owner,
+    prompt,
+    mode: buildMode,
+    effort: effort.id,
+    baseFiles,
+    chatId: String((req.body && req.body.chatId) || "")
+  });
+
+  // Launch the autonomous agent runner in background
+  agentRunner.executeRun(run.id, {
+    history: req.body && req.body.conversation
+  }).then(async (outcome) => {
+    if (outcome && outcome.ok && outcome.files) {
+      try {
+        let p = project;
+        if (!p) {
+          p = await projects.create({
+            title: projects.titleFromPrompt(prompt),
+            prompt,
+            meta: { kind: "code", buildType: (req.body && req.body.buildType) || "website" },
+            owner
+          });
+          await runStore.updateRun(run.id, { projectId: p.id });
+        }
+        await projects.addTurn(p.id, {
+          role: "user", kind: "text", body: prompt, chatId: run.chatId
+        });
+        const rev = await projects.addRevision(
+          p.id,
+          { files: outcome.files },
+          outcome.summary || "Autonomous build completed"
+        );
+        await projects.addTurn(p.id, {
+          role: "agent", kind: "result",
+          body: outcome.summary || "Task completed",
+          fileStats: outcome.fileStats || [],
+          revisionId: rev.id, chatId: run.chatId
+        });
+      } catch (e) {
+        /* background persistence */
+      }
+    }
+  }).catch(async (err) => {
+    await runStore.updateRun(run.id, { status: "failed", latestError: err.message });
+  });
+
+  res.status(202).json({
+    runId: run.id,
+    projectId: run.projectId,
+    status: run.status
+  });
+});
+
+/**
+ * GET /api/codeagent/runs/:id
+ * Authoritative run state, progress, and current files.
+ */
+app.get("/api/codeagent/runs/:id", async (req, res) => {
+  const owner = appOwnerOf(req, res);
+  const run = await runStore.getRun(req.params.id, owner);
+  if (!run) return res.status(404).json({ error: "run not found" });
+
+  const chk = await runStore.getLatestCheckpoint(run.id);
+  let project = null;
+  if (run.projectId) {
+    try { project = await projects.get(run.projectId); } catch (e) {}
+  }
+  res.json({
+    run,
+    projectId: run.projectId,
+    projectSlug: project ? project.slug : null,
+    files: (chk && chk.files) || {},
+    fileCount: (chk && chk.fileCount) || 0
+  });
+});
+
+/**
+ * GET /api/codeagent/runs/:id/events
+ * SSE stream with event replay (?after=N) and live heartbeats.
+ */
+app.get("/api/codeagent/runs/:id/events", async (req, res) => {
+  const owner = appOwnerOf(req, res);
+  const run = await runStore.getRun(req.params.id, owner);
+  if (!run) return res.status(404).json({ error: "run not found" });
+
+  sseOpen(res);
+
+  let lastSeq = Number(req.query.after) || 0;
+  // Send replay of existing events
+  const existing = await runStore.getEvents(run.id, lastSeq);
+  for (const ev of existing) {
+    sseFrame(res, ev.type, Object.assign({}, ev.payload, { seq: ev.seq }));
+    if (ev.seq > lastSeq) lastSeq = ev.seq;
+  }
+
+  // Poll for new events until run reaches a terminal state or client disconnects
+  const pollInterval = setInterval(async () => {
+    if (res.writableEnded) {
+      clearInterval(pollInterval);
+      return;
+    }
+    try {
+      const fresh = await runStore.getEvents(run.id, lastSeq);
+      for (const ev of fresh) {
+        sseFrame(res, ev.type, Object.assign({}, ev.payload, { seq: ev.seq }));
+        if (ev.seq > lastSeq) lastSeq = ev.seq;
+      }
+      const cur = await runStore.getRun(run.id, owner);
+      if (cur && (cur.status === "succeeded" || cur.status === "failed" || cur.status === "cancelled")) {
+        clearInterval(pollInterval);
+        res.end();
+      } else {
+        res.write(": ping\n\n");
+      }
+    } catch (e) {
+      clearInterval(pollInterval);
+      res.end();
+    }
+  }, 1000);
+
+  req.on("close", () => {
+    clearInterval(pollInterval);
+  });
+});
+
+/**
+ * POST /api/codeagent/runs/:id/check-result
+ * Receives WebContainer compiler/render feedback and unblocks the agent runner.
+ */
+app.post("/api/codeagent/runs/:id/check-result", express.json({ limit: "1mb" }), async (req, res) => {
+  const ok = agentRunner.reportCheckResult(req.params.id, req.body);
+  if (!ok) return res.status(404).json({ error: "no pending check waiter for this run" });
+  res.json({ received: true });
+});
+
+/**
+ * POST /api/codeagent/runs/:id/cancel
+ * Halts an active run.
+ */
+app.post("/api/codeagent/runs/:id/cancel", async (req, res) => {
+  const owner = appOwnerOf(req, res);
+  const ok = await runStore.cancelRun(req.params.id, owner, req.body && req.body.reason);
+  if (!ok) return res.status(400).json({ error: "could not cancel run (already finished or not found)" });
+  res.json({ cancelled: true });
+});
+
+/**
  * POST /api/codeagent/build
  * Body: { prompt, projectId? }   SSE only.
  *
@@ -5389,7 +5680,11 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
              exceed three minutes; it just cannot outlive the turn either,
              and 15s is kept in hand so the loop gets the timeout as a
              RESULT rather than having the platform take the process. */
-          const buildWaitMs = Math.max(20000, Math.min(180000, turnDeadlineAt - Date.now() - 15000));
+          const msLeft = turnDeadlineAt - Date.now() - 15000;
+          if (msLeft <= 5000) {
+            return { ok: false, infra: true, errors: [{ file: "", line: 0, col: 0, code: "DEADLINE", message: "Turn deadline reached before browser build feedback." }], raw: "" };
+          }
+          const buildWaitMs = Math.min(180000, msLeft);
           return new Promise((resolve) => {
             const timer = setTimeout(() => {
               pendingBuildResults.delete(buildId);
