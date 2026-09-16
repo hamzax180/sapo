@@ -4822,6 +4822,25 @@ app.post("/api/codeagent/runs", codeAgentLimiter, express.json({ limit: "1mb" })
         return res.status(200).json({ chitchat: fallback });
       }
     }
+
+    // 3. For fresh builds (no project yet): run assessPrompt to detect questions/clarifications before building
+    if (!project) {
+      try {
+        const convo = Array.isArray(req.body && req.body.conversation) ? req.body.conversation.slice(-12) : [];
+        const assessment = await assessPrompt(prompt, { history: convo });
+        if (assessment && !assessment.clear) {
+          if (assessment.action === "ask") {
+            return res.status(200).json({
+              needsAnswer: assessment.reply,
+              options: Array.isArray(assessment.options) ? assessment.options : undefined
+            });
+          }
+          return res.status(200).json({ chitchat: assessment.reply });
+        }
+      } catch (e) {
+        console.warn("[runs guard] assessPrompt check skipped:", e.message);
+      }
+    }
   }
 
   // If there is no existing project and this is a real build request, pre-create the project

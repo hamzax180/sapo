@@ -143,30 +143,55 @@ function reportCheckResult(runId, checkResult) {
 }
 
 /**
- * Detects whether a prompt is an informational question or explanation request
- * rather than a directive to build or edit code.
+ * Detects whether a prompt is an informational question, feedback, compliment,
+ * or conversational remark rather than an imperative directive to build or edit code.
  */
 function isQuestionOrConversational(prompt) {
   if (!prompt || typeof prompt !== "string") return false;
   const p = prompt.trim().toLowerCase();
 
-  // If asking to perform an action (e.g. "add ...", "make ...", "fix the ..."), it's an edit request
-  // But allow questions asking about past actions: "why did you fix", "what did you add", "what was the error", "why did you change"
-  const pastActionQuestion = /\b(why (?:did|have|u|you)|what (?:did|have|was|were)|how (?:did|have|come)|explain (?:what|why|how))\b/i;
-  if (!pastActionQuestion.test(p)) {
-    const actionVerbs = /\b(add|create|make|build|change|update|fix|remove|delete|replace|style|implement|set|put|rewrite|redesign|insert|switch)\b/i;
-    if (actionVerbs.test(p)) return false;
+  // 1. Definite imperative build / edit directives:
+  // Starts with command verbs like "build a ...", "create an ...", "make a ...", "add a button", etc.
+  const isDirectCommand = /^(please\s+)?(build|create|make|add|generate|implement|design|write|code|develop)\s+(a|an|the|me|some|new)\b/i.test(p) ||
+    /^(please\s+)?(change|update|fix|remove|delete|replace|style|rewrite|redesign)\s+(the|a|an|this|all|my)\b/i.test(p);
+  if (isDirectCommand) return false;
+
+  // 2. Casual conversational remarks, compliments, reactions:
+  // e.g. "you know when to build and when not now , wow", "wow", "haha", "nice job", "you are smart"
+  const casualChat = /\b(you know|you understand|you got it|impressive|smart|genius|cool|awesome|great|haha|lol|lmao|omg|good job|well done|thank you|thanks|thx|nice|wow|super|amazing)\b/i;
+  if (casualChat.test(p)) return true;
+
+  // 3. Questions about capabilities, questions starting with auxiliary verbs:
+  // "can you...", "could you...", "do you...", "are you...", "will you...", "is it..."
+  if (/^(can you|could you|would you|do you|are you|will you|should you|is it|is there)\b/i.test(p)) {
+    if (!/\b(can you|could you|please)\s+(build|create|make|add|generate|write)\s+(a|an|the|me)\b/i.test(p)) {
+      return true;
+    }
   }
 
+  // 4. Questions: why, what, how, where, who, when, which, or ending with '?'
   const questionPatterns = [
     /^(why|what|how|where|when|who|which)\b/i,
-    /\b(why u|why did you|why'd you|why was|why is|why does|why it)\b/i,
-    /\b(what was|what went wrong|what happened|what changed|what did you)\b/i,
+    /\b(why u|why did you|why'd you|why was|why is|why does|why it|how come|how do you)\b/i,
+    /\b(what was|what went wrong|what happened|what changed|what did you|what can you)\b/i,
     /\b(explain|tell me|walk me through|can you explain|could you explain)\b/i,
     /\?$/
   ];
+  if (questionPatterns.some((pattern) => pattern.test(p))) {
+    if (!/^(add|create|make|build|change|update|fix)\s+(a|an|the)\b/i.test(p)) {
+      return true;
+    }
+  }
 
-  return questionPatterns.some((pattern) => pattern.test(p));
+  // 5. Short conversational expressions or greetings
+  const conversationalPhrases = [
+    /^(hello|hi|hey|greetings|howdy|sup|yo)\b/i,
+    /\b(how are you|how r u|how are u|how you doing|whats up|what's up)\b/i,
+    /\b(who are you|what are you|what is your name)\b/i
+  ];
+  if (conversationalPhrases.some((pattern) => pattern.test(p))) return true;
+
+  return false;
 }
 
 /**
