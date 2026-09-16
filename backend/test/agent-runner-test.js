@@ -358,6 +358,45 @@ async function check(name, fn) {
     assert.ok(!toolsOffered.some(t => t.function && (t.function.name === "write_file" || t.function.name === "edit_file")));
   });
 
+  await check("agentRunner treats 'build when i tell you build' as conversational", async () => {
+    let toolsOffered = null;
+    const fetchStub = async (_url, init) => {
+      const body = JSON.parse(init.body);
+      toolsOffered = body.tools;
+      return {
+        ok: true,
+        json: async () => ({
+          choices: [{
+            message: {
+              role: "assistant",
+              content: "Understood! I will only build when you tell me to. What would you like to plan?"
+            }
+          }]
+        })
+      };
+    };
+
+    client.init({
+      enabled: true,
+      routes: { json: { baseUrl: "http://mock", key: "mock-key", model: "mock-model" } },
+      fetchImpl: fetchStub
+    });
+
+    const run = await runStore.createRun({
+      projectId: "proj_meta",
+      owner,
+      prompt: "build when i tell you build",
+      mode: "auto",
+      effort: "smart",
+      baseFiles: {}
+    });
+
+    const outcome = await agentRunner.executeRun(run.id);
+    assert.strictEqual(outcome.ok, true);
+    assert.strictEqual(outcome.summary, "Understood! I will only build when you tell me to. What would you like to plan?");
+    assert.ok(!toolsOffered.some(t => t.function && (t.function.name === "write_file" || t.function.name === "edit_file")));
+  });
+
   console.log("\n" + (failed === 0 ? "✓ ALL AGENT-RUNNER TESTS PASSED (" + passed + ")" : "✗ " + failed + " FAILED, " + passed + " passed"));
   process.exit(failed === 0 ? 0 : 1);
 })();

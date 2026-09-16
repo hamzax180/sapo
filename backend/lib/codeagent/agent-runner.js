@@ -156,9 +156,9 @@ function isQuestionOrConversational(prompt) {
     /^(please\s+)?(change|update|fix|remove|delete|replace|style|rewrite|redesign)\s+(the|a|an|this|all|my)\b/i.test(p);
   if (isDirectCommand) return false;
 
-  // 2. Disclaimers, corrections, or telling the agent not to build or to wait:
-  // e.g. "i didnt say build yet", "don't build yet", "wait", "hold on", "not yet", "stop", "i never said build"
-  const stopOrCorrection = /\b(didn'?t say|don'?t build|never said|not yet|wait|hold on|stop|not now|why are you building|i didn'?t ask|i haven'?t|no wait|dont build)\b/i;
+  // 2. Disclaimers, corrections, or telling the agent when to build or not to build:
+  // e.g. "build when i tell you build", "i didnt say build yet", "don't build yet", "wait", "hold on", "not yet", "stop", "i never said build"
+  const stopOrCorrection = /\b(didn'?t say|don'?t build|never said|not yet|wait|hold on|stop|not now|why are you building|i didn'?t ask|i haven'?t|no wait|dont build|tell you build|when i tell|only when i|build when i|build after|tell you to build)\b/i;
   if (stopOrCorrection.test(p)) return true;
 
   // 3. Conversational statements starting with personal pronouns/opinions that are not build commands

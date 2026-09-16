@@ -1913,6 +1913,8 @@
     const handles = {};
     let thinkPanel = null;
     let filesSeen = 0;
+    let result = null;
+    let lastReceivedFiles = null;
 
     // For follow-up edits, keep the existing preview visible — don't
     // cover it with the full boot screen. Only show boot on fresh builds.
@@ -2109,8 +2111,9 @@
 
       const reader = streamRes.body.getReader();
       const decoder = new TextDecoder();
-      let buf = "", errorMsg = "", result = null, clarifyReply = null, clarifyAction = "chat", clarifyOptions = null, chitchat = null, gate = null, publishRequested = false, confirmPlan = null;
-      let lastReceivedFiles = null;
+      let buf = "", errorMsg = "", clarifyReply = null, clarifyAction = "chat", clarifyOptions = null, chitchat = null, gate = null, publishRequested = false, confirmPlan = null;
+      result = null;
+      lastReceivedFiles = null;
       let lastSeq = 0;
 
       for (;;) {
