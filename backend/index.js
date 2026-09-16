@@ -4773,20 +4773,23 @@ function getConversationalFallback(prompt) {
   if (/^(idk|i don'?t know|not sure|dunno|no idea|have no idea|ideas?|suggest|what should i build)/i.test(p)) {
     return "No worries at all! We could build a sleek personal portfolio, a local cafe website, an interactive task dashboard, or a mini-game. What kind of app sounds interesting to you?";
   }
-  if (/^(s|a|z|x|d|c|asdf|qwerty|zzz+|hhh+)$/i.test(p) || (p.length <= 2 && !/^(ai|ui|ux|db|vr|ar|os|2d|3d)$/i.test(p))) {
-    return "Looks like an accidental keystroke or typo! Let me know what you'd like to work on whenever you're ready.";
+  if (/^(ok|okay|k|kk|sure|got it|sounds good|alright|fine|yes|yep|yeah)$/i.test(p)) {
+    return "Sounds good! Whenever you're ready, let me know what kind of app or feature you'd like to build.";
+  }
+  if (/\b(you know|you understand|smart|impressive|genius|cool|awesome|nice|wow|haha|lol|lmao|good job|well done)\b/i.test(p)) {
+    return "Haha, thanks! I'm ready whenever you want to start building something.";
   }
   if (/\b(didn'?t say|don'?t build|never said|not yet|wait|hold on|stop|not now|tell you to build|build when i)\b/i.test(p)) {
     return "Got it, totally my bad! I'll hold off until you give the word. What would you like to plan or discuss first?";
-  }
-  if (/\b(you know|smart|impressive|genius|cool|awesome|nice|wow|haha|lol|lmao)\b/i.test(p)) {
-    return "Haha, thanks! I'm ready whenever you want to start building something.";
   }
   if (/\b(how are you|how r u|how are u|how you doing|what's up|whats up)\b/i.test(p)) {
     return "I'm doing great, thanks for asking! What kind of project are you thinking of creating today?";
   }
   if (/^(hello|hi|hey|greetings|howdy|sup|yo|gm|gn)\b/i.test(p)) {
     return "Hey there! Ready to create something cool, or want to bounce some ideas around first?";
+  }
+  if (/^(s|a|z|x|d|c|asdf|qwerty|zzz+|hhh+)$/i.test(p) || (p.length <= 2 && !/^(ai|ui|ux|db|vr|ar|os|2d|3d)$/i.test(p))) {
+    return "Looks like an accidental keystroke or typo! Let me know what you'd like to work on whenever you're ready.";
   }
   return "Sounds good! Whenever you're ready, let me know what kind of app or feature you'd like to build.";
 }
