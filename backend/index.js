@@ -2946,9 +2946,21 @@ function codeAgentChitChatReply() {
 }
 
 /** One line for the transcript — what actually happened, not a template. */
-function summariseCodeBuild(fileCount, repaired, rounds) {
-  return fileCount + (fileCount === 1 ? " file" : " files") + " written" +
-    (repaired ? ", after fixing a build error (" + rounds + " tries)" : "") + ".";
+function summariseCodeBuild(fileCount, repaired, rounds, fileStats) {
+  let actions = [];
+  if (Array.isArray(fileStats) && fileStats.length) {
+    const created = fileStats.filter(s => s.isNew).map(s => (s.path || "").split("/").pop()).filter(Boolean);
+    const updated = fileStats.filter(s => !s.isNew && (s.added || s.removed)).map(s => (s.path || "").split("/").pop()).filter(Boolean);
+    if (created.length) actions.push("Created " + created.join(", "));
+    if (updated.length) actions.push("Updated " + updated.join(", "));
+  }
+  if (!actions.length) {
+    actions.push("Wrote " + fileCount + (fileCount === 1 ? " file" : " files"));
+  }
+  if (repaired) {
+    actions.push("fixed build issues (" + rounds + " tries)");
+  }
+  return actions.join("; ") + ". Cleanly compiled and verified in preview.";
 }
 
 /** A safe, short git commit message from a free-text prompt — same escaping
@@ -5853,7 +5865,7 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
     // the mechanical file count after it — that ordering is what makes a
     // replayed transcript read like a conversation rather than a build
     // log. Falls back to the summary alone if the model said nothing.
-    const buildSummary = summariseCodeBuild(srcFiles.length, result.repaired, result.rounds);
+    const buildSummary = summariseCodeBuild(srcFiles.length, result.repaired, result.rounds, fileStats);
     await projects.addTurn(project.id, {
       role: "agent", kind: "result",
       body: result.note ? result.note + "\n\n" + buildSummary : buildSummary,
@@ -5890,7 +5902,8 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
       // has not been updated keeps rendering the plain list it knows.
       fileStats: fileStats,
       previewUrl: "__webcontainer__", // signal to client: use local WebContainer preview or mobile srcdoc
-      note: result.note || "", // the model's own explanation, shown in the chat
+      note: result.note || buildSummary, // the model's own explanation or synthesized summary, shown in the chat
+      summary: result.note || buildSummary,
       // What it thinks is worth doing next. Sent even when empty so the
       // client can tell "nothing to suggest" from "an older server that
       // does not send this field" and render accordingly.

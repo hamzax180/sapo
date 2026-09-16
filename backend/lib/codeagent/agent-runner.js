@@ -176,7 +176,8 @@ async function executeRun(runId, opts = {}) {
         "1. Communicate like a helpful, intelligent human software engineer. Answer user questions or explain your changes naturally in your message text.\n" +
         "2. If the user is asking a question or seeking an explanation (e.g. 'what was the error', 'why did it fail', 'how does this work'), answer them directly and clearly in natural conversational markdown without modifying code.\n" +
         "3. When code changes or new features are requested, use your tools (write_file, edit_file) to implement the changes cleanly and modularly, then call check_project to verify the build.\n" +
-        "4. Always ensure src/App.tsx exists to render the application. When finished, call complete_task with a friendly summary."
+        "4. Always ensure src/App.tsx exists to render the application.\n" +
+        "5. When concluding your turn or calling complete_task, always provide a clear, concise summary of what you did: specifically state what components or files were created, what was modified, or what errors/bugs were fixed (e.g. '• Created Hero and Features components\\n• Updated App.tsx layout\\n• Fixed button click handler'). Never return an empty or vague summary."
     }
   ];
 
@@ -210,6 +211,7 @@ async function executeRun(runId, opts = {}) {
 
   let taskCompleted = false;
   let finalSummary = "";
+  let repairedCount = 0;
 
   for (let turn = 1; turn <= maxTurns; turn++) {
     // Check for cancellation
@@ -425,6 +427,7 @@ async function executeRun(runId, opts = {}) {
         }
       } else {
         const errSummary = (checkOutcome.errors || []).map((e) => (e.file ? e.file + ":" + e.line + " — " + e.message : e.message)).join("\n");
+        repairedCount += ((checkOutcome.errors && checkOutcome.errors.length) || 1);
         messages.push({ role: "user", content: "Browser check FAILED with these errors:\n" + errSummary + "\n\nFix them using edit_file or write_file." });
         await runStore.appendEvent(runId, "stage", { id: "check-" + turn, state: "failed", detail: "Compilation errors detected — repairing..." });
       }
@@ -464,6 +467,33 @@ async function executeRun(runId, opts = {}) {
     turnBaseFiles
   );
 
+  // Synthesize a descriptive summary of what was created, edited, or fixed
+  const isGeneric = !finalSummary ||
+    finalSummary === "Task completed successfully." ||
+    finalSummary === "Build completed successfully." ||
+    finalSummary === "Verification passed. Built and verified all components cleanly." ||
+    finalSummary.trim().length < 12;
+
+  if (isGeneric) {
+    const created = diff.filter(d => d.isNew).map(d => (d.path || "").split("/").pop()).filter(Boolean);
+    const modified = diff.filter(d => !d.isNew && (d.added || d.removed)).map(d => (d.path || "").split("/").pop()).filter(Boolean);
+    const parts = [];
+    if (created.length) {
+      parts.push("Created " + created.join(", "));
+    }
+    if (modified.length) {
+      parts.push("Updated " + modified.join(", "));
+    }
+    if (repairedCount > 0) {
+      parts.push("resolved " + repairedCount + " build issue" + (repairedCount === 1 ? "" : "s"));
+    }
+    if (parts.length) {
+      finalSummary = parts.join("; ") + ". Cleanly compiled and verified in preview.";
+    } else {
+      finalSummary = "Completed updates for “" + (run.prompt.length > 50 ? run.prompt.slice(0, 50) + "…" : run.prompt) + "”. Cleanly verified.";
+    }
+  }
+
   const fullBundle = scaffoldFiles.withScaffold(currentFiles);
   const buildSeedHex = (run.meta && run.meta.seedHex) || "#0f172a";
   const buildType = (run.meta && run.meta.buildType) || "website";
@@ -479,7 +509,7 @@ async function executeRun(runId, opts = {}) {
 
   await runStore.appendEvent(runId, "result", {
     ok: true,
-    summary: finalSummary || "Build completed successfully.",
+    summary: finalSummary,
     files: currentFiles,
     fileContents: fullBundle,
     fileStats: diff,

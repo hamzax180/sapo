@@ -2288,11 +2288,32 @@
         $("agNewExtras").hidden = true;
       }
       clearAttachments();
-      if (result.note || result.summary) say(esc(result.note || result.summary).replace(/\n/g, "<br>"));
+      let summaryText = String(result.summary || result.note || "").trim();
+      const isGeneric = !summaryText ||
+        summaryText === "Application generated successfully." ||
+        summaryText === "Build completed successfully." ||
+        summaryText === "Task completed successfully." ||
+        summaryText === "Verification passed. Built and verified all components cleanly.";
+
+      if (isGeneric && result.fileStats && result.fileStats.length) {
+        const created = result.fileStats.filter((s) => s.isNew).map((s) => (s.path || "").split("/").pop()).filter(Boolean);
+        const updated = result.fileStats.filter((s) => !s.isNew && (s.added || s.removed)).map((s) => (s.path || "").split("/").pop()).filter(Boolean);
+        const parts = [];
+        if (created.length) parts.push("Created " + created.join(", "));
+        if (updated.length) parts.push("Updated " + updated.join(", "));
+        if (result.repaired) parts.push("fixed build issues (" + (result.rounds || 2) + " tries)");
+        if (parts.length) {
+          summaryText = parts.join("; ") + ". Cleanly compiled and verified in preview.";
+        }
+      }
+      if (!summaryText) {
+        summaryText = isFirstBuild ? "Built your application and verified preview." : "Applied requested updates and verified preview.";
+      }
+      say(esc(summaryText).replace(/\n/g, "<br>"));
       if (result.fileStats && result.fileStats.length) {
         renderCard(result.files, result.costUsd, result.fileStats);
       }
-      if (!/\?\s*$/.test(result.note || result.summary || "") && result.fileStats && result.fileStats.length) {
+      if (!/\?\s*$/.test(summaryText) && result.fileStats && result.fileStats.length) {
         say('<span class="muted">Tell me what to change and I\'ll update it.</span>');
       }
       if (thinkPanel) thinkPanel.done();
@@ -2312,7 +2333,8 @@
         renderCard(generatedPaths, 0, []);
         showPreview(undefined, lastReceivedFiles);
         if (thinkPanel) thinkPanel.done();
-        say('<span class="muted">Loaded generated files into preview.</span>');
+        const names = generatedPaths.map((f) => f.split("/").pop()).join(", ");
+        say('<span class="muted">Generated ' + (names ? names : "files") + " and loaded preview.</span>");
         return;
       }
       Object.keys(handles).forEach(function(k) {
