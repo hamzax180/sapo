@@ -216,7 +216,6 @@ async function executeRun(runId, opts = {}) {
     const callOpts = {
       route: "json",
       tools: DYNAMIC_TOOLS_SCHEMA,
-      toolChoice: (!taskCompleted && !hasEntry) ? "required" : "auto",
       model: isPower ? process.env.AI_JSON_POWER_MODEL : undefined,
       maxTokens: effort.id === "max" ? 5000 : effort.id === "smart" ? 4000 : 2500,
       temperature: 0.3,
@@ -238,6 +237,39 @@ async function executeRun(runId, opts = {}) {
     const toolCalls = assistantMsg.tool_calls || [];
 
     if (!toolCalls.length) {
+      // Check if the model wrote code blocks directly in markdown text
+      const codeBlockRe = /```(?:[a-zA-Z0-9_-]+)?\s*(?:\/\/\s*([a-zA-Z0-9_\-\.\/]+))?\n([\s\S]*?)```/g;
+      let match;
+      let extractedAny = false;
+      while ((match = codeBlockRe.exec(assistantMsg.content || "")) !== null) {
+        let path = match[1];
+        const code = match[2];
+        if (!path) {
+          const firstLine = (code.split("\n")[0] || "").trim();
+          const pathMatch = /(?:\/\/\s*|\/\*\s*)([a-zA-Z0-9_\-\.\/]+\.[a-zA-Z0-9]+)/.exec(firstLine);
+          if (pathMatch) path = pathMatch[1].trim();
+          else if (!hasEntry) path = "src/App.tsx";
+        }
+        if (path && code.trim()) {
+          path = path.trim().replace(/^[\\\/]+/, "");
+          if (!path.startsWith("src/") && !path.endsWith(".html")) path = "src/" + path;
+          currentFiles[path] = code;
+          await runStore.appendEvent(runId, "file_written", { path, bytes: code.length });
+          await runStore.appendEvent(runId, "stage", { id: "file-" + path, state: "done", detail: "Wrote " + path });
+          extractedAny = true;
+        }
+      }
+      if (extractedAny) {
+        await runStore.saveCheckpoint(runId, currentFiles, "Step " + turn + " code updates");
+        await runStore.appendEvent(runId, "stage", { id: "turn-" + turn, state: "done", detail: "Step " + turn + " completed" });
+        if (currentFiles["src/App.tsx"]) {
+          taskCompleted = true;
+          finalSummary = "Created application components and src/App.tsx.";
+          break;
+        }
+        continue;
+      }
+
       // Natural text response without tools — could be finishing or a question
       if (/done|finished|completed|here is the app/i.test(assistantMsg.content || "")) {
         if (hasEntry) {
