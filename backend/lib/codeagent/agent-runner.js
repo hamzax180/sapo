@@ -162,6 +162,8 @@ async function executeRun(runId, opts = {}) {
   const maxTurns = effort.id === "fast" ? 5 : effort.id === "balanced" ? 8 : effort.id === "smart" ? 12 : 16;
 
   let totalCostUsd = 0;
+  const hasExistingApp = !!currentFiles["src/App.tsx"] || !!currentFiles["index.html"];
+
   let messages = [
     {
       role: "system",
@@ -171,10 +173,10 @@ async function executeRun(runId, opts = {}) {
           ? "You are in Fast mode: solve the task cleanly in as few tool calls as possible. Write the essential files directly.\n"
           : "You have full autonomy to inspect files (`list_files`, `read_file`, `search_code`), create or edit files modularly (`write_file`, `edit_file`), and verify your work (`check_project`).\n") +
         "CRITICAL EXECUTION RULES:\n" +
-        "1. DO NOT output conversational text, explanations, or commentary in message text. Every response MUST invoke one or more tools.\n" +
-        "2. Call write_file immediately to create the necessary components and src/App.tsx. You can invoke multiple write_file calls in a single turn.\n" +
-        "3. Always ensure src/App.tsx exists to import and render your components.\n" +
-        "4. When finished, call check_project to verify the build, then call complete_task."
+        "1. Communicate like a helpful, intelligent human software engineer. Answer user questions or explain your changes naturally in your message text.\n" +
+        "2. If the user is asking a question or seeking an explanation (e.g. 'what was the error', 'why did it fail', 'how does this work'), answer them directly and clearly in natural conversational markdown without modifying code.\n" +
+        "3. When code changes or new features are requested, use your tools (write_file, edit_file) to implement the changes cleanly and modularly, then call check_project to verify the build.\n" +
+        "4. Always ensure src/App.tsx exists to render the application. When finished, call complete_task with a friendly summary."
     }
   ];
 
@@ -193,10 +195,18 @@ async function executeRun(runId, opts = {}) {
     messages.push({ role: "user", content: codebaseCtx.text });
   }
 
-  messages.push({
-    role: "user",
-    content: "Task: " + run.prompt + "\n\nBegin by creating the required components and src/App.tsx using write_file."
-  });
+  if (hasExistingApp) {
+    messages.push({
+      role: "user",
+      content: "User message: " + run.prompt +
+        "\n\nIf the user is asking a question (such as asking about previous errors, what you did, or how code works), answer them conversationally in your response text. If they are asking for changes or new features, use your tools to make the changes and verify them."
+    });
+  } else {
+    messages.push({
+      role: "user",
+      content: "Task: " + run.prompt + "\n\nBegin by creating the required components and src/App.tsx using write_file."
+    });
+  }
 
   let taskCompleted = false;
   let finalSummary = "";
@@ -275,29 +285,26 @@ async function executeRun(runId, opts = {}) {
         continue;
       }
 
-      // Natural text response without tools — could be finishing or a question
-      if (/done|finished|completed|here is the app/i.test(assistantMsg.content || "")) {
-        if (hasEntry) {
-          taskCompleted = true;
-          finalSummary = assistantMsg.content || "Task completed.";
-          await runStore.appendEvent(runId, "stage", { id: "turn-" + turn, state: "done", detail: "Step " + turn + " completed" });
-          break;
-        } else {
-          messages.push({
-            role: "user",
-            content: "You must create src/App.tsx so the application can render. Invoke write_file now."
-          });
-          await runStore.appendEvent(runId, "stage", { id: "turn-" + turn, state: "done", detail: "Step " + turn + " completed" });
-          continue;
-        }
+      // Natural text response without tools — could be answering a question or providing a summary
+      if (hasEntry && assistantMsg.content && assistantMsg.content.trim()) {
+        taskCompleted = true;
+        finalSummary = assistantMsg.content.trim();
+        await runStore.appendEvent(runId, "stage", {
+          id: "turn-" + turn,
+          state: "done",
+          detail: "Answered: " + (finalSummary.length > 50 ? finalSummary.slice(0, 50) + "…" : finalSummary)
+        });
+        break;
       }
-      // Ask model to proceed with tools immediately
-      messages.push({
-        role: "user",
-        content: "Do not reply with conversational text. Invoke write_file now to create " + (hasEntry ? "the remaining components or check_project." : "src/App.tsx to mount the application.")
-      });
-      await runStore.appendEvent(runId, "stage", { id: "turn-" + turn, state: "done", detail: "Step " + turn + " completed" });
-      continue;
+
+      if (!hasEntry) {
+        messages.push({
+          role: "user",
+          content: "You must create src/App.tsx so the application can render. Invoke write_file now."
+        });
+        await runStore.appendEvent(runId, "stage", { id: "turn-" + turn, state: "done", detail: "Step " + turn + " completed" });
+        continue;
+      }
     }
 
     // Execute tool calls in order
@@ -371,7 +378,7 @@ async function executeRun(runId, opts = {}) {
           toolResults.push({ role: "tool", tool_call_id: tc.id, content: "Error: Cannot complete task yet. src/App.tsx does not exist. Please write src/App.tsx using write_file to import and display your components before completing." });
         } else {
           taskCompleted = true;
-          finalSummary = args.summary || "Task completed successfully.";
+          finalSummary = args.summary || assistantMsg.content || "Task completed successfully.";
           toolResults.push({ role: "tool", tool_call_id: tc.id, content: "Task marked complete." });
         }
       } else {

@@ -196,6 +196,41 @@ async function check(name, fn) {
     assert.strictEqual(outcome.cancelled, true);
   });
 
+  await check("agentRunner answers conversational inquiry without tools when app already exists", async () => {
+    const fetchStub = async () => ({
+      ok: true,
+      json: async () => ({
+        choices: [{
+          message: {
+            role: "assistant",
+            content: "The previous error was a missing import of Button component in src/App.tsx."
+          }
+        }]
+      })
+    });
+
+    client.init({
+      enabled: true,
+      routes: { json: { baseUrl: "http://mock", key: "mock-key", model: "mock-model" } },
+      fetchImpl: fetchStub
+    });
+
+    const run = await runStore.createRun({
+      projectId: "proj_123",
+      owner,
+      prompt: "what was the error",
+      mode: "auto",
+      effort: "smart",
+      baseFiles: { "src/App.tsx": "export default function App() { return null; }" }
+    });
+
+    const outcome = await agentRunner.executeRun(run.id);
+    assert.strictEqual(outcome.ok, true);
+    assert.strictEqual(outcome.summary, "The previous error was a missing import of Button component in src/App.tsx.");
+    const finalRun = await runStore.getRun(run.id, owner);
+    assert.strictEqual(finalRun.status, "succeeded");
+  });
+
   console.log("\n" + (failed === 0 ? "✓ ALL AGENT-RUNNER TESTS PASSED (" + passed + ")" : "✗ " + failed + " FAILED, " + passed + " passed"));
   process.exit(failed === 0 ? 0 : 1);
 })();

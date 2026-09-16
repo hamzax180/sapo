@@ -2266,8 +2266,10 @@
       }
       clearAttachments();
       if (result.note || result.summary) say(esc(result.note || result.summary).replace(/\n/g, "<br>"));
-      renderCard(result.files, result.costUsd, result.fileStats);
-      if (!/\?\s*$/.test(result.note || result.summary || "")) {
+      if (result.fileStats && result.fileStats.length) {
+        renderCard(result.files, result.costUsd, result.fileStats);
+      }
+      if (!/\?\s*$/.test(result.note || result.summary || "") && result.fileStats && result.fileStats.length) {
         say('<span class="muted">Tell me what to change and I\'ll update it.</span>');
       }
       if (thinkPanel) thinkPanel.done();
