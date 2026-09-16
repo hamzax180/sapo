@@ -1442,7 +1442,8 @@
     const wrap = el("ag-thinking");
     wrap.innerHTML =
       '<button class="ag-th-head" type="button">' +
-        '<span class="ag-th-dot"></span><span class="ag-th-label">Thinking</span>' +
+        '<span class="ag-th-gemini" aria-hidden="true"><span class="g-dot g-dot-1"></span><span class="g-dot g-dot-2"></span><span class="g-dot g-dot-3"></span></span>' +
+        '<span class="ag-th-label">Thinking</span>' +
         '<span class="ag-th-time">0s</span>' +
         '<svg class="ag-th-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>' +
       '</button><div class="ag-th-body"></div>';
@@ -1515,7 +1516,13 @@
     queueSettle(function () { firstStep.done(); });
 
     const t0 = Date.now();
-    const clockTimer = setInterval(() => { timeEl.textContent = Math.round((Date.now() - t0) / 1000) + "s"; }, 500);
+    const clockTimer = setInterval(() => {
+      const elapsed = Math.round((Date.now() - t0) / 1000);
+      if (timeEl) timeEl.textContent = elapsed + "s";
+      if (elapsed >= 3 && !wrap.classList.contains("taking-longer")) {
+        wrap.classList.add("taking-longer");
+      }
+    }, 500);
 
     return {
       /* The header mirrors the newest step. Collapsed - which is most of the
@@ -1540,6 +1547,7 @@
         // Before anything else: a turn that is over cannot still be ticking.
         flushSettles();
         clearInterval(clockTimer);
+        wrap.classList.remove("taking-longer");
         const secs = Math.max(1, Math.round((Date.now() - t0) / 1000));
         wrap.classList.add("done");
         labelEl.textContent = "Thought for " + secs + (secs === 1 ? " second" : " seconds");

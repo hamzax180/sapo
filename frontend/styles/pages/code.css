@@ -427,41 +427,7 @@
      being a number. */
   :root{--th-beat:2.6s}
 
-  /* .7, not .62: at 11px a dot that shrinks to two-thirds is visibly
-     jumping. The bigger it is, the less distance it needs to read as
-     breathing. */
-  @keyframes agBreathe{
-    0%,100%{transform:scale(.7);opacity:.34}
-    50%    {transform:scale(1);opacity:1}
-  }
 
-  #agLog:has(.ag-thinking:not(.done)) .ag-say:not(:has(~ .ag-say)){
-    padding-left:29px}
-  #agLog:has(.ag-thinking:not(.done)) .ag-say:not(:has(~ .ag-say))::before{
-    content:"";position:absolute;left:4px;top:13px;width:11px;height:11px;
-    border-radius:50%;background:var(--accent);
-    /* The ring is a shadow rather than a second element, and it scales with
-       the dot — so the glow breathes with it instead of sitting still
-       around something that moves. */
-    box-shadow:0 0 0 5px color-mix(in srgb,var(--accent) 14%,transparent);
-    animation:agBreathe var(--th-beat) cubic-bezier(.45,0,.55,1) infinite}
-
-  @media (max-width:900px){
-    #agLog:has(.ag-thinking:not(.done)) .ag-say:not(:has(~ .ag-say)){
-      padding-left:25px}
-    #agLog:has(.ag-thinking:not(.done)) .ag-say:not(:has(~ .ag-say))::before{
-      left:3px;top:13px;width:10px;height:10px;box-shadow:0 0 0 4px color-mix(in srgb,var(--accent) 14%,transparent)}
-  }
-
-  /* Reduced motion keeps the dot and stops it moving, held at the BRIGHT
-     end: a pulse parked at its dim end reads as disabled, which is the one
-     thing a working indicator must never look like. The gutter still opens
-     and closes, so the arrival and departure are not lost either — that
-     transition is a layout change, not motion for its own sake. */
-  @media (prefers-reduced-motion:reduce){
-    #agLog:has(.ag-thinking:not(.done)) .ag-say:not(:has(~ .ag-say))::before{
-      animation:none;opacity:1;transform:none}
-  }
 
   /* Per-word reveal for the agent's own text (see revealWords()) — .ag-say
      itself still fades in as a block via agIn above; this staggers the
@@ -485,26 +451,152 @@
   .ag-interrupt-btn svg{width:12px;height:12px;fill:currentColor}
   .ag-queue-banner{display:flex;align-items:center;justify-content:space-between;background:rgba(59,130,246,0.12);border:1px solid rgba(59,130,246,0.3);color:var(--ink);border-radius:10px;padding:6px 14px;margin-bottom:8px;font-size:.82rem;font-weight:600}
   .ag-queue-banner button{border:0;background:none;color:#ef4444;font-size:.78rem;font-weight:700;cursor:pointer;text-decoration:underline;padding:0;margin-left:10px}
-  /* A glowing halo, not a flat scale/opacity blink — this is the one
-     signal that a real turn is in flight, so it earns a proper pulse. */
-  /* Same size and same beat as the dot beside the reply, because they are
-     the same statement made in two places — one over the steps, one over
-     the words. They used to be 8px at 1.6s and 9px at 1.5s, close enough
-     to look like a mistake rather than a pair. */
-  .ag-th-dot{width:11px;height:11px;border-radius:50%;background:var(--accent);flex:none;
-    box-shadow:0 0 0 0 color-mix(in srgb,var(--accent) 55%,transparent);
-    animation:thGlow var(--th-beat) var(--ease) infinite}
-  .ag-thinking.done .ag-th-dot{animation:none;box-shadow:none;background:var(--mut);width:7px;height:7px;
-    /* Shrinking is the tell that it finished, so let it be seen happening
-       rather than swapping between frames. */
-    transition:width .3s var(--ease),height .3s var(--ease),background .3s var(--ease)}
-  /* The ring expands and fades over the whole beat instead of snapping back
-     at 70% — the old curve spent its last third doing nothing, which is
-     what made it read as a blink with a pause rather than a pulse. */
-  @keyframes thGlow{
-    0%  {box-shadow:0 0 0 0 color-mix(in srgb,var(--accent) 50%,transparent);transform:scale(.92)}
-    45% {box-shadow:0 0 0 9px color-mix(in srgb,var(--accent) 0%,transparent);transform:scale(1.06)}
-    100%{box-shadow:0 0 0 0 color-mix(in srgb,var(--accent) 0%,transparent);transform:scale(.92)}
+  /* Google Gemini 3-Dots Thinking Indicator */
+  .ag-th-gemini {
+    position: relative;
+    width: 22px;
+    height: 18px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    margin-right: 2px;
+  }
+  .ag-th-gemini .g-dot {
+    position: absolute;
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    transition: transform .35s cubic-bezier(.34,1.56,.64,1),
+                opacity .3s ease,
+                background-color .3s ease,
+                box-shadow .3s ease;
+  }
+  /* Gemini Tri-Color Palette */
+  .ag-th-gemini .g-dot-1 {
+    background: #4285F4;
+    box-shadow: 0 0 6px rgba(66, 133, 244, 0.7);
+    animation: geminiJump1 1.2s cubic-bezier(0.4, 0, 0.2, 1) 0s infinite;
+  }
+  .ag-th-gemini .g-dot-2 {
+    background: #9B72CF;
+    box-shadow: 0 0 6px rgba(155, 114, 207, 0.7);
+    animation: geminiJump2 1.2s cubic-bezier(0.4, 0, 0.2, 1) 0.16s infinite;
+  }
+  .ag-th-gemini .g-dot-3 {
+    background: #38BDF8;
+    box-shadow: 0 0 6px rgba(56, 189, 248, 0.7);
+    animation: geminiJump3 1.2s cubic-bezier(0.4, 0, 0.2, 1) 0.32s infinite;
+  }
+
+  /* Phase 1: Gemini Wave Bounce */
+  @keyframes geminiJump1 {
+    0%, 100% { transform: translate(-7px, 0) scale(0.9); opacity: 0.6; }
+    30%      { transform: translate(-7px, -5px) scale(1.2); opacity: 1; filter: brightness(1.25); }
+    60%      { transform: translate(-7px, 0) scale(0.95); opacity: 0.7; }
+  }
+  @keyframes geminiJump2 {
+    0%, 100% { transform: translate(0, 0) scale(0.9); opacity: 0.6; }
+    30%      { transform: translate(0, -5px) scale(1.2); opacity: 1; filter: brightness(1.25); }
+    60%      { transform: translate(0, 0) scale(0.95); opacity: 0.7; }
+  }
+  @keyframes geminiJump3 {
+    0%, 100% { transform: translate(7px, 0) scale(0.9); opacity: 0.6; }
+    30%      { transform: translate(7px, -5px) scale(1.2); opacity: 1; filter: brightness(1.25); }
+    60%      { transform: translate(7px, 0) scale(0.95); opacity: 0.7; }
+  }
+
+  /* Phase 2: Taking Longer (>3s) - Futuristic Rotating Triangle Movements */
+  .ag-thinking.taking-longer .ag-th-gemini {
+    animation: geminiConstellationRotate 3s linear infinite;
+  }
+  .ag-thinking.taking-longer .ag-th-gemini::after {
+    content: "";
+    position: absolute;
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: radial-gradient(circle, #fff 15%, rgba(155, 114, 207, 0.6) 65%, transparent 100%);
+    box-shadow: 0 0 8px rgba(155, 114, 207, 0.8);
+    animation: geminiCenterPulse 1.5s ease-in-out infinite alternate;
+  }
+
+  @keyframes geminiConstellationRotate {
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(360deg); }
+  }
+  @keyframes geminiCenterPulse {
+    0%   { transform: scale(0.6); opacity: 0.3; }
+    100% { transform: scale(1.4); opacity: 0.95; }
+  }
+
+  .ag-thinking.taking-longer .g-dot-1 {
+    animation: geminiTriangleCycle1 2.2s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+  }
+  .ag-thinking.taking-longer .g-dot-2 {
+    animation: geminiTriangleCycle2 2.2s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+  }
+  .ag-thinking.taking-longer .g-dot-3 {
+    animation: geminiTriangleCycle3 2.2s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+  }
+
+  @keyframes geminiTriangleCycle1 {
+    0%   { transform: translate(0, -6.5px) scale(1.2); opacity: 1; filter: brightness(1.2); }
+    33%  { transform: translate(5.8px, 3.4px) scale(0.85); opacity: 0.75; }
+    66%  { transform: translate(-5.8px, 3.4px) scale(0.85); opacity: 0.75; }
+    100% { transform: translate(0, -6.5px) scale(1.2); opacity: 1; filter: brightness(1.2); }
+  }
+  @keyframes geminiTriangleCycle2 {
+    0%   { transform: translate(5.8px, 3.4px) scale(1.2); opacity: 1; filter: brightness(1.2); }
+    33%  { transform: translate(-5.8px, 3.4px) scale(0.85); opacity: 0.75; }
+    66%  { transform: translate(0, -6.5px) scale(0.85); opacity: 0.75; }
+    100% { transform: translate(5.8px, 3.4px) scale(1.2); opacity: 1; filter: brightness(1.2); }
+  }
+  @keyframes geminiTriangleCycle3 {
+    0%   { transform: translate(-5.8px, 3.4px) scale(1.2); opacity: 1; filter: brightness(1.2); }
+    33%  { transform: translate(0, -6.5px) scale(0.85); opacity: 0.75; }
+    66%  { transform: translate(5.8px, 3.4px) scale(0.85); opacity: 0.75; }
+    100% { transform: translate(-5.8px, 3.4px) scale(1.2); opacity: 1; filter: brightness(1.2); }
+  }
+
+  /* Phase 3: Settled Done State */
+  .ag-thinking.done .ag-th-gemini {
+    animation: none;
+    width: 12px;
+  }
+  .ag-thinking.done .ag-th-gemini::after {
+    display: none;
+  }
+  .ag-thinking.done .ag-th-gemini .g-dot {
+    animation: none;
+  }
+  .ag-thinking.done .ag-th-gemini .g-dot-1 {
+    transform: translate(0, 0) scale(1);
+    background: var(--mut);
+    box-shadow: none;
+    width: 6px;
+    height: 6px;
+    opacity: 0.7;
+  }
+  .ag-thinking.done .ag-th-gemini .g-dot-2,
+  .ag-thinking.done .ag-th-gemini .g-dot-3 {
+    transform: translate(0, 0) scale(0);
+    opacity: 0;
+    box-shadow: none;
+  }
+
+  .ag-th-dot { display: none !important; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .ag-th-gemini,
+    .ag-th-gemini .g-dot,
+    .ag-thinking.taking-longer .ag-th-gemini,
+    .ag-thinking.taking-longer .ag-th-gemini::after,
+    .ag-thinking.taking-longer .g-dot-1,
+    .ag-thinking.taking-longer .g-dot-2,
+    .ag-thinking.taking-longer .g-dot-3 {
+      animation: none !important;
+    }
   }
   .ag-th-label{font-size:1.08rem;font-weight:600;color:var(--ink);
     overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:min(60vw,420px)}
