@@ -18,7 +18,7 @@
 <link rel="stylesheet" href="/styles/tokens.css?v=3.5">
 <link rel="stylesheet" href="/styles/base.css?v=3.5">
 <link rel="stylesheet" href="/styles/components/project-card.css?v=3.5">
-<link rel="stylesheet" href="/styles/pages/code.css?v=3.5">
+<link rel="stylesheet" href="/styles/pages/code.css?v=3.7">
 <link rel="stylesheet" href="/styles/components/rail-motion.css?v=3.5">
 <link rel="stylesheet" href="/styles/components/upgrade-modal.css?v=3.5">
 </head>
@@ -1437,6 +1437,24 @@
     const t = String(text || "").trim();
     return t.length > 46 ? t.slice(0, 46).replace(/\s+\S*$/, "") + "…" : t;
   }
+  let currentThinkPanel = null;
+
+  function finalizeThinking(statusText) {
+    document.querySelectorAll(".ag-thinking:not(.done)").forEach((wrap) => {
+      wrap.classList.add("done");
+      wrap.classList.remove("taking-longer");
+      const label = wrap.querySelector(".ag-th-label");
+      const time = wrap.querySelector(".ag-th-time");
+      if (statusText && label) {
+        label.textContent = statusText;
+      } else if (label && !label.textContent.startsWith("Thought for")) {
+        const elapsed = time ? time.textContent : "";
+        label.textContent = "Thought for " + (elapsed || "a moment");
+      }
+      if (time) time.remove();
+    });
+  }
+
   function thinkingBlock(promptText) {
     clearEmpty();
     const wrap = el("ag-thinking");
@@ -1489,18 +1507,6 @@
       const next = settleQueue.shift();
       if (!next) return;
       next();
-      /* A backlog drains faster than it arrived. The pacing exists to make a
-         sequence legible, not to meter it out: three opening stages at 240ms
-         reads as one thing following another, but a model writing twelve
-         files in a burst would spend three seconds ticking them off long
-         after they were written, and the panel would be narrating the past.
-
-         Past three waiting, the interval drops to 90ms — still sequential,
-         still in order, just no longer pretending each one needs its own
-         beat. Also what keeps a backgrounded tab honest: setTimeout throttles
-         to about a second when the page is hidden, so a queue that built up
-         while the user was elsewhere catches up quickly instead of replaying
-         the whole build at them when they come back. */
       if (settleQueue.length) {
         settleTimer = setTimeout(pumpSettles, settleQueue.length > 3 ? 90 : SETTLE_MS);
       }
@@ -1519,6 +1525,10 @@
 
     const t0 = Date.now();
     const clockTimer = setInterval(() => {
+      if (wrap.classList.contains("done")) {
+        clearInterval(clockTimer);
+        return;
+      }
       const elapsed = Math.round((Date.now() - t0) / 1000);
       if (timeEl) timeEl.textContent = elapsed + "s";
       if (elapsed >= 3 && !wrap.classList.contains("taking-longer")) {
@@ -1526,37 +1536,35 @@
       }
     }, 500);
 
-    return {
-      /* The header mirrors the newest step. Collapsed - which is most of the
-         time once you have seen one build - the panel used to say "Thinking"
-         for the whole turn, so the one line always on screen was the one line
-         that never told you anything. */
+    const handle = {
       addStep(label, cls, headerLabel) {
-        // headerLabel lets a step read one way in the log and another in the
-        // header: a file row says the path, the header says how many so far.
         const h = headerLabel === undefined ? label : headerLabel;
         if (h) labelEl.textContent = h;
-        const handle = think(label, bodyEl, cls);
-        // The row is live immediately; only its check is paced. Wrapping the
-        // handle rather than the call site means every caller is queued by
-        // construction — a new one cannot forget to be.
+        const subHandle = think(label, bodyEl, cls);
         return {
-          done: function (next) { queueSettle(function () { handle.done(next); }); },
-          fail: function (msg) { queueSettle(function () { handle.fail(msg); }); }
+          done: function (next) { queueSettle(function () { subHandle.done(next); }); },
+          fail: function (msg) { queueSettle(function () { subHandle.fail(msg); }); }
         };
       },
-      done() {
-        // Before anything else: a turn that is over cannot still be ticking.
+      done(statusText) {
         flushSettles();
         clearInterval(clockTimer);
         wrap.classList.remove("taking-longer");
-        const secs = Math.max(1, Math.round((Date.now() - t0) / 1000));
+        if (wrap.classList.contains("done")) return;
         wrap.classList.add("done");
-        labelEl.textContent = "Thought for " + secs + (secs === 1 ? " second" : " seconds");
+        const secs = Math.max(1, Math.round((Date.now() - t0) / 1000));
+        if (statusText) {
+          labelEl.textContent = statusText;
+        } else {
+          labelEl.textContent = "Thought for " + secs + (secs === 1 ? " second" : " seconds");
+        }
         if (timeEl) timeEl.remove();
         if (!userToggled) wrap.classList.add("collapsed");
+        if (currentThinkPanel === handle) currentThinkPanel = null;
       }
     };
+    currentThinkPanel = handle;
+    return handle;
   }
 
   function worked(seconds) {
@@ -1637,6 +1645,11 @@
   let activeRunId = null;
 
   function cancelTurn() {
+    if (currentThinkPanel) {
+      try { currentThinkPanel.done("Turn cancelled"); } catch (e) {}
+      currentThinkPanel = null;
+    }
+    finalizeThinking("Turn cancelled");
     if (activeRunId) {
       try {
         fetch("/api/codeagent/runs/" + encodeURIComponent(activeRunId) + "/cancel", {
@@ -2310,6 +2323,10 @@
       if (thinkPanel) thinkPanel.done();
       say(esc(err.message), "err");
     } finally {
+      if (thinkPanel) {
+        try { thinkPanel.done(); } catch (e) {}
+      }
+      finalizeThinking();
       activeRunId = null;
       try { sessionStorage.removeItem("sapo_active_run"); } catch (e) {}
       building = false;

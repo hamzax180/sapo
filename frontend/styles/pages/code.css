@@ -34,6 +34,7 @@
     --disp:'Jost','Century Gothic',system-ui,sans-serif;
     --body:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
     --ease:cubic-bezier(.16,1,.3,1);
+    --th-dot:#2a241f;
   }
   :root[data-theme="dark"]{
     --line-hover:rgba(255,255,255,.22);
@@ -43,6 +44,7 @@
     --tint:#3d3428; --tint-2:#2d2420;
     --stone:#2a2c2f; --dark:#0a0908; --line:#33363a; --navy-800:#0d0b0a;
     --accent:#1aa6df; --accent-2:#118cc0; --accent-ink:#e6edf3;
+    --th-dot:#f6f1e8;
   }
 
 
@@ -464,16 +466,14 @@
     margin-right: 4px;
   }
 
-  /* Clean solid Google Blue dots - a little bigger (6px) */
+  /* Google Gemini 3-Dots Thinking Indicator (Fixed Size & Solid Warm Colors) */
   .ag-th-gemini .g-dot {
     position: absolute;
     width: 6px;
     height: 6px;
     border-radius: 50%;
-    background: #4285F4;
-    transition: transform .35s cubic-bezier(.34, 1.56, .64, 1),
-                opacity .3s ease,
-                background-color .3s ease;
+    background: var(--th-dot);
+    opacity: 1 !important;
   }
 
   /* Continuous 6s Loop: 3s Line Wave Jump -> 3s Triangle Orbit -> Repeat */
@@ -489,84 +489,85 @@
 
   /*
      Dot 1:
-     0% - 40% (0s - 2.4s): Bouncing wave in horizontal line at x = -9px
-     40% - 48% (2.4s - 2.9s): Smooth glide to triangle apex (0, -7.5px)
-     48% - 88% (2.9s - 5.3s): Triangle vertex cycling / orbit
-     88% - 98% (5.3s - 5.9s): Smooth glide back to line (-9px, 0)
-     98% - 100% (5.9s - 6.0s): Settled at baseline, seamless loop
+     0% - 40%: Smooth vertical bounce wave in line at x = -9px (Fixed size, solid color)
+     40% - 48%: Smooth glide to triangle apex (0, -7.5px)
+     48% - 88%: Triangle vertex cycling / orbit (Fixed size, solid color)
+     88% - 98%: Smooth glide back to line (-9px, 0)
+     98% - 100%: Settled at baseline, seamless loop
   */
   @keyframes geminiCycle1 {
-    0%, 16%, 32%, 40% { transform: translate3d(-9px, 0, 0) scale(0.9); opacity: 0.45; }
-    5%, 21%           { transform: translate3d(-9px, -6px, 0) scale(1.15); opacity: 1; }
-    10%, 26%          { transform: translate3d(-9px, 0, 0) scale(0.95); opacity: 0.6; }
-    48%               { transform: translate3d(0, -7.5px, 0) scale(1.1); opacity: 1; }
-    61.3%             { transform: translate3d(6.5px, 3.8px, 0) scale(0.9); opacity: 0.65; }
-    74.6%             { transform: translate3d(-6.5px, 3.8px, 0) scale(0.9); opacity: 0.65; }
-    88%               { transform: translate3d(0, -7.5px, 0) scale(1.1); opacity: 1; }
-    98%, 100%         { transform: translate3d(-9px, 0, 0) scale(0.9); opacity: 0.45; }
+    0%, 16%, 32%, 40% { transform: translate3d(-9px, 0, 0); }
+    5%, 21%           { transform: translate3d(-9px, -6px, 0); }
+    10%, 26%          { transform: translate3d(-9px, 0, 0); }
+    48%               { transform: translate3d(0, -7.5px, 0); }
+    61.3%             { transform: translate3d(6.5px, 3.8px, 0); }
+    74.6%             { transform: translate3d(-6.5px, 3.8px, 0); }
+    88%               { transform: translate3d(0, -7.5px, 0); }
+    98%, 100%         { transform: translate3d(-9px, 0, 0); }
   }
 
   /*
      Dot 2:
-     0% - 40%: Bouncing wave in center at x = 0 (staggered delay)
+     0% - 40%: Smooth vertical bounce wave in center at x = 0 (Fixed size, solid color)
      40% - 48%: Smooth glide to bottom-right (6.5px, 3.8px)
-     48% - 88%: Triangle vertex cycling / orbit
+     48% - 88%: Triangle vertex cycling / orbit (Fixed size, solid color)
      88% - 98%: Smooth glide back to center (0, 0)
      98% - 100%: Settled at baseline, seamless loop
   */
   @keyframes geminiCycle2 {
-    0%, 16%, 32%, 40% { transform: translate3d(0, 0, 0) scale(0.9); opacity: 0.45; }
-    3%, 19%           { transform: translate3d(0, 0, 0) scale(0.9); opacity: 0.45; }
-    8%, 24%           { transform: translate3d(0, -6px, 0) scale(1.15); opacity: 1; }
-    13%, 29%          { transform: translate3d(0, 0, 0) scale(0.95); opacity: 0.6; }
-    48%               { transform: translate3d(6.5px, 3.8px, 0) scale(0.9); opacity: 0.65; }
-    61.3%             { transform: translate3d(-6.5px, 3.8px, 0) scale(0.9); opacity: 0.65; }
-    74.6%             { transform: translate3d(0, -7.5px, 0) scale(1.1); opacity: 1; }
-    88%               { transform: translate3d(6.5px, 3.8px, 0) scale(0.9); opacity: 0.65; }
-    98%, 100%         { transform: translate3d(0, 0, 0) scale(0.9); opacity: 0.45; }
+    0%, 16%, 32%, 40% { transform: translate3d(0, 0, 0); }
+    3%, 19%           { transform: translate3d(0, 0, 0); }
+    8%, 24%           { transform: translate3d(0, -6px, 0); }
+    13%, 29%          { transform: translate3d(0, 0, 0); }
+    48%               { transform: translate3d(6.5px, 3.8px, 0); }
+    61.3%             { transform: translate3d(-6.5px, 3.8px, 0); }
+    74.6%             { transform: translate3d(0, -7.5px, 0); }
+    88%               { transform: translate3d(6.5px, 3.8px, 0); }
+    98%, 100%         { transform: translate3d(0, 0, 0); }
   }
 
   /*
      Dot 3:
-     0% - 40%: Bouncing wave on right at x = 9px (staggered delay)
+     0% - 40%: Smooth vertical bounce wave on right at x = 9px (Fixed size, solid color)
      40% - 48%: Smooth glide to bottom-left (-6.5px, 3.8px)
-     48% - 88%: Triangle vertex cycling / orbit
+     48% - 88%: Triangle vertex cycling / orbit (Fixed size, solid color)
      88% - 98%: Smooth glide back to right (9px, 0)
      98% - 100%: Settled at baseline, seamless loop
   */
   @keyframes geminiCycle3 {
-    0%, 16%, 32%, 40% { transform: translate3d(9px, 0, 0) scale(0.9); opacity: 0.45; }
-    6%, 22%           { transform: translate3d(9px, 0, 0) scale(0.9); opacity: 0.45; }
-    11%, 27%          { transform: translate3d(9px, -6px, 0) scale(1.15); opacity: 1; }
-    16%, 32%          { transform: translate3d(9px, 0, 0) scale(0.95); opacity: 0.6; }
-    48%               { transform: translate3d(-6.5px, 3.8px, 0) scale(0.9); opacity: 0.65; }
-    61.3%             { transform: translate3d(0, -7.5px, 0) scale(1.1); opacity: 1; }
-    74.6%             { transform: translate3d(6.5px, 3.8px, 0) scale(0.9); opacity: 0.65; }
-    88%               { transform: translate3d(-6.5px, 3.8px, 0) scale(0.9); opacity: 0.65; }
-    98%, 100%         { transform: translate3d(9px, 0, 0) scale(0.9); opacity: 0.45; }
+    0%, 16%, 32%, 40% { transform: translate3d(9px, 0, 0); }
+    6%, 22%           { transform: translate3d(9px, 0, 0); }
+    11%, 27%          { transform: translate3d(9px, -6px, 0); }
+    16%, 32%          { transform: translate3d(9px, 0, 0); }
+    48%               { transform: translate3d(-6.5px, 3.8px, 0); }
+    61.3%             { transform: translate3d(0, -7.5px, 0); }
+    74.6%             { transform: translate3d(6.5px, 3.8px, 0); }
+    88%               { transform: translate3d(-6.5px, 3.8px, 0); }
+    98%, 100%         { transform: translate3d(9px, 0, 0); }
   }
 
   /* Phase 3: Settled Done State */
   .ag-thinking.done .ag-th-gemini {
-    animation: none;
+    animation: none !important;
     width: 14px;
   }
   .ag-thinking.done .ag-th-gemini .g-dot {
-    animation: none;
+    animation: none !important;
   }
   .ag-thinking.done .ag-th-gemini .g-dot-1 {
-    transform: translate3d(0, 0, 0) scale(1);
-    background: var(--mut);
-    box-shadow: none;
-    width: 6px;
-    height: 6px;
-    opacity: 0.6;
+    transform: translate3d(0, 0, 0) !important;
+    background: var(--mut) !important;
+    box-shadow: none !important;
+    width: 6px !important;
+    height: 6px !important;
+    opacity: 0.6 !important;
   }
   .ag-thinking.done .ag-th-gemini .g-dot-2,
   .ag-thinking.done .ag-th-gemini .g-dot-3 {
-    transform: translate3d(0, 0, 0) scale(0);
-    opacity: 0;
-    box-shadow: none;
+    transform: translate3d(0, 0, 0) !important;
+    opacity: 0 !important;
+    box-shadow: none !important;
+    display: none !important;
   }
 
   .ag-th-dot { display: none !important; }
