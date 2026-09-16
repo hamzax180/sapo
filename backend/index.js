@@ -4768,23 +4768,37 @@ app.post("/api/codeagent/runs", codeAgentLimiter, express.json({ limit: "1mb" })
     baseFiles = (full && full.files) || {};
   }
 
-  // --- Smart guard (non-build mode): intercept noise, greetings, and conversational questions BEFORE creating projects or runs ---
-  if (!isBuildMode) {
-    // 1. Noise / greetings — quick regex check
-    const quick = quickAssess(prompt);
-    if (quick && !quick.clear) {
-      if (project) {
-        try {
-          const chatId = String((req.body && req.body.chatId) || "");
-          await projects.addTurn(project.id, { role: "user", kind: "text", body: prompt, chatId });
-          await projects.addTurn(project.id, { role: "agent", kind: "text", body: quick.reply, chatId });
-        } catch (e) {}
-      }
-      return res.status(200).json({ chitchat: quick.reply });
-    }
+function getConversationalFallback(prompt) {
+  const p = String(prompt || "").trim().toLowerCase();
+  if (/^(idk|i don'?t know|not sure|dunno|no idea|have no idea|ideas?|suggest|what should i build)/i.test(p)) {
+    return "No worries at all! We could build a sleek personal portfolio, a local cafe website, an interactive task dashboard, or a mini-game. What kind of app sounds interesting to you?";
+  }
+  if (/^(s|a|z|x|d|c|asdf|qwerty|zzz+|hhh+)$/i.test(p) || (p.length <= 2 && !/^(ai|ui|ux|db|vr|ar|os|2d|3d)$/i.test(p))) {
+    return "Looks like an accidental keystroke or typo! Let me know what you'd like to work on whenever you're ready.";
+  }
+  if (/\b(didn'?t say|don'?t build|never said|not yet|wait|hold on|stop|not now|tell you to build|build when i)\b/i.test(p)) {
+    return "Got it, totally my bad! I'll hold off until you give the word. What would you like to plan or discuss first?";
+  }
+  if (/\b(you know|smart|impressive|genius|cool|awesome|nice|wow|haha|lol|lmao)\b/i.test(p)) {
+    return "Haha, thanks! I'm ready whenever you want to start building something.";
+  }
+  if (/\b(how are you|how r u|how are u|how you doing|what's up|whats up)\b/i.test(p)) {
+    return "I'm doing great, thanks for asking! What kind of project are you thinking of creating today?";
+  }
+  if (/^(hello|hi|hey|greetings|howdy|sup|yo|gm|gn)\b/i.test(p)) {
+    return "Hey there! Ready to create something cool, or want to bounce some ideas around first?";
+  }
+  return "Sounds good! Whenever you're ready, let me know what kind of app or feature you'd like to build.";
+}
 
-    // 2. Questions / conversational messages (e.g. "how are you", "why did you do that", "what can you build")
-    if (agentRunner.isQuestionOrConversational(prompt)) {
+  // --- Smart guard (non-build mode): intercept conversational chatter, questions, indecision, and noise BEFORE creating projects or runs ---
+  if (!isBuildMode) {
+    const isConv = agentRunner.isQuestionOrConversational(prompt);
+    const quick = quickAssess(prompt);
+    const isNoiseOrGreeting = quick && !quick.clear;
+
+    if (isConv || isNoiseOrGreeting) {
+      let reply = "";
       try {
         const history = Array.isArray(req.body && req.body.conversation) ? req.body.conversation : [];
         const answerRes = await aiClient.chat({
@@ -4792,10 +4806,18 @@ app.post("/api/codeagent/runs", codeAgentLimiter, express.json({ limit: "1mb" })
           messages: [
             {
               role: "system",
-              content: "You are a friendly, intelligent human software engineer assisting a user in an app builder called Souqi. " +
-                "The user is talking with you, making a remark, asking a question, or telling you to hold on/not build yet. They are NOT requesting code changes right now. " +
-                "Speak naturally like a normal human in a conversational tone. Keep your answer brief, friendly, and helpful (1 to 2 short sentences). " +
-                "If they say you are building too fast or didn't say build yet, apologize warmly and assure them you will wait until they tell you what to build. Never write code."
+              content:
+                "You are Souqi, a friendly, intelligent, and natural human software engineer assisting a user in an app builder.\n" +
+                "The user is talking with you casually, asking a question, making a remark, expressing indecision ('idk'), reacting, or telling you to hold on/not build yet.\n" +
+                "They are NOT ordering a new code build right now.\n\n" +
+                "CRITICAL HUMAN CONVERSATION RULES:\n" +
+                "- Speak naturally, warmly, and concisely like a real human software engineer in chat.\n" +
+                "- NEVER repeat robotic canned phrases like 'Hey! 👋 What would you like me to build?' over and over.\n" +
+                "- If they say 'idk', 'not sure', or ask for ideas: be helpful and inspiring! Give 2-3 quick fun suggestions (e.g. sleek portfolio, coffee shop site, habit tracker, mini-game) and ask what sounds fun.\n" +
+                "- If they make a casual remark or compliment ('you know when to build now, wow', 'cool', 'nice'): respond warmly like a teammate.\n" +
+                "- If they type an accidental keystroke or typo (like 's', 'asdf'): acknowledge it playfully with good humor ('Looks like an accidental keystroke! What's on your mind?').\n" +
+                "- If they say 'i didn't say build yet', 'wait', or 'stop': warmly apologize, reassure them you are waiting for their instructions, and ask what they'd like to plan or discuss.\n" +
+                "- Keep your answer short (1 to 3 sentences). Never write code blocks or markdown backticks."
             }
           ].concat(
             history.slice(-6).map(t => ({
@@ -4806,24 +4828,28 @@ app.post("/api/codeagent/runs", codeAgentLimiter, express.json({ limit: "1mb" })
           ),
           timeoutMs: 30000
         });
-        const reply = (answerRes && answerRes.message && answerRes.message.content)
-          || "I'm doing well, thanks! What would you like me to build for you today?";
-        if (project) {
-          try {
-            const chatId = String((req.body && req.body.chatId) || "");
-            await projects.addTurn(project.id, { role: "user", kind: "text", body: prompt, chatId });
-            await projects.addTurn(project.id, { role: "agent", kind: "text", body: reply, chatId });
-          } catch (e) {}
+        if (answerRes && answerRes.message && answerRes.message.content) {
+          reply = answerRes.message.content.trim();
         }
-        return res.status(200).json({ chitchat: reply });
       } catch (e) {
-        console.warn("[runs guard] conversational answer failed:", e.message);
-        const fallback = "I'm doing well, thanks for asking! What kind of app or website would you like me to build?";
-        return res.status(200).json({ chitchat: fallback });
+        console.warn("[runs guard] conversational AI reply failed:", e.message);
       }
+
+      if (!reply) {
+        reply = getConversationalFallback(prompt);
+      }
+
+      if (project) {
+        try {
+          const chatId = String((req.body && req.body.chatId) || "");
+          await projects.addTurn(project.id, { role: "user", kind: "text", body: prompt, chatId });
+          await projects.addTurn(project.id, { role: "agent", kind: "text", body: reply, chatId });
+        } catch (e) {}
+      }
+      return res.status(200).json({ chitchat: reply });
     }
 
-    // 3. For fresh builds (no project yet): run assessPrompt to detect questions/clarifications before building
+    // For fresh builds (no project yet): run assessPrompt if needed to detect questions/clarifications before building
     if (!project) {
       try {
         const convo = Array.isArray(req.body && req.body.conversation) ? req.body.conversation.slice(-12) : [];
@@ -4835,7 +4861,8 @@ app.post("/api/codeagent/runs", codeAgentLimiter, express.json({ limit: "1mb" })
               options: Array.isArray(assessment.options) ? assessment.options : undefined
             });
           }
-          return res.status(200).json({ chitchat: assessment.reply });
+          const reply = assessment.reply || getConversationalFallback(prompt);
+          return res.status(200).json({ chitchat: reply });
         }
       } catch (e) {
         console.warn("[runs guard] assessPrompt check skipped:", e.message);

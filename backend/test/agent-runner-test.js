@@ -397,6 +397,26 @@ async function check(name, fn) {
     assert.ok(!toolsOffered.some(t => t.function && (t.function.name === "write_file" || t.function.name === "edit_file")));
   });
 
+  await check("isQuestionOrConversational accurately distinguishes casual chat/idk/typos from build tasks", async () => {
+    const shouldBeChat = [
+      "idk", "not sure", "dunno", "no idea", "any ideas?", "suggest something",
+      "s", "a", "asdf", "zzz", "ok", "okay", "k", "cool", "nice", "wow",
+      "you know when to build and when not now , wow", "i didnt say build yet",
+      "how are you", "what can you do", "wait", "hold on", "stop"
+    ];
+    for (const prompt of shouldBeChat) {
+      assert.strictEqual(agentRunner.isQuestionOrConversational(prompt), true, `${prompt} should be detected as conversational`);
+    }
+
+    const shouldBeBuild = [
+      "build a todo app", "create a landing page", "add a dark mode button",
+      "portfolio website", "ecommerce store", "crm", "2d snake game", "calculator"
+    ];
+    for (const prompt of shouldBeBuild) {
+      assert.strictEqual(agentRunner.isQuestionOrConversational(prompt), false, `${prompt} should be detected as a build task`);
+    }
+  });
+
   console.log("\n" + (failed === 0 ? "✓ ALL AGENT-RUNNER TESTS PASSED (" + passed + ")" : "✗ " + failed + " FAILED, " + passed + " passed"));
   process.exit(failed === 0 ? 0 : 1);
 })();

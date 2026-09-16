@@ -144,11 +144,13 @@ function reportCheckResult(runId, checkResult) {
 
 /**
  * Detects whether a prompt is an informational question, feedback, compliment,
- * or conversational remark rather than an imperative directive to build or edit code.
+ * indecision, acknowledgment, or conversational remark rather than an imperative
+ * directive to build or edit code.
  */
 function isQuestionOrConversational(prompt) {
   if (!prompt || typeof prompt !== "string") return false;
   const p = prompt.trim().toLowerCase();
+  const squished = p.replace(/\s+/g, "");
 
   // 1. Definite imperative build / edit directives:
   // Starts with command verbs like "build a ...", "create an ...", "make a ...", "add a button", etc.
@@ -158,20 +160,29 @@ function isQuestionOrConversational(prompt) {
 
   // 2. Disclaimers, corrections, or telling the agent when to build or not to build:
   // e.g. "build when i tell you build", "i didnt say build yet", "don't build yet", "wait", "hold on", "not yet", "stop", "i never said build"
-  const stopOrCorrection = /\b(didn'?t say|don'?t build|never said|not yet|wait|hold on|stop|not now|why are you building|i didn'?t ask|i haven'?t|no wait|dont build|tell you build|when i tell|only when i|build when i|build after|tell you to build)\b/i;
+  const stopOrCorrection = /\b(didn'?t say|don'?t build|never said|not yet|wait|hold on|stop|not now|why are you building|i didn'?t ask|i haven'?t|no wait|dont build|tell you build|when i tell|only when i|build when i|build after|tell you to build|who said build|did i say build)\b/i;
   if (stopOrCorrection.test(p)) return true;
 
-  // 3. Conversational statements starting with personal pronouns/opinions that are not build commands
-  if (/^(i|you|we|it|that|they)\s+(am|are|was|were|think|feel|mean|said|didn'?t|don'?t|didnt|dont|know|thought|see|hear|just|only|already)\b/i.test(p)) {
-    return true;
-  }
+  // 3. Indecision, lack of ideas, or asking for suggestions:
+  // e.g. "idk", "i don't know", "not sure", "dunno", "no idea", "any ideas", "suggest something", "what should i build"
+  const indecision = /\b(idk|i don'?t know|not sure|dunno|no idea|have no idea|undecided|any ideas?|suggest something|recommend something|help me decide|what should i build|what do you suggest|give me ideas)\b/i;
+  if (indecision.test(p)) return true;
 
-  // 4. Casual conversational remarks, compliments, reactions:
+  // 4. Short affirmations, acknowledgments, or single-word reactions:
+  const shortReactions = /^(ok|okay|k|kk|sure|yes|no|yep|nope|yeah|yea|nah|fine|alright|sweet|bet|true|right|definitely|idk)$/i;
+  if (shortReactions.test(p)) return true;
+
+  // 5. Casual conversational remarks, compliments, reactions:
   // e.g. "you know when to build and when not now , wow", "wow", "haha", "nice job", "you are smart"
   const casualChat = /\b(you know|you understand|you got it|impressive|smart|genius|cool|awesome|great|haha|lol|lmao|omg|good job|well done|thank you|thanks|thx|nice|wow|super|amazing)\b/i;
   if (casualChat.test(p)) return true;
 
-  // 3. Questions about capabilities, questions starting with auxiliary verbs:
+  // 6. Conversational statements starting with personal pronouns/opinions that are not build commands
+  if (/^(i|you|we|it|that|they)\s+(am|are|was|were|think|feel|mean|said|didn'?t|don'?t|didnt|dont|know|thought|see|hear|just|only|already|can|will)\b/i.test(p)) {
+    return true;
+  }
+
+  // 7. Questions about capabilities, questions starting with auxiliary verbs:
   // "can you...", "could you...", "do you...", "are you...", "will you...", "is it..."
   if (/^(can you|could you|would you|do you|are you|will you|should you|is it|is there)\b/i.test(p)) {
     if (!/\b(can you|could you|please)\s+(build|create|make|add|generate|write)\s+(a|an|the|me)\b/i.test(p)) {
@@ -179,7 +190,7 @@ function isQuestionOrConversational(prompt) {
     }
   }
 
-  // 4. Questions: why, what, how, where, who, when, which, or ending with '?'
+  // 8. Questions: why, what, how, where, who, when, which, or ending with '?'
   const questionPatterns = [
     /^(why|what|how|where|when|who|which)\b/i,
     /\b(why u|why did you|why'd you|why was|why is|why does|why it|how come|how do you)\b/i,
@@ -193,13 +204,23 @@ function isQuestionOrConversational(prompt) {
     }
   }
 
-  // 5. Short conversational expressions or greetings
+  // 9. Short conversational expressions or greetings
   const conversationalPhrases = [
-    /^(hello|hi|hey|greetings|howdy|sup|yo)\b/i,
-    /\b(how are you|how r u|how are u|how you doing|whats up|what's up)\b/i,
+    /^(hello|hi|hey|greetings|howdy|sup|yo|gm|gn|good morning|good evening|good afternoon)\b/i,
+    /\b(how are you|how r u|how are u|how you doing|whats up|what's up|how's it going|hows it going)\b/i,
     /\b(who are you|what are you|what is your name)\b/i
   ];
   if (conversationalPhrases.some((pattern) => pattern.test(p))) return true;
+
+  // 10. Single letters or keyboard noise / typos (e.g. "s", "a", "asdf", "zzz")
+  // Exclude real domain/subject acronyms (e.g. "ai", "ui", "ux", "db", "vr", "ar", "os", "2d", "3d", "crm", "pos")
+  const KNOWN_TECH_WORDS = new Set(["ai","ui","ux","db","vr","ar","os","2d","3d","crm","cms","pos","sql","sms","dns","app"]);
+  if (squished.length <= 2 && !KNOWN_TECH_WORDS.has(squished)) {
+    return true;
+  }
+  if (/^(asdf|qwerty|zzz+|hhh+|aaa+|xxx+)$/i.test(squished)) {
+    return true;
+  }
 
   return false;
 }
