@@ -452,116 +452,98 @@
   .ag-queue-banner{display:flex;align-items:center;justify-content:space-between;background:rgba(59,130,246,0.12);border:1px solid rgba(59,130,246,0.3);color:var(--ink);border-radius:10px;padding:6px 14px;margin-bottom:8px;font-size:.82rem;font-weight:600}
   .ag-queue-banner button{border:0;background:none;color:#ef4444;font-size:.78rem;font-weight:700;cursor:pointer;text-decoration:underline;padding:0;margin-left:10px}
   /* Google Gemini 3-Dots Thinking Indicator (Warm Blue Edition) */
-  /* Google Gemini 3-Dots Thinking Indicator (Clean Google Blue) */
+  /* Google Gemini 3-Dots Thinking Indicator (Clean Blue 3s Alternating Cycle) */
   .ag-th-gemini {
     position: relative;
-    width: 24px;
-    height: 18px;
+    width: 20px;
+    height: 16px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     flex: none;
-    margin-right: 3px;
+    margin-right: 2px;
   }
 
   /* Clean solid Google Blue dots */
   .ag-th-gemini .g-dot {
     position: absolute;
-    width: 5.5px;
-    height: 5.5px;
+    width: 4px;
+    height: 4px;
     border-radius: 50%;
     background: #4285F4;
-    box-shadow: 0 0 6px rgba(66, 133, 244, 0.45);
     transition: transform .35s cubic-bezier(.34, 1.56, .64, 1),
-                opacity .3s ease;
+                opacity .3s ease,
+                background-color .3s ease;
   }
 
-  /* Phase 1: Signature Google Gemini Wave Bounce */
-  .ag-th-gemini .g-dot-1 {
-    animation: geminiJump1 1.2s cubic-bezier(0.4, 0, 0.2, 1) 0s infinite;
+  /* Continuous 6s Loop: 3s Line Wave Jump -> 3s Triangle Orbit -> Repeat */
+  .ag-thinking:not(.done) .g-dot-1 {
+    animation: geminiCycle1 6s cubic-bezier(0.4, 0, 0.2, 1) infinite;
   }
-  .ag-th-gemini .g-dot-2 {
-    animation: geminiJump2 1.2s cubic-bezier(0.4, 0, 0.2, 1) 0.16s infinite;
+  .ag-thinking:not(.done) .g-dot-2 {
+    animation: geminiCycle2 6s cubic-bezier(0.4, 0, 0.2, 1) infinite;
   }
-  .ag-th-gemini .g-dot-3 {
-    animation: geminiJump3 1.2s cubic-bezier(0.4, 0, 0.2, 1) 0.32s infinite;
-  }
-
-  @keyframes geminiJump1 {
-    0%, 100% { transform: translate3d(-8px, 0, 0) scale(0.9); opacity: 0.45; }
-    32%      { transform: translate3d(-8px, -5.5px, 0) scale(1.15); opacity: 1; }
-    65%      { transform: translate3d(-8px, 0, 0) scale(0.95); opacity: 0.6; }
-  }
-  @keyframes geminiJump2 {
-    0%, 100% { transform: translate3d(0, 0, 0) scale(0.9); opacity: 0.45; }
-    32%      { transform: translate3d(0, -5.5px, 0) scale(1.15); opacity: 1; }
-    65%      { transform: translate3d(0, 0, 0) scale(0.95); opacity: 0.6; }
-  }
-  @keyframes geminiJump3 {
-    0%, 100% { transform: translate3d(8px, 0, 0) scale(0.9); opacity: 0.45; }
-    32%      { transform: translate3d(8px, -5.5px, 0) scale(1.15); opacity: 1; }
-    65%      { transform: translate3d(8px, 0, 0) scale(0.95); opacity: 0.6; }
-  }
-
-  /* Phase 2: Taking Longer (>3s) - Slow Graceful Glide into Clean Rotating Triangle */
-  .ag-thinking.taking-longer .ag-th-gemini {
-    animation: geminiConstellationRotate 3s linear 0.9s infinite;
-  }
-
-  @keyframes geminiConstellationRotate {
-    from { transform: rotate(0deg); }
-    to   { transform: rotate(360deg); }
+  .ag-thinking:not(.done) .g-dot-3 {
+    animation: geminiCycle3 6s cubic-bezier(0.4, 0, 0.2, 1) infinite;
   }
 
   /*
-     Gracefully glide from horizontal jumping line into clean equilateral triangle over 0.9s,
-     then seamlessly orbit in continuous rotation.
+     Dot 1:
+     0% - 40% (0s - 2.4s): Bouncing wave in horizontal line at x = -6.5px
+     40% - 48% (2.4s - 2.9s): Smooth glide to triangle apex (0, -5.2px)
+     48% - 88% (2.9s - 5.3s): Triangle vertex cycling / orbit
+     88% - 98% (5.3s - 5.9s): Smooth glide back to line (-6.5px, 0)
+     98% - 100% (5.9s - 6.0s): Settled at baseline, seamless loop
   */
-  .ag-thinking.taking-longer .g-dot-1 {
-    animation: geminiMorph1 0.9s cubic-bezier(0.4, 0, 0.2, 1) forwards,
-               geminiTriangleCycle1 2.4s cubic-bezier(0.4, 0.05, 0.5, 0.95) 0.9s infinite;
-  }
-  .ag-thinking.taking-longer .g-dot-2 {
-    animation: geminiMorph2 0.9s cubic-bezier(0.4, 0, 0.2, 1) forwards,
-               geminiTriangleCycle2 2.4s cubic-bezier(0.4, 0.05, 0.5, 0.95) 0.9s infinite;
-  }
-  .ag-thinking.taking-longer .g-dot-3 {
-    animation: geminiMorph3 0.9s cubic-bezier(0.4, 0, 0.2, 1) forwards,
-               geminiTriangleCycle3 2.4s cubic-bezier(0.4, 0.05, 0.5, 0.95) 0.9s infinite;
+  @keyframes geminiCycle1 {
+    0%, 16%, 32%, 40% { transform: translate3d(-6.5px, 0, 0) scale(0.9); opacity: 0.45; }
+    5%, 21%           { transform: translate3d(-6.5px, -4.5px, 0) scale(1.15); opacity: 1; }
+    10%, 26%          { transform: translate3d(-6.5px, 0, 0) scale(0.95); opacity: 0.6; }
+    48%               { transform: translate3d(0, -5.2px, 0) scale(1.1); opacity: 1; }
+    61.3%             { transform: translate3d(4.8px, 3px, 0) scale(0.9); opacity: 0.65; }
+    74.6%             { transform: translate3d(-4.8px, 3px, 0) scale(0.9); opacity: 0.65; }
+    88%               { transform: translate3d(0, -5.2px, 0) scale(1.1); opacity: 1; }
+    98%, 100%         { transform: translate3d(-6.5px, 0, 0) scale(0.9); opacity: 0.45; }
   }
 
-  /* Morph from line to triangle */
-  @keyframes geminiMorph1 {
-    0%   { transform: translate3d(-8px, 0, 0) scale(1); opacity: 0.6; }
-    100% { transform: translate3d(0, -6.5px, 0) scale(1.1); opacity: 1; }
-  }
-  @keyframes geminiMorph2 {
-    0%   { transform: translate3d(0, 0, 0) scale(1); opacity: 0.6; }
-    100% { transform: translate3d(5.8px, 3.5px, 0) scale(0.9); opacity: 0.7; }
-  }
-  @keyframes geminiMorph3 {
-    0%   { transform: translate3d(8px, 0, 0) scale(1); opacity: 0.6; }
-    100% { transform: translate3d(-5.8px, 3.5px, 0) scale(0.9); opacity: 0.7; }
+  /*
+     Dot 2:
+     0% - 40%: Bouncing wave in center at x = 0 (staggered delay)
+     40% - 48%: Smooth glide to bottom-right (4.8px, 3px)
+     48% - 88%: Triangle vertex cycling / orbit
+     88% - 98%: Smooth glide back to center (0, 0)
+     98% - 100%: Settled at baseline, seamless loop
+  */
+  @keyframes geminiCycle2 {
+    0%, 16%, 32%, 40% { transform: translate3d(0, 0, 0) scale(0.9); opacity: 0.45; }
+    3%, 19%           { transform: translate3d(0, 0, 0) scale(0.9); opacity: 0.45; }
+    8%, 24%           { transform: translate3d(0, -4.5px, 0) scale(1.15); opacity: 1; }
+    13%, 29%          { transform: translate3d(0, 0, 0) scale(0.95); opacity: 0.6; }
+    48%               { transform: translate3d(4.8px, 3px, 0) scale(0.9); opacity: 0.65; }
+    61.3%             { transform: translate3d(-4.8px, 3px, 0) scale(0.9); opacity: 0.65; }
+    74.6%             { transform: translate3d(0, -5.2px, 0) scale(1.1); opacity: 1; }
+    88%               { transform: translate3d(4.8px, 3px, 0) scale(0.9); opacity: 0.65; }
+    98%, 100%         { transform: translate3d(0, 0, 0) scale(0.9); opacity: 0.45; }
   }
 
-  /* Continuous Triangle Orbiting */
-  @keyframes geminiTriangleCycle1 {
-    0%   { transform: translate3d(0, -6.5px, 0) scale(1.1); opacity: 1; }
-    33%  { transform: translate3d(5.8px, 3.5px, 0) scale(0.9); opacity: 0.7; }
-    66%  { transform: translate3d(-5.8px, 3.5px, 0) scale(0.9); opacity: 0.7; }
-    100% { transform: translate3d(0, -6.5px, 0) scale(1.1); opacity: 1; }
-  }
-  @keyframes geminiTriangleCycle2 {
-    0%   { transform: translate3d(5.8px, 3.5px, 0) scale(0.9); opacity: 0.7; }
-    33%  { transform: translate3d(-5.8px, 3.5px, 0) scale(0.9); opacity: 0.7; }
-    66%  { transform: translate3d(0, -6.5px, 0) scale(1.1); opacity: 1; }
-    100% { transform: translate3d(5.8px, 3.5px, 0) scale(0.9); opacity: 0.7; }
-  }
-  @keyframes geminiTriangleCycle3 {
-    0%   { transform: translate3d(-5.8px, 3.5px, 0) scale(0.9); opacity: 0.7; }
-    33%  { transform: translate3d(0, -6.5px, 0) scale(1.1); opacity: 1; }
-    66%  { transform: translate3d(5.8px, 3.5px, 0) scale(0.9); opacity: 0.7; }
-    100% { transform: translate3d(-5.8px, 3.5px, 0) scale(0.9); opacity: 0.7; }
+  /*
+     Dot 3:
+     0% - 40%: Bouncing wave on right at x = 6.5px (staggered delay)
+     40% - 48%: Smooth glide to bottom-left (-4.8px, 3px)
+     48% - 88%: Triangle vertex cycling / orbit
+     88% - 98%: Smooth glide back to right (6.5px, 0)
+     98% - 100%: Settled at baseline, seamless loop
+  */
+  @keyframes geminiCycle3 {
+    0%, 16%, 32%, 40% { transform: translate3d(6.5px, 0, 0) scale(0.9); opacity: 0.45; }
+    6%, 22%           { transform: translate3d(6.5px, 0, 0) scale(0.9); opacity: 0.45; }
+    11%, 27%          { transform: translate3d(6.5px, -4.5px, 0) scale(1.15); opacity: 1; }
+    16%, 32%          { transform: translate3d(6.5px, 0, 0) scale(0.95); opacity: 0.6; }
+    48%               { transform: translate3d(-4.8px, 3px, 0) scale(0.9); opacity: 0.65; }
+    61.3%             { transform: translate3d(0, -5.2px, 0) scale(1.1); opacity: 1; }
+    74.6%             { transform: translate3d(4.8px, 3px, 0) scale(0.9); opacity: 0.65; }
+    88%               { transform: translate3d(-4.8px, 3px, 0) scale(0.9); opacity: 0.65; }
+    98%, 100%         { transform: translate3d(6.5px, 0, 0) scale(0.9); opacity: 0.45; }
   }
 
   /* Phase 3: Settled Done State */
@@ -576,8 +558,8 @@
     transform: translate3d(0, 0, 0) scale(1);
     background: var(--mut);
     box-shadow: none;
-    width: 6px;
-    height: 6px;
+    width: 5px;
+    height: 5px;
     opacity: 0.6;
   }
   .ag-thinking.done .ag-th-gemini .g-dot-2,
@@ -592,10 +574,9 @@
   @media (prefers-reduced-motion: reduce) {
     .ag-th-gemini,
     .ag-th-gemini .g-dot,
-    .ag-thinking.taking-longer .ag-th-gemini,
-    .ag-thinking.taking-longer .g-dot-1,
-    .ag-thinking.taking-longer .g-dot-2,
-    .ag-thinking.taking-longer .g-dot-3 {
+    .ag-thinking:not(.done) .g-dot-1,
+    .ag-thinking:not(.done) .g-dot-2,
+    .ag-thinking:not(.done) .g-dot-3 {
       animation: none !important;
     }
   }
