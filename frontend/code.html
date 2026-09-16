@@ -4274,7 +4274,12 @@
             inp.value = data.prompt;
             inp.dispatchEvent(new Event("input"));
           }
-          if (typeof runTurn === "function" && (data.autoRun !== false)) {
+          if (data.openAttach) {
+            setTimeout(() => {
+              const attachBtn = document.getElementById("agAttach");
+              if (attachBtn) attachBtn.click();
+            }, 200);
+          } else if (typeof runTurn === "function" && (data.autoRun !== false)) {
             runTurn(data.prompt);
           }
         };

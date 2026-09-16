@@ -182,6 +182,11 @@ async function executeRun(runId, opts = {}) {
     messages = messages.concat(buildHistory(opts.history));
   }
 
+  // Include attached images block if provided (URLs and descriptions from vision)
+  if (opts.imagesBlock && opts.imagesBlock.trim()) {
+    messages.push({ role: "user", content: opts.imagesBlock.trim() });
+  }
+
   // Include starting codebase if any files exist
   const codebaseCtx = buildCodebaseContext(currentFiles, codeBudgetChars(effort.id));
   if (codebaseCtx && codebaseCtx.text && codebaseCtx.text.trim()) {

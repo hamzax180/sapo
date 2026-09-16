@@ -4767,6 +4767,11 @@ app.post("/api/codeagent/runs", codeAgentLimiter, express.json({ limit: "1mb" })
   const buildMode = (rawMode === "power" || (req.body && req.body.thinking)) ? "power" : "auto";
   const effort = effortFor(req.body && req.body.effort, buildMode);
 
+  const attachedImages = await uploads.listForOwner(
+    Array.isArray(req.body && req.body.imageIds) ? req.body.imageIds : [], owner
+  );
+  const imagesBlock = buildImagesBlock(attachedImages);
+
   const run = await runStore.createRun({
     projectId: project ? project.id : null,
     owner,
@@ -4779,7 +4784,9 @@ app.post("/api/codeagent/runs", codeAgentLimiter, express.json({ limit: "1mb" })
 
   // Launch the autonomous agent runner in background
   agentRunner.executeRun(run.id, {
-    history: req.body && req.body.conversation
+    history: req.body && req.body.conversation,
+    imagesBlock,
+    attachedImages
   }).then(async (outcome) => {
     if (outcome && outcome.ok && outcome.files && project) {
       try {
@@ -4794,6 +4801,9 @@ app.post("/api/codeagent/runs", codeAgentLimiter, express.json({ limit: "1mb" })
           fileStats: outcome.fileStats || [],
           revisionId: rev.id, chatId: run.chatId
         });
+        if (attachedImages.length) {
+          try { await uploads.attachToProject(attachedImages.map(i => i.id), project.id); } catch (e) {}
+        }
       } catch (e) {
         /* background persistence */
       }

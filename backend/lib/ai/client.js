@@ -125,6 +125,22 @@ function routeFromEnv(env, prefix) {
   };
 }
 
+function visionRouteFromEnv(env) {
+  const custom = routeFromEnv(env, "AI_VISION");
+  if (custom.key && custom.baseUrl && custom.model) return custom;
+  // Fall back to deepseek-flash using the configured prose or json credentials
+  const prose = routeFromEnv(env, "AI_PROSE");
+  const fallbackKey = custom.key || prose.key || env.AI_JSON_KEY || "";
+  const fallbackBaseUrl = custom.baseUrl || prose.baseUrl || env.AI_JSON_BASE_URL || "";
+  const fallbackModel = custom.model || "deepseek-flash";
+  return {
+    baseUrl: fallbackBaseUrl,
+    model: fallbackModel,
+    key: fallbackKey,
+    contextTokens: custom.contextTokens || prose.contextTokens || 0
+  };
+}
+
 /**
  * The context window a call on this route will actually get, in tokens.
  *
@@ -192,15 +208,8 @@ function init(overrides) {
     routes: {
       prose: (o.routes && o.routes.prose) || routeFromEnv(env, "AI_PROSE"),
       json: (o.routes && o.routes.json) || routeFromEnv(env, "AI_JSON"),
-      /* A third route, because seeing is a different capability from writing
-         and cannot borrow a model that lacks it.
-
-         Both of this deployment's other routes point at deepseek-chat, which
-         is text-only — dom-snapshot.js exists precisely because of that. So
-         "vision" is not a preference here, it is the only way an attached
-         photo is ever looked at. Unset is the normal state and is handled:
-         describe() degrades to filename-only. */
-      vision: (o.routes && o.routes.vision) || routeFromEnv(env, "AI_VISION")
+      /* "vision" defaults to deepseek-flash when custom AI_VISION is unset */
+      vision: (o.routes && o.routes.vision) || visionRouteFromEnv(env)
     }
   };
   for (const r of Object.keys(CONFIG.routes)) breakers[r] = { failCount: 0, openUntil: 0 };
@@ -601,6 +610,7 @@ function _debugState() {
  * whether the deployment has a provider for this at all.
  */
 function routeConfigured(route) {
+  ensureInit();
   return !!(CONFIG && configured(CONFIG.routes[route]));
 }
 

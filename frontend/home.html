@@ -667,9 +667,14 @@
   // (same failure as the removed chip handler above), which is what froze
   // the scroll-driven industries section further down.
   $("bhAttach").addEventListener("click", () => {
-    // Phase 4: logo upload + palette extraction. Until then, point people
-    // at the place that already accepts a logo.
-    location.href = "/login";
+    const prompt = (ta.value || "").trim();
+    try {
+      sessionStorage.setItem("souqi_agent_prompt", JSON.stringify({
+        prompt: prompt, mode: mode, agentMode: agentMode, thinking: thinkingEnabled,
+        autoRun: false, openAttach: true, at: Date.now()
+      }));
+    } catch (x) {}
+    location.href = "/agent";
   });
 
   /* ---------- example prompts ---------- */
