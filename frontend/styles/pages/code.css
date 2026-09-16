@@ -570,6 +570,17 @@
     display: none !important;
   }
 
+  /* Freeze all child spinners and stage icons when thinking completes or stops */
+  .ag-thinking.done .ag-think .ic,
+  .ag-thinking.done .ag-think.busy .ic {
+    animation: none !important;
+    border-color: var(--line) !important;
+    box-shadow: none !important;
+  }
+  .ag-thinking.done .ag-think.busy .ic svg {
+    display: block !important;
+  }
+
   .ag-th-dot { display: none !important; }
 
   @media (prefers-reduced-motion: reduce) {

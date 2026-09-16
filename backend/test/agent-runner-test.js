@@ -279,6 +279,46 @@ async function check(name, fn) {
     assert.ok(toolsOffered.some(t => t.function && t.function.name === "write_file"));
   });
 
+  await check("agentRunner answers conversational prompt without tools on fresh project", async () => {
+    let toolsOffered = null;
+    const fetchStub = async (_url, init) => {
+      const body = JSON.parse(init.body);
+      toolsOffered = body.tools;
+      return {
+        ok: true,
+        json: async () => ({
+          choices: [{
+            message: {
+              role: "assistant",
+              content: "I'm doing well, thanks! What would you like me to build for you today?"
+            }
+          }]
+        })
+      };
+    };
+
+    client.init({
+      enabled: true,
+      routes: { json: { baseUrl: "http://mock", key: "mock-key", model: "mock-model" } },
+      fetchImpl: fetchStub
+    });
+
+    const run = await runStore.createRun({
+      projectId: null,
+      owner,
+      prompt: "how are you",
+      mode: "auto",
+      effort: "smart",
+      baseFiles: {}
+    });
+
+    const outcome = await agentRunner.executeRun(run.id);
+    assert.strictEqual(outcome.ok, true);
+    assert.strictEqual(outcome.summary, "I'm doing well, thanks! What would you like me to build for you today?");
+    assert.ok(Array.isArray(toolsOffered));
+    assert.ok(!toolsOffered.some(t => t.function && (t.function.name === "write_file" || t.function.name === "edit_file")));
+  });
+
   console.log("\n" + (failed === 0 ? "✓ ALL AGENT-RUNNER TESTS PASSED (" + passed + ")" : "✗ " + failed + " FAILED, " + passed + " passed"));
   process.exit(failed === 0 ? 0 : 1);
 })();

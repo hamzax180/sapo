@@ -4766,65 +4766,66 @@ app.post("/api/codeagent/runs", codeAgentLimiter, express.json({ limit: "1mb" })
     if (!projects.owns(project, owner)) return res.status(403).json({ error: "not your project" });
     const full = await projects.materialize(project.id);
     baseFiles = (full && full.files) || {};
+  }
 
-    // --- Smart guard: only on follow-up turns (project exists), not in build mode ---
-    if (!isBuildMode) {
-      // 1. Noise / greetings — always intercept regardless of context
-      const quick = quickAssess(prompt);
-      if (quick && !quick.clear) {
+  // --- Smart guard (non-build mode): intercept noise, greetings, and conversational questions BEFORE creating projects or runs ---
+  if (!isBuildMode) {
+    // 1. Noise / greetings — quick regex check
+    const quick = quickAssess(prompt);
+    if (quick && !quick.clear) {
+      if (project) {
         try {
           const chatId = String((req.body && req.body.chatId) || "");
           await projects.addTurn(project.id, { role: "user", kind: "text", body: prompt, chatId });
           await projects.addTurn(project.id, { role: "agent", kind: "text", body: quick.reply, chatId });
         } catch (e) {}
-        return res.status(200).json({ chitchat: quick.reply });
       }
-      // 2. If it's a question about existing work — answer conversationally
-      if (agentRunner.isQuestionOrConversational(prompt)) {
-        try {
-          const history = Array.isArray(req.body && req.body.conversation) ? req.body.conversation : [];
-          const answerRes = await aiClient.chat({
-            route: "prose",
-            messages: [
-              {
-                role: "system",
-                content: "You are a friendly, skilled coding assistant embedded in an app builder called Souqi. " +
-                  "The user is asking a question about their project — NOT requesting a code change. " +
-                  "Answer briefly, clearly, and like a normal human. Keep it under 3 sentences if possible. " +
-                  "Do not offer to build or edit anything."
-              }
-            ].concat(
-              history.slice(-6).map(t => ({
-                role: t.role === "agent" ? "assistant" : "user",
-                content: String(t.body || "")
-              })),
-              [{ role: "user", content: prompt }]
-            ),
-            timeoutMs: 30000
-          });
-          const reply = (answerRes && answerRes.message && answerRes.message.content)
-            || "Happy to help! What would you like me to change or fix?";
+      return res.status(200).json({ chitchat: quick.reply });
+    }
+
+    // 2. Questions / conversational messages (e.g. "how are you", "why did you do that", "what can you build")
+    if (agentRunner.isQuestionOrConversational(prompt)) {
+      try {
+        const history = Array.isArray(req.body && req.body.conversation) ? req.body.conversation : [];
+        const answerRes = await aiClient.chat({
+          route: "prose",
+          messages: [
+            {
+              role: "system",
+              content: "You are a friendly, skilled human software engineer assisting a user in an app builder called Souqi. " +
+                "The user is having a conversation or asking a question — NOT requesting to build or edit code. " +
+                "Speak naturally like a normal human in a conversational tone. Keep your answer clear, friendly, and concise (1 to 3 short sentences). " +
+                "If they are greeting or asking how you are, respond warmly and ask what they would like to build. Never write code unless specifically asked to explain a snippet."
+            }
+          ].concat(
+            history.slice(-6).map(t => ({
+              role: t.role === "agent" ? "assistant" : "user",
+              content: String(t.body || "")
+            })),
+            [{ role: "user", content: prompt }]
+          ),
+          timeoutMs: 30000
+        });
+        const reply = (answerRes && answerRes.message && answerRes.message.content)
+          || "I'm doing well, thanks! What would you like me to build for you today?";
+        if (project) {
           try {
             const chatId = String((req.body && req.body.chatId) || "");
             await projects.addTurn(project.id, { role: "user", kind: "text", body: prompt, chatId });
             await projects.addTurn(project.id, { role: "agent", kind: "text", body: reply, chatId });
           } catch (e) {}
-          return res.status(200).json({ chitchat: reply });
-        } catch (e) {
-          // If model call fails, fall through to building normally
-          console.warn("[runs guard] conversational answer failed, falling through to build:", e.message);
         }
+        return res.status(200).json({ chitchat: reply });
+      } catch (e) {
+        console.warn("[runs guard] conversational answer failed:", e.message);
+        const fallback = "I'm doing well, thanks for asking! What kind of app or website would you like me to build?";
+        return res.status(200).json({ chitchat: fallback });
       }
     }
-  } else {
-    // Fresh build (no project yet) — still guard against pure noise
-    if (!isBuildMode) {
-      const quick = quickAssess(prompt);
-      if (quick && !quick.clear) {
-        return res.status(200).json({ chitchat: quick.reply });
-      }
-    }
-    // Pre-create project and user turn so the chat thread is durable immediately across reloads
+  }
+
+  // If there is no existing project and this is a real build request, pre-create the project
+  if (!project) {
     try {
       project = await projects.create({
         title: projects.titleFromPrompt(prompt),

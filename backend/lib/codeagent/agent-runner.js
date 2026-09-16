@@ -182,7 +182,7 @@ async function executeRun(runId, opts = {}) {
   const turnBaseFiles = Object.assign({}, currentFiles);
   const hasExistingApp = !!currentFiles["src/App.tsx"] || !!currentFiles["index.html"];
   const isBuildMode = String(run.mode || "").toLowerCase() === "build";
-  const isQuestionTurn = !isBuildMode && hasExistingApp && isQuestionOrConversational(run.prompt);
+  const isQuestionTurn = !isBuildMode && isQuestionOrConversational(run.prompt);
 
   await runStore.updateRun(runId, { status: "running", phase: isQuestionTurn ? "answering" : isBuildMode ? "building" : "planning" });
   await runStore.appendEvent(runId, "stage", {
@@ -337,7 +337,7 @@ async function executeRun(runId, opts = {}) {
       }
 
       // Natural text response without tools — could be answering a question or providing a summary
-      if (hasEntry && assistantMsg.content && assistantMsg.content.trim()) {
+      if ((isQuestionTurn || hasEntry) && assistantMsg.content && assistantMsg.content.trim()) {
         taskCompleted = true;
         finalSummary = assistantMsg.content.trim();
         await runStore.appendEvent(runId, "stage", {
@@ -348,7 +348,7 @@ async function executeRun(runId, opts = {}) {
         break;
       }
 
-      if (!hasEntry) {
+      if (!hasEntry && !isQuestionTurn) {
         messages.push({
           role: "user",
           content: "You must create src/App.tsx so the application can render. Invoke write_file now."

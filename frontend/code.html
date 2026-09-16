@@ -1437,9 +1437,17 @@
   let currentThinkPanel = null;
 
   function finalizeThinking(statusText) {
-    document.querySelectorAll(".ag-thinking:not(.done)").forEach((wrap) => {
+    document.querySelectorAll(".ag-thinking").forEach((wrap) => {
       wrap.classList.add("done");
       wrap.classList.remove("taking-longer");
+      wrap.querySelectorAll(".ag-think.busy, .ag-think").forEach((row) => {
+        row.classList.remove("busy");
+        const ic = row.querySelector(".ic");
+        if (ic) {
+          ic.style.animation = "none";
+          if (!ic.querySelector("svg")) ic.innerHTML = ICON.check;
+        }
+      });
       const label = wrap.querySelector(".ag-th-label");
       const time = wrap.querySelector(".ag-th-time");
       if (statusText && label) {
@@ -1547,8 +1555,15 @@
         flushSettles();
         clearInterval(clockTimer);
         wrap.classList.remove("taking-longer");
-        if (wrap.classList.contains("done")) return;
         wrap.classList.add("done");
+        wrap.querySelectorAll(".ag-think.busy, .ag-think").forEach((row) => {
+          row.classList.remove("busy");
+          const ic = row.querySelector(".ic");
+          if (ic) {
+            ic.style.animation = "none";
+            if (!ic.querySelector("svg")) ic.innerHTML = ICON.check;
+          }
+        });
         const secs = Math.max(1, Math.round((Date.now() - t0) / 1000));
         if (statusText) {
           labelEl.textContent = statusText;
@@ -1663,6 +1678,7 @@
       currentAbortController = null;
     }
     removeInterruptRow();
+    resetBootScreen();
     if (building) {
       building = false;
       document.body.classList.remove("is-building");
@@ -2040,6 +2056,9 @@
           } else if (spawnRes.status === 200) {
             // Server decided this is a question/chitchat — answer conversationally
             const data = await spawnRes.json();
+            if (thinkPanel) thinkPanel.done();
+            finalizeThinking();
+            resetBootScreen();
             if (data.chitchat) {
               say('<span class="muted">' + esc(data.chitchat) + '</span>');
               return;
@@ -2249,14 +2268,22 @@
       }
 
       if (chitchat) {
+        if (thinkPanel) thinkPanel.done();
+        finalizeThinking();
+        resetBootScreen();
         say('<span class="muted">' + esc(chitchat) + '</span>');
         return;
       }
       if (publishRequested) {
+        if (thinkPanel) thinkPanel.done();
+        finalizeThinking();
         publishNow();
         return;
       }
       if (gate) {
+        if (thinkPanel) thinkPanel.done();
+        finalizeThinking();
+        resetBootScreen();
         var links = gate.kind === "auth"
           ? '<a href="' + esc(gate.loginUrl) + '">Sign in</a> · <a href="' + esc(gate.signupUrl) + '">Sign up</a>'
           : '<a href="' + esc(gate.pricingUrl) + '">See plans</a>';
@@ -2264,6 +2291,9 @@
         return;
       }
       if (clarifyReply) {
+        if (thinkPanel) thinkPanel.done();
+        finalizeThinking();
+        resetBootScreen();
         pendingPrompt = effectivePrompt;
         convo.push({ role: "agent", kind: clarifyAction, body: clarifyReply });
         showQuestions(clarifyReply, clarifyOptions);
@@ -2370,6 +2400,9 @@
       document.body.classList.remove("is-building");
       agHistory.classList.remove("focus");
       removeInterruptRow();
+      if (!result && (!lastReceivedFiles || !Object.keys(lastReceivedFiles).length)) {
+        resetBootScreen();
+      }
       updateComposerSendButton();
       updateQueueBanner();
 
@@ -2787,6 +2820,24 @@
       agPvDevices.style.display = "";
     }
     applyDeviceFrame();
+  }
+
+  function resetBootScreen() {
+    const bootEl = $("agPvBoot");
+    const bootBar = bootEl ? bootEl.querySelector(".ios-progress-bar") : null;
+    const bootFill = $("agBootFill");
+    const bootLabel = $("agBootLabel");
+    const iframe = $("agPvIframe");
+    if (bootEl) {
+      bootEl.classList.add("hidden");
+      if (bootBar) bootBar.classList.remove("on");
+      if (bootFill) {
+        bootFill.classList.remove("running");
+        bootFill.style.animation = "none";
+      }
+      if (bootLabel) bootLabel.textContent = "";
+      if (iframe && projectId) iframe.hidden = false;
+    }
   }
 
   /* Renders the model's "what next" as one-tap accepts.
