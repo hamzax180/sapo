@@ -1,6 +1,5 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
-import { VitePWA } from "vite-plugin-pwa";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -30,26 +29,7 @@ const htmlPages = Object.fromEntries(
 );
 
 export default defineConfig({
-  plugins: [
-    react(),
-    // Every generated app is installable — a home-screen icon, offline
-    // caching, no browser chrome once launched. This is infrastructure
-    // (like tailwind.config.js), never something the model writes itself.
-    // registerType "autoUpdate" means a republish takes effect on next
-    // load with no user-facing "new version available" prompt to design.
-    VitePWA({
-      registerType: "autoUpdate",
-      includeAssets: ["pwa-icon.svg"],
-      manifest: {
-        name: "Souqi App", short_name: "App",
-        theme_color: "#1aa6df", background_color: "#ffffff", display: "standalone",
-        icons: [
-          { src: "pwa-icon.svg", sizes: "512x512", type: "image/svg+xml", purpose: "any" },
-          { src: "pwa-icon.svg", sizes: "512x512", type: "image/svg+xml", purpose: "maskable" }
-        ]
-      }
-    })
-  ],
+  plugins: [react()],
   server: { host: true, strictPort: true },
   build: { rollupOptions: { input: htmlPages } },
   // Relative asset paths ("./assets/x.js" instead of "/assets/x.js") — this
