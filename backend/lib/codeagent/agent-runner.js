@@ -406,6 +406,11 @@ async function executeRun(runId, opts = {}) {
       if (checkOutcome.ok) {
         messages.push({ role: "user", content: "Browser check PASSED. The app compiles and renders cleanly." });
         await runStore.appendEvent(runId, "stage", { id: "check-" + turn, state: "done", detail: "Verification passed" });
+        if (currentFiles["src/App.tsx"] || currentFiles["index.html"]) {
+          taskCompleted = true;
+          finalSummary = finalSummary || "Verification passed. Built and verified all components cleanly.";
+          break;
+        }
       } else {
         const errSummary = (checkOutcome.errors || []).map((e) => (e.file ? e.file + ":" + e.line + " — " + e.message : e.message)).join("\n");
         messages.push({ role: "user", content: "Browser check FAILED with these errors:\n" + errSummary + "\n\nFix them using edit_file or write_file." });

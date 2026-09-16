@@ -4746,6 +4746,21 @@ app.post("/api/codeagent/runs", codeAgentLimiter, express.json({ limit: "1mb" })
     if (!projects.owns(project, owner)) return res.status(403).json({ error: "not your project" });
     const full = await projects.materialize(project.id);
     baseFiles = (full && full.files) || {};
+  } else {
+    // Pre-create project and user turn so the chat thread is durable immediately across reloads
+    try {
+      project = await projects.create({
+        title: projects.titleFromPrompt(prompt),
+        prompt,
+        meta: { kind: "code", buildType: (req.body && req.body.buildType) || "website" },
+        owner
+      });
+      await projects.addTurn(project.id, {
+        role: "user", kind: "text", body: prompt, chatId: String((req.body && req.body.chatId) || "")
+      });
+    } catch (e) {
+      console.warn("Could not pre-create project:", e.message);
+    }
   }
 
   const rawMode = String((req.body && req.body.mode) || "").toLowerCase();
@@ -4766,27 +4781,14 @@ app.post("/api/codeagent/runs", codeAgentLimiter, express.json({ limit: "1mb" })
   agentRunner.executeRun(run.id, {
     history: req.body && req.body.conversation
   }).then(async (outcome) => {
-    if (outcome && outcome.ok && outcome.files) {
+    if (outcome && outcome.ok && outcome.files && project) {
       try {
-        let p = project;
-        if (!p) {
-          p = await projects.create({
-            title: projects.titleFromPrompt(prompt),
-            prompt,
-            meta: { kind: "code", buildType: (req.body && req.body.buildType) || "website" },
-            owner
-          });
-          await runStore.updateRun(run.id, { projectId: p.id });
-        }
-        await projects.addTurn(p.id, {
-          role: "user", kind: "text", body: prompt, chatId: run.chatId
-        });
         const rev = await projects.addRevision(
-          p.id,
+          project.id,
           { files: outcome.files },
           outcome.summary || "Autonomous build completed"
         );
-        await projects.addTurn(p.id, {
+        await projects.addTurn(project.id, {
           role: "agent", kind: "result",
           body: outcome.summary || "Task completed",
           fileStats: outcome.fileStats || [],
@@ -4802,7 +4804,8 @@ app.post("/api/codeagent/runs", codeAgentLimiter, express.json({ limit: "1mb" })
 
   res.status(202).json({
     runId: run.id,
-    projectId: run.projectId,
+    projectId: project ? project.id : null,
+    projectSlug: project ? (project.slug || project.id) : null,
     status: run.status
   });
 });

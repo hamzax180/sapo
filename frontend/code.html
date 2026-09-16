@@ -2009,6 +2009,12 @@
           if (spawnRes.status === 202) {
             const data = await spawnRes.json();
             runId = data.runId;
+            if (data.projectId) projectId = data.projectId;
+            if (data.projectSlug) {
+              projectSlug = data.projectSlug;
+              try { history.replaceState(null, "", "/agent/" + projectSlug); } catch (e) {}
+              if ($("agNewExtras")) $("agNewExtras").hidden = true;
+            }
           }
         } catch (e) {
           if (e.name === "AbortError") throw e;
@@ -2020,7 +2026,7 @@
         activeRunId = runId;
         try {
           sessionStorage.setItem("sapo_active_run", JSON.stringify({
-            runId: runId, prompt: effectivePrompt, projectId: projectId || undefined
+            runId: runId, prompt: effectivePrompt, projectId: projectId || undefined, projectSlug: projectSlug || undefined
           }));
         } catch (e) {}
 
@@ -2765,7 +2771,7 @@
     if (agPvIframe) agPvIframe.hidden = false;
     agPvEmpty.style.display = "none";
 
-    if (url === "__webcontainer__") {
+    if (url === "__webcontainer__" || fileContents || !url) {
       renderAppPreview(fileContents);
     } else if (url) {
       // Legacy/reload preview URL
