@@ -143,26 +143,58 @@ function reportCheckResult(runId, checkResult) {
 }
 
 /**
+ * Detects whether a prompt is an informational question or explanation request
+ * rather than a directive to build or edit code.
+ */
+function isQuestionOrConversational(prompt) {
+  if (!prompt || typeof prompt !== "string") return false;
+  const p = prompt.trim().toLowerCase();
+
+  // If asking to perform an action (e.g. "add ...", "make ...", "fix the ..."), it's an edit request
+  // But allow questions asking about past actions: "why did you fix", "what did you add", "what was the error", "why did you change"
+  const pastActionQuestion = /\b(why (?:did|have|u|you)|what (?:did|have|was|were)|how (?:did|have|come)|explain (?:what|why|how))\b/i;
+  if (!pastActionQuestion.test(p)) {
+    const actionVerbs = /\b(add|create|make|build|change|update|fix|remove|delete|replace|style|implement|set|put|rewrite|redesign|insert|switch)\b/i;
+    if (actionVerbs.test(p)) return false;
+  }
+
+  const questionPatterns = [
+    /^(why|what|how|where|when|who|which)\b/i,
+    /\b(why u|why did you|why'd you|why was|why is|why does|why it)\b/i,
+    /\b(what was|what went wrong|what happened|what changed|what did you)\b/i,
+    /\b(explain|tell me|walk me through|can you explain|could you explain)\b/i,
+    /\?$/
+  ];
+
+  return questionPatterns.some((pattern) => pattern.test(p));
+}
+
+/**
  * Runs the autonomous dynamic agent loop for a runId.
  */
 async function executeRun(runId, opts = {}) {
   const run = await runStore.getRun(runId);
   if (!run) throw new Error("Run not found: " + runId);
 
-  await runStore.updateRun(runId, { status: "running", phase: "planning" });
-  await runStore.appendEvent(runId, "stage", { id: "planning", state: "start", detail: "Analyzing requirements..." });
-
   // Materialize starting files from checkpoint 0 or empty
   const latestChk = await runStore.getLatestCheckpoint(runId);
   const currentFiles = Object.assign({}, (latestChk && latestChk.files) || {});
   const turnBaseFiles = Object.assign({}, currentFiles);
+  const hasExistingApp = !!currentFiles["src/App.tsx"] || !!currentFiles["index.html"];
+  const isQuestionTurn = hasExistingApp && isQuestionOrConversational(run.prompt);
+
+  await runStore.updateRun(runId, { status: "running", phase: isQuestionTurn ? "answering" : "planning" });
+  await runStore.appendEvent(runId, "stage", {
+    id: "planning",
+    state: "start",
+    detail: isQuestionTurn ? "Thinking..." : "Analyzing requirements..."
+  });
 
   const effort = effortFor(run.effort, run.mode);
   const isPower = effort.tier === "power";
   const maxTurns = effort.id === "fast" ? 5 : effort.id === "balanced" ? 8 : effort.id === "smart" ? 12 : 16;
 
   let totalCostUsd = 0;
-  const hasExistingApp = !!currentFiles["src/App.tsx"] || !!currentFiles["index.html"];
 
   let messages = [
     {
@@ -174,7 +206,7 @@ async function executeRun(runId, opts = {}) {
           : "You have full autonomy to inspect files (`list_files`, `read_file`, `search_code`), create or edit files modularly (`write_file`, `edit_file`), and verify your work (`check_project`).\n") +
         "CRITICAL EXECUTION RULES:\n" +
         "1. Communicate like a helpful, intelligent human software engineer. Answer user questions or explain your changes naturally in your message text.\n" +
-        "2. If the user is asking a question or seeking an explanation (e.g. 'what was the error', 'why did it fail', 'how does this work'), answer them directly and clearly in natural conversational markdown without modifying code.\n" +
+        "2. If the user is asking a question or seeking an explanation (e.g. 'why did you do that', 'what was the error', 'why did it fail', 'how does this work'), answer them directly and clearly in natural conversational markdown without modifying code. DO NOT invoke write_file or edit_file when answering questions.\n" +
         "3. When code changes or new features are requested, use your tools (write_file, edit_file) to implement the changes cleanly and modularly, then call check_project to verify the build.\n" +
         "4. Always ensure src/App.tsx exists to render the application.\n" +
         "5. When concluding your turn or calling complete_task, always provide a clear, concise summary of what you did: specifically state what components or files were created, what was modified, or what errors/bugs were fixed (e.g. '• Created Hero and Features components\\n• Updated App.tsx layout\\n• Fixed button click handler'). Never return an empty or vague summary."
@@ -197,11 +229,19 @@ async function executeRun(runId, opts = {}) {
   }
 
   if (hasExistingApp) {
-    messages.push({
-      role: "user",
-      content: "User message: " + run.prompt +
-        "\n\nIf the user is asking a question (such as asking about previous errors, what you did, or how code works), answer them conversationally in your response text. If they are asking for changes or new features, use your tools to make the changes and verify them."
-    });
+    if (isQuestionTurn) {
+      messages.push({
+        role: "user",
+        content: "User question: " + run.prompt +
+          "\n\nCRITICAL INSTRUCTIONS:\n- The user is asking an explanation or question about what was done or an error. Answer them directly and helpfully in conversational markdown.\n- DO NOT edit or create any code files. DO NOT invoke write_file or edit_file.\n- Answer their question like a human software engineer."
+      });
+    } else {
+      messages.push({
+        role: "user",
+        content: "User message: " + run.prompt +
+          "\n\nIf the user is asking a question (such as asking about previous errors, what you did, or how code works), answer them conversationally in your response text without writing code. If they are asking for changes or new features, use your tools to make the changes and verify them."
+      });
+    }
   } else {
     messages.push({
       role: "user",
@@ -226,13 +266,20 @@ async function executeRun(runId, opts = {}) {
     await runStore.appendEvent(runId, "stage", {
       id: "turn-" + turn,
       state: "start",
-      detail: "Step " + turn + " — " + (hasEntry ? "Refining and verifying..." : "Building components...")
+      detail: isQuestionTurn
+        ? "Thinking..."
+        : ("Step " + turn + " — " + (hasEntry ? "Refining and verifying..." : "Building components..."))
     });
+
+    // If it's an informational question on an existing codebase, restrict tools to read-only
+    const toolsForTurn = isQuestionTurn
+      ? DYNAMIC_TOOLS_SCHEMA.filter((t) => t.function.name === "read_file" || t.function.name === "search_code" || t.function.name === "list_files")
+      : DYNAMIC_TOOLS_SCHEMA;
 
     // Call model
     const callOpts = {
       route: "json",
-      tools: DYNAMIC_TOOLS_SCHEMA,
+      tools: toolsForTurn,
       model: isPower ? process.env.AI_JSON_POWER_MODEL : undefined,
       maxTokens: effort.id === "max" ? 5000 : effort.id === "smart" ? 4000 : 2500,
       temperature: 0.3,
@@ -474,7 +521,7 @@ async function executeRun(runId, opts = {}) {
     finalSummary === "Verification passed. Built and verified all components cleanly." ||
     finalSummary.trim().length < 12;
 
-  if (isGeneric) {
+  if (isGeneric && !isQuestionTurn) {
     const created = diff.filter(d => d.isNew).map(d => (d.path || "").split("/").pop()).filter(Boolean);
     const modified = diff.filter(d => !d.isNew && (d.added || d.removed)).map(d => (d.path || "").split("/").pop()).filter(Boolean);
     const parts = [];
@@ -530,5 +577,6 @@ async function executeRun(runId, opts = {}) {
 module.exports = {
   DYNAMIC_TOOLS_SCHEMA,
   executeRun,
-  reportCheckResult
+  reportCheckResult,
+  isQuestionOrConversational
 };

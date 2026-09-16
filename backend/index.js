@@ -4800,18 +4800,22 @@ app.post("/api/codeagent/runs", codeAgentLimiter, express.json({ limit: "1mb" })
     imagesBlock,
     attachedImages
   }).then(async (outcome) => {
-    if (outcome && outcome.ok && outcome.files && project) {
+    if (outcome && outcome.ok && project) {
       try {
-        const rev = await projects.addRevision(
-          project.id,
-          { files: outcome.files },
-          outcome.summary || "Autonomous build completed"
-        );
+        const hasChanges = outcome.fileStats && outcome.fileStats.length > 0;
+        let rev = null;
+        if (hasChanges && outcome.files) {
+          rev = await projects.addRevision(
+            project.id,
+            { files: outcome.files },
+            outcome.summary || "Autonomous build completed"
+          );
+        }
         await projects.addTurn(project.id, {
-          role: "agent", kind: "result",
+          role: "agent", kind: hasChanges ? "result" : "text",
           body: outcome.summary || "Task completed",
           fileStats: outcome.fileStats || [],
-          revisionId: rev.id, chatId: run.chatId
+          revisionId: rev ? rev.id : undefined, chatId: run.chatId
         });
         if (attachedImages.length) {
           try { await uploads.attachToProject(attachedImages.map(i => i.id), project.id); } catch (e) {}
@@ -5541,6 +5545,32 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
        it win, and it names the failure directly: judge the language from the
        request and from nothing else, examples in the instructions included. */
     effectivePrompt += "\n\nLANGUAGE OF THE FINISHED APP: every word a visitor reads — headings, buttons, labels, menu items, form placeholders, alt text, sample data — goes in the same language and script as the change request above. Decide it from the words in that request and nothing else: not from the kind of business, not from a currency, a city or a person's name, and not from any language named as an example elsewhere in your instructions. If the request is genuinely ambiguous, use English.";
+
+    if (isFollowUp && agentRunner.isQuestionOrConversational(prompt)) {
+      sseFrame(res, "stage", { id: "question", state: "done", detail: "Thinking..." });
+      const answerRes = await client.chat({
+        route: "prose",
+        messages: [
+          {
+            role: "system",
+            content: "You are an intelligent, helpful human software engineer assisting a user with their web application. The user is asking a question or explanation about what you did, how the code works, or what an error was. Answer them clearly, accurately, and naturally in markdown. Do NOT write code blocks unless explaining a specific snippet."
+          }
+        ].concat(
+          buildHistory(convo),
+          [{ role: "user", content: effectivePrompt }]
+        ),
+        timeoutMs: 45000
+      });
+      const reply = (answerRes && answerRes.message && answerRes.message.content) || "I am happy to explain. What specific part would you like to know more about?";
+      await projects.addTurn(project.id, {
+        role: "agent", kind: "text",
+        body: reply,
+        chatId: chatId
+      });
+      sseFrame(res, "chitchat", { reply: reply });
+      sseFrame(res, "done", {});
+      return res.end();
+    }
 
     // canBuild: false means the client is on mobile or a browser that does not
     // support WebContainers (no SharedArrayBuffer). In that case, skip the

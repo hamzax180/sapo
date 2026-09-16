@@ -2317,7 +2317,9 @@
         say('<span class="muted">Tell me what to change and I\'ll update it.</span>');
       }
       if (thinkPanel) thinkPanel.done();
-      worked(Math.max(1, Math.round((Date.now() - startedAt) / 1000)));
+      if (result.fileStats && result.fileStats.length) {
+        worked(Math.max(1, Math.round((Date.now() - startedAt) / 1000)));
+      }
 
       showPreview(result.previewUrl, result.fileContents || (lastReceivedFiles && Object.keys(lastReceivedFiles).length ? lastReceivedFiles : undefined));
       showSuggestions(result.suggestions);
