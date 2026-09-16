@@ -444,6 +444,7 @@ async function chat(req) {
         model: req.model || r.model,
         messages: req.messages,
         tools: req.tools || undefined,
+        tool_choice: req.toolChoice || undefined,
         response_format: req.responseFormat || undefined,
         max_tokens: req.maxTokens || 900,
         temperature: (req.temperature !== null && req.temperature !== undefined) ? req.temperature : 0.5

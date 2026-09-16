@@ -1372,7 +1372,23 @@
     const row = el("ag-think busy" + (cls ? " " + cls : ""), '<span class="ic">' + ICON.dot + "</span><span></span>");
     row.lastChild.textContent = label;
     (container || agLog).appendChild(row); toBottom();
-    return { done(next) { row.classList.remove("busy"); row.querySelector(".ic").innerHTML = ICON.check; if (next) row.lastChild.textContent = next; } };
+    let settled = false;
+    return {
+      done(next) {
+        if (settled) return;
+        settled = true;
+        row.classList.remove("busy");
+        row.querySelector(".ic").innerHTML = ICON.check;
+        if (next) row.lastChild.textContent = next;
+      },
+      fail(msg) {
+        if (settled) return;
+        settled = true;
+        row.classList.remove("busy");
+        row.classList.add("failed");
+        if (msg) row.lastChild.textContent = msg;
+      }
+    };
   }
   // Wraps each word of TEXT NODES (never element children — an <a> stays
   // one intact link, never split mid-word) in a staggered fade+rise span.
@@ -1515,7 +1531,10 @@
         // The row is live immediately; only its check is paced. Wrapping the
         // handle rather than the call site means every caller is queued by
         // construction — a new one cannot forget to be.
-        return { done: function (next) { queueSettle(function () { handle.done(next); }); } };
+        return {
+          done: function (next) { queueSettle(function () { handle.done(next); }); },
+          fail: function (msg) { queueSettle(function () { handle.fail(msg); }); }
+        };
       },
       done() {
         // Before anything else: a turn that is over cannot still be ticking.
@@ -2168,16 +2187,16 @@
       if (!result && runId) {
         try {
           const stRes = await fetch("/api/codeagent/runs/" + encodeURIComponent(runId)).then(r => r.json());
-          if (stRes && stRes.run && stRes.run.status === "succeeded") {
+          if (stRes && ((stRes.run && stRes.run.status === "succeeded") || (stRes.files && Object.keys(stRes.files).length))) {
             result = {
               ok: true,
-              projectId: stRes.projectId || stRes.run.projectId || projectId,
+              projectId: stRes.projectId || (stRes.run && stRes.run.projectId) || projectId,
               slug: stRes.projectSlug || projectSlug,
               files: Object.keys(stRes.files || {}),
               fileContents: stRes.files,
-              costUsd: stRes.run.costUsd || 0,
+              costUsd: (stRes.run && stRes.run.costUsd) || 0,
               fileStats: [],
-              note: stRes.run.summary || "Build completed successfully."
+              note: (stRes.run && stRes.run.summary) || "Application generated successfully."
             };
             lastReceivedFiles = stRes.files;
           } else if (stRes && stRes.run && stRes.run.status === "failed") {
@@ -2256,9 +2275,18 @@
         say('<span class="muted">Agent turn cancelled. You can type a new prompt anytime.</span>', "warn");
         return;
       }
+      // If files exist from previous checkpoints or streamed writes, rescue preview
+      if (lastReceivedFiles && Object.keys(lastReceivedFiles).length) {
+        const generatedPaths = Object.keys(lastReceivedFiles).filter((f) => f.startsWith("src/") || /^[^/]+\.html$/.test(f));
+        renderCard(generatedPaths, 0, []);
+        showPreview(undefined, lastReceivedFiles);
+        if (thinkPanel) thinkPanel.done();
+        say('<span class="muted">Loaded generated files into preview.</span>');
+        return;
+      }
       Object.keys(handles).forEach(function(k) {
-        if (handles[k] && typeof handles[k].done === "function") {
-          try { handles[k].done("Failed"); } catch(e) {}
+        if (handles[k] && typeof handles[k].fail === "function") {
+          try { handles[k].fail(); } catch(e) {}
         }
       });
       if (thinkPanel) thinkPanel.done();

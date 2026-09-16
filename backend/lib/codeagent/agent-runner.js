@@ -170,7 +170,11 @@ async function executeRun(runId, opts = {}) {
         (effort.id === "fast"
           ? "You are in Fast mode: solve the task cleanly in as few tool calls as possible. Write the essential files directly.\n"
           : "You have full autonomy to inspect files (`list_files`, `read_file`, `search_code`), create or edit files modularly (`write_file`, `edit_file`), and verify your work (`check_project`).\n") +
-        "Always ensure src/App.tsx exists to render your components. When you finish, call `check_project` to test the build. Once verified, call `complete_task` with a clear summary."
+        "CRITICAL EXECUTION RULES:\n" +
+        "1. DO NOT output conversational text, explanations, or commentary in message text. Every response MUST invoke one or more tools.\n" +
+        "2. Call write_file immediately to create the necessary components and src/App.tsx. You can invoke multiple write_file calls in a single turn.\n" +
+        "3. Always ensure src/App.tsx exists to import and render your components.\n" +
+        "4. When finished, call check_project to verify the build, then call complete_task."
     }
   ];
 
@@ -186,7 +190,7 @@ async function executeRun(runId, opts = {}) {
 
   messages.push({
     role: "user",
-    content: "Task: " + run.prompt + "\n\nBegin by inspecting the workspace or writing the initial components."
+    content: "Task: " + run.prompt + "\n\nBegin by creating the required components and src/App.tsx using write_file."
   });
 
   let taskCompleted = false;
@@ -200,16 +204,19 @@ async function executeRun(runId, opts = {}) {
       return { ok: false, cancelled: true };
     }
 
+    const hasEntry = !!currentFiles["src/App.tsx"] || !!currentFiles["index.html"];
+
     await runStore.appendEvent(runId, "stage", {
       id: "turn-" + turn,
       state: "start",
-      detail: "Step " + turn + " of " + maxTurns + " — reasoning and selecting actions..."
+      detail: "Step " + turn + " — " + (hasEntry ? "Refining and verifying..." : "Building components...")
     });
 
     // Call model
     const callOpts = {
       route: "json",
       tools: DYNAMIC_TOOLS_SCHEMA,
+      toolChoice: (!taskCompleted && !hasEntry) ? "required" : "auto",
       model: isPower ? process.env.AI_JSON_POWER_MODEL : undefined,
       maxTokens: effort.id === "max" ? 5000 : effort.id === "smart" ? 4000 : 2500,
       temperature: 0.3,
@@ -229,7 +236,6 @@ async function executeRun(runId, opts = {}) {
     messages.push(assistantMsg);
 
     const toolCalls = assistantMsg.tool_calls || [];
-    const hasEntry = !!currentFiles["src/App.tsx"] || !!currentFiles["index.html"];
 
     if (!toolCalls.length) {
       // Natural text response without tools — could be finishing or a question
@@ -237,22 +243,23 @@ async function executeRun(runId, opts = {}) {
         if (hasEntry) {
           taskCompleted = true;
           finalSummary = assistantMsg.content || "Task completed.";
+          await runStore.appendEvent(runId, "stage", { id: "turn-" + turn, state: "done", detail: "Step " + turn + " completed" });
           break;
         } else {
           messages.push({
             role: "user",
-            content: "You have created the components, but src/App.tsx does not exist yet. Please use write_file to create src/App.tsx so the application can render."
+            content: "You must create src/App.tsx so the application can render. Invoke write_file now."
           });
+          await runStore.appendEvent(runId, "stage", { id: "turn-" + turn, state: "done", detail: "Step " + turn + " completed" });
           continue;
         }
       }
-      // Ask model to proceed with tools
+      // Ask model to proceed with tools immediately
       messages.push({
         role: "user",
-        content: hasEntry
-          ? "Please proceed with writing, editing, or checking the required files using the available tools."
-          : "Please write src/App.tsx to import and render your components using write_file."
+        content: "Do not reply with conversational text. Invoke write_file now to create " + (hasEntry ? "the remaining components or check_project." : "src/App.tsx to mount the application.")
       });
+      await runStore.appendEvent(runId, "stage", { id: "turn-" + turn, state: "done", detail: "Step " + turn + " completed" });
       continue;
     }
 
@@ -302,6 +309,7 @@ async function executeRun(runId, opts = {}) {
         const content = String(args.content || "");
         currentFiles[filePath] = content;
         await runStore.appendEvent(runId, "file_written", { path: filePath, bytes: content.length });
+        await runStore.appendEvent(runId, "stage", { id: "file-" + filePath, state: "done", detail: "Wrote " + filePath });
         toolResults.push({ role: "tool", tool_call_id: tc.id, content: "Successfully wrote " + filePath });
       } else if (fnName === "edit_file") {
         const filePath = String(args.path || "").trim();
@@ -315,6 +323,7 @@ async function executeRun(runId, opts = {}) {
         } else {
           currentFiles[filePath] = text.replace(find, replace);
           await runStore.appendEvent(runId, "file_edited", { path: filePath });
+          await runStore.appendEvent(runId, "stage", { id: "file-" + filePath, state: "done", detail: "Edited " + filePath });
           toolResults.push({ role: "tool", tool_call_id: tc.id, content: "Successfully edited " + filePath });
         }
       } else if (fnName === "check_project") {
@@ -372,7 +381,31 @@ async function executeRun(runId, opts = {}) {
       }
     }
 
+    await runStore.appendEvent(runId, "stage", {
+      id: "turn-" + turn,
+      state: "done",
+      detail: "Step " + turn + " completed (" + (toolCalls.length ? toolCalls.length + " action" + (toolCalls.length === 1 ? "" : "s") : "verified") + ")"
+    });
+
     if (taskCompleted) break;
+  }
+
+  // Auto-recovery: If src/App.tsx is missing but components exist, connect them into App.tsx
+  if (!currentFiles["src/App.tsx"] && !currentFiles["index.html"]) {
+    const compFiles = Object.keys(currentFiles).filter(f => f.startsWith("src/components/") && (f.endsWith(".tsx") || f.endsWith(".jsx")));
+    if (compFiles.length > 0) {
+      const imports = [];
+      const tags = [];
+      for (const cf of compFiles) {
+        const baseName = cf.split("/").pop().replace(/\.(tsx|jsx)$/, "");
+        const cleanName = baseName.charAt(0).toUpperCase() + baseName.slice(1).replace(/[^a-zA-Z0-9]/g, "");
+        imports.push(`import { ${cleanName} } from './components/${baseName}';`);
+        tags.push(`      <${cleanName} />`);
+      }
+      currentFiles["src/App.tsx"] = `${imports.join("\n")}\n\nexport default function App() {\n  return (\n    <div className="min-h-screen bg-zinc-950 text-white selection:bg-amber-400 selection:text-black">\n${tags.join("\n")}\n    </div>\n  );\n}\n`;
+      await runStore.appendEvent(runId, "file_written", { path: "src/App.tsx", bytes: currentFiles["src/App.tsx"].length });
+      await runStore.appendEvent(runId, "stage", { id: "file-src/App.tsx", state: "done", detail: "Wrote src/App.tsx" });
+    }
   }
 
   // Final validation
