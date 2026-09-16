@@ -156,7 +156,17 @@ function isQuestionOrConversational(prompt) {
     /^(please\s+)?(change|update|fix|remove|delete|replace|style|rewrite|redesign)\s+(the|a|an|this|all|my)\b/i.test(p);
   if (isDirectCommand) return false;
 
-  // 2. Casual conversational remarks, compliments, reactions:
+  // 2. Disclaimers, corrections, or telling the agent not to build or to wait:
+  // e.g. "i didnt say build yet", "don't build yet", "wait", "hold on", "not yet", "stop", "i never said build"
+  const stopOrCorrection = /\b(didn'?t say|don'?t build|never said|not yet|wait|hold on|stop|not now|why are you building|i didn'?t ask|i haven'?t|no wait|dont build)\b/i;
+  if (stopOrCorrection.test(p)) return true;
+
+  // 3. Conversational statements starting with personal pronouns/opinions that are not build commands
+  if (/^(i|you|we|it|that|they)\s+(am|are|was|were|think|feel|mean|said|didn'?t|don'?t|didnt|dont|know|thought|see|hear|just|only|already)\b/i.test(p)) {
+    return true;
+  }
+
+  // 4. Casual conversational remarks, compliments, reactions:
   // e.g. "you know when to build and when not now , wow", "wow", "haha", "nice job", "you are smart"
   const casualChat = /\b(you know|you understand|you got it|impressive|smart|genius|cool|awesome|great|haha|lol|lmao|omg|good job|well done|thank you|thanks|thx|nice|wow|super|amazing)\b/i;
   if (casualChat.test(p)) return true;
