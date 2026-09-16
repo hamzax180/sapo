@@ -181,13 +181,14 @@ async function executeRun(runId, opts = {}) {
   const currentFiles = Object.assign({}, (latestChk && latestChk.files) || {});
   const turnBaseFiles = Object.assign({}, currentFiles);
   const hasExistingApp = !!currentFiles["src/App.tsx"] || !!currentFiles["index.html"];
-  const isQuestionTurn = hasExistingApp && isQuestionOrConversational(run.prompt);
+  const isBuildMode = String(run.mode || "").toLowerCase() === "build";
+  const isQuestionTurn = !isBuildMode && hasExistingApp && isQuestionOrConversational(run.prompt);
 
-  await runStore.updateRun(runId, { status: "running", phase: isQuestionTurn ? "answering" : "planning" });
+  await runStore.updateRun(runId, { status: "running", phase: isQuestionTurn ? "answering" : isBuildMode ? "building" : "planning" });
   await runStore.appendEvent(runId, "stage", {
-    id: "planning",
+    id: isBuildMode ? "building" : "planning",
     state: "start",
-    detail: isQuestionTurn ? "Thinking..." : "Analyzing requirements..."
+    detail: isQuestionTurn ? "Thinking..." : isBuildMode ? "Building components..." : "Analyzing requirements..."
   });
 
   const effort = effortFor(run.effort, run.mode);
@@ -205,7 +206,8 @@ async function executeRun(runId, opts = {}) {
           ? "You are in Fast mode: solve the task cleanly in as few tool calls as possible. Write the essential files directly.\n"
           : "You have full autonomy to inspect files (`list_files`, `read_file`, `search_code`), create or edit files modularly (`write_file`, `edit_file`), and verify your work (`check_project`).\n") +
         "CRITICAL EXECUTION RULES:\n" +
-        "1. Communicate like a helpful, intelligent human software engineer. Answer user questions or explain your changes naturally in your message text.\n" +
+        (isBuildMode ? "0. BUILD MODE ACTIVE: The user selected Build mode. Directly implement, write, or edit code immediately using write_file and edit_file without extra confirmation or delays.\n" : "") +
+        "1. Communicate like a helpful, intelligent human software engineer. Speak naturally like a normal human in conversational tone, answering questions or explaining changes clearly in your message text.\n" +
         "2. If the user is asking a question or seeking an explanation (e.g. 'why did you do that', 'what was the error', 'why did it fail', 'how does this work'), answer them directly and clearly in natural conversational markdown without modifying code. DO NOT invoke write_file or edit_file when answering questions.\n" +
         "3. When code changes or new features are requested, use your tools (write_file, edit_file) to implement the changes cleanly and modularly, then call check_project to verify the build.\n" +
         "4. Always ensure src/App.tsx exists to render the application.\n" +

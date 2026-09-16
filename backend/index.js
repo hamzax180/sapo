@@ -37,6 +37,7 @@ const securityHeaders = require("./middleware/securityHeaders");
 const { rateLimit } = require("./middleware/rateLimit");
 const { encryptSecret, decryptSecret } = require("./lib/crypto");
 const aiProviders = require("./lib/ai/providers");
+const aiClient = require("./lib/ai/client");
 const scaffoldFiles = require("./lib/codeagent/scaffold-files");
 const theme = require("./lib/codeagent/theme");
 /* Scaffold files the BROWSER's build container does not mount for itself and
@@ -2591,7 +2592,7 @@ app.post("/api/projects/:key/micro-claim", microClaimLimiter, verifyCaptcha(), v
    are the next thing the model needs, and dom-snapshot.js is the original
    blank-page check — the one just rebuilt in the browser. Deleting them
    would mean writing them again. */
-const { proposeChanges, proposeWithRepair, proposeWithClientBuild, repairProposal, assessPrompt, buildPlan, buildCodebaseContext, buildImagesBlock, codeBudgetChars, effortFor, EFFORT, PROMPT_VERSION } = require("./lib/codeagent/model-loop");
+const { proposeChanges, proposeWithRepair, proposeWithClientBuild, repairProposal, assessPrompt, buildPlan, buildCodebaseContext, buildImagesBlock, codeBudgetChars, effortFor, EFFORT, PROMPT_VERSION, quickAssess } = require("./lib/codeagent/model-loop");
 const diffstat = require("./lib/codeagent/diffstat");
 const codeMemory = require("./lib/codeagent/memory");
 const codeAgentUsage = require("./lib/codeagent/usage");
@@ -4743,11 +4744,18 @@ app.post("/api/codeagent/repair", codeAgentLimiter, async (req, res) => {
 /**
  * POST /api/codeagent/runs
  * Starts an autonomous dynamic agent run. Returns 202 Accepted.
+ * Returns 200 with { chitchat } when the prompt is noise/question (non-build mode).
  */
 app.post("/api/codeagent/runs", codeAgentLimiter, express.json({ limit: "1mb" }), async (req, res) => {
   const owner = appOwnerOf(req, res);
   const prompt = String((req.body && req.body.prompt) || "").trim();
   if (!prompt) return res.status(400).json({ error: "prompt required" });
+
+  const rawMode = String((req.body && req.body.mode) || "").toLowerCase();
+  // "build" mode skips ALL smart detection — always goes straight to code.
+  const isBuildMode = rawMode === "build";
+  const buildMode = (rawMode === "power" || (req.body && req.body.thinking)) ? "power"
+    : isBuildMode ? "build" : "auto";
 
   const existingKey = String((req.body && req.body.projectId) || "");
   let project = null;
@@ -4758,7 +4766,64 @@ app.post("/api/codeagent/runs", codeAgentLimiter, express.json({ limit: "1mb" })
     if (!projects.owns(project, owner)) return res.status(403).json({ error: "not your project" });
     const full = await projects.materialize(project.id);
     baseFiles = (full && full.files) || {};
+
+    // --- Smart guard: only on follow-up turns (project exists), not in build mode ---
+    if (!isBuildMode) {
+      // 1. Noise / greetings — always intercept regardless of context
+      const quick = quickAssess(prompt);
+      if (quick && !quick.clear) {
+        try {
+          const chatId = String((req.body && req.body.chatId) || "");
+          await projects.addTurn(project.id, { role: "user", kind: "text", body: prompt, chatId });
+          await projects.addTurn(project.id, { role: "agent", kind: "text", body: quick.reply, chatId });
+        } catch (e) {}
+        return res.status(200).json({ chitchat: quick.reply });
+      }
+      // 2. If it's a question about existing work — answer conversationally
+      if (agentRunner.isQuestionOrConversational(prompt)) {
+        try {
+          const history = Array.isArray(req.body && req.body.conversation) ? req.body.conversation : [];
+          const answerRes = await aiClient.chat({
+            route: "prose",
+            messages: [
+              {
+                role: "system",
+                content: "You are a friendly, skilled coding assistant embedded in an app builder called Souqi. " +
+                  "The user is asking a question about their project — NOT requesting a code change. " +
+                  "Answer briefly, clearly, and like a normal human. Keep it under 3 sentences if possible. " +
+                  "Do not offer to build or edit anything."
+              }
+            ].concat(
+              history.slice(-6).map(t => ({
+                role: t.role === "agent" ? "assistant" : "user",
+                content: String(t.body || "")
+              })),
+              [{ role: "user", content: prompt }]
+            ),
+            timeoutMs: 30000
+          });
+          const reply = (answerRes && answerRes.message && answerRes.message.content)
+            || "Happy to help! What would you like me to change or fix?";
+          try {
+            const chatId = String((req.body && req.body.chatId) || "");
+            await projects.addTurn(project.id, { role: "user", kind: "text", body: prompt, chatId });
+            await projects.addTurn(project.id, { role: "agent", kind: "text", body: reply, chatId });
+          } catch (e) {}
+          return res.status(200).json({ chitchat: reply });
+        } catch (e) {
+          // If model call fails, fall through to building normally
+          console.warn("[runs guard] conversational answer failed, falling through to build:", e.message);
+        }
+      }
+    }
   } else {
+    // Fresh build (no project yet) — still guard against pure noise
+    if (!isBuildMode) {
+      const quick = quickAssess(prompt);
+      if (quick && !quick.clear) {
+        return res.status(200).json({ chitchat: quick.reply });
+      }
+    }
     // Pre-create project and user turn so the chat thread is durable immediately across reloads
     try {
       project = await projects.create({
@@ -4775,8 +4840,6 @@ app.post("/api/codeagent/runs", codeAgentLimiter, express.json({ limit: "1mb" })
     }
   }
 
-  const rawMode = String((req.body && req.body.mode) || "").toLowerCase();
-  const buildMode = (rawMode === "power" || (req.body && req.body.thinking)) ? "power" : "auto";
   const effort = effortFor(req.body && req.body.effort, buildMode);
 
   const attachedImages = await uploads.listForOwner(
@@ -5548,7 +5611,7 @@ app.post("/api/codeagent/build", codeAgentLimiter, async (req, res) => {
 
     if (isFollowUp && agentRunner.isQuestionOrConversational(prompt)) {
       sseFrame(res, "stage", { id: "question", state: "done", detail: "Thinking..." });
-      const answerRes = await client.chat({
+      const answerRes = await aiClient.chat({
         route: "prose",
         messages: [
           {

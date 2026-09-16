@@ -1721,6 +1721,8 @@
   .ag-send.live:hover{background:var(--accent-2);transform:translateY(-1px);box-shadow:0 4px 12px -2px rgba(26,166,223,.6)}
   .ag-send.live:active{transform:scale(.9)}
   .ag-send:disabled{cursor:not-allowed}
+  .ag-send.is-cancel{background:rgba(239,68,68,0.15);color:#ef4444}
+  .ag-send.is-cancel:hover{background:#ef4444;color:#fff}
   /* Launch: the arrow flies up and out, then the button settles back —
      the send has visibly LEFT rather than just greying out. Driven by a
      class the submit handler adds and self-removes on animationend. */

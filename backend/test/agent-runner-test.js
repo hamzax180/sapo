@@ -231,6 +231,54 @@ async function check(name, fn) {
     assert.strictEqual(finalRun.status, "succeeded");
   });
 
+  await check("agentRunner in build mode bypasses question detection and directly writes code", async () => {
+    let toolsOffered = null;
+    const fetchStub = async (_url, init) => {
+      const body = JSON.parse(init.body);
+      toolsOffered = body.tools;
+      return {
+        ok: true,
+        json: async () => ({
+          choices: [{
+            message: {
+              role: "assistant",
+              content: "Building the navbar.",
+              tool_calls: [{
+                id: "call_build",
+                function: {
+                  name: "complete_task",
+                  arguments: JSON.stringify({ summary: "Added navbar." })
+                }
+              }]
+            },
+            finish_reason: "tool_calls"
+          }]
+        })
+      };
+    };
+
+    client.init({
+      enabled: true,
+      routes: { json: { baseUrl: "http://mock", key: "mock-key", model: "mock-model" } },
+      fetchImpl: fetchStub
+    });
+
+    const run = await runStore.createRun({
+      projectId: "proj_456",
+      owner,
+      prompt: "why don't you add a navbar?",
+      mode: "build",
+      effort: "smart",
+      baseFiles: { "src/App.tsx": "export default function App() { return null; }" }
+    });
+
+    const outcome = await agentRunner.executeRun(run.id);
+    assert.strictEqual(outcome.ok, true);
+    // In build mode, dynamic tools schema must be offered to the model
+    assert.ok(Array.isArray(toolsOffered) && toolsOffered.length > 0);
+    assert.ok(toolsOffered.some(t => t.function && t.function.name === "write_file"));
+  });
+
   console.log("\n" + (failed === 0 ? "✓ ALL AGENT-RUNNER TESTS PASSED (" + passed + ")" : "✗ " + failed + " FAILED, " + passed + " passed"));
   process.exit(failed === 0 ? 0 : 1);
 })();

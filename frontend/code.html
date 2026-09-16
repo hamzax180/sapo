@@ -262,7 +262,10 @@
             <div class="ag-model-popover" id="agModelPopover">
               <div class="pop-section-ttl">Mode</div>
               <button type="button" class="pop-option on" data-mode="auto" id="popModeAuto">
-                <span class="pop-text"><b>Auto</b><small>Answers, asks or builds it — no plan to approve first</small></span>
+                <span class="pop-text"><b>Auto</b><small>Smart — detects questions, asks when unclear, builds when ready</small></span>
+              </button>
+              <button type="button" class="pop-option" data-mode="build" id="popModeBuild">
+                <span class="pop-text"><b>Build</b><small>Writes or edits code immediately — no plan, no detection</small></span>
               </button>
               <button type="button" class="pop-option" data-mode="plan" id="popModePlan">
                 <span class="pop-text"><b>Plan</b><small>Shows the plan and waits for your yes, edits included</small></span>
@@ -1336,22 +1339,16 @@
 
   function showInterruptUnderUserMessage() {
     removeInterruptRow();
-    // Only offer "Interrupt Agent" when something is actually WAITING on
-    // the current turn. It used to appear for every in-flight turn, so it
-    // showed on a normal single build where there is nothing queued behind
-    // it and interrupting just throws the turn away. Gated on the queue,
-    // it now means what it says: stop this turn so the queued prompt can
-    // run. updateQueueBanner() re-runs this whenever the queue changes, so
-    // it appears the moment something is queued and clears when it drains.
-    if (!building || buildQueue.length === 0) return;
+    if (!building) return;
     const lastUserMsg = agLog.querySelector(".ag-user:last-of-type");
     if (!lastUserMsg) return;
     const row = el("ag-interrupt-row");
     row.id = "agInterruptRow";
+    const label = buildQueue.length > 0 ? "Interrupt Agent" : "Cancel";
     row.innerHTML =
-      '<button class="ag-interrupt-btn" type="button" id="agInterruptBtn" title="Interrupt Agent turn">' +
+      '<button class="ag-interrupt-btn" type="button" id="agInterruptBtn" title="Cancel active Agent turn">' +
         '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor"/></svg>' +
-        '<span>Interrupt Agent</span>' +
+        '<span>' + label + '</span>' +
       '</button>';
     lastUserMsg.after(row);
     toBottom();
@@ -1695,11 +1692,7 @@
     } else if (qb) {
       qb.remove();
     }
-    // The interrupt row is gated on the queue (see
-    // showInterruptUnderUserMessage), so it has to be re-evaluated on every
-    // queue change — both to show it when a prompt is queued mid-turn and
-    // to clear it when the queue is cancelled or drained.
-    if (building && buildQueue.length > 0) showInterruptUnderUserMessage();
+    if (building) showInterruptUnderUserMessage();
     else removeInterruptRow();
   }
 
@@ -1709,15 +1702,21 @@
     if (building) {
       if (isHasInput) {
         agSend.disabled = false;
+        agSend.classList.remove("is-cancel");
+        agSend.classList.add("live");
         agSend.title = "Queue prompt for next turn";
         agSend.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>';
       } else {
         agSend.disabled = false;
+        agSend.classList.add("is-cancel");
+        agSend.classList.remove("live");
         agSend.title = "Cancel active Agent turn";
         agSend.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor"/></svg>';
       }
     } else {
+      agSend.classList.remove("is-cancel");
       agSend.disabled = !isHasInput;
+      agSend.classList.toggle("live", isHasInput);
       agSend.title = "Send";
       agSend.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M6 11l6-6 6 6"/></svg>';
     }
@@ -2037,6 +2036,19 @@
               projectSlug = data.projectSlug;
               try { history.replaceState(null, "", "/agent/" + projectSlug); } catch (e) {}
               if ($("agNewExtras")) $("agNewExtras").hidden = true;
+            }
+          } else if (spawnRes.status === 200) {
+            // Server decided this is a question/chitchat — answer conversationally
+            const data = await spawnRes.json();
+            if (data.chitchat) {
+              say('<span class="muted">' + esc(data.chitchat) + '</span>');
+              return;
+            }
+            if (data.needsAnswer) {
+              pendingPrompt = effectivePrompt;
+              convo.push({ role: "agent", kind: "chat", body: data.needsAnswer });
+              showQuestions(data.needsAnswer, data.options || null);
+              return;
             }
           }
         } catch (e) {
@@ -3139,7 +3151,9 @@
   }
 
   agInput.addEventListener("input", () => {
-    agSend.disabled = building || agInput.value.trim().length === 0;
+    // When building: send button is always enabled (it's the cancel or queue button)
+    // When idle: disabled if there's no input
+    updateComposerSendButton();
     agInput.style.height = "auto"; agInput.style.height = Math.min(180, agInput.scrollHeight) + "px";
   });
 
@@ -3147,6 +3161,7 @@
   const agModelPill = $("agModelPill");
   const agModelPopover = $("agModelPopover");
   const popModeAuto = $("popModeAuto");
+  const popModeBuild = $("popModeBuild");
   const popModePlan = $("popModePlan");
   const popModePower = $("popModePower");
   const agModelPillIcon = $("agModelPillIcon");
@@ -3226,13 +3241,14 @@
      Extended Thinking was a separate switch that only made sense with the
      deep-reasoning mode anyway, so it is what `power` means now rather than
      a second control someone has to know to pair with it. */
-  /* Two modes, because a mode is now only "do I approve a plan first". How
-     hard to think moved to the effort scale, where it can be combined with
-     either — previously choosing Plan silently meant choosing the weaker
-     model, since both lived in this one field. */
+  /* Three modes that actually change what the server does:
+       auto   smart detection — answers questions, asks when unclear, builds when ready
+       build  skips all detection — writes or edits code immediately, always
+       plan   shows the plan card and waits for approval every time */
   const MODES = {
-    auto: { label: "Auto", box: false },
-    plan: { label: "Plan", box: false }
+    auto:  { label: "Auto",  box: false },
+    build: { label: "Build", box: false },
+    plan:  { label: "Plan",  box: false }
   };
   let agentMode = "auto";
   const agBoxElement = document.querySelector(".ag-box");
@@ -3243,18 +3259,16 @@
     if (!MODES[mode]) mode = "auto";
     agentMode = mode;
     const m = MODES[mode];
-    [["auto", popModeAuto], ["plan", popModePlan], ["power", popModePower]]
+    [["auto", popModeAuto], ["build", popModeBuild], ["plan", popModePlan], ["power", popModePower]]
       .forEach(([name, btn]) => { if (btn) btn.classList.toggle("on", name === mode); });
     if (agModelPillLabel) agModelPillLabel.textContent = m.label;
-    /* The power-mode treatment is set by setEffort now — toggling it here
-       too would have Plan turn it off on every mode change. */
     if (!(opts && opts.keepOpen)) {
       if (agModelPopover) agModelPopover.classList.remove("open");
       if (agModelPill) agModelPill.classList.remove("open");
     }
   }
 
-  [["auto", popModeAuto], ["plan", popModePlan], ["power", popModePower]].forEach(([name, btn]) => {
+  [["auto", popModeAuto], ["build", popModeBuild], ["plan", popModePlan], ["power", popModePower]].forEach(([name, btn]) => {
     if (!btn) return;
     btn.addEventListener("click", (e) => { if (e) e.stopPropagation(); setMode(name); });
   });
@@ -3573,6 +3587,12 @@
   });
   agInput.addEventListener("keydown", (e) => {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); agForm.requestSubmit(); }
+  });
+  agSend.addEventListener("click", (e) => {
+    if (building && agInput.value.trim().length === 0) {
+      e.preventDefault();
+      cancelTurn();
+    }
   });
   agForm.addEventListener("submit", (e) => {
     e.preventDefault();
@@ -4319,7 +4339,7 @@
            mode alone, which is what the person meant by it. */
         if (data.effort) setEffort(data.effort);
         else if (data.agentMode === "power" || data.thinking) setEffort("smart");
-        const handedMode = data.agentMode === "plan" ? "plan" : "auto";
+        const handedMode = data.agentMode === "plan" ? "plan" : data.agentMode === "build" ? "build" : "auto";
         if (handedMode !== "auto") setMode(handedMode);
         const doRun = () => {
           const inp = document.getElementById("agInput");
