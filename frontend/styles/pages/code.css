@@ -451,74 +451,106 @@
   .ag-interrupt-btn svg{width:12px;height:12px;fill:currentColor}
   .ag-queue-banner{display:flex;align-items:center;justify-content:space-between;background:rgba(59,130,246,0.12);border:1px solid rgba(59,130,246,0.3);color:var(--ink);border-radius:10px;padding:6px 14px;margin-bottom:8px;font-size:.82rem;font-weight:600}
   .ag-queue-banner button{border:0;background:none;color:#ef4444;font-size:.78rem;font-weight:700;cursor:pointer;text-decoration:underline;padding:0;margin-left:10px}
-  /* Google Gemini 3-Dots Thinking Indicator */
+  /* Google Gemini 3-Dots Thinking Indicator (Warm Blue Edition) */
   .ag-th-gemini {
     position: relative;
-    width: 22px;
-    height: 18px;
+    width: 24px;
+    height: 20px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     flex: none;
-    margin-right: 2px;
+    margin-right: 3px;
   }
+
+  /* Sharp holographic laser tether connecting the triangle vertices in Phase 2 */
+  .ag-th-gemini .g-triangle-tether {
+    position: absolute;
+    width: 22px;
+    height: 22px;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity .4s ease, transform .4s ease;
+  }
+  .ag-th-gemini .g-triangle-tether polygon {
+    stroke: rgba(96, 165, 250, 0.65);
+    stroke-width: 1.1;
+    stroke-dasharray: 2.5 1.5;
+    fill: rgba(37, 99, 235, 0.08);
+    filter: drop-shadow(0 0 3px rgba(59, 130, 246, 0.7));
+    animation: geminiTetherDash 2s linear infinite;
+  }
+  @keyframes geminiTetherDash {
+    to { stroke-dashoffset: 8; }
+  }
+
+  .ag-thinking.taking-longer .ag-th-gemini .g-triangle-tether {
+    opacity: 1;
+  }
+
+  /* High-Detail Warm Blue Dots */
   .ag-th-gemini .g-dot {
     position: absolute;
-    width: 5px;
-    height: 5px;
+    width: 5.5px;
+    height: 5.5px;
     border-radius: 50%;
-    transition: transform .35s cubic-bezier(.34,1.56,.64,1),
+    /* Dimensional warm blue gradient with sharp top-left highlight */
+    background: radial-gradient(circle at 35% 30%, #93c5fd 0%, #2563eb 52%, #1d4ed8 100%);
+    /* Sharp multi-layered neon glow with crisp white center spark */
+    box-shadow: 0 0 1.5px rgba(255, 255, 255, 0.9),
+                0 0 6px rgba(37, 99, 235, 0.85),
+                0 0 12px rgba(29, 78, 216, 0.4);
+    transition: transform .35s cubic-bezier(.34, 1.56, .64, 1),
                 opacity .3s ease,
-                background-color .3s ease,
                 box-shadow .3s ease;
   }
-  /* Gemini Tri-Color Palette */
+
+  /* Phase 1: Crisp Spring Wave Bounce */
   .ag-th-gemini .g-dot-1 {
-    background: #4285F4;
-    box-shadow: 0 0 6px rgba(66, 133, 244, 0.7);
-    animation: geminiJump1 1.2s cubic-bezier(0.4, 0, 0.2, 1) 0s infinite;
+    animation: geminiJump1 1.25s cubic-bezier(0.2, 0.85, 0.35, 1.2) 0s infinite;
   }
   .ag-th-gemini .g-dot-2 {
-    background: #9B72CF;
-    box-shadow: 0 0 6px rgba(155, 114, 207, 0.7);
-    animation: geminiJump2 1.2s cubic-bezier(0.4, 0, 0.2, 1) 0.16s infinite;
+    animation: geminiJump2 1.25s cubic-bezier(0.2, 0.85, 0.35, 1.2) 0.18s infinite;
   }
   .ag-th-gemini .g-dot-3 {
-    background: #38BDF8;
-    box-shadow: 0 0 6px rgba(56, 189, 248, 0.7);
-    animation: geminiJump3 1.2s cubic-bezier(0.4, 0, 0.2, 1) 0.32s infinite;
+    animation: geminiJump3 1.25s cubic-bezier(0.2, 0.85, 0.35, 1.2) 0.36s infinite;
   }
 
-  /* Phase 1: Gemini Wave Bounce */
   @keyframes geminiJump1 {
-    0%, 100% { transform: translate(-7px, 0) scale(0.9); opacity: 0.6; }
-    30%      { transform: translate(-7px, -5px) scale(1.2); opacity: 1; filter: brightness(1.25); }
-    60%      { transform: translate(-7px, 0) scale(0.95); opacity: 0.7; }
+    0%, 100% { transform: translate3d(-7.5px, 0, 0) scale(0.95, 0.88); opacity: 0.65; }
+    28%      { transform: translate3d(-7.5px, -6px, 0) scale(0.9, 1.18); opacity: 1; filter: brightness(1.3) drop-shadow(0 0 4px #60a5fa); }
+    56%      { transform: translate3d(-7.5px, 0.5px, 0) scale(1.1, 0.85); opacity: 0.8; }
+    75%      { transform: translate3d(-7.5px, 0, 0) scale(1, 1); opacity: 0.7; }
   }
   @keyframes geminiJump2 {
-    0%, 100% { transform: translate(0, 0) scale(0.9); opacity: 0.6; }
-    30%      { transform: translate(0, -5px) scale(1.2); opacity: 1; filter: brightness(1.25); }
-    60%      { transform: translate(0, 0) scale(0.95); opacity: 0.7; }
+    0%, 100% { transform: translate3d(0, 0, 0) scale(0.95, 0.88); opacity: 0.65; }
+    28%      { transform: translate3d(0, -6px, 0) scale(0.9, 1.18); opacity: 1; filter: brightness(1.3) drop-shadow(0 0 4px #60a5fa); }
+    56%      { transform: translate3d(0, 0.5px, 0) scale(1.1, 0.85); opacity: 0.8; }
+    75%      { transform: translate3d(0, 0, 0) scale(1, 1); opacity: 0.7; }
   }
   @keyframes geminiJump3 {
-    0%, 100% { transform: translate(7px, 0) scale(0.9); opacity: 0.6; }
-    30%      { transform: translate(7px, -5px) scale(1.2); opacity: 1; filter: brightness(1.25); }
-    60%      { transform: translate(7px, 0) scale(0.95); opacity: 0.7; }
+    0%, 100% { transform: translate3d(7.5px, 0, 0) scale(0.95, 0.88); opacity: 0.65; }
+    28%      { transform: translate3d(7.5px, -6px, 0) scale(0.9, 1.18); opacity: 1; filter: brightness(1.3) drop-shadow(0 0 4px #60a5fa); }
+    56%      { transform: translate3d(7.5px, 0.5px, 0) scale(1.1, 0.85); opacity: 0.8; }
+    75%      { transform: translate3d(7.5px, 0, 0) scale(1, 1); opacity: 0.7; }
   }
 
-  /* Phase 2: Taking Longer (>3s) - Futuristic Rotating Triangle Movements */
+  /* Phase 2: Taking Longer (>3s) - Sharp Futuristic Rotating Triangle */
   .ag-thinking.taking-longer .ag-th-gemini {
-    animation: geminiConstellationRotate 3s linear infinite;
+    animation: geminiConstellationRotate 3.2s linear infinite;
   }
   .ag-thinking.taking-longer .ag-th-gemini::after {
     content: "";
     position: absolute;
-    width: 4px;
-    height: 4px;
+    width: 4.5px;
+    height: 4.5px;
     border-radius: 50%;
-    background: radial-gradient(circle, #fff 15%, rgba(155, 114, 207, 0.6) 65%, transparent 100%);
-    box-shadow: 0 0 8px rgba(155, 114, 207, 0.8);
-    animation: geminiCenterPulse 1.5s ease-in-out infinite alternate;
+    background: radial-gradient(circle, #fff 10%, #60a5fa 45%, rgba(37, 99, 235, 0.7) 70%, transparent 100%);
+    box-shadow: 0 0 8px rgba(37, 99, 235, 0.95), 0 0 16px rgba(96, 165, 250, 0.5);
+    animation: geminiCenterPulse 1.6s ease-in-out infinite alternate;
   }
 
   @keyframes geminiConstellationRotate {
@@ -526,52 +558,58 @@
     to   { transform: rotate(360deg); }
   }
   @keyframes geminiCenterPulse {
-    0%   { transform: scale(0.6); opacity: 0.3; }
-    100% { transform: scale(1.4); opacity: 0.95; }
+    0%   { transform: scale(0.65); opacity: 0.4; }
+    100% { transform: scale(1.4); opacity: 1; filter: drop-shadow(0 0 3px #93c5fd); }
   }
 
+  /* High-precision equilateral triangle vertices:
+     Vertex 1: (0, -7px)
+     Vertex 2: (6.06px, 3.5px)
+     Vertex 3: (-6.06px, 3.5px)
+  */
   .ag-thinking.taking-longer .g-dot-1 {
-    animation: geminiTriangleCycle1 2.2s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+    animation: geminiTriangleCycle1 2.4s cubic-bezier(0.4, 0.05, 0.5, 0.95) infinite;
   }
   .ag-thinking.taking-longer .g-dot-2 {
-    animation: geminiTriangleCycle2 2.2s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+    animation: geminiTriangleCycle2 2.4s cubic-bezier(0.4, 0.05, 0.5, 0.95) infinite;
   }
   .ag-thinking.taking-longer .g-dot-3 {
-    animation: geminiTriangleCycle3 2.2s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+    animation: geminiTriangleCycle3 2.4s cubic-bezier(0.4, 0.05, 0.5, 0.95) infinite;
   }
 
   @keyframes geminiTriangleCycle1 {
-    0%   { transform: translate(0, -6.5px) scale(1.2); opacity: 1; filter: brightness(1.2); }
-    33%  { transform: translate(5.8px, 3.4px) scale(0.85); opacity: 0.75; }
-    66%  { transform: translate(-5.8px, 3.4px) scale(0.85); opacity: 0.75; }
-    100% { transform: translate(0, -6.5px) scale(1.2); opacity: 1; filter: brightness(1.2); }
+    0%   { transform: translate3d(0, -7px, 0) scale(1.2); opacity: 1; filter: brightness(1.3) drop-shadow(0 0 5px #60a5fa); }
+    33%  { transform: translate3d(6.06px, 3.5px, 0) scale(0.9); opacity: 0.8; filter: none; }
+    66%  { transform: translate3d(-6.06px, 3.5px, 0) scale(0.9); opacity: 0.8; filter: none; }
+    100% { transform: translate3d(0, -7px, 0) scale(1.2); opacity: 1; filter: brightness(1.3) drop-shadow(0 0 5px #60a5fa); }
   }
   @keyframes geminiTriangleCycle2 {
-    0%   { transform: translate(5.8px, 3.4px) scale(1.2); opacity: 1; filter: brightness(1.2); }
-    33%  { transform: translate(-5.8px, 3.4px) scale(0.85); opacity: 0.75; }
-    66%  { transform: translate(0, -6.5px) scale(0.85); opacity: 0.75; }
-    100% { transform: translate(5.8px, 3.4px) scale(1.2); opacity: 1; filter: brightness(1.2); }
+    0%   { transform: translate3d(6.06px, 3.5px, 0) scale(1.2); opacity: 1; filter: brightness(1.3) drop-shadow(0 0 5px #60a5fa); }
+    33%  { transform: translate3d(-6.06px, 3.5px, 0) scale(0.9); opacity: 0.8; filter: none; }
+    66%  { transform: translate3d(0, -7px, 0) scale(0.9); opacity: 0.8; filter: none; }
+    100% { transform: translate3d(6.06px, 3.5px, 0) scale(1.2); opacity: 1; filter: brightness(1.3) drop-shadow(0 0 5px #60a5fa); }
   }
   @keyframes geminiTriangleCycle3 {
-    0%   { transform: translate(-5.8px, 3.4px) scale(1.2); opacity: 1; filter: brightness(1.2); }
-    33%  { transform: translate(0, -6.5px) scale(0.85); opacity: 0.75; }
-    66%  { transform: translate(5.8px, 3.4px) scale(0.85); opacity: 0.75; }
-    100% { transform: translate(-5.8px, 3.4px) scale(1.2); opacity: 1; filter: brightness(1.2); }
+    0%   { transform: translate3d(-6.06px, 3.5px, 0) scale(1.2); opacity: 1; filter: brightness(1.3) drop-shadow(0 0 5px #60a5fa); }
+    33%  { transform: translate3d(0, -7px, 0) scale(0.9); opacity: 0.8; filter: none; }
+    66%  { transform: translate3d(6.06px, 3.5px, 0) scale(0.9); opacity: 0.8; filter: none; }
+    100% { transform: translate3d(-6.06px, 3.5px, 0) scale(1.2); opacity: 1; filter: brightness(1.3) drop-shadow(0 0 5px #60a5fa); }
   }
 
   /* Phase 3: Settled Done State */
   .ag-thinking.done .ag-th-gemini {
     animation: none;
-    width: 12px;
+    width: 14px;
   }
-  .ag-thinking.done .ag-th-gemini::after {
+  .ag-thinking.done .ag-th-gemini::after,
+  .ag-thinking.done .ag-th-gemini .g-triangle-tether {
     display: none;
   }
   .ag-thinking.done .ag-th-gemini .g-dot {
     animation: none;
   }
   .ag-thinking.done .ag-th-gemini .g-dot-1 {
-    transform: translate(0, 0) scale(1);
+    transform: translate3d(0, 0, 0) scale(1);
     background: var(--mut);
     box-shadow: none;
     width: 6px;
@@ -580,7 +618,7 @@
   }
   .ag-thinking.done .ag-th-gemini .g-dot-2,
   .ag-thinking.done .ag-th-gemini .g-dot-3 {
-    transform: translate(0, 0) scale(0);
+    transform: translate3d(0, 0, 0) scale(0);
     opacity: 0;
     box-shadow: none;
   }
@@ -590,6 +628,7 @@
   @media (prefers-reduced-motion: reduce) {
     .ag-th-gemini,
     .ag-th-gemini .g-dot,
+    .ag-th-gemini .g-triangle-tether polygon,
     .ag-thinking.taking-longer .ag-th-gemini,
     .ag-thinking.taking-longer .ag-th-gemini::after,
     .ag-thinking.taking-longer .g-dot-1,
